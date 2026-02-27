@@ -8,24 +8,52 @@ from pathlib import Path
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
 
 from adecom_db import (
+    get_conn,
     init_db,
     import_pedidos_talla_rows,
     import_rows,
     query_pedidos_talla_sections,
     query_rows,
 )
-from parsers import parse_uploaded_file
+from parsers import parse_pedidos_talla_txt, parse_saldos_txt, parse_uploaded_file
 
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 DB_PATH = BASE_DIR / "data" / "adecom.db"
+SEED_DIR = BASE_DIR / "seed"
+SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
+SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
+
+
+def _table_count(table_name: str) -> int:
+    conn = get_conn(DB_PATH)
+    try:
+        row = conn.execute(f"SELECT COUNT(*) AS n FROM {table_name}").fetchone()
+        return int(row["n"] if row else 0)
+    finally:
+        conn.close()
+
+
+def ensure_seed_data() -> None:
+    init_db(DB_PATH)
+    if _table_count("saldos_seccion") == 0 and SEED_SALDOS.exists():
+        saldos_rows = parse_saldos_txt(SEED_SALDOS.read_bytes())
+        if saldos_rows:
+            import_rows(DB_PATH, saldos_rows)
+    if _table_count("pedidos_talla") == 0 and SEED_PEDIDOS.exists():
+        pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
+        if pedidos_rows:
+            import_pedidos_talla_rows(DB_PATH, pedidos_rows)
+
+
+ensure_seed_data()
 
 
 @app.template_filter("miles")
