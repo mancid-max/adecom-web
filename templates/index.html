@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
   <title>ADECOM WEB - Saldos por Seccion</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
@@ -314,6 +315,13 @@
             <small>Abrir detalle</small>
           </button>
         </article>
+        <article class="card-action summary-secondary">
+          <button type="button" class="summary-open" id="openExsModal">
+            <h2>EXS</h2>
+            <p>{{ exs_summary.count|miles }}</p>
+            <small>Abrir detalle</small>
+          </button>
+        </article>
       </section>
 
       <dialog id="ventasTotalModal" class="modal">
@@ -468,6 +476,55 @@
           {% else %}
             <p class="empty">Sin datos de familia.</p>
           {% endif %}
+        </section>
+      </dialog>
+
+      <dialog id="exsModal" class="modal">
+        <div class="modal-head">
+          <h3>EXS vinculados</h3>
+          <button type="button" id="closeExsModal" class="modal-close">Cerrar</button>
+        </div>
+        <div class="modal-kpis">
+          <article>
+            <h4>Total saldo actual</h4>
+            <p>{{ exs_summary.total_actual|miles }}</p>
+          </article>
+          <article>
+            <h4>Total saldo ex</h4>
+            <p>{{ exs_summary.total_ex|miles }}</p>
+          </article>
+        </div>
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Clic en encabezado para ordenar</p>
+          <table class="bodega-table" id="exsTable">
+            <thead>
+              <tr>
+                <th class="sortable-th" data-sort-key="actual">Familia actual</th>
+                <th class="sortable-th" data-sort-key="saldo_actual">Saldo actual</th>
+                <th class="sortable-th" data-sort-key="ex">Familia ex</th>
+                <th class="sortable-th" data-sort-key="saldo_ex">Quedo en ex</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in exs_summary.rows %}
+              <tr
+                data-actual="{{ item.actual }}"
+                data-saldo_actual="{{ item.saldo_actual }}"
+                data-ex="{{ item.ex }}"
+                data-saldo_ex="{{ item.saldo_ex }}"
+              >
+                <td>{{ item.actual }}</td>
+                <td class="num">{{ item.saldo_actual|miles }}</td>
+                <td>{{ item.ex }}</td>
+                <td class="num">{{ item.saldo_ex|miles }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="empty">Sin datos EXS con los filtros actuales.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </section>
       </dialog>
 
@@ -628,6 +685,24 @@
       const modal = document.getElementById("topArticulosModal");
       const openBtn = document.getElementById("openTopArticulosModal");
       const closeBtn = document.getElementById("closeTopArticulosModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("exsModal");
+      const openBtn = document.getElementById("openExsModal");
+      const closeBtn = document.getElementById("closeExsModal");
       if (!modal || !openBtn || !closeBtn) return;
       openBtn.addEventListener("click", () => modal.showModal());
       closeBtn.addEventListener("click", () => modal.close());
@@ -880,6 +955,7 @@
       setupHeaderSort("ventasFamiliasTable");
       setupHeaderSort("ventasTallasTable");
       setupHeaderSort("topArticulosTable");
+      setupHeaderSort("exsTable");
     })();
 
     (function () {

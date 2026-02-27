@@ -32,15 +32,21 @@ def parse_uploaded_file(file_storage) -> dict[str, Any]:
 
     if filename.endswith(".txt") or filename.endswith(".csv"):
         kind = detect_txt_kind(content, filename)
+        if kind == "pedidos_talla_todas":
+            return {"kind": "pedidos_talla_todas", "rows": parse_pedidos_talla_todas_txt(content)}
         if kind == "pedidos_talla":
             return {"kind": "pedidos_talla", "rows": parse_pedidos_talla_txt(content)}
         return {"kind": "saldos", "rows": parse_saldos_txt(content)}
     if filename.endswith(".xlsx"):
+        if "exs" in filename:
+            return {"kind": "exs_map", "rows": parse_exs_xlsx(content)}
         return {"kind": "saldos", "rows": parse_saldos_xlsx(content)}
     raise ValueError("Formato no soportado. Usa .txt, .csv o .xlsx")
 
 
 def detect_txt_kind(content: bytes, filename: str) -> str:
+    if "pedidosxtallatodas" in filename:
+        return "pedidos_talla_todas"
     if "pedidosxtalla" in filename:
         return "pedidos_talla"
     text = _decode_bytes(content)
@@ -54,6 +60,8 @@ def detect_txt_kind(content: bytes, filename: str) -> str:
     if first_line.upper().startswith("ARTICULO;CORTE;FECHA"):
         return "saldos"
     if ";Ventas;" in first_line or ";Despacho;" in first_line or ";saldo;" in first_line:
+        if "todas" in filename:
+            return "pedidos_talla_todas"
         return "pedidos_talla"
     return "saldos"
 
@@ -114,6 +122,81 @@ def parse_pedidos_talla_txt(content: bytes) -> list[dict]:
                 "total": total,
             }
         )
+
+    return parsed
+
+
+def parse_pedidos_talla_todas_txt(content: bytes) -> list[dict]:
+    text = _decode_bytes(content)
+    reader = csv.reader(io.StringIO(text), delimiter=";")
+    parsed: list[dict] = []
+
+    for raw in reader:
+        if not raw:
+            continue
+        cells = [str(c).strip() for c in raw]
+        if not any(cells):
+            continue
+        if len(cells) < 6:
+            continue
+        if not cells[0]:
+            continue
+
+        articulo = _clean_code(cells[0])
+        descripcion = cells[1] if len(cells) > 1 else ""
+        tipo = (cells[2] if len(cells) > 2 else "").strip().lower()
+        if not tipo:
+            continue
+
+        qty_start = 4 if len(cells) > 4 else 3
+        qty_cells = [c for c in cells[qty_start:] if c != ""]
+        if not qty_cells:
+            continue
+        total = _to_int_signed(qty_cells[-1])
+        tallas = [_to_int_signed(c) for c in qty_cells[:-1]]
+
+        parsed.append(
+            {
+                "articulo": articulo,
+                "descripcion": descripcion,
+                "tipo": tipo,
+                "tallas": tallas,
+                "total": total,
+            }
+        )
+
+    return parsed
+
+
+def parse_exs_xlsx(content: bytes) -> list[dict]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("Para importar Excel instala dependencias: pip install -r requirements.txt") from exc
+
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+
+    parsed: list[dict] = []
+    first = True
+    for row in ws.iter_rows(values_only=True):
+        if first:
+            first = False
+            continue
+        if not row:
+            continue
+        actual_raw = "" if row[0] is None else str(row[0]).strip()
+        ex_raw = "" if len(row) < 2 or row[1] is None else str(row[1]).strip()
+        if not actual_raw and not ex_raw:
+            continue
+        actual_digits = "".join(ch for ch in actual_raw if ch.isdigit())
+        ex_digits = "".join(ch for ch in ex_raw if ch.isdigit())
+        if not actual_digits:
+            continue
+        actual = actual_digits[-4:] if len(actual_digits) >= 4 else actual_digits
+        # EX puede venir como codigo largo (ej: 416901 / 416900) y debe preservarse.
+        ex = ex_digits
+        parsed.append({"actual": actual, "ex": ex})
 
     return parsed
 
@@ -195,6 +278,15 @@ def _to_int(value: str) -> int:
     except ValueError:
         digits = "".join(ch for ch in s if ch.isdigit())
         return int(digits) if digits else 0
+
+
+def _to_int_signed(value: str) -> int:
+    s = str(value).strip().replace(".", "").replace(",", "")
+    if not s:
+        return 0
+    sign = -1 if s.startswith("-") else 1
+    digits = "".join(ch for ch in s if ch.isdigit())
+    return sign * int(digits) if digits else 0
 
 
 def _parse_date(value: str) -> str | None:

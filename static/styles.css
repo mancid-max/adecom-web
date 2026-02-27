@@ -581,10 +581,6 @@ td.num {
   margin-bottom: 10px;
 }
 
-.ventas-summary > article:first-child {
-  grid-column: 1;
-}
-
 .variante-chip {
   display: inline-block;
   margin: 2px 6px 2px 0;

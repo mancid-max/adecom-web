@@ -9,9 +9,12 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 
 from adecom_db import (
     get_conn,
+    import_exs_map_rows,
+    import_pedidos_talla_todas_rows,
     init_db,
     import_pedidos_talla_rows,
     import_rows,
+    query_exs_balance_summary,
     query_pedidos_talla_sections,
     query_rows,
 )
@@ -73,6 +76,7 @@ def index():
     }
     rows, totals, summary = query_rows(DB_PATH, filters)
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, filters["q"])
+    exs_summary = query_exs_balance_summary(DB_PATH, filters["q"])
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
     if filters["q"] and not rows and pedidos_count == 0:
@@ -180,6 +184,7 @@ def index():
         ventas_top_talla=ventas_top_talla,
         ventas_top_articulo=ventas_top_articulo,
         ventas_top_articulos=ventas_top_articulos,
+        exs_summary=exs_summary,
         search_error=search_error,
         filters=filters,
         bodega_rows=bodega_rows,
@@ -206,13 +211,23 @@ def upload():
         rows = parsed["rows"]
         if kind == "pedidos_talla":
             stats = import_pedidos_talla_rows(DB_PATH, rows)
+        elif kind == "pedidos_talla_todas":
+            stats = import_pedidos_talla_todas_rows(DB_PATH, rows)
+        elif kind == "exs_map":
+            stats = import_exs_map_rows(DB_PATH, rows)
         else:
             stats = import_rows(DB_PATH, rows)
     except Exception as exc:
         flash(f"Error al procesar archivo: {exc}")
         return redirect(url_for("index"))
 
-    dataset_label = "PEDIDOSXTALLA" if kind == "pedidos_talla" else "SALDOS"
+    labels = {
+        "pedidos_talla": "PEDIDOSXTALLA",
+        "pedidos_talla_todas": "PEDIDOSXTALLATODAS",
+        "exs_map": "EXS",
+        "saldos": "SALDOS",
+    }
+    dataset_label = labels.get(kind, "DATOS")
     flash(
         f"Carga completa ({dataset_label}). Leidos: {stats['read']} | Insertados: {stats['inserted']} | Actualizados: {stats['updated']}"
     )

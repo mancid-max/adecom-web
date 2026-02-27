@@ -71,6 +71,31 @@ def init_db(db_path: Path) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pedidos_talla_todas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                articulo TEXT NOT NULL,
+                descripcion TEXT NOT NULL DEFAULT '',
+                tipo TEXT NOT NULL,
+                familia TEXT NOT NULL DEFAULT '',
+                tallas_json TEXT NOT NULL DEFAULT '[]',
+                total INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(articulo, tipo)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS exs_map (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                actual TEXT NOT NULL UNIQUE,
+                ex TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
     conn.close()
 
 
@@ -216,6 +241,109 @@ def import_pedidos_talla_rows(db_path: Path, rows: Iterable[dict]) -> dict:
                         tallas_json,
                         int(row.get("total") or 0),
                     ),
+                )
+                inserted += 1
+
+    conn.close()
+    return {"read": read, "inserted": inserted, "updated": updated}
+
+
+def import_pedidos_talla_todas_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    inserted = 0
+    updated = 0
+    read = 0
+
+    with conn:
+        for row in rows:
+            read += 1
+            existing = conn.execute(
+                "SELECT id FROM pedidos_talla_todas WHERE articulo = ? AND tipo = ?",
+                (row["articulo"], row["tipo"]),
+            ).fetchone()
+
+            tallas_json = json.dumps(row.get("tallas", []), ensure_ascii=True)
+            familia_digits = "".join(ch for ch in str(row.get("articulo") or "") if ch.isdigit())
+            familia = familia_digits[2:6] if len(familia_digits) >= 6 else familia_digits
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE pedidos_talla_todas
+                    SET descripcion = ?,
+                        familia = ?,
+                        tallas_json = ?,
+                        total = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE articulo = ? AND tipo = ?
+                    """,
+                    (
+                        row.get("descripcion", ""),
+                        familia,
+                        tallas_json,
+                        int(row.get("total") or 0),
+                        row["articulo"],
+                        row["tipo"],
+                    ),
+                )
+                updated += 1
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO pedidos_talla_todas (
+                        articulo, descripcion, tipo, familia, tallas_json, total
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["articulo"],
+                        row.get("descripcion", ""),
+                        row["tipo"],
+                        familia,
+                        tallas_json,
+                        int(row.get("total") or 0),
+                    ),
+                )
+                inserted += 1
+
+    conn.close()
+    return {"read": read, "inserted": inserted, "updated": updated}
+
+
+def import_exs_map_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    inserted = 0
+    updated = 0
+    read = 0
+
+    with conn:
+        for row in rows:
+            read += 1
+            actual = str(row.get("actual") or "").strip()
+            ex = str(row.get("ex") or "").strip()
+            if not actual:
+                continue
+            existing = conn.execute(
+                "SELECT id FROM exs_map WHERE actual = ?",
+                (actual,),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE exs_map
+                    SET ex = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE actual = ?
+                    """,
+                    (ex, actual),
+                )
+                updated += 1
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO exs_map (actual, ex)
+                    VALUES (?, ?)
+                    """,
+                    (actual, ex),
                 )
                 inserted += 1
 
@@ -396,6 +524,82 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
 
     conn.close()
     return rows, totals, summary
+
+
+def query_exs_balance_summary(db_path: Path, q: str = "") -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    saldo_rows = conn.execute(
+        """
+        SELECT familia, SUM(total) AS total
+        FROM pedidos_talla_todas
+        WHERE lower(tipo) = 'saldo'
+        GROUP BY familia
+        """
+    ).fetchall()
+    saldo_by_familia = {
+        str(r["familia"]).strip(): int(r["total"] or 0) for r in saldo_rows
+    }
+
+    map_rows = conn.execute(
+        """
+        SELECT actual, ex
+        FROM exs_map
+        ORDER BY actual ASC
+        """
+    ).fetchall()
+    conn.close()
+
+    q_digits = "".join(ch for ch in str(q or "") if ch.isdigit())
+
+    def resolve_saldo(code: str) -> int:
+        digits = "".join(ch for ch in str(code or "") if ch.isdigit())
+        if not digits:
+            return 0
+        candidates: list[str] = []
+        if len(digits) >= 6:
+            candidates.append(digits[:4])
+            candidates.append(digits[-4:])
+        elif len(digits) == 4:
+            candidates.append(digits)
+        else:
+            candidates.append(digits)
+        seen = set()
+        for key in candidates:
+            if key in seen:
+                continue
+            seen.add(key)
+            if key in saldo_by_familia:
+                return int(saldo_by_familia[key])
+        return 0
+
+    rows: list[dict] = []
+    total_actual = 0
+    total_ex = 0
+    for r in map_rows:
+        actual = str(r["actual"] or "").strip()
+        ex = str(r["ex"] or "").strip()
+        if q_digits and q_digits not in actual and q_digits not in ex:
+            continue
+        saldo_actual = resolve_saldo(actual)
+        saldo_ex = resolve_saldo(ex)
+        rows.append(
+            {
+                "actual": actual,
+                "ex": ex,
+                "saldo_actual": saldo_actual,
+                "saldo_ex": saldo_ex,
+            }
+        )
+        total_actual += saldo_actual
+        total_ex += saldo_ex
+
+    return {
+        "rows": rows,
+        "count": len(rows),
+        "total_actual": total_actual,
+        "total_ex": total_ex,
+    }
 
 
 def _format_date(fecha_iso: str | None) -> str:
