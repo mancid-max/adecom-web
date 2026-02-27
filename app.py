@@ -1,0 +1,263 @@
+from __future__ import annotations
+
+import csv
+import io
+import os
+from pathlib import Path
+
+from flask import Flask, Response, flash, redirect, render_template, request, url_for
+
+from adecom_db import (
+    init_db,
+    import_pedidos_talla_rows,
+    import_rows,
+    query_pedidos_talla_sections,
+    query_rows,
+)
+from parsers import parse_uploaded_file
+
+
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "uploads"
+DB_PATH = BASE_DIR / "data" / "adecom.db"
+
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
+
+
+@app.template_filter("miles")
+def miles(value):
+    try:
+        number = int(value or 0)
+    except (TypeError, ValueError):
+        return value
+    return f"{number:,}".replace(",", ".")
+
+
+@app.get("/")
+def index():
+    filters = {
+        "q": request.args.get("q", "").strip(),
+        "fecha": request.args.get("fecha", "").strip(),
+    }
+    rows, totals, summary = query_rows(DB_PATH, filters)
+    pedidos_sections = query_pedidos_talla_sections(DB_PATH, filters["q"])
+    pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
+    search_error = ""
+    if filters["q"] and not rows and pedidos_count == 0:
+        search_error = "No se encontraron resultados. Escriba el articulo completo o familia. Ej: 01420100 o 4201."
+    ventas_rows = pedidos_sections.get("ventas", [])
+    ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
+    ventas_por_articulo: dict[str, int] = {}
+    ventas_por_familia: dict[str, dict] = {}
+    ventas_por_talla: dict[int, int] = {}
+    for r in ventas_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        total = int(r.get("total") or 0)
+        if not articulo:
+            continue
+        ventas_por_articulo[articulo] = ventas_por_articulo.get(articulo, 0) + total
+        for item in r.get("tallas_items") or []:
+            talla = int(item.get("talla") or 0)
+            cantidad = int(item.get("cantidad") or 0)
+            if talla > 0:
+                ventas_por_talla[talla] = ventas_por_talla.get(talla, 0) + cantidad
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        if familia not in ventas_por_familia:
+            ventas_por_familia[familia] = {
+                "familia": familia,
+                "total": 0,
+                "articulos": {},
+                "sufijos": {},
+            }
+        ventas_por_familia[familia]["total"] += total
+        if articulo not in ventas_por_familia[familia]["articulos"]:
+            ventas_por_familia[familia]["articulos"][articulo] = {
+                "articulo": articulo,
+                "total": 0,
+            }
+        ventas_por_familia[familia]["articulos"][articulo]["total"] += total
+        sufijo = articulo[-2:] if len(articulo) >= 2 else articulo
+        if sufijo not in ventas_por_familia[familia]["sufijos"]:
+            ventas_por_familia[familia]["sufijos"][sufijo] = {
+                "sufijo": sufijo,
+                "total": 0,
+            }
+        ventas_por_familia[familia]["sufijos"][sufijo]["total"] += total
+
+    ventas_grouped = sorted(
+        [
+            {
+                "familia": g["familia"],
+                "total": g["total"],
+                "articulos": sorted(
+                    g["articulos"].values(),
+                    key=lambda v: v["total"],
+                    reverse=True,
+                ),
+                "sufijos": sorted(
+                    g["sufijos"].values(),
+                    key=lambda s: s["total"],
+                    reverse=True,
+                ),
+            }
+            for g in ventas_por_familia.values()
+        ],
+        key=lambda g: g["total"],
+        reverse=True,
+    )
+    ventas_top_familia = ventas_grouped[0] if ventas_grouped else None
+    ventas_tallas = sorted(
+        [{"talla": talla, "total": total} for talla, total in ventas_por_talla.items()],
+        key=lambda x: x["talla"],
+    )
+    ventas_top_talla = max(ventas_tallas, key=lambda x: x["total"]) if ventas_tallas else None
+    ventas_top_articulo = None
+    if ventas_por_articulo:
+        top_articulo, top_total = max(ventas_por_articulo.items(), key=lambda x: x[1])
+        ventas_top_articulo = {"articulo": top_articulo, "total": int(top_total)}
+    ventas_top_articulos = sorted(
+        [
+            {"articulo": articulo, "total": int(total)}
+            for articulo, total in ventas_por_articulo.items()
+        ],
+        key=lambda x: x["total"],
+        reverse=True,
+    )
+    bodega_rows = [row for row in rows if int(row.get("bodega") or 0) > 0]
+    bodega_total = sum(int(row.get("proceso") or 0) for row in bodega_rows)
+    bodega_en_bodega = sum(int(row.get("bodega") or 0) for row in bodega_rows)
+    bodega_restante = sum(int(row.get("pendiente_en_trazabilidad") or 0) for row in bodega_rows)
+    muestras_rows = [
+        row
+        for row in rows
+        if str(row.get("corte", "")).lstrip("0").startswith("96")
+    ]
+    muestras_total = sum(int(row.get("proceso") or 0) for row in muestras_rows)
+    muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
+    muestras_restante = max(muestras_total - muestras_bodega, 0)
+    return render_template(
+        "index.html",
+        rows=rows,
+        totals=totals,
+        summary=summary,
+        pedidos_sections=pedidos_sections,
+        ventas_total=ventas_total,
+        ventas_grouped=ventas_grouped,
+        ventas_top_familia=ventas_top_familia,
+        ventas_tallas=ventas_tallas,
+        ventas_top_talla=ventas_top_talla,
+        ventas_top_articulo=ventas_top_articulo,
+        ventas_top_articulos=ventas_top_articulos,
+        search_error=search_error,
+        filters=filters,
+        bodega_rows=bodega_rows,
+        bodega_total=bodega_total,
+        bodega_en_bodega=bodega_en_bodega,
+        bodega_restante=bodega_restante,
+        muestras_rows=muestras_rows,
+        muestras_total=muestras_total,
+        muestras_bodega=muestras_bodega,
+        muestras_restante=muestras_restante,
+    )
+
+
+@app.post("/upload")
+def upload():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        flash("Selecciona un archivo .txt o .xlsx")
+        return redirect(url_for("index"))
+
+    try:
+        parsed = parse_uploaded_file(file)
+        kind = parsed["kind"]
+        rows = parsed["rows"]
+        if kind == "pedidos_talla":
+            stats = import_pedidos_talla_rows(DB_PATH, rows)
+        else:
+            stats = import_rows(DB_PATH, rows)
+    except Exception as exc:
+        flash(f"Error al procesar archivo: {exc}")
+        return redirect(url_for("index"))
+
+    dataset_label = "PEDIDOSXTALLA" if kind == "pedidos_talla" else "SALDOS"
+    flash(
+        f"Carga completa ({dataset_label}). Leidos: {stats['read']} | Insertados: {stats['inserted']} | Actualizados: {stats['updated']}"
+    )
+    return redirect(url_for("index"))
+
+
+@app.get("/export.csv")
+def export_csv():
+    filters = {
+        "q": request.args.get("q", "").strip(),
+        "fecha": request.args.get("fecha", "").strip(),
+    }
+    rows, _, _ = query_rows(DB_PATH, filters)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "articulo",
+            "corte",
+            "fecha",
+            "programa",
+            "proceso",
+            "bodega",
+            "saldo",
+            "corte_1",
+            "taller",
+            "t_externo",
+            "limpiado",
+            "lavanderia",
+            "terminacion",
+            "muestra",
+            "segunda",
+            "taller_nombre",
+            "proceso_actual",
+            "faltante",
+            "restante_fuera_bodega",
+            "restante",
+        ]
+    )
+    for row in rows:
+        writer.writerow(
+            [
+                row["articulo"],
+                row["corte"],
+                row["fecha_display"],
+                row["programa"],
+                row["proceso"],
+                row["bodega"],
+                row["saldo"],
+                row["corte_1"],
+                row["taller"],
+                row["t_externo"],
+                row["limpiado"],
+                row["lavanderia"],
+                row["terminacion"],
+                row["muestra"],
+                row["segunda"],
+                row["taller_nombre"],
+                row["proceso_actual"],
+                row["faltante"],
+                row["restante_fuera_bodega"],
+                row["restante_detalle"],
+            ]
+        )
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=saldos_seccion.csv"},
+    )
+
+
+if __name__ == "__main__":
+    init_db(DB_PATH)
+    app.run(debug=True)

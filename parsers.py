@@ -1,0 +1,209 @@
+from __future__ import annotations
+
+import csv
+import io
+from datetime import datetime
+from typing import Any
+
+
+TXT_EXPECTED_COLUMNS = [
+    "ARTICULO",
+    "CORTE",
+    "FECHA",
+    "programa",
+    "PROCESO",
+    "BODEGA",
+    "SALDO",
+    "CORTE",
+    "TALLER",
+    "T.EXTERNO",
+    "LIMPIADO",
+    "LAVANDERIA",
+    "TERMINACION",
+    "MUESTRA",
+    "SEGUNDA",
+    "TALLER",
+]
+
+
+def parse_uploaded_file(file_storage) -> dict[str, Any]:
+    filename = (file_storage.filename or "").lower()
+    content = file_storage.read()
+
+    if filename.endswith(".txt") or filename.endswith(".csv"):
+        kind = detect_txt_kind(content, filename)
+        if kind == "pedidos_talla":
+            return {"kind": "pedidos_talla", "rows": parse_pedidos_talla_txt(content)}
+        return {"kind": "saldos", "rows": parse_saldos_txt(content)}
+    if filename.endswith(".xlsx"):
+        return {"kind": "saldos", "rows": parse_saldos_xlsx(content)}
+    raise ValueError("Formato no soportado. Usa .txt, .csv o .xlsx")
+
+
+def detect_txt_kind(content: bytes, filename: str) -> str:
+    if "pedidosxtalla" in filename:
+        return "pedidos_talla"
+    text = _decode_bytes(content)
+    first_line = ""
+    for line in text.splitlines():
+        if line.strip():
+            first_line = line.strip()
+            break
+    if not first_line:
+        return "saldos"
+    if first_line.upper().startswith("ARTICULO;CORTE;FECHA"):
+        return "saldos"
+    if ";Ventas;" in first_line or ";Despacho;" in first_line or ";saldo;" in first_line:
+        return "pedidos_talla"
+    return "saldos"
+
+
+def parse_saldos_txt(content: bytes) -> list[dict]:
+    text = _decode_bytes(content)
+    reader = csv.reader(io.StringIO(text), delimiter=";")
+    rows = list(reader)
+    if not rows:
+        return []
+
+    data_rows = rows[1:]
+    parsed: list[dict] = []
+    for raw in data_rows:
+        if not raw or not any(cell.strip() for cell in raw):
+            continue
+        parsed_row = _map_txt_row(raw)
+        if parsed_row:
+            parsed.append(parsed_row)
+    return parsed
+
+
+def parse_pedidos_talla_txt(content: bytes) -> list[dict]:
+    text = _decode_bytes(content)
+    reader = csv.reader(io.StringIO(text), delimiter=";")
+    parsed: list[dict] = []
+
+    for raw in reader:
+        if not raw:
+            continue
+        cells = [str(c).strip() for c in raw]
+        if not any(cells):
+            continue
+        if len(cells) < 6:
+            continue
+        if not cells[0]:
+            continue
+
+        articulo = _clean_code(cells[0])
+        descripcion = cells[1] if len(cells) > 1 else ""
+        tipo = (cells[2] if len(cells) > 2 else "").strip().lower()
+        if not tipo:
+            continue
+
+        qty_start = 4 if len(cells) > 4 else 3
+        qty_cells = [c for c in cells[qty_start:] if c != ""]
+        if not qty_cells:
+            continue
+        total = _to_int(qty_cells[-1])
+        tallas = [_to_int(c) for c in qty_cells[:-1]]
+
+        parsed.append(
+            {
+                "articulo": articulo,
+                "descripcion": descripcion,
+                "tipo": tipo,
+                "tallas": tallas,
+                "total": total,
+            }
+        )
+
+    return parsed
+
+
+def parse_saldos_xlsx(content: bytes) -> list[dict]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("Para importar Excel instala dependencias: pip install -r requirements.txt") from exc
+
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+
+    parsed: list[dict] = []
+    first = True
+    for row in ws.iter_rows(values_only=True):
+        if first:
+            first = False
+            continue
+        if not row or not any(cell is not None and str(cell).strip() for cell in row):
+            continue
+        raw = ["" if cell is None else str(cell) for cell in row]
+        parsed_row = _map_txt_row(raw)
+        if parsed_row:
+            parsed.append(parsed_row)
+    return parsed
+
+
+def _decode_bytes(content: bytes) -> str:
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("latin-1", errors="replace")
+
+
+def _map_txt_row(raw: list[str]) -> dict | None:
+    # Algunos archivos pueden traer columna final vacia por ';' de cierre.
+    cells = [str(c).strip() for c in raw]
+    if len(cells) < 16:
+        return None
+
+    # Mapeo por posicion basado en el archivo de ejemplo.
+    articulo = _clean_code(cells[0])
+    corte = _clean_code(cells[1])
+    fecha_iso = _parse_date(cells[2])
+
+    return {
+        "articulo": articulo,
+        "corte": corte,
+        "fecha_iso": fecha_iso,
+        "programa": _to_int(cells[3] if len(cells) > 3 else "0"),
+        "proceso": _to_int(cells[4] if len(cells) > 4 else "0"),
+        "bodega": _to_int(cells[5] if len(cells) > 5 else "0"),
+        "saldo": _to_int(cells[6] if len(cells) > 6 else "0"),
+        "corte_1": _to_int(cells[7] if len(cells) > 7 else "0"),
+        "taller": _to_int(cells[8] if len(cells) > 8 else "0"),
+        "t_externo": _to_int(cells[9] if len(cells) > 9 else "0"),
+        "limpiado": _to_int(cells[10] if len(cells) > 10 else "0"),
+        "lavanderia": _to_int(cells[11] if len(cells) > 11 else "0"),
+        "terminacion": _to_int(cells[12] if len(cells) > 12 else "0"),
+        "muestra": _to_int(cells[13] if len(cells) > 13 else "0"),
+        "segunda": _to_int(cells[14] if len(cells) > 14 else "0"),
+        "taller_nombre": cells[15].strip() if len(cells) > 15 else "",
+    }
+
+
+def _clean_code(value: str) -> str:
+    return str(value).strip()
+
+
+def _to_int(value: str) -> int:
+    s = str(value).strip().replace(".", "").replace(",", "")
+    if not s:
+        return 0
+    try:
+        return int(s)
+    except ValueError:
+        digits = "".join(ch for ch in s if ch.isdigit())
+        return int(digits) if digits else 0
+
+
+def _parse_date(value: str) -> str | None:
+    s = str(value).strip()
+    if not s:
+        return None
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None

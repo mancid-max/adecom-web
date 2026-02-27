@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ADECOM WEB - Saldos por Seccion</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <h1>Saldos por Seccion</h1>
+      </div>
+      <div class="upload-cta">
+        <button type="button" id="openUploadModal">Subir archivo</button>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <section class="messages">
+          {% for msg in messages %}
+            <div class="message">{{ msg }}</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+    {% endwith %}
+
+    {% if search_error %}
+      <section class="search-alert-top-wrap">
+        <div class="search-alert search-alert-top" id="searchAlertTop" role="status" aria-live="polite">
+          {{ search_error }}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="filters">
+      <form method="get" action="{{ url_for('index') }}" id="filtersForm">
+        <div class="search-field">
+          <input
+            type="text"
+            name="q"
+            placeholder="Escriba el articulo completo o familia"
+            value="{{ filters.q }}"
+          >
+          <small class="search-help">EJ: Articulo 01420100 | Familia 4201</small>
+        </div>
+        <input type="date" name="fecha" value="{{ filters.fecha }}">
+        <a class="btn-ghost" href="{{ url_for('index') }}">Limpiar</a>
+        <a class="btn-ghost" href="{{ url_for('export_csv', **filters) }}">Exportar CSV</a>
+      </form>
+    </section>
+
+    <section class="summary">
+      <article class="card-action summary-focus">
+        <button type="button" class="summary-open" id="openBodegaModal">
+          <h2>Ordenes en bodega</h2>
+          <p>{{ summary.ordenes_en_bodega|miles }}</p>
+          <small>Abrir detalle</small>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open" id="openMuestrasModal">
+          <h2>Total muestras</h2>
+          <p>{{ muestras_rows|length|miles }}</p>
+          <small>Abrir detalle</small>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open" id="openFullTableModal">
+          <h2>Tabla completa</h2>
+          <p>{{ rows|length|miles }}</p>
+          <small>Abrir detalle</small>
+        </button>
+      </article>
+    </section>
+
+    <dialog id="bodegaModal" class="modal">
+      <div class="modal-head">
+        <h3>Ordenes en bodega</h3>
+        <button type="button" id="closeBodegaModal" class="modal-close">Cerrar</button>
+      </div>
+
+      <div class="modal-kpis">
+        <article class="sortable-kpi" data-sort-key="total">
+          <h4>Total</h4>
+          <p>{{ bodega_total|miles }}</p>
+        </article>
+        <article class="sortable-kpi" data-sort-key="bodega">
+          <h4>En bodega</h4>
+          <p>{{ bodega_en_bodega|miles }}</p>
+        </article>
+        <article class="sortable-kpi" data-sort-key="restante">
+          <h4>Restante</h4>
+          <p>{{ bodega_restante|miles }}</p>
+        </article>
+      </div>
+
+      <section class="table-wrap bodega-wrap">
+        <p class="table-hint">Clic en encabezado para ordenar</p>
+        <table class="bodega-table" id="bodegaTable">
+          <thead>
+            <tr>
+              <th class="sortable-th" data-sort-key="articulo">Articulo</th>
+              <th class="sortable-th" data-sort-key="corte">Orden corte</th>
+              <th class="sortable-th" data-sort-key="total">Total</th>
+              <th class="sortable-th" data-sort-key="bodega">Bodega</th>
+              <th class="sortable-th" data-sort-key="restante">Restante</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in bodega_rows %}
+            <tr
+              data-articulo="{{ row.articulo }}"
+              data-corte="{{ row.corte }}"
+              data-total="{{ row.proceso }}"
+              data-bodega="{{ row.bodega }}"
+              data-restante="{{ row.pendiente_en_trazabilidad }}"
+            >
+              <td>{{ row.articulo }}</td>
+              <td>{{ row.corte }}</td>
+              <td class="num">{{ row.proceso|miles }}</td>
+              <td class="num">{{ row.bodega|miles }}</td>
+              <td>{{ row.restante_detalle }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </dialog>
+
+    <dialog id="muestrasModal" class="modal">
+      <div class="modal-head">
+        <h3>Total muestras</h3>
+        <button type="button" id="closeMuestrasModal" class="modal-close">Cerrar</button>
+      </div>
+
+      <div class="modal-kpis">
+        <article class="sortable-kpi" data-sort-key="total">
+          <h4>Total</h4>
+          <p>{{ muestras_total|miles }}</p>
+        </article>
+        <article class="sortable-kpi" data-sort-key="bodega">
+          <h4>En bodega</h4>
+          <p>{{ muestras_bodega|miles }}</p>
+        </article>
+        <article class="sortable-kpi" data-sort-key="restante">
+          <h4>Restante</h4>
+          <p>{{ muestras_restante|miles }}</p>
+        </article>
+      </div>
+
+      <section class="table-wrap bodega-wrap">
+        <p class="table-hint">Clic en encabezado para ordenar</p>
+        <table class="bodega-table" id="muestrasTable">
+          <thead>
+            <tr>
+              <th class="sortable-th" data-sort-key="articulo">Articulo</th>
+              <th class="sortable-th" data-sort-key="corte">Orden corte</th>
+              <th class="sortable-th" data-sort-key="total">Total</th>
+              <th class="sortable-th" data-sort-key="bodega">Bodega</th>
+              <th class="sortable-th" data-sort-key="restante">Restante</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in muestras_rows %}
+            <tr
+              data-articulo="{{ row.articulo }}"
+              data-corte="{{ row.corte }}"
+              data-total="{{ row.proceso }}"
+              data-bodega="{{ row.bodega }}"
+              data-restante="{{ row.pendiente_en_trazabilidad }}"
+            >
+              <td>{{ row.articulo }}</td>
+              <td>{{ row.corte }}</td>
+              <td class="num">{{ row.proceso|miles }}</td>
+              <td class="num">{{ row.bodega|miles }}</td>
+              <td>{{ row.restante_detalle }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="empty">No hay muestras con los filtros actuales.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </dialog>
+
+    <dialog id="uploadModal" class="modal modal-upload">
+      <div class="modal-head">
+        <h3>Subir archivo</h3>
+        <button type="button" id="closeUploadModal" class="modal-close">Cerrar</button>
+      </div>
+      <form class="upload-card" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+        <label for="file">Seleccionar TXT, CSV o Excel</label>
+        <input id="file" name="file" type="file" accept=".txt,.csv,.xlsx" required>
+        <button type="submit">Importar</button>
+      </form>
+    </dialog>
+
+    <dialog id="fullTableModal" class="modal modal-full-table">
+      <div class="modal-head">
+        <h3>Tabla completa</h3>
+        <button type="button" id="closeFullTableModal" class="modal-close">Cerrar</button>
+      </div>
+      <div class="table-tools">
+        <label for="tipoFiltro">Mostrar:</label>
+        <select id="tipoFiltro">
+          <option value="todo">Todo</option>
+          <option value="muestras">Solo muestras</option>
+          <option value="produccion">Solo produccion</option>
+        </select>
+      </div>
+      <section class="table-wrap bodega-wrap">
+        <p class="table-hint">Clic en encabezado para ordenar</p>
+        <table class="bodega-table full-table">
+          <thead>
+            <tr>
+              <th class="sortable-th" data-sort-key="articulo">Articulo</th>
+              <th class="sortable-th" data-sort-key="corte">Corte</th>
+              <th class="sortable-th" data-sort-key="fecha">Fecha</th>
+              <th class="sortable-th" data-sort-key="programa">Programa</th>
+              <th class="sortable-th" data-sort-key="proceso">Proceso</th>
+              <th class="sortable-th" data-sort-key="bodega">Bodega</th>
+              <th class="sortable-th" data-sort-key="saldo">Saldo</th>
+              <th class="sortable-th" data-sort-key="restantedetalle">Distribucion saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr
+              class="{% if row.bodega|int > 0 %}row-bodega{% endif %}"
+              data-clickable="1"
+              data-articulo="{{ row.articulo }}"
+              data-corte="{{ row.corte }}"
+              data-fecha="{{ row.fecha_iso or '' }}"
+              data-programa="{{ row.programa }}"
+              data-proceso="{{ row.proceso }}"
+              data-bodega="{{ row.bodega }}"
+              data-saldo="{{ row.saldo }}"
+              data-corte1="{{ row.corte_1 }}"
+              data-taller="{{ row.taller }}"
+              data-texterno="{{ row.t_externo }}"
+              data-limpiado="{{ row.limpiado }}"
+              data-lavanderia="{{ row.lavanderia }}"
+              data-terminacion="{{ row.terminacion }}"
+              data-muestra="{{ row.muestra }}"
+              data-segunda="{{ row.segunda }}"
+              data-procesoactual="{{ row.proceso_actual }}"
+              data-restantedetalle="{{ row.restante_detalle }}"
+              data-esmuestra="{% if row.corte and row.corte.lstrip('0').startswith('96') %}1{% else %}0{% endif %}"
+            >
+              <td>{{ row.articulo }}</td>
+              <td>{{ row.corte }}</td>
+              <td>{{ row.fecha_display }}</td>
+              <td class="num">{{ row.programa|miles }}</td>
+              <td class="num">{{ row.proceso|miles }}</td>
+              <td class="num">{{ row.bodega|miles }}</td>
+              <td class="num">{{ row.saldo|miles }}</td>
+              <td class="saldo-dist">{{ row.restante_detalle }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" class="empty">No hay datos cargados.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3">Totales</td>
+              <td class="num">{{ totals.programa|miles }}</td>
+              <td class="num">{{ totals.proceso|miles }}</td>
+              <td class="num">{{ totals.bodega|miles }}</td>
+              <td class="num">{{ totals.saldo|miles }}</td>
+              <td>-</td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>
+    </dialog>
+
+    <dialog id="rowDetailModal" class="modal modal-row-detail">
+      <div class="modal-head">
+        <h3>Detalle de orden</h3>
+        <button type="button" id="closeRowDetailModal" class="modal-close">Cerrar</button>
+      </div>
+      <div id="rowDetailBox" class="row-detail-box">
+        <div class="row-detail-grid">
+          <article><h4>Articulo</h4><p id="dArticulo">-</p></article>
+          <article><h4>Orden corte</h4><p id="dCorte">-</p></article>
+          <article><h4>Fecha ingreso</h4><p id="dFecha">-</p></article>
+          <article><h4>Etapa actual</h4><p id="dEtapa">-</p></article>
+          <article><h4>Dias transcurridos</h4><p id="dDias">-</p></article>
+          <article><h4>Estado</h4><p id="dEstado">-</p></article>
+        </div>
+        <p class="detail-restante"><strong>Restante:</strong> <span id="dRestante">-</span></p>
+      </div>
+    </dialog>
+
+    <section class="ventas-block">
+      <h2>Ventas</h2>
+      <p class="ventas-note">Datos divididos por secciones.</p>
+      <section class="summary ventas-summary">
+        <article class="card-action summary-secondary">
+          <button type="button" class="summary-open" id="openVentasTotalModal">
+            <h2>Total ventas</h2>
+            <p>{{ ventas_total|miles }}</p>
+            <small>Abrir detalle</small>
+          </button>
+        </article>
+      </section>
+
+      <dialog id="ventasTotalModal" class="modal">
+        <div class="modal-head">
+          <h3>Total ventas</h3>
+          <button type="button" id="closeVentasTotalModal" class="modal-close">Cerrar</button>
+        </div>
+        <div class="modal-kpis">
+          <article class="kpi-clickable">
+            <button type="button" id="openVentasDetalleModal" class="kpi-open-btn">
+              <h4>Total ventas</h4>
+              <p>{{ ventas_total|miles }}</p>
+              <small class="kpi-hint">Ver detalle</small>
+            </button>
+          </article>
+          <article class="kpi-clickable">
+            <button type="button" id="openTopFamiliaModal" class="kpi-open-btn" {% if not ventas_top_familia %}disabled{% endif %}>
+              <h4>Familia mas vendida</h4>
+              {% if ventas_top_familia %}
+              <p>{{ ventas_top_familia.familia }}</p>
+              <small class="kpi-hint">Ver detalle</small>
+              {% else %}
+              <p>-</p>
+              {% endif %}
+            </button>
+          </article>
+          <article class="kpi-clickable">
+            <button type="button" id="openTopArticulosModal" class="kpi-open-btn" {% if not ventas_top_articulos %}disabled{% endif %}>
+              <h4>Top articulos</h4>
+              {% if ventas_top_articulo %}
+              <p>{{ ventas_top_articulos|length|miles }} modelos</p>
+              <small class="kpi-hint">Ver detalle</small>
+              {% else %}
+              <p>-</p>
+              {% endif %}
+            </button>
+          </article>
+        </div>
+
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Clic en encabezado para ordenar</p>
+          <table class="bodega-table" id="ventasFamiliasTable">
+            <thead>
+              <tr>
+                <th class="sortable-th" data-sort-key="familia">Familia</th>
+                <th class="sortable-th" data-sort-key="total">Total familia</th>
+                <th class="sortable-th" data-sort-key="detalle">Detalle por familia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for g in ventas_grouped %}
+              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ g.articulos|length }}">
+                <td>{{ g.familia }}</td>
+                <td class="num">{{ g.total|miles }}</td>
+                <td>
+                  {% for v in g.articulos %}
+                    <span class="variante-chip">{{ v.articulo }}: {{ v.total|miles }}</span>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="3" class="empty">Sin ventas con los filtros actuales.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      </dialog>
+
+      <dialog id="ventasDetalleModal" class="modal modal-ventas-dashboard">
+        <div class="modal-head">
+          <h3>Detalle ventas</h3>
+          <button type="button" id="closeVentasDetalleModal" class="modal-close">Cerrar</button>
+        </div>
+
+        <div class="modal-kpis ventas-kpis">
+          <article>
+            <h4>Total ventas</h4>
+            <p>{{ ventas_total|miles }}</p>
+          </article>
+          <article>
+            <h4>Talla mas vendida</h4>
+            {% if ventas_top_talla %}
+            <p>{{ ventas_top_talla.talla }}</p>
+            <small class="kpi-hint">{{ ventas_top_talla.total|miles }} unidades</small>
+            {% else %}
+            <p>-</p>
+            {% endif %}
+          </article>
+          <article>
+            <h4>Articulo mas vendido</h4>
+            {% if ventas_top_articulo %}
+            <p>{{ ventas_top_articulo.articulo }}</p>
+            <small class="kpi-hint">{{ ventas_top_articulo.total|miles }} unidades</small>
+            {% else %}
+            <p>-</p>
+            {% endif %}
+          </article>
+        </div>
+
+        <section class="ventas-talla-curve-card">
+          <h4>Curva de ventas por talla</h4>
+          <div
+            id="ventasTallasChart"
+            class="ventas-talla-curve"
+            data-points="{% for t in ventas_tallas %}{{ t.total }}{% if not loop.last %},{% endif %}{% endfor %}"
+            data-labels="{% for t in ventas_tallas %}{{ t.talla }}{% if not loop.last %},{% endif %}{% endfor %}"
+          ></div>
+        </section>
+
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Clic en encabezado para ordenar</p>
+          <table class="bodega-table" id="ventasTallasTable">
+            <thead>
+              <tr>
+                <th class="sortable-th" data-sort-key="talla">Talla</th>
+                <th class="sortable-th" data-sort-key="total">Vendido</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in ventas_tallas %}
+              <tr data-talla="{{ t.talla }}" data-total="{{ t.total }}">
+                <td>{{ t.talla }}</td>
+                <td class="num">{{ t.total|miles }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="2" class="empty">Sin ventas por talla.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      </dialog>
+
+      <dialog id="topFamiliaModal" class="modal modal-top-familia">
+        <div class="modal-head">
+          <h3>
+            Familia {{ ventas_top_familia.familia if ventas_top_familia else '-' }}
+          </h3>
+          <button type="button" id="closeTopFamiliaModal" class="modal-close">Cerrar</button>
+        </div>
+        <section class="sufijos-grid">
+          {% if ventas_top_familia %}
+            {% for s in ventas_top_familia.sufijos %}
+              <article class="sufijo-card">
+                <h4>{{ s.sufijo }}</h4>
+                <p>{{ s.total|miles }}</p>
+              </article>
+            {% endfor %}
+          {% else %}
+            <p class="empty">Sin datos de familia.</p>
+          {% endif %}
+        </section>
+      </dialog>
+
+      <dialog id="topArticulosModal" class="modal modal-top-familia">
+        <div class="modal-head">
+          <h3>Top articulos vendidos</h3>
+          <button type="button" id="closeTopArticulosModal" class="modal-close">Cerrar</button>
+        </div>
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Clic en encabezado para ordenar</p>
+          <table class="bodega-table" id="topArticulosTable">
+            <thead>
+              <tr>
+                <th class="sortable-th" data-sort-key="rank">#</th>
+                <th class="sortable-th" data-sort-key="articulo">Articulo</th>
+                <th class="sortable-th" data-sort-key="total">Cantidad vendida</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in ventas_top_articulos %}
+              <tr data-rank="{{ loop.index }}" data-articulo="{{ item.articulo }}" data-total="{{ item.total }}">
+                <td class="num">{{ loop.index }}</td>
+                <td>{{ item.articulo }}</td>
+                <td class="num">{{ item.total|miles }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="3" class="empty">Sin articulos vendidos.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      </dialog>
+
+    </section>
+  </main>
+  <script>
+    (function () {
+      const dialogs = Array.from(document.querySelectorAll("dialog"));
+      if (!dialogs.length) return;
+      const syncBodyLock = () => {
+        const hasOpen = dialogs.some((d) => d.open);
+        document.body.classList.toggle("modal-open", hasOpen);
+      };
+      const observer = new MutationObserver(syncBodyLock);
+      dialogs.forEach((d) => observer.observe(d, { attributes: true, attributeFilter: ["open"] }));
+      syncBodyLock();
+    })();
+
+    (function () {
+      const alertBox = document.getElementById("searchAlertTop");
+      if (!alertBox) return;
+      setTimeout(() => {
+        alertBox.classList.add("search-alert-hide");
+        setTimeout(() => {
+          const wrap = alertBox.closest(".search-alert-top-wrap");
+          if (wrap) wrap.remove();
+        }, 380);
+      }, 3800);
+    })();
+
+    (function () {
+      const modal = document.getElementById("bodegaModal");
+      const openBtn = document.getElementById("openBodegaModal");
+      const closeBtn = document.getElementById("closeBodegaModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("muestrasModal");
+      const openBtn = document.getElementById("openMuestrasModal");
+      const closeBtn = document.getElementById("closeMuestrasModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("ventasTotalModal");
+      const openBtn = document.getElementById("openVentasTotalModal");
+      const closeBtn = document.getElementById("closeVentasTotalModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const parent = document.getElementById("ventasTotalModal");
+      const modal = document.getElementById("ventasDetalleModal");
+      const openBtn = document.getElementById("openVentasDetalleModal");
+      const closeBtn = document.getElementById("closeVentasDetalleModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => {
+        if (parent) parent.close();
+        modal.showModal();
+      });
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("topFamiliaModal");
+      const openBtn = document.getElementById("openTopFamiliaModal");
+      const closeBtn = document.getElementById("closeTopFamiliaModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("topArticulosModal");
+      const openBtn = document.getElementById("openTopArticulosModal");
+      const closeBtn = document.getElementById("closeTopArticulosModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const root = document.getElementById("ventasTallasChart");
+      if (!root) return;
+      const values = (root.dataset.points || "")
+        .split(",")
+        .map((v) => Number(v.trim()))
+        .filter((v) => !Number.isNaN(v));
+      const labels = (root.dataset.labels || "")
+        .split(",")
+        .map((v) => v.trim())
+        .filter((v) => v !== "");
+      if (!values.length) {
+        root.innerHTML = '<span class="spark-empty">Sin curva</span>';
+        return;
+      }
+      const width = 760;
+      const height = 220;
+      const padX = 38;
+      const padY = 24;
+      const max = Math.max(...values, 1);
+      const step = values.length > 1 ? (width - padX * 2) / (values.length - 1) : 0;
+      const points = values.map((v, i) => {
+        const x = padX + (i * step);
+        const y = height - padY - ((v / max) * (height - padY * 2));
+        return { x, y, v, label: labels[i] || "" };
+      });
+      const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");
+      const area = `${padX},${height - padY} ${polyline} ${width - padX},${height - padY}`;
+      const xLabels = points
+        .map((p) => `<text x="${p.x}" y="${height - 6}" text-anchor="middle" class="line-x-label">${p.label}</text>`)
+        .join("");
+      const valueLabels = points
+        .map((p) => `<text x="${p.x}" y="${p.y - 10}" text-anchor="middle" class="line-value-label">${p.v.toLocaleString("es-CL")}</text>`)
+        .join("");
+      const dots = points
+        .map((p) => `<circle cx="${p.x}" cy="${p.y}" r="3.6" class="line-dot"><title>Talla ${p.label}: ${p.v}</title></circle>`)
+        .join("");
+      root.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Curva de ventas por talla">
+          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" class="line-axis"></line>
+          <polygon points="${area}" class="line-area"></polygon>
+          <polyline points="${polyline}" class="line-path"></polyline>
+          ${valueLabels}
+          ${dots}
+          ${xLabels}
+        </svg>
+      `;
+    })();
+
+    (function () {
+      const modal = document.getElementById("uploadModal");
+      const openBtn = document.getElementById("openUploadModal");
+      const closeBtn = document.getElementById("closeUploadModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("fullTableModal");
+      const openBtn = document.getElementById("openFullTableModal");
+      const closeBtn = document.getElementById("closeFullTableModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const table = document.querySelector("#fullTableModal .full-table");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      const headers = table.querySelectorAll("th.sortable-th");
+      let currentKey = "";
+      let direction = "desc";
+
+      const sortRows = (key) => {
+        if (!tbody) return;
+        if (currentKey === key) {
+          direction = direction === "desc" ? "asc" : "desc";
+        } else {
+          currentKey = key;
+          direction = "desc";
+        }
+
+        headers.forEach((h) => {
+          h.classList.remove("sortable-active");
+          h.removeAttribute("data-dir");
+        });
+        const active = table.querySelector(`th.sortable-th[data-sort-key="${key}"]`);
+        if (active) {
+          active.classList.add("sortable-active");
+          active.setAttribute("data-dir", direction);
+        }
+
+        const rows = Array.from(tbody.querySelectorAll("tr"))
+          .filter((row) => row.querySelectorAll("td").length > 0);
+
+        rows.sort((a, b) => {
+          const avRaw = a.dataset[key] ?? "";
+          const bvRaw = b.dataset[key] ?? "";
+          const avNum = Number(avRaw);
+          const bvNum = Number(bvRaw);
+          const bothNumeric = !Number.isNaN(avNum) && !Number.isNaN(bvNum);
+          if (bothNumeric) {
+            return direction === "desc" ? bvNum - avNum : avNum - bvNum;
+          }
+          const cmp = String(avRaw).localeCompare(String(bvRaw), "es", { sensitivity: "base" });
+          return direction === "desc" ? -cmp : cmp;
+        });
+
+        rows.forEach((row) => tbody.appendChild(row));
+      };
+
+      headers.forEach((header) => {
+        header.addEventListener("click", () => {
+          const key = header.dataset.sortKey;
+          if (!key) return;
+          sortRows(key);
+        });
+      });
+
+      // Orden inicial: primero los que estan en bodega (verde).
+      sortRows("bodega");
+    })();
+
+    (function () {
+      const filtro = document.getElementById("tipoFiltro");
+      const table = document.querySelector("#fullTableModal .full-table");
+      if (!filtro || !table) return;
+      const tbody = table.querySelector("tbody");
+      if (!tbody) return;
+      const rows = Array.from(tbody.querySelectorAll('tr[data-clickable="1"]'));
+
+      const applyFilter = () => {
+        const value = filtro.value;
+        rows.forEach((row) => {
+          const esMuestra = row.dataset.esmuestra === "1";
+          let visible = true;
+          if (value === "muestras") visible = esMuestra;
+          if (value === "produccion") visible = !esMuestra;
+          row.style.display = visible ? "" : "none";
+        });
+      };
+
+      filtro.addEventListener("change", applyFilter);
+      applyFilter();
+    })();
+
+    (function () {
+      const form = document.getElementById("filtersForm");
+      if (!form) return;
+      const q = form.querySelector('input[name="q"]');
+      const fecha = form.querySelector('input[name="fecha"]');
+      if (q) {
+        q.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          form.submit();
+        });
+      }
+      if (fecha) fecha.addEventListener("change", () => form.submit());
+    })();
+
+    (function () {
+      const setupHeaderSort = (tableId) => {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const tbody = table.querySelector("tbody");
+        const headers = table.querySelectorAll("th.sortable-th");
+        if (!tbody || !headers.length) return;
+        let currentKey = "";
+        let direction = "desc";
+
+        const sortRows = (key) => {
+          if (currentKey === key) {
+            direction = direction === "desc" ? "asc" : "desc";
+          } else {
+            currentKey = key;
+            direction = "desc";
+          }
+          headers.forEach((h) => {
+            h.classList.remove("sortable-active");
+            h.removeAttribute("data-dir");
+          });
+          const active = table.querySelector(`th.sortable-th[data-sort-key="${key}"]`);
+          if (active) {
+            active.classList.add("sortable-active");
+            active.setAttribute("data-dir", direction);
+          }
+          const rows = Array.from(tbody.querySelectorAll("tr"))
+            .filter((row) => row.querySelectorAll("td").length > 0);
+          rows.sort((a, b) => {
+            const avRaw = a.dataset[key] ?? "";
+            const bvRaw = b.dataset[key] ?? "";
+            const avNum = Number(avRaw);
+            const bvNum = Number(bvRaw);
+            const bothNumeric = !Number.isNaN(avNum) && !Number.isNaN(bvNum);
+            if (bothNumeric) {
+              return direction === "desc" ? bvNum - avNum : avNum - bvNum;
+            }
+            const cmp = String(avRaw).localeCompare(String(bvRaw), "es", { sensitivity: "base" });
+            return direction === "desc" ? -cmp : cmp;
+          });
+          rows.forEach((row) => tbody.appendChild(row));
+        };
+
+        headers.forEach((header) => {
+          header.addEventListener("click", () => {
+            const key = header.dataset.sortKey;
+            if (!key) return;
+            sortRows(key);
+          });
+        });
+      };
+
+      setupHeaderSort("bodegaTable");
+      setupHeaderSort("muestrasTable");
+      setupHeaderSort("ventasFamiliasTable");
+      setupHeaderSort("ventasTallasTable");
+      setupHeaderSort("topArticulosTable");
+    })();
+
+    (function () {
+      const rowModal = document.getElementById("rowDetailModal");
+      const closeBtn = document.getElementById("closeRowDetailModal");
+      const box = document.getElementById("rowDetailBox");
+      const estadoEl = document.getElementById("dEstado");
+      if (!rowModal || !closeBtn || !box) return;
+
+      const stageFromRow = (row) => {
+        const checks = [
+          ["bodega", "BODEGA"],
+          ["corte1", "CORTE"],
+          ["taller", "TALLER"],
+          ["texterno", "T.EXTERNO"],
+          ["limpiado", "LIMPIADO"],
+          ["lavanderia", "LAVANDERIA"],
+          ["terminacion", "TERMINACION"],
+          ["muestra", "MUESTRA"],
+          ["segunda", "SEGUNDA"],
+        ];
+        for (const [key, label] of checks) {
+          if (Number(row.dataset[key] || 0) > 0) return label;
+        }
+        return "Sin movimiento";
+      };
+
+      const toDisplayDate = (iso) => {
+        if (!iso || !iso.includes("-")) return "-";
+        const [y, m, d] = iso.split("-");
+        return `${d}/${m}/${y}`;
+      };
+
+      const daysBetween = (iso) => {
+        if (!iso) return 0;
+        const inDate = new Date(`${iso}T00:00:00`);
+        const now = new Date();
+        const diff = now.getTime() - inDate.getTime();
+        return diff > 0 ? Math.floor(diff / 86400000) : 0;
+      };
+
+      const applySemaforo = (row) => {
+        const bodega = Number(row.dataset.bodega || 0);
+        const dias = daysBetween(row.dataset.fecha || "");
+        if (bodega > 0) return "En bodega";
+        if (dias <= 7) {
+          return "Reciente";
+        }
+        if (dias <= 21) {
+          return "Intermedio";
+        }
+        return "Demorado";
+      };
+
+      const setDetail = (row) => {
+        const etapa = stageFromRow(row);
+        const estado = applySemaforo(row);
+        const dias = daysBetween(row.dataset.fecha || "");
+        document.getElementById("dArticulo").textContent = row.dataset.articulo || "-";
+        document.getElementById("dCorte").textContent = row.dataset.corte || "-";
+        document.getElementById("dFecha").textContent = toDisplayDate(row.dataset.fecha || "");
+        document.getElementById("dEtapa").textContent = etapa;
+        document.getElementById("dDias").textContent = String(dias);
+        if (estadoEl) {
+          estadoEl.textContent = estado;
+          estadoEl.classList.remove("estado-green", "estado-red", "estado-yellow", "estado-orange");
+          if (estado === "En bodega") estadoEl.classList.add("estado-green");
+          else if (estado === "Reciente") estadoEl.classList.add("estado-red");
+          else if (estado === "Intermedio") estadoEl.classList.add("estado-yellow");
+          else estadoEl.classList.add("estado-orange");
+        }
+        document.getElementById("dRestante").textContent = row.dataset.restantedetalle || "Sin restante";
+      };
+
+      const rows = document.querySelectorAll('#fullTableModal tbody tr[data-clickable="1"]');
+      rows.forEach((row) => {
+        row.addEventListener("click", () => {
+          setDetail(row);
+          rowModal.showModal();
+        });
+      });
+
+      closeBtn.addEventListener("click", () => rowModal.close());
+      rowModal.addEventListener("click", (event) => {
+        const rect = rowModal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) rowModal.close();
+      });
+    })();
+  </script>
+</body>
+</html>
