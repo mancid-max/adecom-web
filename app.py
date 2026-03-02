@@ -496,10 +496,16 @@ def _answer_with_gemini(question: str) -> str:
             api_versions.append(vv)
 
     discovered_models: list[str] = []
+    list_errors: list[str] = []
     for api_version in api_versions:
         try:
-            list_endpoint = f"https://generativelanguage.googleapis.com/{api_version}/models?key={api_key}"
-            with url_request.urlopen(list_endpoint, timeout=12) as resp:
+            list_endpoint = f"https://generativelanguage.googleapis.com/{api_version}/models"
+            list_req = url_request.Request(
+                list_endpoint,
+                headers={"x-goog-api-key": api_key},
+                method="GET",
+            )
+            with url_request.urlopen(list_req, timeout=12) as resp:
                 raw = resp.read().decode("utf-8")
             data = json.loads(raw or "{}")
             for item in data.get("models") or []:
@@ -513,10 +519,12 @@ def _answer_with_gemini(question: str) -> str:
                     discovered_models.append(name)
             if discovered_models:
                 break
-        except Exception:
+        except Exception as exc:
+            list_errors.append(f"{api_version}:{exc}")
             continue
 
     fallback_models = [
+        "gemini-3-flash-preview",
         "gemini-2.5-flash",
         "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
@@ -552,12 +560,15 @@ def _answer_with_gemini(question: str) -> str:
         for model in model_candidates:
             tried.append(f"{api_version}:{model}")
             endpoint = (
-                f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={api_key}"
+                f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent"
             )
             req = url_request.Request(
                 endpoint,
                 data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key,
+                },
                 method="POST",
             )
             try:
@@ -583,7 +594,10 @@ def _answer_with_gemini(question: str) -> str:
                 continue
 
     raise RuntimeError(
-        f"Gemini no disponible. Intentados: {', '.join(tried)}. Detalle: {last_error}"
+        "Gemini no disponible. "
+        f"Modelos intentados: {', '.join(tried)}. "
+        f"Listado modelos: {'; '.join(list_errors) if list_errors else 'ok'}. "
+        f"Detalle final: {last_error}"
     )
 
 
