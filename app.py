@@ -529,20 +529,38 @@ def _answer_assistant_router(question: str) -> dict:
                 "fallback": False,
                 "detail": "",
             }
-        except (url_error.URLError, RuntimeError, TimeoutError, ValueError) as exc:
+        except Exception as exc:
             app.logger.warning("Gemini fallback a local: %s", exc)
-            return {
-                "answer": _answer_assistant(question),
-                "provider": "local",
-                "fallback": True,
-                "detail": str(exc),
-            }
-    return {
-        "answer": _answer_assistant(question),
-        "provider": "local",
-        "fallback": False,
-        "detail": "",
-    }
+            try:
+                return {
+                    "answer": _answer_assistant(question),
+                    "provider": "local",
+                    "fallback": True,
+                    "detail": str(exc),
+                }
+            except Exception as local_exc:
+                app.logger.exception("Fallo en fallback local del asistente", exc_info=local_exc)
+                return {
+                    "answer": "No fue posible responder en este momento. Intenta nuevamente.",
+                    "provider": "local",
+                    "fallback": True,
+                    "detail": f"gemini={exc}; local={local_exc}",
+                }
+    try:
+        return {
+            "answer": _answer_assistant(question),
+            "provider": "local",
+            "fallback": False,
+            "detail": "",
+        }
+    except Exception as exc:
+        app.logger.exception("Fallo en asistente local", exc_info=exc)
+        return {
+            "answer": "No fue posible responder en este momento. Intenta nuevamente.",
+            "provider": "local",
+            "fallback": True,
+            "detail": str(exc),
+        }
 
 
 def _table_count(table_name: str) -> int:
@@ -787,10 +805,21 @@ def admin_logout():
 
 @app.post("/assistant/query")
 def assistant_query():
-    payload = request.get_json(silent=True) or {}
-    question = str(payload.get("question") or "").strip()
-    result = _answer_assistant_router(question)
-    return jsonify(result)
+    try:
+        payload = request.get_json(silent=True) or {}
+        question = str(payload.get("question") or "").strip()
+        result = _answer_assistant_router(question)
+        return jsonify(result)
+    except Exception as exc:
+        app.logger.exception("Error en /assistant/query", exc_info=exc)
+        return jsonify(
+            {
+                "answer": "No fue posible responder en este momento. Intenta nuevamente.",
+                "provider": "local",
+                "fallback": True,
+                "detail": str(exc),
+            }
+        ), 200
 
 
 @app.get("/export.csv")
