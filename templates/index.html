@@ -705,6 +705,7 @@
       if (!widget || !fab || !chat || !closeBtn || !form || !input || !messages) return;
 
       const historyKey = "adecom_assistant_history_v1";
+      const archiveKey = "adecom_assistant_archive_v1";
       const loadHistory = () => {
         try {
           const raw = localStorage.getItem(historyKey);
@@ -718,16 +719,35 @@
         const sliced = items.slice(-40);
         localStorage.setItem(historyKey, JSON.stringify(sliced));
       };
+      const loadArchive = () => {
+        try {
+          const raw = localStorage.getItem(archiveKey);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      };
+      const saveArchive = (items) => {
+        const sliced = items.slice(-20);
+        localStorage.setItem(archiveKey, JSON.stringify(sliced));
+      };
       const escapeHtml = (text) =>
         String(text || "")
           .replaceAll("&", "&amp;")
           .replaceAll("<", "&lt;")
           .replaceAll(">", "&gt;");
 
-      let history = loadHistory();
-      if (!history.length) {
-        history = [{ role: "bot", text: "Hola, soy tu asistente. Preguntame por bodega, ventas, EXS o un articulo, etc." }];
+      const previousHistory = loadHistory();
+      if (previousHistory.length) {
+        const archive = loadArchive();
+        archive.push({
+          at: new Date().toISOString(),
+          messages: previousHistory.slice(-40),
+        });
+        saveArchive(archive);
       }
+      let history = [{ role: "bot", text: "Hola, soy tu asistente. Preguntame por bodega, ventas, EXS o un articulo, etc." }];
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       let recognition = null;

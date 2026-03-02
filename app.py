@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 import re
 import unicodedata
 from pathlib import Path
 from difflib import SequenceMatcher
+from urllib import error as url_error
+from urllib import request as url_request
 
 from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -333,6 +336,75 @@ def _answer_assistant(question: str) -> str:
     )
 
 
+def _answer_with_gemini(question: str) -> str:
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY no configurada.")
+
+    model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
+    endpoint = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    )
+
+    rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
+    pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
+    exs_summary = query_exs_balance_summary(DB_PATH, "")
+    ventas_rows = pedidos_sections.get("ventas", [])
+    ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
+
+    context = (
+        f"Contexto ADECOM WEB (no inventar datos): "
+        f"ordenes_bodega={summary.get('ordenes_en_bodega', 0)}, "
+        f"cantidad_bodega={summary.get('cantidad_en_bodega', 0)}, "
+        f"total_ordenes={len(rows)}, "
+        f"total_ventas={ventas_total}, "
+        f"exs_count={exs_summary.get('count', 0)}, "
+        f"exs_total_actual={exs_summary.get('total_actual', 0)}, "
+        f"exs_total_ex={exs_summary.get('total_ex', 0)}."
+    )
+    instruction = (
+        "Responde en espanol, breve y exacto para usuarios de operacion. "
+        "Si falta dato, dilo explicitamente sin inventar."
+    )
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": f"{instruction}\n{context}\nPregunta: {question}"}],
+            }
+        ]
+    }
+
+    req = url_request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with url_request.urlopen(req, timeout=18) as resp:
+        raw = resp.read().decode("utf-8")
+    data = json.loads(raw or "{}")
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Gemini no retorno candidatos.")
+    parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
+    text = " ".join(str(p.get("text") or "").strip() for p in parts).strip()
+    if not text:
+        raise RuntimeError("Gemini no retorno texto.")
+    return text
+
+
+def _answer_assistant_router(question: str) -> str:
+    provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
+    if provider in {"gemini", "google"}:
+        try:
+            return _answer_with_gemini(question)
+        except (url_error.URLError, RuntimeError, TimeoutError, ValueError) as exc:
+            app.logger.warning("Gemini fallback a local: %s", exc)
+            return _answer_assistant(question)
+    return _answer_assistant(question)
+
+
 def _table_count(table_name: str) -> int:
     conn = get_conn(DB_PATH)
     try:
@@ -577,7 +649,7 @@ def admin_logout():
 def assistant_query():
     payload = request.get_json(silent=True) or {}
     question = str(payload.get("question") or "").strip()
-    answer = _answer_assistant(question)
+    answer = _answer_assistant_router(question)
     return jsonify({"answer": answer})
 
 

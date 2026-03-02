@@ -97,6 +97,16 @@ Si quieres que solo administradores puedan subir archivos:
 
 Con esa variable activa, la web queda en modo lectura para todos y solo quien ingrese la clave en `Entrar modo carga` vera los botones de importacion.
 
+## Asistente con Gemini (opcional)
+
+Por defecto el asistente usa logica local de la app. Si quieres usar Gemini:
+
+- `ADECOM_ASSISTANT_PROVIDER=gemini`
+- `GEMINI_API_KEY=tu_api_key`
+- `GEMINI_MODEL=gemini-1.5-flash` (opcional)
+
+Si Gemini falla o no responde, el sistema vuelve automaticamente al asistente local.
+
 ## Opcion alternativa: Koyeb (gratis)
 
 Koyeb tambien es una buena alternativa. En free tier suele escalar a cero despues de inactividad (mas tolerante que Render), y despierta al recibir trafico.
