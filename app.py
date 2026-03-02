@@ -6,6 +6,7 @@ import json
 import os
 import re
 import unicodedata
+from datetime import date
 from pathlib import Path
 from difflib import SequenceMatcher
 from urllib import error as url_error
@@ -189,6 +190,7 @@ def _build_assistant_context(question: str) -> str:
 
     etapas: dict[str, int] = {}
     bodega_por_articulo: dict[str, int] = {}
+    fechas_conteo: dict[str, int] = {}
     for r in rows:
         stage = str(r.get("proceso_actual") or "Sin movimiento")
         proceso = int(r.get("proceso") or 0)
@@ -196,6 +198,9 @@ def _build_assistant_context(question: str) -> str:
         articulo = str(r.get("articulo") or "").strip()
         if articulo:
             bodega_por_articulo[articulo] = bodega_por_articulo.get(articulo, 0) + int(r.get("bodega") or 0)
+        fecha_iso = str(r.get("fecha_iso") or "").strip()
+        if fecha_iso:
+            fechas_conteo[fecha_iso] = fechas_conteo.get(fecha_iso, 0) + 1
 
     top_etapas = [
         {"etapa": e, "total": t}
@@ -206,6 +211,9 @@ def _build_assistant_context(question: str) -> str:
         for a, t in sorted(bodega_por_articulo.items(), key=lambda x: x[1], reverse=True)[:10]
         if t > 0
     ]
+    today_iso = date.today().isoformat()
+    fechas_ordenadas = sorted(fechas_conteo.items(), key=lambda x: x[0], reverse=True)
+    ultimas_fechas = [{"fecha_iso": f, "registros": c} for f, c in fechas_ordenadas[:10]]
 
     q_code = _extract_query_code(question or "")
     detalle_codigo = {}
@@ -253,6 +261,13 @@ def _build_assistant_context(question: str) -> str:
             "restante": "columna restante o pendiente_en_trazabilidad (NO es bodega)",
             "proceso_total": "columna proceso/total de la orden",
             "nota": "nunca confundir restante con bodega",
+        },
+        "fechas": {
+            "campo_principal": "fecha_iso",
+            "descripcion": "fecha del registro importado (no fecha de ingreso al sistema web)",
+            "hoy_iso_servidor": today_iso,
+            "registros_hoy": int(fechas_conteo.get(today_iso, 0)),
+            "ultimas_fechas": ultimas_fechas,
         },
         "resumen_global": {
             "total_registros_saldos": len(rows),
@@ -541,6 +556,8 @@ def _answer_with_gemini(question: str) -> str:
         "Responde en espanol natural, claro y breve (tono humano, no robotico). "
         "Usa SOLO el contexto entregado (proviene de todos los archivos cargados e importados en ADECOM WEB). "
         "Interpretacion obligatoria: BODEGA es solo columna bodega; RESTANTE (pendiente_en_trazabilidad) es distinto y no debe reportarse como bodega. "
+        "Cuando pregunten por fecha o por 'hoy', usa el bloque fechas (campo fecha_iso). "
+        "No digas que no hay fecha si existe fechas.ultimas_fechas o fechas.registros_hoy. "
         "Si preguntan por un codigo/familia, prioriza detalle_codigo.resumen_saldos para los totales. "
         "Si te preguntan si puedes leer archivos, aclara que si puedes analizarlos una vez cargados al sistema. "
         "Si falta dato, dilo explicitamente sin inventar."
