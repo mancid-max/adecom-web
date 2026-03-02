@@ -641,6 +641,7 @@
         shell.classList.toggle("side-collapsed", collapsed);
         toggle.textContent = collapsed ? "▶" : "◀";
         toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
+        toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
       };
       const initialCollapsed = localStorage.getItem(key) === "1";
       setState(initialCollapsed);

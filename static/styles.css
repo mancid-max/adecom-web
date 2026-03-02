@@ -67,6 +67,8 @@ body.modal-open {
   padding: 0;
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  z-index: 3;
 }
 
 .side-toggle:hover {
@@ -109,13 +111,14 @@ body.modal-open {
 }
 
 .side-collapsed .side-brand {
-  font-size: 0;
+  display: none;
 }
 
-.side-collapsed .side-brand::after {
-  content: "Adecom";
-  font-size: 18px;
-  font-weight: 700;
+.side-collapsed .side-head {
+  justify-content: center;
+  border-bottom: 0;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 .side-collapsed .side-link {
@@ -1066,12 +1069,24 @@ td.num {
   .side-collapsed {
     grid-template-columns: 1fr;
   }
-  .side-collapsed .side-link {
-    font-size: 15px;
-    justify-content: flex-start;
+
+  .side-collapsed .side-brand {
+    display: inline;
   }
-  .side-collapsed .side-link::before {
-    display: none;
+
+  .side-collapsed .side-menu {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-top: 0;
+    pointer-events: none;
+    transition: max-height .28s ease, opacity .22s ease, margin-top .22s ease;
+  }
+
+  .side-menu {
+    max-height: 520px;
+    opacity: 1;
+    transition: max-height .28s ease, opacity .22s ease, margin-top .22s ease;
   }
   .hero {
     grid-template-columns: 1fr;
