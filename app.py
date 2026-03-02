@@ -151,6 +151,103 @@ def _resolve_ex_details(code: str) -> dict | None:
     return None
 
 
+def _build_assistant_context(question: str) -> str:
+    rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
+    pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
+    exs_summary = query_exs_balance_summary(DB_PATH, "")
+    ventas_rows = pedidos_sections.get("ventas", [])
+
+    ventas_por_articulo: dict[str, int] = {}
+    ventas_por_familia: dict[str, int] = {}
+    ventas_por_talla: dict[int, int] = {}
+    for r in ventas_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        total = int(r.get("total") or 0)
+        if not articulo:
+            continue
+        ventas_por_articulo[articulo] = ventas_por_articulo.get(articulo, 0) + total
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        ventas_por_familia[familia] = ventas_por_familia.get(familia, 0) + total
+        for item in r.get("tallas_items") or []:
+            talla = int(item.get("talla") or 0)
+            cantidad = int(item.get("cantidad") or 0)
+            if talla > 0:
+                ventas_por_talla[talla] = ventas_por_talla.get(talla, 0) + cantidad
+
+    top_articulos = [
+        {"articulo": a, "total": t}
+        for a, t in sorted(ventas_por_articulo.items(), key=lambda x: x[1], reverse=True)[:12]
+    ]
+    top_familias = [
+        {"familia": f, "total": t}
+        for f, t in sorted(ventas_por_familia.items(), key=lambda x: x[1], reverse=True)[:12]
+    ]
+    curva_tallas = [
+        {"talla": talla, "total": total}
+        for talla, total in sorted(ventas_por_talla.items(), key=lambda x: x[0])
+    ]
+
+    etapas: dict[str, int] = {}
+    bodega_por_articulo: dict[str, int] = {}
+    for r in rows:
+        stage = str(r.get("proceso_actual") or "Sin movimiento")
+        proceso = int(r.get("proceso") or 0)
+        etapas[stage] = etapas.get(stage, 0) + proceso
+        articulo = str(r.get("articulo") or "").strip()
+        if articulo:
+            bodega_por_articulo[articulo] = bodega_por_articulo.get(articulo, 0) + int(r.get("bodega") or 0)
+
+    top_etapas = [
+        {"etapa": e, "total": t}
+        for e, t in sorted(etapas.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+    top_bodega_articulo = [
+        {"articulo": a, "bodega": t}
+        for a, t in sorted(bodega_por_articulo.items(), key=lambda x: x[1], reverse=True)[:10]
+        if t > 0
+    ]
+
+    q_code = _extract_query_code(question or "")
+    detalle_codigo = {}
+    if q_code:
+        code_rows, _, _ = query_rows(DB_PATH, {"q": q_code, "fecha": ""})
+        code_pedidos = query_pedidos_talla_sections(DB_PATH, q_code).get("ventas", [])
+        code_ex = _resolve_ex_details(q_code)
+        detalle_codigo = {
+            "codigo_consultado": q_code,
+            "saldos": code_rows[:30],
+            "ventas": code_pedidos[:20],
+            "ex": code_ex or {},
+        }
+
+    context_data = {
+        "resumen_global": {
+            "total_registros_saldos": len(rows),
+            "ordenes_en_bodega": int(summary.get("ordenes_en_bodega", 0)),
+            "cantidad_en_bodega": int(summary.get("cantidad_en_bodega", 0)),
+            "pendiente_trazabilidad_bodega": int(summary.get("pendiente_en_trazabilidad_bodega", 0)),
+            "total_ventas": sum(int(r.get("total") or 0) for r in ventas_rows),
+        },
+        "exs": {
+            "vinculados": int(exs_summary.get("count", 0)),
+            "saldo_actual_total": int(exs_summary.get("total_actual", 0)),
+            "saldo_ex_total": int(exs_summary.get("total_ex", 0)),
+            "muestras": (exs_summary.get("rows") or [])[:30],
+        },
+        "ventas": {
+            "top_articulos": top_articulos,
+            "top_familias": top_familias,
+            "curva_tallas": curva_tallas,
+        },
+        "saldos": {
+            "top_etapas": top_etapas,
+            "top_bodega_articulo": top_bodega_articulo,
+        },
+        "detalle_codigo": detalle_codigo,
+    }
+    return json.dumps(context_data, ensure_ascii=False)
+
+
 def _answer_assistant(question: str) -> str:
     q = (question or "").strip()
     if not q:
@@ -162,6 +259,22 @@ def _answer_assistant(question: str) -> str:
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
     exs_summary = query_exs_balance_summary(DB_PATH, "")
     asks_location = _has_keyword(qn, ["donde", "parte", "encuentra", "ubicacion", "ubica"])
+
+    if _has_keyword(
+        qn,
+        [
+            "puedes leer txt",
+            "puedes leer excel",
+            "leer archivos",
+            "archivos que cargue",
+            "archivos cargados",
+            "puedes ver mis archivos",
+        ],
+    ):
+        return (
+            "Si. Trabajo con la data que cargaste en ADECOM WEB (TXT/Excel) una vez importada a la base de datos. "
+            "Puedo responder por articulo, familia, tallas, bodega, ventas, EXS y cruces entre esas tablas."
+        )
 
     if _has_keyword(qn, ["ayuda", "que puedes", "que sabes", "como funcionas"]):
         return (
@@ -354,24 +467,11 @@ def _answer_with_gemini(question: str) -> str:
         if m
     ]
 
-    rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
-    pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
-    exs_summary = query_exs_balance_summary(DB_PATH, "")
-    ventas_rows = pedidos_sections.get("ventas", [])
-    ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
-
-    context = (
-        f"Contexto ADECOM WEB (no inventar datos): "
-        f"ordenes_bodega={summary.get('ordenes_en_bodega', 0)}, "
-        f"cantidad_bodega={summary.get('cantidad_en_bodega', 0)}, "
-        f"total_ordenes={len(rows)}, "
-        f"total_ventas={ventas_total}, "
-        f"exs_count={exs_summary.get('count', 0)}, "
-        f"exs_total_actual={exs_summary.get('total_actual', 0)}, "
-        f"exs_total_ex={exs_summary.get('total_ex', 0)}."
-    )
+    context = _build_assistant_context(question)
     instruction = (
         "Responde en espanol, breve y exacto para usuarios de operacion. "
+        "Usa SOLO el contexto entregado (proviene de todos los archivos cargados e importados en ADECOM WEB). "
+        "Si te preguntan si puedes leer archivos, aclara que si puedes analizarlos una vez cargados al sistema. "
         "Si falta dato, dilo explicitamente sin inventar."
     )
     payload = {
