@@ -22,6 +22,7 @@ from adecom_db import (
     init_db,
     import_pedidos_talla_rows,
     import_rows,
+    query_assistant_rules,
     query_exs_balance_summary,
     query_pedidos_talla_sections,
     query_rows,
@@ -156,6 +157,7 @@ def _build_assistant_context(question: str) -> str:
     rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
     exs_summary = query_exs_balance_summary(DB_PATH, "")
+    assistant_rules = query_assistant_rules(DB_PATH, limit=60)
     ventas_rows = pedidos_sections.get("ventas", [])
 
     ventas_por_articulo: dict[str, int] = {}
@@ -262,6 +264,14 @@ def _build_assistant_context(question: str) -> str:
             "proceso_total": "columna proceso/total de la orden",
             "nota": "nunca confundir restante con bodega",
         },
+        "reglas_negocio": [
+            {
+                "key": str(item.get("rule_key") or ""),
+                "text": str(item.get("rule_text") or ""),
+                "priority": int(item.get("priority") or 0),
+            }
+            for item in assistant_rules
+        ],
         "fechas": {
             "campo_principal": "fecha_iso",
             "descripcion": "fecha del registro importado (no fecha de ingreso al sistema web)",
@@ -594,6 +604,7 @@ def _answer_with_gemini(question: str) -> str:
     instruction = (
         "Responde en espanol natural, claro y breve (tono humano, no robotico). "
         "Usa SOLO el contexto entregado (proviene de todos los archivos cargados e importados en ADECOM WEB). "
+        "Aplica siempre 'reglas_negocio' y 'reglas_interpretacion' antes de responder. "
         "Interpretacion obligatoria: BODEGA es solo columna bodega; RESTANTE (pendiente_en_trazabilidad) es distinto y no debe reportarse como bodega. "
         "Cuando pregunten por fecha o por 'hoy', usa el bloque fechas (campo fecha_iso). "
         "No digas que no hay fecha si existe fechas.ultimas_fechas o fechas.registros_hoy. "

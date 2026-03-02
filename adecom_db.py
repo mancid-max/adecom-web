@@ -21,6 +21,39 @@ NUMERIC_FIELDS = [
     "segunda",
 ]
 
+DEFAULT_ASSISTANT_RULES = [
+    (
+        "kpi_bodega",
+        "KPI 'ordenes en bodega' = cantidad de filas con bodega > 0.",
+        10,
+    ),
+    (
+        "kpi_bodega_unidades",
+        "KPI 'cantidad en bodega' = suma de columna bodega.",
+        10,
+    ),
+    (
+        "kpi_restante",
+        "KPI 'restante' corresponde a pendiente_en_trazabilidad (corte_1+taller+t_externo+limpiado+lavanderia+terminacion+muestra+segunda). No equivale a bodega.",
+        10,
+    ),
+    (
+        "orden_vs_etapa",
+        "No confundir 'orden de corte' (identificador de orden) con etapa 'corte' (columna corte_1).",
+        10,
+    ),
+    (
+        "fecha_principal",
+        "Para preguntas de fecha/hoy usar fecha_iso de saldos_seccion como fecha operativa del registro.",
+        10,
+    ),
+    (
+        "ex_familia",
+        "En EXS, la familia se toma con 4 digitos (ej: 416900/416901/4169-01 pertenecen a familia 4169).",
+        10,
+    ),
+]
+
 
 def _is_postgres(db_path: str | Path) -> bool:
     value = str(db_path)
@@ -136,6 +169,19 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS assistant_rules (
+                    id BIGSERIAL PRIMARY KEY,
+                    rule_key TEXT NOT NULL UNIQUE,
+                    rule_text TEXT NOT NULL,
+                    priority INTEGER NOT NULL DEFAULT 100,
+                    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -204,6 +250,31 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS assistant_rules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rule_key TEXT NOT NULL UNIQUE,
+                    rule_text TEXT NOT NULL,
+                    priority INTEGER NOT NULL DEFAULT 100,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+
+        # Semilla minima de reglas de negocio para el asistente.
+        default_values = [(k, t, int(p)) for k, t, p in DEFAULT_ASSISTANT_RULES]
+        _executemany(
+            conn,
+            """
+            INSERT INTO assistant_rules (rule_key, rule_text, priority)
+            VALUES (?, ?, ?)
+            ON CONFLICT(rule_key) DO NOTHING
+            """,
+            default_values,
+        )
     conn.close()
 
 
@@ -636,6 +707,60 @@ def query_exs_balance_summary(db_path: Path, q: str = "") -> dict:
         "total_actual": total_actual,
         "total_ex": total_ex,
     }
+
+
+def query_assistant_rules(db_path: Path, limit: int = 40) -> list[dict]:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    max_rows = max(int(limit or 0), 1)
+    rows = _execute(
+        conn,
+        """
+        SELECT rule_key, rule_text, priority, enabled, updated_at
+        FROM assistant_rules
+        WHERE enabled = ?
+        ORDER BY priority ASC, rule_key ASC
+        LIMIT ?
+        """,
+        (1, max_rows),
+    ).fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        row = dict(r)
+        row["enabled"] = bool(row.get("enabled"))
+        result.append(row)
+    return result
+
+
+def upsert_assistant_rule(
+    db_path: Path,
+    rule_key: str,
+    rule_text: str,
+    priority: int = 100,
+    enabled: bool = True,
+) -> None:
+    init_db(db_path)
+    key = str(rule_key or "").strip().lower()
+    text = str(rule_text or "").strip()
+    if not key or not text:
+        return
+    conn = get_conn(db_path)
+    with conn:
+        _execute(
+            conn,
+            """
+            INSERT INTO assistant_rules (rule_key, rule_text, priority, enabled)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(rule_key) DO UPDATE
+            SET rule_text = excluded.rule_text,
+                priority = excluded.priority,
+                enabled = excluded.enabled,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (key, text, int(priority), 1 if enabled else 0),
+        )
+    conn.close()
 
 
 def _format_date(fecha_iso: str | None) -> str:
