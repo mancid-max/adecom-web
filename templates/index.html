@@ -635,6 +635,7 @@
             placeholder="Pregunta por 4210, bodega, ventas, EXS..."
             autocomplete="off"
           >
+          <button type="button" id="assistantMicBtn" class="assistant-mic-btn" aria-label="Dictar pregunta por voz">Voz</button>
           <button type="submit">Enviar</button>
         </form>
       </section>
@@ -696,6 +697,7 @@
       const form = document.getElementById("assistantChatForm");
       const input = document.getElementById("assistantQuestion");
       const messages = document.getElementById("assistantMessages");
+      const micBtn = document.getElementById("assistantMicBtn");
       if (!widget || !fab || !chat || !closeBtn || !form || !input || !messages) return;
 
       const historyKey = "adecom_assistant_history_v1";
@@ -723,6 +725,19 @@
         history = [{ role: "bot", text: "Hola, soy tu asistente. Preguntame por bodega, ventas, EXS o un articulo." }];
       }
 
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+      let isListening = false;
+      if (SpeechRecognition && micBtn) {
+        recognition = new SpeechRecognition();
+        recognition.lang = "es-CL";
+        recognition.interimResults = true;
+        recognition.continuous = false;
+        recognition.maxAlternatives = 1;
+      } else if (micBtn) {
+        micBtn.style.display = "none";
+      }
+
       const render = () => {
         messages.innerHTML = history
           .map(
@@ -742,6 +757,48 @@
 
       render();
       saveHistory(history);
+
+      if (recognition && micBtn) {
+        recognition.onresult = (event) => {
+          let finalText = "";
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const text = event.results[i][0]?.transcript || "";
+            if (event.results[i].isFinal) finalText += text;
+          }
+          if (finalText.trim()) {
+            input.value = finalText.trim();
+          }
+        };
+        recognition.onerror = () => {
+          isListening = false;
+          micBtn.classList.remove("assistant-mic-active");
+          micBtn.textContent = "Voz";
+        };
+        recognition.onend = () => {
+          isListening = false;
+          micBtn.classList.remove("assistant-mic-active");
+          micBtn.textContent = "Voz";
+        };
+        micBtn.addEventListener("click", () => {
+          if (!recognition) return;
+          if (isListening) {
+            recognition.stop();
+            return;
+          }
+          input.focus();
+          input.value = "";
+          isListening = true;
+          micBtn.classList.add("assistant-mic-active");
+          micBtn.textContent = "Detener";
+          try {
+            recognition.start();
+          } catch (e) {
+            isListening = false;
+            micBtn.classList.remove("assistant-mic-active");
+            micBtn.textContent = "Voz";
+          }
+        });
+      }
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();

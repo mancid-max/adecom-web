@@ -377,8 +377,21 @@ button:hover, .btn-ghost:hover {
   border-top: 1px solid var(--line);
   background: #fff;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
+}
+
+.assistant-mic-btn {
+  min-width: 72px;
+  background: #fff;
+  color: #1f2430;
+  border-color: #8d99ad;
+}
+
+.assistant-mic-active {
+  background: #1f2430;
+  color: #fff;
+  border-color: #1f2430;
 }
 
 .filters form {
