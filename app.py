@@ -4,7 +4,9 @@ import csv
 import io
 import os
 import re
+import unicodedata
 from pathlib import Path
+from difflib import SequenceMatcher
 
 from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -52,6 +54,51 @@ def _can_upload() -> bool:
     return bool(session.get("can_upload"))
 
 
+def _norm_text(value: str) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or ""))
+    no_accents = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    cleaned = re.sub(r"[^a-zA-Z0-9 ]+", " ", no_accents).lower()
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _has_keyword(text: str, options: list[str]) -> bool:
+    words = _norm_text(text).split()
+    normalized = _norm_text(text)
+    for opt in options:
+        opt_n = _norm_text(opt)
+        if not opt_n:
+            continue
+        if opt_n in normalized:
+            return True
+        for w in words:
+            if not w:
+                continue
+            if SequenceMatcher(None, w, opt_n).ratio() >= 0.82:
+                return True
+    return False
+
+
+def _extract_rank(text: str) -> int:
+    tn = _norm_text(text)
+    m = re.search(r"\btop\s+(\d+)\b", tn)
+    if m:
+        return max(int(m.group(1)), 1)
+    m2 = re.search(r"\b(\d+)(?:er|do|to|ro)?\b", tn)
+    if m2 and int(m2.group(1)) <= 10:
+        return max(int(m2.group(1)), 1)
+    if _has_keyword(tn, ["primero", "primer"]):
+        return 1
+    if _has_keyword(tn, ["segundo", "segunda", "segun", "2do"]):
+        return 2
+    if _has_keyword(tn, ["tercero", "tercera", "3ro"]):
+        return 3
+    if _has_keyword(tn, ["cuarto", "cuarta", "4to"]):
+        return 4
+    if _has_keyword(tn, ["quinto", "quinta", "5to"]):
+        return 5
+    return 1
+
+
 def _extract_query_code(question: str) -> str:
     digits = re.findall(r"\d+", question or "")
     if not digits:
@@ -67,11 +114,13 @@ def _answer_assistant(question: str) -> str:
         return "Escribe una pregunta. Ejemplo: En que parte se encuentra 4210."
 
     ql = q.lower()
+    qn = _norm_text(q)
     rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
     exs_summary = query_exs_balance_summary(DB_PATH, "")
+    asks_location = _has_keyword(qn, ["donde", "parte", "encuentra", "ubicacion", "ubica"])
 
-    if "ayuda" in ql or "que puedes" in ql or "que sabes" in ql:
+    if _has_keyword(qn, ["ayuda", "que puedes", "que sabes", "como funcionas"]):
         return (
             "Puedo responder sobre: ordenes en bodega, total muestras, tabla completa, "
             "ventas totales, familia mas vendida, top articulos, EXS y ubicacion por articulo/familia "
@@ -79,7 +128,7 @@ def _answer_assistant(question: str) -> str:
         )
 
     code = _extract_query_code(q)
-    if code:
+    if code and asks_location:
         code_rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
         if not code_rows:
             return f"No encontre datos para {code}."
@@ -107,14 +156,14 @@ def _answer_assistant(question: str) -> str:
             f"Total en proceso: {prendas_proceso}."
         )
 
-    if "bodega" in ql:
+    if _has_keyword(qn, ["bodega", "almacen"]):
         return (
             f"Ordenes en bodega: {summary.get('ordenes_en_bodega', 0)}. "
             f"Cantidad en bodega: {summary.get('cantidad_en_bodega', 0)}. "
             f"Pendiente en trazabilidad: {summary.get('pendiente_en_trazabilidad_bodega', 0)}."
         )
 
-    if "muestra" in ql:
+    if _has_keyword(qn, ["muestra", "muestras"]):
         muestras_rows = [
             row for row in rows if str(row.get("corte", "")).lstrip("0").startswith("96")
         ]
@@ -125,14 +174,14 @@ def _answer_assistant(question: str) -> str:
             f"Prendas en muestras: {muestras_total}. En bodega: {muestras_bodega}."
         )
 
-    if "exs" in ql or " ex " in f" {ql} ":
+    if _has_keyword(qn, ["exs", "ex"]):
         return (
             f"EXS vinculados: {exs_summary.get('count', 0)}. "
             f"Total saldo actual: {exs_summary.get('total_actual', 0)}. "
             f"Total saldo ex: {exs_summary.get('total_ex', 0)}."
         )
 
-    if "venta" in ql or "vendid" in ql:
+    if _has_keyword(qn, ["venta", "ventas", "vendido", "vendida", "vender", "mas vendido"]):
         ventas_rows = pedidos_sections.get("ventas", [])
         ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
         ventas_por_familia: dict[str, int] = {}
@@ -146,20 +195,54 @@ def _answer_assistant(question: str) -> str:
             ventas_por_familia[familia] = ventas_por_familia.get(familia, 0) + total
             ventas_por_articulo[articulo] = ventas_por_articulo.get(articulo, 0) + total
 
-        if "familia" in ql:
-            if not ventas_por_familia:
-                return "No hay datos de ventas para calcular familia mas vendida."
-            fam, total = max(ventas_por_familia.items(), key=lambda x: x[1])
-            return f"Familia mas vendida: {fam}, con {total} unidades."
-        if "articulo" in ql or "top" in ql:
-            if not ventas_por_articulo:
-                return "No hay datos de ventas para calcular top articulos."
-            art, total = max(ventas_por_articulo.items(), key=lambda x: x[1])
-            return f"Articulo top en ventas: {art}, con {total} unidades."
+        rank = _extract_rank(qn)
+        familias_sorted = sorted(ventas_por_familia.items(), key=lambda x: x[1], reverse=True)
+        articulos_sorted = sorted(ventas_por_articulo.items(), key=lambda x: x[1], reverse=True)
+        asks_familia = _has_keyword(qn, ["familia"])
+        asks_articulo = _has_keyword(qn, ["articulo", "modelo", "referencia"])
+        asks_rank = rank > 1 or _has_keyword(qn, ["top", "mas vendido", "mas vendida"])
+
+        if asks_familia:
+            if not familias_sorted:
+                return "No hay datos de ventas para calcular familias."
+            if rank > len(familias_sorted):
+                return f"No hay suficientes familias para obtener el puesto {rank}."
+            fam, total = familias_sorted[rank - 1]
+            return f"Familia #{rank} en ventas: {fam}, con {total} unidades."
+
+        if asks_articulo:
+            if not articulos_sorted:
+                return "No hay datos de ventas para calcular articulos."
+            if rank > len(articulos_sorted):
+                return f"No hay suficientes articulos para obtener el puesto {rank}."
+            art, total = articulos_sorted[rank - 1]
+            return f"Articulo #{rank} en ventas: {art}, con {total} unidades."
+
+        if asks_rank:
+            if not articulos_sorted or not familias_sorted:
+                return "No hay datos de ventas para calcular ranking."
+            if rank > len(articulos_sorted) or rank > len(familias_sorted):
+                return f"No hay suficientes datos para obtener el puesto {rank}."
+            art, art_total = articulos_sorted[rank - 1]
+            fam, fam_total = familias_sorted[rank - 1]
+            return (
+                f"Puesto #{rank} en ventas: articulo {art} ({art_total}) y familia {fam} ({fam_total}). "
+                f"Si quieres uno especifico, pregunta por 'articulo' o 'familia'."
+            )
+
         return f"Total ventas actual: {ventas_total} unidades."
 
-    if "tabla completa" in ql or "total ordenes" in ql or "cuantas ordenes" in ql:
+    if _has_keyword(qn, ["tabla completa", "total ordenes", "cuantas ordenes", "cuantos registros"]):
         return f"Tabla completa: {len(rows)} orden(es) registradas."
+
+    if code:
+        code_rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
+        if not code_rows:
+            return f"No encontre datos para {code}."
+        return (
+            f"Encontre {len(code_rows)} registro(s) para {code}. "
+            "Si quieres ubicacion exacta pregunta: 'en que parte se encuentra ...'."
+        )
 
     return (
         "Puedo ayudarte con bodega, muestras, ventas, EXS o por codigo de articulo/familia. "
