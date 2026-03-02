@@ -786,6 +786,11 @@
         messages.scrollTop = messages.scrollHeight;
       };
 
+      const setHistoryOpen = (open) => {
+        if (!historyPanel) return;
+        historyPanel.style.display = open ? "grid" : "none";
+      };
+
       const setOpen = (open) => {
         widget.classList.toggle("assistant-open", open);
         if (!open) setHistoryOpen(false);
@@ -1430,7 +1435,3 @@
   </script>
 </body>
 </html>
-      const setHistoryOpen = (open) => {
-        if (!historyPanel) return;
-        historyPanel.style.display = open ? "grid" : "none";
-      };
