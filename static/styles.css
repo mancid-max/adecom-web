@@ -287,6 +287,100 @@ button:hover, .btn-ghost:hover {
   font-size: 14px;
 }
 
+.assistant-fab-wrap {
+  position: fixed;
+  right: 16px;
+  bottom: 14px;
+  z-index: 1300;
+}
+
+.assistant-fab {
+  border-radius: 999px;
+  padding: 12px 16px;
+  min-width: 170px;
+  box-shadow: 0 16px 28px rgba(18, 22, 34, 0.3);
+}
+
+.assistant-chat {
+  display: none;
+  width: min(360px, calc(100vw - 24px));
+  height: min(520px, calc(100vh - 30px));
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 22px 44px rgba(18, 22, 34, 0.28);
+  overflow: hidden;
+}
+
+.assistant-open .assistant-fab {
+  display: none;
+}
+
+.assistant-open .assistant-chat {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  animation: fadeUp .22s ease both;
+}
+
+.assistant-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #f6f2ea;
+}
+
+.assistant-close {
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: #1c222c;
+  border-color: #aeb7c3;
+}
+
+.assistant-chat-messages {
+  padding: 10px;
+  overflow: auto;
+  background: #fcfaf6;
+  display: grid;
+  gap: 8px;
+}
+
+.assistant-msg {
+  max-width: 92%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.assistant-msg-user {
+  margin-left: auto;
+  background: #232a36;
+  color: #fff;
+}
+
+.assistant-msg-bot {
+  margin-right: auto;
+  background: #ebe5d9;
+  color: #2a2621;
+}
+
+.assistant-chat-form {
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
 .filters form {
   display: grid;
   grid-template-columns: 2fr 1fr auto auto;
@@ -1122,6 +1216,9 @@ td.num {
   .assistant-form {
     grid-template-columns: 1fr;
   }
+  .assistant-chat-form {
+    grid-template-columns: 1fr;
+  }
   .summary {
     grid-template-columns: 1fr;
   }
@@ -1180,6 +1277,14 @@ td.num {
   }
   .exs-upload-cta button {
     width: 100%;
+  }
+  .assistant-fab-wrap {
+    right: 10px;
+    bottom: 10px;
+  }
+  .assistant-fab {
+    min-width: 148px;
+    padding: 10px 12px;
   }
 }
 

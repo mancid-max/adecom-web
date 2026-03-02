@@ -103,20 +103,6 @@
       </form>
     </section>
 
-    <section class="assistant-card">
-      <h2>Asistente Adecom</h2>
-      <form id="assistantForm" class="assistant-form">
-        <input
-          type="text"
-          id="assistantQuestion"
-          placeholder="Ej: En que parte se encuentra 4210? | Total ventas | EXS total"
-          autocomplete="off"
-        >
-        <button type="submit">Consultar</button>
-      </form>
-      <p id="assistantAnswer" class="assistant-answer">Haz una consulta por articulo o familia.</p>
-    </section>
-
     <section class="summary">
       <article class="card-action summary-focus">
         <button type="button" class="summary-open" id="openBodegaModal">
@@ -631,6 +617,28 @@
 
     </section>
   </main>
+
+    <div class="assistant-fab-wrap" id="assistantWidget">
+      <button type="button" id="assistantFab" class="assistant-fab" aria-label="Abrir asistente virtual">
+        Asistente virtual
+      </button>
+      <section class="assistant-chat" id="assistantChat" aria-live="polite" aria-label="Chat asistente virtual">
+        <header class="assistant-chat-head">
+          <strong>Asistente Virtual</strong>
+          <button type="button" id="assistantClose" class="assistant-close" aria-label="Cerrar asistente">X</button>
+        </header>
+        <div class="assistant-chat-messages" id="assistantMessages"></div>
+        <form id="assistantChatForm" class="assistant-chat-form">
+          <input
+            type="text"
+            id="assistantQuestion"
+            placeholder="Pregunta por 4210, bodega, ventas, EXS..."
+            autocomplete="off"
+          >
+          <button type="submit">Enviar</button>
+        </form>
+      </section>
+    </div>
   </div>
   <script>
     (function () {
@@ -681,19 +689,73 @@
     })();
 
     (function () {
-      const form = document.getElementById("assistantForm");
+      const widget = document.getElementById("assistantWidget");
+      const fab = document.getElementById("assistantFab");
+      const chat = document.getElementById("assistantChat");
+      const closeBtn = document.getElementById("assistantClose");
+      const form = document.getElementById("assistantChatForm");
       const input = document.getElementById("assistantQuestion");
-      const answerBox = document.getElementById("assistantAnswer");
-      if (!form || !input || !answerBox) return;
+      const messages = document.getElementById("assistantMessages");
+      if (!widget || !fab || !chat || !closeBtn || !form || !input || !messages) return;
+
+      const historyKey = "adecom_assistant_history_v1";
+      const loadHistory = () => {
+        try {
+          const raw = localStorage.getItem(historyKey);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      };
+      const saveHistory = (items) => {
+        const sliced = items.slice(-40);
+        localStorage.setItem(historyKey, JSON.stringify(sliced));
+      };
+      const escapeHtml = (text) =>
+        String(text || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+
+      let history = loadHistory();
+      if (!history.length) {
+        history = [{ role: "bot", text: "Hola, soy tu asistente. Preguntame por bodega, ventas, EXS o un articulo." }];
+      }
+
+      const render = () => {
+        messages.innerHTML = history
+          .map(
+            (m) =>
+              `<div class="assistant-msg assistant-msg-${m.role}">${escapeHtml(m.text)}</div>`
+          )
+          .join("");
+        messages.scrollTop = messages.scrollHeight;
+      };
+
+      const setOpen = (open) => {
+        widget.classList.toggle("assistant-open", open);
+      };
+
+      fab.addEventListener("click", () => setOpen(true));
+      closeBtn.addEventListener("click", () => setOpen(false));
+
+      render();
+      saveHistory(history);
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const question = (input.value || "").trim();
-        if (!question) {
-          answerBox.textContent = "Escribe una pregunta para consultar.";
-          return;
-        }
-        answerBox.textContent = "Consultando...";
+        if (!question) return;
+
+        history.push({ role: "user", text: question });
+        render();
+        saveHistory(history);
+        input.value = "";
+
+        history.push({ role: "bot", text: "Consultando..." });
+        render();
+
         try {
           const res = await fetch("{{ url_for('assistant_query') }}", {
             method: "POST",
@@ -701,10 +763,19 @@
             body: JSON.stringify({ question }),
           });
           const data = await res.json();
-          answerBox.textContent = data.answer || "No fue posible resolver la consulta.";
+          history[history.length - 1] = {
+            role: "bot",
+            text: data.answer || "No fue posible resolver la consulta.",
+          };
         } catch (err) {
-          answerBox.textContent = "No fue posible consultar en este momento.";
+          history[history.length - 1] = {
+            role: "bot",
+            text: "No fue posible consultar en este momento.",
+          };
         }
+
+        render();
+        saveHistory(history);
       });
     })();
 
