@@ -245,7 +245,7 @@ def _build_assistant_context(question: str) -> str:
         },
         "detalle_codigo": detalle_codigo,
     }
-    return json.dumps(context_data, ensure_ascii=False)
+    return json.dumps(context_data, ensure_ascii=False, default=str)
 
 
 def _answer_assistant(question: str) -> str:
