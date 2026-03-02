@@ -108,6 +108,46 @@ def _extract_query_code(question: str) -> str:
     return candidates[0] if candidates else digits[0]
 
 
+def _extract_family_code(code: str) -> str:
+    digits = "".join(ch for ch in str(code or "") if ch.isdigit())
+    if not digits:
+        return ""
+    if len(digits) == 4:
+        return digits
+    candidates: list[str] = []
+    if len(digits) >= 8:
+        candidates.append(digits[2:6])
+    if len(digits) >= 6:
+        candidates.append(digits[:4])
+        candidates.append(digits[-4:])
+    if len(digits) >= 4:
+        candidates.append(digits[:4])
+    for c in candidates:
+        if len(c) == 4:
+            return c
+    return digits[:4]
+
+
+def _resolve_ex_details(code: str) -> dict | None:
+    family = _extract_family_code(code)
+    if not family:
+        return None
+    ex_summary = query_exs_balance_summary(DB_PATH, "")
+    rows = ex_summary.get("rows") or []
+    for item in rows:
+        if str(item.get("actual") or "").strip() == family:
+            ex_raw = str(item.get("ex") or "").strip()
+            ex_family = _extract_family_code(ex_raw)
+            return {
+                "family_actual": family,
+                "family_ex": ex_family,
+                "ex_raw": ex_raw,
+                "saldo_actual": int(item.get("saldo_actual") or 0),
+                "saldo_ex": int(item.get("saldo_ex") or 0),
+            }
+    return None
+
+
 def _answer_assistant(question: str) -> str:
     q = (question or "").strip()
     if not q:
@@ -175,6 +215,15 @@ def _answer_assistant(question: str) -> str:
         )
 
     if _has_keyword(qn, ["exs", "ex"]):
+        if code:
+            ex_data = _resolve_ex_details(code)
+            if ex_data:
+                return (
+                    f"EX para {code}: familia actual {ex_data['family_actual']}, "
+                    f"EX {ex_data['ex_raw']} (familia {ex_data['family_ex']}). "
+                    f"Saldo actual: {ex_data['saldo_actual']}. Saldo EX: {ex_data['saldo_ex']}."
+                )
+            return f"No encontre mapeo EX para {code}."
         return (
             f"EXS vinculados: {exs_summary.get('count', 0)}. "
             f"Total saldo actual: {exs_summary.get('total_actual', 0)}. "
@@ -234,6 +283,40 @@ def _answer_assistant(question: str) -> str:
 
     if _has_keyword(qn, ["tabla completa", "total ordenes", "cuantas ordenes", "cuantos registros"]):
         return f"Tabla completa: {len(rows)} orden(es) registradas."
+
+    if code and _has_keyword(qn, ["toda la informacion", "todo sobre", "detalle completo", "toda la info"]):
+        code_rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
+        if not code_rows:
+            ex_data = _resolve_ex_details(code)
+            if ex_data:
+                return (
+                    f"{code}: no tiene registros en saldos actuales, pero su mapeo EX es "
+                    f"{ex_data['ex_raw']} (familia {ex_data['family_ex']}). "
+                    f"Saldo actual: {ex_data['saldo_actual']}; saldo EX: {ex_data['saldo_ex']}."
+                )
+            return f"No encontre datos para {code}."
+        ordenes = len(code_rows)
+        prendas_bodega = sum(int(r.get("bodega") or 0) for r in code_rows)
+        prendas_proceso = sum(int(r.get("proceso") or 0) for r in code_rows)
+        pendientes = sum(int(r.get("pendiente_en_trazabilidad") or 0) for r in code_rows)
+        by_stage: dict[str, int] = {}
+        for r in code_rows:
+            stage = str(r.get("proceso_actual") or "Sin movimiento")
+            by_stage[stage] = by_stage.get(stage, 0) + int(r.get("proceso") or 0)
+        stage_txt = ", ".join(f"{k}:{v}" for k, v in sorted(by_stage.items(), key=lambda x: x[1], reverse=True)[:4])
+
+        ventas_related = query_pedidos_talla_sections(DB_PATH, code).get("ventas", [])
+        ventas_total = sum(int(r.get("total") or 0) for r in ventas_related)
+        ex_data = _resolve_ex_details(code)
+        ex_txt = (
+            f"EX {ex_data['ex_raw']} (familia {ex_data['family_ex']}), saldo ex {ex_data['saldo_ex']}"
+            if ex_data
+            else "sin mapeo EX"
+        )
+        return (
+            f"{code}: ordenes {ordenes}; en bodega {prendas_bodega}; total proceso {prendas_proceso}; "
+            f"pendiente {pendientes}; etapas {stage_txt}; ventas relacionadas {ventas_total}; {ex_txt}."
+        )
 
     if code:
         code_rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
