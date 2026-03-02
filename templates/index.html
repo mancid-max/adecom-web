@@ -15,7 +15,7 @@
         <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">◀</button>
       </div>
       <nav class="side-menu">
-        <a href="{{ url_for('index') }}" class="side-link side-link-active">Dashboard</a>
+        <a href="{{ url_for('index') }}" class="side-link side-link-active">Pagina Principal</a>
         <a href="#openBodegaModal" class="side-link">Ordenes bodega</a>
         <a href="#openMuestrasModal" class="side-link">Muestras</a>
         <a href="#openFullTableModal" class="side-link">Tabla completa</a>
@@ -101,6 +101,20 @@
         <a class="btn-ghost" href="{{ url_for('index') }}">Limpiar</a>
         <a class="btn-ghost" href="{{ url_for('export_csv', **filters) }}">Exportar CSV</a>
       </form>
+    </section>
+
+    <section class="assistant-card">
+      <h2>Asistente Adecom</h2>
+      <form id="assistantForm" class="assistant-form">
+        <input
+          type="text"
+          id="assistantQuestion"
+          placeholder="Ej: En que parte se encuentra 4210?"
+          autocomplete="off"
+        >
+        <button type="submit">Consultar</button>
+      </form>
+      <p id="assistantAnswer" class="assistant-answer">Haz una consulta por articulo o familia.</p>
     </section>
 
     <section class="summary">
@@ -663,6 +677,34 @@
           }
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         });
+      });
+    })();
+
+    (function () {
+      const form = document.getElementById("assistantForm");
+      const input = document.getElementById("assistantQuestion");
+      const answerBox = document.getElementById("assistantAnswer");
+      if (!form || !input || !answerBox) return;
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const question = (input.value || "").trim();
+        if (!question) {
+          answerBox.textContent = "Escribe una pregunta para consultar.";
+          return;
+        }
+        answerBox.textContent = "Consultando...";
+        try {
+          const res = await fetch("{{ url_for('assistant_query') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+          });
+          const data = await res.json();
+          answerBox.textContent = data.answer || "No fue posible resolver la consulta.";
+        } catch (err) {
+          answerBox.textContent = "No fue posible consultar en este momento.";
+        }
       });
     })();
 

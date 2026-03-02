@@ -3,9 +3,10 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 from pathlib import Path
 
-from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
@@ -49,6 +50,52 @@ def _can_upload() -> bool:
     if not key:
         return True
     return bool(session.get("can_upload"))
+
+
+def _extract_query_code(question: str) -> str:
+    digits = re.findall(r"\d+", question or "")
+    if not digits:
+        return ""
+    # Preferimos codigos de al menos 4 digitos para familia/articulo.
+    candidates = [d for d in digits if len(d) >= 4]
+    return candidates[0] if candidates else digits[0]
+
+
+def _answer_assistant(question: str) -> str:
+    q = (question or "").strip()
+    if not q:
+        return "Escribe una pregunta. Ejemplo: En que parte se encuentra 4210."
+
+    code = _extract_query_code(q)
+    if not code:
+        return "No detecte articulo o familia en tu pregunta. Incluye un codigo como 4210 o 01420100."
+
+    rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
+    if not rows:
+        return f"No encontre datos para {code}."
+
+    bodega_rows = [r for r in rows if int(r.get("bodega") or 0) > 0]
+    prendas_bodega = sum(int(r.get("bodega") or 0) for r in rows)
+    prendas_proceso = sum(int(r.get("proceso") or 0) for r in rows)
+    pendientes = sum(int(r.get("pendiente_en_trazabilidad") or 0) for r in rows)
+
+    if bodega_rows:
+        return (
+            f"{code}: se encuentra en bodega en {len(bodega_rows)} orden(es), "
+            f"con {prendas_bodega} prendas en bodega. "
+            f"Total en proceso: {prendas_proceso}. Pendiente en trazabilidad: {pendientes}."
+        )
+
+    top_stage: dict[str, int] = {}
+    for row in rows:
+        stage = str(row.get("proceso_actual") or "Sin movimiento")
+        top_stage[stage] = top_stage.get(stage, 0) + int(row.get("proceso") or 0)
+    stage_name, stage_total = max(top_stage.items(), key=lambda x: x[1])
+    return (
+        f"{code}: no tiene prendas en bodega actualmente. "
+        f"La mayor cantidad esta en {stage_name} con {stage_total} prendas. "
+        f"Total en proceso: {prendas_proceso}."
+    )
 
 
 def _table_count(table_name: str) -> int:
@@ -289,6 +336,15 @@ def admin_logout():
     session.pop("can_upload", None)
     flash("Modo carga desactivado.", "success")
     return redirect(url_for("index"))
+
+
+@app.post("/assistant/query")
+def assistant_query():
+    payload = request.get_json(silent=True) or {}
+    question = str(payload.get("question") or "").strip()
+    answer = _answer_assistant(question)
+    return jsonify({"answer": answer})
+
 
 @app.get("/export.csv")
 def export_csv():

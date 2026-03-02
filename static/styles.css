@@ -260,6 +260,33 @@ button:hover, .btn-ghost:hover {
   animation: fadeUp .45s ease both;
 }
 
+.assistant-card {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(40, 31, 21, 0.06);
+}
+
+.assistant-card h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-family: "Cormorant Garamond", "Times New Roman", serif;
+}
+
+.assistant-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.assistant-answer {
+  margin: 10px 0 2px;
+  color: #2d3642;
+  font-size: 14px;
+}
+
 .filters form {
   display: grid;
   grid-template-columns: 2fr 1fr auto auto;
@@ -1090,6 +1117,9 @@ td.num {
     justify-content: flex-start;
   }
   .filters form {
+    grid-template-columns: 1fr;
+  }
+  .assistant-form {
     grid-template-columns: 1fr;
   }
   .summary {
