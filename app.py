@@ -602,7 +602,9 @@ def _answer_with_gemini(question: str) -> str:
 
     context = _build_assistant_context(question)
     instruction = (
-        "Responde en espanol natural, claro y breve (tono humano, no robotico). "
+        "Responde en espanol con tono cercano y natural, como un asistente humano. "
+        "Prioriza frases cortas y claras; evita sonar mecanico. "
+        "No uses listas largas salvo que te pidan detalle. "
         "Usa SOLO el contexto entregado (proviene de todos los archivos cargados e importados en ADECOM WEB). "
         "Aplica siempre 'reglas_negocio' y 'reglas_interpretacion' antes de responder. "
         "Interpretacion obligatoria: BODEGA es solo columna bodega; RESTANTE (pendiente_en_trazabilidad) es distinto y no debe reportarse como bodega. "
