@@ -609,6 +609,11 @@ def miles(value):
 
 @app.get("/")
 def index():
+    assistant_provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
+    if assistant_provider in {"google", "gemini"}:
+        assistant_provider = "gemini"
+    else:
+        assistant_provider = "local"
     filters = {
         "q": request.args.get("q", "").strip(),
         "fecha": request.args.get("fecha", "").strip(),
@@ -738,6 +743,7 @@ def index():
         upload_debug=upload_debug,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
+        assistant_provider=assistant_provider,
     )
 
 
