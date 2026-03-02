@@ -73,6 +73,22 @@ from app import app as application
 
 Con esto, `data/adecom.db` queda en disco persistente dentro de tu cuenta.
 
+## Para que siempre quede la ultima carga
+
+Define estas variables en produccion:
+
+- `ADECOM_ENABLE_SEED=0` (evita volver a datos semilla al reiniciar)
+- `ADECOM_DB_PATH=/ruta/persistente/adecom.db` (BD en disco persistente)
+
+Ejemplo en PythonAnywhere:
+
+```text
+ADECOM_ENABLE_SEED=0
+ADECOM_DB_PATH=/home/TU_USUARIO/ADECOM WEB/data/adecom.db
+```
+
+Con esto, la ultima carga se mantiene tras reinicios.
+
 ## Opcion alternativa: Koyeb (gratis)
 
 Koyeb tambien es una buena alternativa. En free tier suele escalar a cero despues de inactividad (mas tolerante que Render), y despierta al recibir trafico.

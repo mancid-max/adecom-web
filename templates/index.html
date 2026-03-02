@@ -28,7 +28,10 @@
               role="status"
               aria-live="polite"
             >
-              {{ msg }}
+              <div class="search-alert-body">
+                <span>{{ msg }}</span>
+                <button type="button" class="search-alert-close" aria-label="Cerrar alerta">X</button>
+              </div>
             </div>
           {% endfor %}
         </section>
@@ -533,6 +536,9 @@
             </tbody>
           </table>
         </section>
+        <div class="exs-upload-cta">
+          <button type="button" id="openExsUploadBtn">Cargar data EXS</button>
+        </div>
       </dialog>
 
       <dialog id="topArticulosModal" class="modal modal-top-familia">
@@ -597,15 +603,23 @@
     (function () {
       const alerts = Array.from(document.querySelectorAll("[data-auto-dismiss-ms]"));
       if (!alerts.length) return;
+      const dismissAlert = (alertBox) => {
+        if (!alertBox || alertBox.classList.contains("search-alert-hide")) return;
+        alertBox.classList.add("search-alert-hide");
+        setTimeout(() => {
+          alertBox.remove();
+          const wrap = document.getElementById("flashAlertWrap");
+          if (wrap && !wrap.querySelector(".search-alert")) wrap.remove();
+        }, 380);
+      };
       alerts.forEach((alertBox) => {
         const ms = Number(alertBox.getAttribute("data-auto-dismiss-ms")) || 10000;
+        const closeBtn = alertBox.querySelector(".search-alert-close");
+        if (closeBtn) {
+          closeBtn.addEventListener("click", () => dismissAlert(alertBox));
+        }
         setTimeout(() => {
-          alertBox.classList.add("search-alert-hide");
-          setTimeout(() => {
-            alertBox.remove();
-            const wrap = document.getElementById("flashAlertWrap");
-            if (wrap && !wrap.querySelector(".search-alert")) wrap.remove();
-          }, 380);
+          dismissAlert(alertBox);
         }, ms);
       });
     })();
@@ -615,7 +629,7 @@
       const openBtn = document.getElementById("openBodegaModal");
       const closeBtn = document.getElementById("closeBodegaModal");
       if (!modal || !openBtn || !closeBtn) return;
-      openBtn.addEventListener("click", () => modal.showModal());
+      openBtn.addEventListener("click", () => openUpload(".txt,.csv,.xlsx"));
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
@@ -793,8 +807,21 @@
       const modal = document.getElementById("uploadModal");
       const openBtn = document.getElementById("openUploadModal");
       const closeBtn = document.getElementById("closeUploadModal");
+      const exsBtn = document.getElementById("openExsUploadBtn");
+      const fileInput = document.getElementById("file");
       if (!modal || !openBtn || !closeBtn) return;
+      const openUpload = (acceptValue) => {
+        if (fileInput && acceptValue) fileInput.setAttribute("accept", acceptValue);
+        modal.showModal();
+      };
       openBtn.addEventListener("click", () => modal.showModal());
+      if (exsBtn) {
+        exsBtn.addEventListener("click", () => {
+          const exsModal = document.getElementById("exsModal");
+          if (exsModal && exsModal.open) exsModal.close();
+          openUpload(".xlsx");
+        });
+      }
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();

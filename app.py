@@ -23,7 +23,9 @@ from parsers import parse_pedidos_talla_txt, parse_saldos_txt, parse_uploaded_fi
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
-DB_PATH = BASE_DIR / "data" / "adecom.db"
+DB_PATH = Path(
+    os.environ.get("ADECOM_DB_PATH", str(BASE_DIR / "data" / "adecom.db"))
+).resolve()
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
@@ -56,7 +58,12 @@ def ensure_seed_data() -> None:
             import_pedidos_talla_rows(DB_PATH, pedidos_rows)
 
 
-ensure_seed_data()
+# En despliegues, no sembrar datos automaticamente a menos que se solicite.
+# Esto evita "volver" a los datos del seed cuando el hosting reinicia con disco efimero.
+if os.environ.get("ADECOM_ENABLE_SEED", "0").strip() == "1":
+    ensure_seed_data()
+else:
+    init_db(DB_PATH)
 
 
 @app.template_filter("miles")
