@@ -772,9 +772,21 @@
           .replaceAll(">", "&gt;");
 
       const previousHistory = loadHistory();
-      let history = previousHistory.length
-        ? previousHistory.slice(-40)
-        : [{ role: "bot", text: "Hola, soy tu asistente virtual, en que te puedo ayudar?" }];
+      const hasUserMessages = previousHistory.some(
+        (m) => m && m.role === "user" && String(m.text || "").trim()
+      );
+      if (hasUserMessages) {
+        const archive = normalizeArchive(loadArchive());
+        archive.push({
+          id: `session-${Date.now()}`,
+          at: new Date().toISOString(),
+          messages: previousHistory.slice(-40),
+          title: sessionTitle(previousHistory),
+        });
+        saveArchive(archive);
+      }
+      let history = [{ role: "bot", text: "Hola, soy tu asistente virtual, en que te puedo ayudar?" }];
+      saveHistory(history);
 
       const setProviderBadge = (provider, fallback) => {
         if (!providerBadge) return;
@@ -846,7 +858,7 @@
                 return `<div class="assistant-history-line"><strong>${role}:</strong> ${escapeHtml(m.text || "")}</div>`;
               })
               .join("");
-            return `<button type="button" class="assistant-history-session assistant-history-open-btn" data-session-id="${escapeHtml(session.id)}"><h4>${escapeHtml(session.title || "Chat")}</h4><div class="assistant-history-date">${dateLabel}</div>${lines}</button>`;
+            return `<article class="assistant-history-session assistant-history-open-btn" data-session-id="${escapeHtml(session.id)}" role="button" tabindex="0"><h4>${escapeHtml(session.title || "Chat")}</h4><div class="assistant-history-date">${dateLabel}</div>${lines}</article>`;
           })
           .join("");
       };
@@ -873,6 +885,13 @@
           saveHistory(history);
           render();
           setHistoryOpen(false);
+        });
+        historyList.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          const target = event.target.closest(".assistant-history-open-btn");
+          if (!target) return;
+          event.preventDefault();
+          target.click();
         });
       }
 

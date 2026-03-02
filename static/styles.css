@@ -479,6 +479,7 @@ button:hover, .btn-ghost:hover {
 }
 
 .assistant-history-session {
+  display: block;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fcfaf6;
@@ -493,6 +494,11 @@ button:hover, .btn-ghost:hover {
 .assistant-history-session:hover {
   background: #f5eee3;
   border-color: #d5c4a9;
+}
+
+.assistant-history-session:focus-visible {
+  outline: 2px solid #314765;
+  outline-offset: 1px;
 }
 
 .assistant-history-date {
