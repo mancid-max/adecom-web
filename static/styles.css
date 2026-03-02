@@ -26,6 +26,109 @@ body.modal-open {
   overflow: hidden;
 }
 
+.app-shell {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns .34s cubic-bezier(.2,.7,.2,1);
+}
+
+.side-nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: linear-gradient(180deg, #21262f 0%, #1b2028 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.09);
+  color: #e8eef8;
+  padding: 16px 12px;
+  overflow: hidden;
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.side-brand {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  font-family: "Cormorant Garamond", "Times New Roman", serif;
+}
+
+.side-toggle {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.side-toggle:hover {
+  box-shadow: none;
+  transform: translateY(0) scale(1.04);
+}
+
+.side-menu {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.side-link {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #d7e2f3;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  transition: background-color .2s ease, border-color .2s ease, transform .18s ease;
+}
+
+.side-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateX(2px);
+}
+
+.side-link-active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.side-collapsed {
+  grid-template-columns: 82px 1fr;
+}
+
+.side-collapsed .side-brand {
+  font-size: 0;
+}
+
+.side-collapsed .side-brand::after {
+  content: "Adecom";
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.side-collapsed .side-link {
+  justify-content: center;
+  font-size: 0;
+}
+
+.side-collapsed .side-link::before {
+  content: "•";
+  font-size: 18px;
+  line-height: 1;
+}
+
 .page {
   max-width: 1280px;
   margin: 0 auto;
@@ -951,6 +1054,25 @@ td.num {
 }
 
 @media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .side-nav {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .side-collapsed {
+    grid-template-columns: 1fr;
+  }
+  .side-collapsed .side-link {
+    font-size: 15px;
+    justify-content: flex-start;
+  }
+  .side-collapsed .side-link::before {
+    display: none;
+  }
   .hero {
     grid-template-columns: 1fr;
   }

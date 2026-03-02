@@ -8,6 +8,22 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+  <div class="app-shell" id="appShell">
+    <aside class="side-nav" id="sideNav" aria-label="Panel lateral">
+      <div class="side-head">
+        <span class="side-brand">Adecom</span>
+        <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">◀</button>
+      </div>
+      <nav class="side-menu">
+        <a href="{{ url_for('index') }}" class="side-link side-link-active">Dashboard</a>
+        <a href="#openBodegaModal" class="side-link">Ordenes bodega</a>
+        <a href="#openMuestrasModal" class="side-link">Muestras</a>
+        <a href="#openFullTableModal" class="side-link">Tabla completa</a>
+        <a href="#openVentasTotalModal" class="side-link">Ventas</a>
+        <a href="#openExsModal" class="side-link">EXS</a>
+      </nav>
+    </aside>
+
   <main class="page">
     <header class="hero">
       <div>
@@ -601,6 +617,7 @@
 
     </section>
   </main>
+  </div>
   <script>
     (function () {
       const dialogs = Array.from(document.querySelectorAll("dialog"));
@@ -612,6 +629,40 @@
       const observer = new MutationObserver(syncBodyLock);
       dialogs.forEach((d) => observer.observe(d, { attributes: true, attributeFilter: ["open"] }));
       syncBodyLock();
+    })();
+
+    (function () {
+      const shell = document.getElementById("appShell");
+      const nav = document.getElementById("sideNav");
+      const toggle = document.getElementById("sideToggleBtn");
+      if (!shell || !nav || !toggle) return;
+      const key = "adecom_side_collapsed";
+      const setState = (collapsed) => {
+        shell.classList.toggle("side-collapsed", collapsed);
+        toggle.textContent = collapsed ? "▶" : "◀";
+        toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
+      };
+      const initialCollapsed = localStorage.getItem(key) === "1";
+      setState(initialCollapsed);
+      toggle.addEventListener("click", () => {
+        const collapsed = !shell.classList.contains("side-collapsed");
+        setState(collapsed);
+        localStorage.setItem(key, collapsed ? "1" : "0");
+      });
+
+      document.querySelectorAll(".side-link[href^='#']").forEach((link) => {
+        link.addEventListener("click", (event) => {
+          const id = (link.getAttribute("href") || "").slice(1);
+          const target = id ? document.getElementById(id) : null;
+          if (!target) return;
+          event.preventDefault();
+          if (target.tagName === "BUTTON") {
+            target.click();
+            return;
+          }
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
     })();
 
     (function () {
