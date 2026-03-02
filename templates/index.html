@@ -772,17 +772,9 @@
           .replaceAll(">", "&gt;");
 
       const previousHistory = loadHistory();
-      if (previousHistory.length) {
-        const archive = normalizeArchive(loadArchive());
-        archive.push({
-          id: `session-${Date.now()}`,
-          at: new Date().toISOString(),
-          messages: previousHistory.slice(-40),
-          title: sessionTitle(previousHistory),
-        });
-        saveArchive(archive);
-      }
-      let history = [{ role: "bot", text: "Hola, soy tu asistente virtual, en que te puedo ayudar?" }];
+      let history = previousHistory.length
+        ? previousHistory.slice(-40)
+        : [{ role: "bot", text: "Hola, soy tu asistente virtual, en que te puedo ayudar?" }];
 
       const setProviderBadge = (provider, fallback) => {
         if (!providerBadge) return;
