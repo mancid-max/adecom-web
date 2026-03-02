@@ -554,6 +554,29 @@ def _answer_with_gemini(question: str) -> str:
         ]
     }
 
+    # 1) Intento principal con SDK oficial de Gemini.
+    sdk_errors: list[str] = []
+    try:
+        from google import genai  # type: ignore
+
+        client = genai.Client(api_key=api_key)
+        for model in model_candidates:
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=f"{instruction}\n{context}\nPregunta: {question}",
+                )
+                text = str(getattr(response, "text", "") or "").strip()
+                if text:
+                    return text
+                sdk_errors.append(f"{model}:sin_texto")
+            except Exception as exc:
+                sdk_errors.append(f"{model}:{exc}")
+                continue
+    except Exception as exc:
+        sdk_errors.append(f"sdk_import_or_client:{exc}")
+
+    # 2) Fallback REST si el SDK falla.
     last_error = None
     tried: list[str] = []
     for api_version in api_versions:
@@ -595,6 +618,7 @@ def _answer_with_gemini(question: str) -> str:
 
     raise RuntimeError(
         "Gemini no disponible. "
+        f"SDK: {'; '.join(sdk_errors[:8]) if sdk_errors else 'sin_intentos_sdk'}. "
         f"Modelos intentados: {', '.join(tried)}. "
         f"Listado modelos: {'; '.join(list_errors) if list_errors else 'ok'}. "
         f"Detalle final: {last_error}"
