@@ -642,7 +642,7 @@
           </div>
           <div class="assistant-history-list" id="assistantHistoryList"></div>
         </section>
-        <form id="assistantChatForm" class="assistant-chat-form">
+        <form id="assistantChatForm" class="assistant-chat-form" onsubmit="return false;">
           <input
             type="text"
             id="assistantQuestion"
@@ -907,6 +907,12 @@
 
         render();
         saveHistory(history);
+      });
+
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        form.requestSubmit();
       });
     })();
 
