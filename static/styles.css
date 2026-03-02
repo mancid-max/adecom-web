@@ -343,6 +343,32 @@ button:hover, .btn-ghost:hover {
   gap: 6px;
 }
 
+.assistant-provider-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #b8bfcb;
+  background: #eef1f6;
+  color: #263041;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.assistant-provider-gemini {
+  border-color: #b7d8c3;
+  background: #e8f7ef;
+  color: #1f6a3a;
+}
+
+.assistant-provider-local {
+  border-color: #d8c8b0;
+  background: #f6efe4;
+  color: #6b4a1c;
+}
+
 .assistant-history-btn {
   background: transparent;
   color: #1c222c;

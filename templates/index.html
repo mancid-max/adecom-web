@@ -630,6 +630,7 @@
         <header class="assistant-chat-head">
           <strong>Asistente Virtual</strong>
           <div class="assistant-head-actions">
+            <span id="assistantProvider" class="assistant-provider-pill">Proveedor: --</span>
             <button type="button" id="assistantHistoryBtn" class="assistant-history-btn" aria-label="Ver historial">Historial</button>
             <button type="button" id="assistantClose" class="assistant-close" aria-label="Cerrar asistente">X</button>
           </div>
@@ -712,6 +713,7 @@
       const historyPanel = document.getElementById("assistantHistoryPanel");
       const historyClose = document.getElementById("assistantHistoryClose");
       const historyList = document.getElementById("assistantHistoryList");
+      const providerBadge = document.getElementById("assistantProvider");
       const form = document.getElementById("assistantChatForm");
       const input = document.getElementById("assistantQuestion");
       const messages = document.getElementById("assistantMessages");
@@ -761,7 +763,22 @@
         });
         saveArchive(archive);
       }
-      let history = [{ role: "bot", text: "Hola, soy tu asistente virtual, ¿en qué te puedo ayudar?" }];
+      let history = [{ role: "bot", text: "Hola, soy tu asistente virtual, en que te puedo ayudar?" }];
+
+      const setProviderBadge = (provider, fallback) => {
+        if (!providerBadge) return;
+        const p = String(provider || "").toLowerCase();
+        if (p === "gemini" && !fallback) {
+          providerBadge.textContent = "Proveedor: Gemini";
+          providerBadge.classList.remove("assistant-provider-local");
+          providerBadge.classList.add("assistant-provider-gemini");
+          return;
+        }
+        providerBadge.textContent = fallback ? "Proveedor: Local (fallback)" : "Proveedor: Local";
+        providerBadge.classList.remove("assistant-provider-gemini");
+        providerBadge.classList.add("assistant-provider-local");
+      };
+      setProviderBadge("local", false);
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       let recognition = null;
@@ -900,6 +917,7 @@
             body: JSON.stringify({ question }),
           });
           const data = await res.json();
+          setProviderBadge(data.provider, Boolean(data.fallback));
           history[history.length - 1] = {
             role: "bot",
             text: data.answer || "No fue posible resolver la consulta.",
@@ -1436,3 +1454,5 @@
   </script>
 </body>
 </html>
+
+
