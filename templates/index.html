@@ -748,6 +748,23 @@
         const sliced = items.slice(-20);
         localStorage.setItem(archiveKey, JSON.stringify(sliced));
       };
+      const sessionTitle = (messages) => {
+        const list = Array.isArray(messages) ? messages : [];
+        const firstUser = list.find((m) => m && m.role === "user" && String(m.text || "").trim());
+        const firstAny = list.find((m) => m && String(m.text || "").trim());
+        const base = String((firstUser || firstAny || {}).text || "Chat sin titulo").trim();
+        return base.length > 56 ? `${base.slice(0, 56)}...` : base;
+      };
+      const normalizeArchive = (items) => {
+        const list = Array.isArray(items) ? items : [];
+        return list.map((session, idx) => {
+          const id = String(session?.id || `${session?.at || "session"}-${idx}`);
+          const at = String(session?.at || new Date().toISOString());
+          const messages = Array.isArray(session?.messages) ? session.messages.slice(-40) : [];
+          const title = String(session?.title || sessionTitle(messages));
+          return { id, at, messages, title };
+        });
+      };
       const escapeHtml = (text) =>
         String(text || "")
           .replaceAll("&", "&amp;")
@@ -756,10 +773,12 @@
 
       const previousHistory = loadHistory();
       if (previousHistory.length) {
-        const archive = loadArchive();
+        const archive = normalizeArchive(loadArchive());
         archive.push({
+          id: `session-${Date.now()}`,
           at: new Date().toISOString(),
           messages: previousHistory.slice(-40),
+          title: sessionTitle(previousHistory),
         });
         saveArchive(archive);
       }
@@ -819,7 +838,7 @@
 
       const renderArchive = () => {
         if (!historyList) return;
-        const archive = loadArchive().slice().reverse();
+        const archive = normalizeArchive(loadArchive()).slice().reverse();
         if (!archive.length) {
           historyList.innerHTML = '<p class="assistant-history-empty">Aun no hay historial guardado.</p>';
           return;
@@ -835,7 +854,7 @@
                 return `<div class="assistant-history-line"><strong>${role}:</strong> ${escapeHtml(m.text || "")}</div>`;
               })
               .join("");
-            return `<article class="assistant-history-session"><h4>${dateLabel}</h4>${lines}</article>`;
+            return `<button type="button" class="assistant-history-session assistant-history-open-btn" data-session-id="${escapeHtml(session.id)}"><h4>${escapeHtml(session.title || "Chat")}</h4><div class="assistant-history-date">${dateLabel}</div>${lines}</button>`;
           })
           .join("");
       };
@@ -848,6 +867,19 @@
           setHistoryOpen(open);
         });
         historyClose.addEventListener("click", () => {
+          setHistoryOpen(false);
+        });
+        historyList.addEventListener("click", (event) => {
+          const target = event.target.closest(".assistant-history-open-btn");
+          if (!target) return;
+          const sessionId = target.getAttribute("data-session-id") || "";
+          if (!sessionId) return;
+          const archive = normalizeArchive(loadArchive());
+          const selected = archive.find((s) => s.id === sessionId);
+          if (!selected || !Array.isArray(selected.messages) || !selected.messages.length) return;
+          history = selected.messages.slice(-40);
+          saveHistory(history);
+          render();
           setHistoryOpen(false);
         });
       }

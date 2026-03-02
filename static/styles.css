@@ -483,6 +483,22 @@ button:hover, .btn-ghost:hover {
   border-radius: 10px;
   background: #fcfaf6;
   padding: 8px;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  cursor: pointer;
+  min-height: 0;
+}
+
+.assistant-history-session:hover {
+  background: #f5eee3;
+  border-color: #d5c4a9;
+}
+
+.assistant-history-date {
+  margin: -2px 0 6px;
+  font-size: 11px;
+  color: #697482;
 }
 
 .assistant-history-session h4 {
