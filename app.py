@@ -341,10 +341,8 @@ def _answer_with_gemini(question: str) -> str:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY no configurada.")
 
-    model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
-    endpoint = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    )
+    env_model = os.environ.get("GEMINI_MODEL", "").strip()
+    model_candidates = [m for m in [env_model, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"] if m]
 
     rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
@@ -375,23 +373,40 @@ def _answer_with_gemini(question: str) -> str:
         ]
     }
 
-    req = url_request.Request(
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with url_request.urlopen(req, timeout=18) as resp:
-        raw = resp.read().decode("utf-8")
-    data = json.loads(raw or "{}")
-    candidates = data.get("candidates") or []
-    if not candidates:
-        raise RuntimeError("Gemini no retorno candidatos.")
-    parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
-    text = " ".join(str(p.get("text") or "").strip() for p in parts).strip()
-    if not text:
-        raise RuntimeError("Gemini no retorno texto.")
-    return text
+    last_error = None
+    for model in model_candidates:
+        endpoint = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        )
+        req = url_request.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with url_request.urlopen(req, timeout=18) as resp:
+                raw = resp.read().decode("utf-8")
+            data = json.loads(raw or "{}")
+            candidates = data.get("candidates") or []
+            if not candidates:
+                last_error = RuntimeError(f"Gemini ({model}) no retorno candidatos.")
+                continue
+            parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
+            text = " ".join(str(p.get("text") or "").strip() for p in parts).strip()
+            if not text:
+                last_error = RuntimeError(f"Gemini ({model}) no retorno texto.")
+                continue
+            return text
+        except url_error.HTTPError as exc:
+            # 404 suele ser modelo no disponible; intentamos siguiente modelo.
+            last_error = RuntimeError(f"Gemini ({model}) HTTP {exc.code}")
+            continue
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    raise RuntimeError(f"Gemini no disponible. Detalle: {last_error}")
 
 
 def _answer_assistant_router(question: str) -> str:
