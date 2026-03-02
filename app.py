@@ -213,14 +213,47 @@ def _build_assistant_context(question: str) -> str:
         code_rows, _, _ = query_rows(DB_PATH, {"q": q_code, "fecha": ""})
         code_pedidos = query_pedidos_talla_sections(DB_PATH, q_code).get("ventas", [])
         code_ex = _resolve_ex_details(q_code)
+        saldos_detalle_limpio = []
+        total_bodega_code = 0
+        total_restante_code = 0
+        total_proceso_code = 0
+        for r in code_rows[:30]:
+            bodega = int(r.get("bodega") or 0)
+            restante = int(r.get("pendiente_en_trazabilidad") or 0)
+            proceso = int(r.get("proceso") or 0)
+            total_bodega_code += bodega
+            total_restante_code += restante
+            total_proceso_code += proceso
+            saldos_detalle_limpio.append(
+                {
+                    "articulo": str(r.get("articulo") or ""),
+                    "orden_corte": str(r.get("corte") or ""),
+                    "proceso_total": proceso,
+                    "bodega": bodega,
+                    "restante": restante,
+                    "proceso_actual": str(r.get("proceso_actual") or ""),
+                    "restante_detalle": str(r.get("restante_detalle") or ""),
+                }
+            )
         detalle_codigo = {
             "codigo_consultado": q_code,
-            "saldos": code_rows[:30],
+            "resumen_saldos": {
+                "total_proceso": total_proceso_code,
+                "total_bodega": total_bodega_code,
+                "total_restante": total_restante_code,
+            },
+            "saldos": saldos_detalle_limpio,
             "ventas": code_pedidos[:20],
             "ex": code_ex or {},
         }
 
     context_data = {
+        "reglas_interpretacion": {
+            "bodega": "columna bodega (unidades actualmente en bodega)",
+            "restante": "columna restante o pendiente_en_trazabilidad (NO es bodega)",
+            "proceso_total": "columna proceso/total de la orden",
+            "nota": "nunca confundir restante con bodega",
+        },
         "resumen_global": {
             "total_registros_saldos": len(rows),
             "ordenes_en_bodega": int(summary.get("ordenes_en_bodega", 0)),
@@ -489,8 +522,10 @@ def _answer_with_gemini(question: str) -> str:
 
     context = _build_assistant_context(question)
     instruction = (
-        "Responde en espanol, breve y exacto para usuarios de operacion. "
+        "Responde en espanol natural, claro y breve (tono humano, no robotico). "
         "Usa SOLO el contexto entregado (proviene de todos los archivos cargados e importados en ADECOM WEB). "
+        "Interpretacion obligatoria: BODEGA es solo columna bodega; RESTANTE (pendiente_en_trazabilidad) es distinto y no debe reportarse como bodega. "
+        "Si preguntan por un codigo/familia, prioriza detalle_codigo.resumen_saldos para los totales. "
         "Si te preguntan si puedes leer archivos, aclara que si puedes analizarlos una vez cargados al sistema. "
         "Si falta dato, dilo explicitamente sin inventar."
     )
