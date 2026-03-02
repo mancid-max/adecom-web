@@ -192,6 +192,18 @@ button:hover, .btn-ghost:hover {
   pointer-events: auto;
 }
 
+.search-alert-success {
+  border-color: #9fd7b3;
+  background: linear-gradient(180deg, #ebf9f0 0%, #dff3e8 100%);
+  color: #1f5e35;
+}
+
+.search-alert-error {
+  border-color: #e7a6a6;
+  background: linear-gradient(180deg, #fff1f1 0%, #ffe3e3 100%);
+  color: #812626;
+}
+
 .search-alert-hide {
   animation: alertOut .36s ease forwards;
 }

@@ -38,10 +38,39 @@ def parse_uploaded_file(file_storage) -> dict[str, Any]:
             return {"kind": "pedidos_talla", "rows": parse_pedidos_talla_txt(content)}
         return {"kind": "saldos", "rows": parse_saldos_txt(content)}
     if filename.endswith(".xlsx"):
-        if "exs" in filename:
+        kind = detect_xlsx_kind(content, filename)
+        if kind == "exs_map":
             return {"kind": "exs_map", "rows": parse_exs_xlsx(content)}
         return {"kind": "saldos", "rows": parse_saldos_xlsx(content)}
     raise ValueError("Formato no soportado. Usa .txt, .csv o .xlsx")
+
+
+def detect_xlsx_kind(content: bytes, filename: str) -> str:
+    if "exs" in filename:
+        return "exs_map"
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return "saldos"
+
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+    header = None
+    for row in ws.iter_rows(values_only=True):
+        if not row:
+            continue
+        cells = ["" if c is None else str(c).strip().lower() for c in row]
+        if any(cells):
+            header = cells
+            break
+    if not header:
+        return "saldos"
+
+    first = header[0] if len(header) > 0 else ""
+    second = header[1] if len(header) > 1 else ""
+    if ("actual" in first or "familia actual" in first) and ("ex" in second):
+        return "exs_map"
+    return "saldos"
 
 
 def detect_txt_kind(content: bytes, filename: str) -> str:
@@ -194,8 +223,9 @@ def parse_exs_xlsx(content: bytes) -> list[dict]:
         if not actual_digits:
             continue
         actual = actual_digits[-4:] if len(actual_digits) >= 4 else actual_digits
-        # EX puede venir como codigo largo (ej: 416901 / 416900) y debe preservarse.
-        ex = ex_digits
+        # EX puede venir como 416901 / 416900 / 4169-01.
+        # Se preserva visualmente el valor original y el calculo usa familia (4 digitos).
+        ex = ex_raw if ex_raw else ex_digits
         parsed.append({"actual": actual, "ex": ex})
 
     return parsed

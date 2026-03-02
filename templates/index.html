@@ -18,11 +18,18 @@
       </div>
     </header>
 
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <section class="messages">
-          {% for msg in messages %}
-            <div class="message">{{ msg }}</div>
+        <section class="search-alert-top-wrap" id="flashAlertWrap">
+          {% for category, msg in messages %}
+            <div
+              class="search-alert search-alert-top {% if category == 'success' %}search-alert-success{% else %}search-alert-error{% endif %}"
+              data-auto-dismiss-ms="10000"
+              role="status"
+              aria-live="polite"
+            >
+              {{ msg }}
+            </div>
           {% endfor %}
         </section>
       {% endif %}
@@ -585,6 +592,22 @@
           if (wrap) wrap.remove();
         }, 380);
       }, 3800);
+    })();
+
+    (function () {
+      const alerts = Array.from(document.querySelectorAll("[data-auto-dismiss-ms]"));
+      if (!alerts.length) return;
+      alerts.forEach((alertBox) => {
+        const ms = Number(alertBox.getAttribute("data-auto-dismiss-ms")) || 10000;
+        setTimeout(() => {
+          alertBox.classList.add("search-alert-hide");
+          setTimeout(() => {
+            alertBox.remove();
+            const wrap = document.getElementById("flashAlertWrap");
+            if (wrap && !wrap.querySelector(".search-alert")) wrap.remove();
+          }, 380);
+        }, ms);
+      });
     })();
 
     (function () {

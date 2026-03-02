@@ -202,13 +202,16 @@ def index():
 def upload():
     file = request.files.get("file")
     if not file or not file.filename:
-        flash("Selecciona un archivo .txt o .xlsx")
+        flash("No se pudo cargar la data. Inténtelo nuevamente.", "error")
         return redirect(url_for("index"))
 
     try:
         parsed = parse_uploaded_file(file)
         kind = parsed["kind"]
         rows = parsed["rows"]
+        if not rows:
+            flash("No se encontraron filas válidas en el archivo. Verifique formato e inténtelo nuevamente.", "error")
+            return redirect(url_for("index"))
         if kind == "pedidos_talla":
             stats = import_pedidos_talla_rows(DB_PATH, rows)
         elif kind == "pedidos_talla_todas":
@@ -216,21 +219,12 @@ def upload():
         elif kind == "exs_map":
             stats = import_exs_map_rows(DB_PATH, rows)
         else:
-            stats = import_rows(DB_PATH, rows)
+            stats = import_rows(DB_PATH, rows, replace_all=True)
     except Exception as exc:
-        flash(f"Error al procesar archivo: {exc}")
+        flash("No se pudo cargar la data. Inténtelo nuevamente.", "error")
         return redirect(url_for("index"))
 
-    labels = {
-        "pedidos_talla": "PEDIDOSXTALLA",
-        "pedidos_talla_todas": "PEDIDOSXTALLATODAS",
-        "exs_map": "EXS",
-        "saldos": "SALDOS",
-    }
-    dataset_label = labels.get(kind, "DATOS")
-    flash(
-        f"Carga completa ({dataset_label}). Leidos: {stats['read']} | Insertados: {stats['inserted']} | Actualizados: {stats['updated']}"
-    )
+    flash("Data cargada con éxito.", "success")
     return redirect(url_for("index"))
 
 

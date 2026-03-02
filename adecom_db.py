@@ -99,7 +99,7 @@ def init_db(db_path: Path) -> None:
     conn.close()
 
 
-def import_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
     inserted = 0
@@ -107,6 +107,8 @@ def import_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     read = 0
 
     with conn:
+        if replace_all:
+            conn.execute("DELETE FROM saldos_seccion")
         for row in rows:
             read += 1
             existing = conn.execute(
@@ -533,7 +535,7 @@ def query_exs_balance_summary(db_path: Path, q: str = "") -> dict:
         """
         SELECT familia, SUM(total) AS total
         FROM pedidos_talla_todas
-        WHERE lower(tipo) = 'saldo'
+        WHERE lower(trim(tipo)) LIKE 'saldo%'
         GROUP BY familia
         """
     ).fetchall()
@@ -552,26 +554,19 @@ def query_exs_balance_summary(db_path: Path, q: str = "") -> dict:
 
     q_digits = "".join(ch for ch in str(q or "") if ch.isdigit())
 
-    def resolve_saldo(code: str) -> int:
+    def _extract_family(code: str) -> str:
         digits = "".join(ch for ch in str(code or "") if ch.isdigit())
         if not digits:
+            return ""
+        # Regla de negocio: familia son los primeros 4 digitos.
+        # Ej: 416900 / 416901 / 4169-01 => 4169
+        return digits[:4] if len(digits) >= 4 else digits
+
+    def resolve_saldo(code: str) -> int:
+        family = _extract_family(code)
+        if not family:
             return 0
-        candidates: list[str] = []
-        if len(digits) >= 6:
-            candidates.append(digits[:4])
-            candidates.append(digits[-4:])
-        elif len(digits) == 4:
-            candidates.append(digits)
-        else:
-            candidates.append(digits)
-        seen = set()
-        for key in candidates:
-            if key in seen:
-                continue
-            seen.add(key)
-            if key in saldo_by_familia:
-                return int(saldo_by_familia[key])
-        return 0
+        return int(saldo_by_familia.get(family, 0))
 
     rows: list[dict] = []
     total_actual = 0
