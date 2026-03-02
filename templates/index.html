@@ -629,9 +629,19 @@
       <section class="assistant-chat" id="assistantChat" aria-live="polite" aria-label="Chat asistente virtual">
         <header class="assistant-chat-head">
           <strong>Asistente Virtual</strong>
-          <button type="button" id="assistantClose" class="assistant-close" aria-label="Cerrar asistente">X</button>
+          <div class="assistant-head-actions">
+            <button type="button" id="assistantHistoryBtn" class="assistant-history-btn" aria-label="Ver historial">Historial</button>
+            <button type="button" id="assistantClose" class="assistant-close" aria-label="Cerrar asistente">X</button>
+          </div>
         </header>
         <div class="assistant-chat-messages" id="assistantMessages"></div>
+        <section class="assistant-history-panel" id="assistantHistoryPanel" hidden>
+          <div class="assistant-history-head">
+            <strong>Historial guardado</strong>
+            <button type="button" id="assistantHistoryClose" class="assistant-history-close" aria-label="Cerrar historial">Cerrar</button>
+          </div>
+          <div class="assistant-history-list" id="assistantHistoryList"></div>
+        </section>
         <form id="assistantChatForm" class="assistant-chat-form">
           <input
             type="text"
@@ -698,6 +708,10 @@
       const fab = document.getElementById("assistantFab");
       const chat = document.getElementById("assistantChat");
       const closeBtn = document.getElementById("assistantClose");
+      const historyBtn = document.getElementById("assistantHistoryBtn");
+      const historyPanel = document.getElementById("assistantHistoryPanel");
+      const historyClose = document.getElementById("assistantHistoryClose");
+      const historyList = document.getElementById("assistantHistoryList");
       const form = document.getElementById("assistantChatForm");
       const input = document.getElementById("assistantQuestion");
       const messages = document.getElementById("assistantMessages");
@@ -774,10 +788,45 @@
 
       const setOpen = (open) => {
         widget.classList.toggle("assistant-open", open);
+        if (!open && historyPanel) historyPanel.hidden = true;
       };
 
       fab.addEventListener("click", () => setOpen(true));
       closeBtn.addEventListener("click", () => setOpen(false));
+
+      const renderArchive = () => {
+        if (!historyList) return;
+        const archive = loadArchive().slice().reverse();
+        if (!archive.length) {
+          historyList.innerHTML = '<p class="assistant-history-empty">Aun no hay historial guardado.</p>';
+          return;
+        }
+        historyList.innerHTML = archive
+          .map((session) => {
+            const ts = session.at ? new Date(session.at) : null;
+            const dateLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString("es-CL") : "Sin fecha";
+            const items = Array.isArray(session.messages) ? session.messages.slice(-8) : [];
+            const lines = items
+              .map((m) => {
+                const role = m.role === "user" ? "Tu" : "Asistente";
+                return `<div class="assistant-history-line"><strong>${role}:</strong> ${escapeHtml(m.text || "")}</div>`;
+              })
+              .join("");
+            return `<article class="assistant-history-session"><h4>${dateLabel}</h4>${lines}</article>`;
+          })
+          .join("");
+      };
+
+      if (historyBtn && historyPanel && historyClose) {
+        historyBtn.addEventListener("click", () => {
+          const open = historyPanel.hidden;
+          if (open) renderArchive();
+          historyPanel.hidden = !open;
+        });
+        historyClose.addEventListener("click", () => {
+          historyPanel.hidden = true;
+        });
+      }
 
       render();
       saveHistory(history);

@@ -310,6 +310,7 @@ button:hover, .btn-ghost:hover {
   border-radius: 16px;
   box-shadow: 0 22px 44px rgba(18, 22, 34, 0.28);
   overflow: hidden;
+  position: relative;
 }
 
 .assistant-open .assistant-fab {
@@ -332,6 +333,20 @@ button:hover, .btn-ghost:hover {
   background: #f6f2ea;
 }
 
+.assistant-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.assistant-history-btn {
+  background: transparent;
+  color: #1c222c;
+  border-color: #aeb7c3;
+  padding: 5px 8px;
+  min-height: 28px;
+}
+
 .assistant-close {
   min-width: 28px;
   min-height: 28px;
@@ -346,11 +361,14 @@ button:hover, .btn-ghost:hover {
   padding: 10px;
   overflow: auto;
   background: #fcfaf6;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .assistant-msg {
+  width: fit-content;
   max-width: 92%;
   padding: 8px 10px;
   border-radius: 12px;
@@ -392,6 +410,70 @@ button:hover, .btn-ghost:hover {
   background: #1f2430;
   color: #fff;
   border-color: #1f2430;
+}
+
+.assistant-history-panel {
+  position: absolute;
+  inset: 52px 10px 62px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 20px rgba(18, 22, 34, 0.16);
+  z-index: 2;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.assistant-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: #f6f2ea;
+}
+
+.assistant-history-close {
+  background: transparent;
+  color: #1c222c;
+  border-color: #aeb7c3;
+  min-height: 28px;
+  padding: 4px 8px;
+}
+
+.assistant-history-list {
+  overflow: auto;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-history-session {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fcfaf6;
+  padding: 8px;
+}
+
+.assistant-history-session h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #4f5b68;
+}
+
+.assistant-history-line {
+  font-size: 12px;
+  color: #1d2430;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.assistant-history-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #5f6773;
 }
 
 .filters form {
