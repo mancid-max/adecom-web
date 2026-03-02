@@ -488,25 +488,33 @@ def _answer_with_gemini(question: str) -> str:
         raise RuntimeError("GEMINI_API_KEY no configurada.")
 
     env_model = os.environ.get("GEMINI_MODEL", "").strip()
-    api_version = os.environ.get("GEMINI_API_VERSION", "v1").strip() or "v1"
+    env_api_version = os.environ.get("GEMINI_API_VERSION", "").strip()
+    api_versions: list[str] = []
+    for v in [env_api_version, "v1", "v1beta"]:
+        vv = str(v or "").strip()
+        if vv and vv not in api_versions:
+            api_versions.append(vv)
 
     discovered_models: list[str] = []
-    try:
-        list_endpoint = f"https://generativelanguage.googleapis.com/{api_version}/models?key={api_key}"
-        with url_request.urlopen(list_endpoint, timeout=12) as resp:
-            raw = resp.read().decode("utf-8")
-        data = json.loads(raw or "{}")
-        for item in data.get("models") or []:
-            methods = item.get("supportedGenerationMethods") or []
-            if "generateContent" not in methods:
-                continue
-            name = str(item.get("name") or "").strip()
-            if name.startswith("models/"):
-                name = name.split("/", 1)[1]
-            if name:
-                discovered_models.append(name)
-    except Exception:
-        discovered_models = []
+    for api_version in api_versions:
+        try:
+            list_endpoint = f"https://generativelanguage.googleapis.com/{api_version}/models?key={api_key}"
+            with url_request.urlopen(list_endpoint, timeout=12) as resp:
+                raw = resp.read().decode("utf-8")
+            data = json.loads(raw or "{}")
+            for item in data.get("models") or []:
+                methods = item.get("supportedGenerationMethods") or []
+                if "generateContent" not in methods:
+                    continue
+                name = str(item.get("name") or "").strip()
+                if name.startswith("models/"):
+                    name = name.split("/", 1)[1]
+                if name and name not in discovered_models:
+                    discovered_models.append(name)
+            if discovered_models:
+                break
+        except Exception:
+            continue
 
     fallback_models = [
         "gemini-2.5-flash",
@@ -540,38 +548,39 @@ def _answer_with_gemini(question: str) -> str:
 
     last_error = None
     tried: list[str] = []
-    for model in model_candidates:
-        tried.append(model)
-        endpoint = (
-            f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={api_key}"
-        )
-        req = url_request.Request(
-            endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with url_request.urlopen(req, timeout=18) as resp:
-                raw = resp.read().decode("utf-8")
-            data = json.loads(raw or "{}")
-            candidates = data.get("candidates") or []
-            if not candidates:
-                last_error = RuntimeError(f"Gemini ({model}) no retorno candidatos.")
+    for api_version in api_versions:
+        for model in model_candidates:
+            tried.append(f"{api_version}:{model}")
+            endpoint = (
+                f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={api_key}"
+            )
+            req = url_request.Request(
+                endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with url_request.urlopen(req, timeout=18) as resp:
+                    raw = resp.read().decode("utf-8")
+                data = json.loads(raw or "{}")
+                candidates = data.get("candidates") or []
+                if not candidates:
+                    last_error = RuntimeError(f"Gemini ({model}) no retorno candidatos.")
+                    continue
+                parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
+                text = " ".join(str(p.get("text") or "").strip() for p in parts).strip()
+                if not text:
+                    last_error = RuntimeError(f"Gemini ({model}) no retorno texto.")
+                    continue
+                return text
+            except url_error.HTTPError as exc:
+                # 404: modelo no disponible. 403/401: key/permisos.
+                last_error = RuntimeError(f"Gemini ({model}) HTTP {exc.code}")
                 continue
-            parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
-            text = " ".join(str(p.get("text") or "").strip() for p in parts).strip()
-            if not text:
-                last_error = RuntimeError(f"Gemini ({model}) no retorno texto.")
+            except Exception as exc:
+                last_error = exc
                 continue
-            return text
-        except url_error.HTTPError as exc:
-            # 404: modelo no disponible. 403/401: key/permisos.
-            last_error = RuntimeError(f"Gemini ({model}) HTTP {exc.code}")
-            continue
-        except Exception as exc:
-            last_error = exc
-            continue
 
     raise RuntimeError(
         f"Gemini no disponible. Intentados: {', '.join(tried)}. Detalle: {last_error}"
