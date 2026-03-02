@@ -456,16 +456,36 @@ def _answer_with_gemini(question: str) -> str:
 
     env_model = os.environ.get("GEMINI_MODEL", "").strip()
     api_version = os.environ.get("GEMINI_API_VERSION", "v1").strip() or "v1"
-    model_candidates = [
-        m
-        for m in [
-            env_model,
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-        ]
-        if m
+
+    discovered_models: list[str] = []
+    try:
+        list_endpoint = f"https://generativelanguage.googleapis.com/{api_version}/models?key={api_key}"
+        with url_request.urlopen(list_endpoint, timeout=12) as resp:
+            raw = resp.read().decode("utf-8")
+        data = json.loads(raw or "{}")
+        for item in data.get("models") or []:
+            methods = item.get("supportedGenerationMethods") or []
+            if "generateContent" not in methods:
+                continue
+            name = str(item.get("name") or "").strip()
+            if name.startswith("models/"):
+                name = name.split("/", 1)[1]
+            if name:
+                discovered_models.append(name)
+    except Exception:
+        discovered_models = []
+
+    fallback_models = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
     ]
+    model_candidates: list[str] = []
+    for m in [env_model, *discovered_models, *fallback_models]:
+        m = str(m or "").strip()
+        if m and m not in model_candidates:
+            model_candidates.append(m)
 
     context = _build_assistant_context(question)
     instruction = (
@@ -484,7 +504,9 @@ def _answer_with_gemini(question: str) -> str:
     }
 
     last_error = None
+    tried: list[str] = []
     for model in model_candidates:
+        tried.append(model)
         endpoint = (
             f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={api_key}"
         )
@@ -516,7 +538,9 @@ def _answer_with_gemini(question: str) -> str:
             last_error = exc
             continue
 
-    raise RuntimeError(f"Gemini no disponible. Detalle: {last_error}")
+    raise RuntimeError(
+        f"Gemini no disponible. Intentados: {', '.join(tried)}. Detalle: {last_error}"
+    )
 
 
 def _answer_assistant_router(question: str) -> dict:
