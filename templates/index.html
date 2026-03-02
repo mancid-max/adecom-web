@@ -851,14 +851,11 @@
           .map((session) => {
             const ts = session.at ? new Date(session.at) : null;
             const dateLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString("es-CL") : "Sin fecha";
-            const items = Array.isArray(session.messages) ? session.messages.slice(-8) : [];
-            const lines = items
-              .map((m) => {
-                const role = m.role === "user" ? "Tu" : "Asistente";
-                return `<div class="assistant-history-line"><strong>${role}:</strong> ${escapeHtml(m.text || "")}</div>`;
-              })
-              .join("");
-            return `<article class="assistant-history-session assistant-history-open-btn" data-session-id="${escapeHtml(session.id)}" role="button" tabindex="0"><h4>${escapeHtml(session.title || "Chat")}</h4><div class="assistant-history-date">${dateLabel}</div>${lines}</article>`;
+            const items = Array.isArray(session.messages) ? session.messages : [];
+            const lastUser = [...items].reverse().find((m) => m && m.role === "user" && String(m.text || "").trim());
+            const preview = String((lastUser || {}).text || session.title || "Sin contenido").trim();
+            const previewShort = preview.length > 92 ? `${preview.slice(0, 92)}...` : preview;
+            return `<article class="assistant-history-session assistant-history-open-btn" data-session-id="${escapeHtml(session.id)}" role="button" tabindex="0"><h4>${escapeHtml(session.title || "Chat")}</h4><div class="assistant-history-date">${dateLabel}</div><div class="assistant-history-summary">${escapeHtml(previewShort)}</div></article>`;
           })
           .join("");
       };
