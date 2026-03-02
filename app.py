@@ -296,6 +296,41 @@ def _build_assistant_context(question: str) -> str:
     return json.dumps(context_data, ensure_ascii=False, default=str)
 
 
+def _answer_precise_metrics(question: str) -> str | None:
+    qn = _norm_text(question or "")
+    if not qn:
+        return None
+
+    rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
+    today_iso = date.today().isoformat()
+
+    asks_orders = _has_keyword(qn, ["orden", "ordenes"])
+    asks_cut_order = _has_keyword(qn, ["orden de corte", "ordenes de corte"])
+    asks_bodega = _has_keyword(qn, ["bodega", "almacen"])
+    asks_today = _has_keyword(qn, ["hoy", "dia de hoy", "hoy dia"])
+
+    # "Orden de corte" se interpreta como identificador de orden, no como etapa corte_1.
+    if asks_orders and asks_bodega and not asks_today:
+        return (
+            f"Actualmente hay {int(summary.get('ordenes_en_bodega', 0))} ordenes en bodega, "
+            f"con {int(summary.get('cantidad_en_bodega', 0))} prendas en bodega y "
+            f"{int(summary.get('pendiente_en_trazabilidad_bodega', 0))} restantes."
+        )
+
+    if asks_today and (asks_cut_order or asks_orders):
+        rows_today = [r for r in rows if str(r.get("fecha_iso") or "") == today_iso]
+        if asks_bodega:
+            rows_today_bodega = [r for r in rows_today if int(r.get("bodega") or 0) > 0]
+            prendas_bodega = sum(int(r.get("bodega") or 0) for r in rows_today_bodega)
+            return (
+                f"Hoy ({today_iso}) hay {len(rows_today_bodega)} ordenes en bodega, "
+                f"con {prendas_bodega} prendas en bodega."
+            )
+        return f"Hoy ({today_iso}) hay {len(rows_today)} ordenes de corte registradas."
+
+    return None
+
+
 def _answer_assistant(question: str) -> str:
     q = (question or "").strip()
     if not q:
@@ -501,6 +536,10 @@ def _answer_with_gemini(question: str) -> str:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY no configurada.")
+
+    precise_answer = _answer_precise_metrics(question)
+    if precise_answer:
+        return precise_answer
 
     env_model = os.environ.get("GEMINI_MODEL", "").strip()
     env_api_version = os.environ.get("GEMINI_API_VERSION", "").strip()
