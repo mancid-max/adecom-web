@@ -46,6 +46,13 @@
       </section>
     {% endif %}
 
+    {% if upload_debug %}
+      <section class="debug-panel" role="note" aria-live="polite">
+        <strong>Diagnostico carga (temporal):</strong>
+        <code>{{ upload_debug }}</code>
+      </section>
+    {% endif %}
+
     <section class="filters">
       <form method="get" action="{{ url_for('index') }}" id="filtersForm">
         <div class="search-field">

@@ -5,7 +5,7 @@ import io
 import os
 from pathlib import Path
 
-from flask import Flask, Response, flash, redirect, render_template, request, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
@@ -181,6 +181,7 @@ def index():
     muestras_total = sum(int(row.get("proceso") or 0) for row in muestras_rows)
     muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
     muestras_restante = max(muestras_total - muestras_bodega, 0)
+    upload_debug = session.get("upload_debug", "")
     return render_template(
         "index.html",
         rows=rows,
@@ -205,6 +206,7 @@ def index():
         muestras_total=muestras_total,
         muestras_bodega=muestras_bodega,
         muestras_restante=muestras_restante,
+        upload_debug=upload_debug,
     )
 
 
@@ -231,13 +233,16 @@ def upload():
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
     except RequestEntityTooLarge:
+        session["upload_debug"] = "RequestEntityTooLarge: archivo supera limite ADECOM_MAX_UPLOAD_MB."
         flash("El archivo supera el tamano permitido. Intentelo con un archivo mas liviano.", "error")
         return redirect(url_for("index"))
     except Exception as exc:
         app.logger.exception("Fallo en carga de archivo", exc_info=exc)
+        session["upload_debug"] = f"{exc.__class__.__name__}: {exc}"
         flash("No se pudo cargar la data. Intentelo nuevamente.", "error")
         return redirect(url_for("index"))
 
+    session.pop("upload_debug", None)
     flash("Data cargada con exito.", "success")
     return redirect(url_for("index"))
 
