@@ -636,7 +636,7 @@
       const openBtn = document.getElementById("openBodegaModal");
       const closeBtn = document.getElementById("closeBodegaModal");
       if (!modal || !openBtn || !closeBtn) return;
-      openBtn.addEventListener("click", () => openUpload(".txt,.csv,.xlsx"));
+      openBtn.addEventListener("click", () => modal.showModal());
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
