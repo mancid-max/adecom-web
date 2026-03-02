@@ -66,35 +66,104 @@ def _answer_assistant(question: str) -> str:
     if not q:
         return "Escribe una pregunta. Ejemplo: En que parte se encuentra 4210."
 
-    code = _extract_query_code(q)
-    if not code:
-        return "No detecte articulo o familia en tu pregunta. Incluye un codigo como 4210 o 01420100."
+    ql = q.lower()
+    rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
+    pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
+    exs_summary = query_exs_balance_summary(DB_PATH, "")
 
-    rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
-    if not rows:
-        return f"No encontre datos para {code}."
-
-    bodega_rows = [r for r in rows if int(r.get("bodega") or 0) > 0]
-    prendas_bodega = sum(int(r.get("bodega") or 0) for r in rows)
-    prendas_proceso = sum(int(r.get("proceso") or 0) for r in rows)
-    pendientes = sum(int(r.get("pendiente_en_trazabilidad") or 0) for r in rows)
-
-    if bodega_rows:
+    if "ayuda" in ql or "que puedes" in ql or "que sabes" in ql:
         return (
-            f"{code}: se encuentra en bodega en {len(bodega_rows)} orden(es), "
-            f"con {prendas_bodega} prendas en bodega. "
-            f"Total en proceso: {prendas_proceso}. Pendiente en trazabilidad: {pendientes}."
+            "Puedo responder sobre: ordenes en bodega, total muestras, tabla completa, "
+            "ventas totales, familia mas vendida, top articulos, EXS y ubicacion por articulo/familia "
+            "(ej: 4210 o 01420100)."
         )
 
-    top_stage: dict[str, int] = {}
-    for row in rows:
-        stage = str(row.get("proceso_actual") or "Sin movimiento")
-        top_stage[stage] = top_stage.get(stage, 0) + int(row.get("proceso") or 0)
-    stage_name, stage_total = max(top_stage.items(), key=lambda x: x[1])
+    code = _extract_query_code(q)
+    if code:
+        code_rows, _, _ = query_rows(DB_PATH, {"q": code, "fecha": ""})
+        if not code_rows:
+            return f"No encontre datos para {code}."
+
+        bodega_rows = [r for r in code_rows if int(r.get("bodega") or 0) > 0]
+        prendas_bodega = sum(int(r.get("bodega") or 0) for r in code_rows)
+        prendas_proceso = sum(int(r.get("proceso") or 0) for r in code_rows)
+        pendientes = sum(int(r.get("pendiente_en_trazabilidad") or 0) for r in code_rows)
+
+        if bodega_rows:
+            return (
+                f"{code}: se encuentra en bodega en {len(bodega_rows)} orden(es), "
+                f"con {prendas_bodega} prendas en bodega. "
+                f"Total en proceso: {prendas_proceso}. Pendiente en trazabilidad: {pendientes}."
+            )
+
+        top_stage: dict[str, int] = {}
+        for row in code_rows:
+            stage = str(row.get("proceso_actual") or "Sin movimiento")
+            top_stage[stage] = top_stage.get(stage, 0) + int(row.get("proceso") or 0)
+        stage_name, stage_total = max(top_stage.items(), key=lambda x: x[1])
+        return (
+            f"{code}: no tiene prendas en bodega actualmente. "
+            f"La mayor cantidad esta en {stage_name} con {stage_total} prendas. "
+            f"Total en proceso: {prendas_proceso}."
+        )
+
+    if "bodega" in ql:
+        return (
+            f"Ordenes en bodega: {summary.get('ordenes_en_bodega', 0)}. "
+            f"Cantidad en bodega: {summary.get('cantidad_en_bodega', 0)}. "
+            f"Pendiente en trazabilidad: {summary.get('pendiente_en_trazabilidad_bodega', 0)}."
+        )
+
+    if "muestra" in ql:
+        muestras_rows = [
+            row for row in rows if str(row.get("corte", "")).lstrip("0").startswith("96")
+        ]
+        muestras_total = sum(int(row.get("proceso") or 0) for row in muestras_rows)
+        muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
+        return (
+            f"Total muestras: {len(muestras_rows)} orden(es). "
+            f"Prendas en muestras: {muestras_total}. En bodega: {muestras_bodega}."
+        )
+
+    if "exs" in ql or " ex " in f" {ql} ":
+        return (
+            f"EXS vinculados: {exs_summary.get('count', 0)}. "
+            f"Total saldo actual: {exs_summary.get('total_actual', 0)}. "
+            f"Total saldo ex: {exs_summary.get('total_ex', 0)}."
+        )
+
+    if "venta" in ql or "vendid" in ql:
+        ventas_rows = pedidos_sections.get("ventas", [])
+        ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
+        ventas_por_familia: dict[str, int] = {}
+        ventas_por_articulo: dict[str, int] = {}
+        for r in ventas_rows:
+            articulo = str(r.get("articulo") or "").strip()
+            total = int(r.get("total") or 0)
+            if not articulo:
+                continue
+            familia = articulo[2:6] if len(articulo) >= 6 else articulo
+            ventas_por_familia[familia] = ventas_por_familia.get(familia, 0) + total
+            ventas_por_articulo[articulo] = ventas_por_articulo.get(articulo, 0) + total
+
+        if "familia" in ql:
+            if not ventas_por_familia:
+                return "No hay datos de ventas para calcular familia mas vendida."
+            fam, total = max(ventas_por_familia.items(), key=lambda x: x[1])
+            return f"Familia mas vendida: {fam}, con {total} unidades."
+        if "articulo" in ql or "top" in ql:
+            if not ventas_por_articulo:
+                return "No hay datos de ventas para calcular top articulos."
+            art, total = max(ventas_por_articulo.items(), key=lambda x: x[1])
+            return f"Articulo top en ventas: {art}, con {total} unidades."
+        return f"Total ventas actual: {ventas_total} unidades."
+
+    if "tabla completa" in ql or "total ordenes" in ql or "cuantas ordenes" in ql:
+        return f"Tabla completa: {len(rows)} orden(es) registradas."
+
     return (
-        f"{code}: no tiene prendas en bodega actualmente. "
-        f"La mayor cantidad esta en {stage_name} con {stage_total} prendas. "
-        f"Total en proceso: {prendas_proceso}."
+        "Puedo ayudarte con bodega, muestras, ventas, EXS o por codigo de articulo/familia. "
+        "Ejemplos: 'Ordenes en bodega', 'Familia mas vendida', 'EXS total', 'En que parte se encuentra 4210'."
     )
 
 
