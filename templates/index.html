@@ -13,10 +13,27 @@
       <div>
         <h1>Saldos por Seccion</h1>
       </div>
-      <div class="upload-cta">
-        <button type="button" id="openUploadModal">Subir archivo</button>
-      </div>
+      {% if can_upload %}
+        <div class="upload-cta">
+          <button type="button" id="openUploadModal">Subir archivo</button>
+        </div>
+      {% endif %}
     </header>
+
+    {% if admin_key_enabled %}
+      <section class="admin-access">
+        {% if can_upload %}
+          <form method="post" action="{{ url_for('admin_logout') }}">
+            <button type="submit" class="btn-ghost">Salir modo carga</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('admin_login') }}" class="admin-login-form">
+            <input type="password" name="admin_key" placeholder="Clave admin" required>
+            <button type="submit">Entrar modo carga</button>
+          </form>
+        {% endif %}
+      </section>
+    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -543,9 +560,11 @@
             </tbody>
           </table>
         </section>
-        <div class="exs-upload-cta">
-          <button type="button" id="openExsUploadBtn">Cargar data EXS</button>
-        </div>
+        {% if can_upload %}
+          <div class="exs-upload-cta">
+            <button type="button" id="openExsUploadBtn">Cargar data EXS</button>
+          </div>
+        {% endif %}
       </dialog>
 
       <dialog id="topArticulosModal" class="modal modal-top-familia">

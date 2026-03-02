@@ -89,6 +89,14 @@ ADECOM_DB_PATH=/home/TU_USUARIO/ADECOM WEB/data/adecom.db
 
 Con esto, la ultima carga se mantiene tras reinicios.
 
+## Ocultar carga para solo lectura (opcional)
+
+Si quieres que solo administradores puedan subir archivos:
+
+- `ADECOM_ADMIN_KEY=tu_clave_segura`
+
+Con esa variable activa, la web queda en modo lectura para todos y solo quien ingrese la clave en `Entrar modo carga` vera los botones de importacion.
+
 ## Opcion alternativa: Koyeb (gratis)
 
 Koyeb tambien es una buena alternativa. En free tier suele escalar a cero despues de inactividad (mas tolerante que Render), y despierta al recibir trafico.

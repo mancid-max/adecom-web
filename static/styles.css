@@ -240,6 +240,22 @@ button:hover, .btn-ghost:hover {
   animation: alertOut .36s ease forwards;
 }
 
+.admin-access {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-login-form {
+  display: flex;
+  gap: 8px;
+  width: min(460px, 100%);
+}
+
+.admin-login-form input[type="password"] {
+  flex: 1 1 auto;
+}
+
 .debug-panel {
   margin-top: 10px;
   padding: 10px 12px;
@@ -986,6 +1002,16 @@ td.num {
   }
   .search-alert-body {
     align-items: flex-start;
+  }
+  .admin-access {
+    justify-content: stretch;
+  }
+  .admin-login-form {
+    width: 100%;
+    flex-direction: column;
+  }
+  .admin-login-form button {
+    width: 100%;
   }
   .exs-upload-cta {
     justify-content: stretch;

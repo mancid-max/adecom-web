@@ -40,6 +40,17 @@ app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
 
 
+def _admin_key() -> str:
+    return os.environ.get("ADECOM_ADMIN_KEY", "").strip()
+
+
+def _can_upload() -> bool:
+    key = _admin_key()
+    if not key:
+        return True
+    return bool(session.get("can_upload"))
+
+
 def _table_count(table_name: str) -> int:
     conn = get_conn(DB_PATH)
     try:
@@ -207,11 +218,17 @@ def index():
         muestras_bodega=muestras_bodega,
         muestras_restante=muestras_restante,
         upload_debug=upload_debug,
+        can_upload=_can_upload(),
+        admin_key_enabled=bool(_admin_key()),
     )
 
 
 @app.post("/upload")
 def upload():
+    if not _can_upload():
+        flash("Acceso denegado para cargar archivos.", "error")
+        return redirect(url_for("index"))
+
     try:
         file = request.files.get("file")
         if not file or not file.filename:
@@ -249,6 +266,28 @@ def upload():
 
 @app.get("/upload")
 def upload_get_redirect():
+    return redirect(url_for("index"))
+
+
+@app.post("/admin/login")
+def admin_login():
+    key = _admin_key()
+    if not key:
+        flash("La clave de administrador no esta configurada.", "error")
+        return redirect(url_for("index"))
+    entered = str(request.form.get("admin_key") or "").strip()
+    if entered and entered == key:
+        session["can_upload"] = True
+        flash("Modo carga activado.", "success")
+    else:
+        flash("Clave incorrecta.", "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/admin/logout")
+def admin_logout():
+    session.pop("can_upload", None)
+    flash("Modo carga desactivado.", "success")
     return redirect(url_for("index"))
 
 @app.get("/export.csv")
