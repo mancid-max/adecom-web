@@ -42,7 +42,11 @@ def _execute(conn: Any, sql: str, params: Iterable | None = None):
 
 def _executemany(conn: Any, sql: str, params_seq: Iterable[Iterable]):
     driver_sql = sql if isinstance(conn, sqlite3.Connection) else sql.replace("?", "%s")
-    return conn.executemany(driver_sql, params_seq)
+    if isinstance(conn, sqlite3.Connection):
+        return conn.executemany(driver_sql, params_seq)
+    with conn.cursor() as cur:
+        cur.executemany(driver_sql, params_seq)
+        return cur
 
 
 def get_conn(db_path: str | Path):
