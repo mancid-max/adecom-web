@@ -123,13 +123,22 @@ body.modal-open {
 
 .side-collapsed .side-link {
   justify-content: center;
-  font-size: 0;
 }
 
-.side-collapsed .side-link::before {
-  content: "•";
-  font-size: 18px;
-  line-height: 1;
+.side-collapsed .side-menu {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  pointer-events: none;
+  user-select: none;
+  transition: max-height .28s ease, opacity .22s ease, margin-top .22s ease;
+}
+
+.side-menu {
+  max-height: 520px;
+  opacity: 1;
+  transition: max-height .28s ease, opacity .22s ease, margin-top .22s ease;
 }
 
 .page {
@@ -1074,20 +1083,6 @@ td.num {
     display: inline;
   }
 
-  .side-collapsed .side-menu {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    margin-top: 0;
-    pointer-events: none;
-    transition: max-height .28s ease, opacity .22s ease, margin-top .22s ease;
-  }
-
-  .side-menu {
-    max-height: 520px;
-    opacity: 1;
-    transition: max-height .28s ease, opacity .22s ease, margin-top .22s ease;
-  }
   .hero {
     grid-template-columns: 1fr;
   }
