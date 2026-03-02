@@ -40,6 +40,11 @@ def _execute(conn: Any, sql: str, params: Iterable | None = None):
     return conn.execute(driver_sql, tuple(params))
 
 
+def _executemany(conn: Any, sql: str, params_seq: Iterable[Iterable]):
+    driver_sql = sql if isinstance(conn, sqlite3.Connection) else sql.replace("?", "%s")
+    return conn.executemany(driver_sql, params_seq)
+
+
 def get_conn(db_path: str | Path):
     if _is_postgres(db_path):
         from psycopg import connect
@@ -268,110 +273,121 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
 def import_pedidos_talla_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
-    inserted = 0
-    updated = 0
-    read = 0
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
 
     with conn:
-        for row in rows:
-            read += 1
-            tallas_json = json.dumps(row.get("tallas", []), ensure_ascii=True)
+        _execute(conn, "DELETE FROM pedidos_talla")
+        values = [
+            (
+                row["articulo"],
+                row.get("descripcion", ""),
+                row["tipo"],
+                json.dumps(row.get("tallas", []), ensure_ascii=True),
+                int(row.get("total") or 0),
+            )
+            for row in rows_list
+        ]
+        _executemany(
+            conn,
+            """
+            INSERT INTO pedidos_talla (
+                articulo, descripcion, tipo, tallas_json, total
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            values,
+        )
+        if not isinstance(conn, sqlite3.Connection):
             _execute(
                 conn,
-                """
-                INSERT INTO pedidos_talla (
-                    articulo, descripcion, tipo, tallas_json, total
-                ) VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(articulo, tipo) DO UPDATE
-                SET descripcion = excluded.descripcion,
-                    tallas_json = excluded.tallas_json,
-                    total = excluded.total,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (
-                    row["articulo"],
-                    row.get("descripcion", ""),
-                    row["tipo"],
-                    tallas_json,
-                    int(row.get("total") or 0),
-                ),
+                "UPDATE pedidos_talla SET updated_at = CURRENT_TIMESTAMP",
             )
-            updated += 1
 
     conn.close()
-    return {"read": read, "inserted": inserted, "updated": updated}
+    return {"read": read, "inserted": read, "updated": 0}
 
 
 def import_pedidos_talla_todas_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
-    inserted = 0
-    updated = 0
-    read = 0
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
 
     with conn:
-        for row in rows:
-            read += 1
-            tallas_json = json.dumps(row.get("tallas", []), ensure_ascii=True)
+        _execute(conn, "DELETE FROM pedidos_talla_todas")
+        values = []
+        for row in rows_list:
             familia_digits = "".join(ch for ch in str(row.get("articulo") or "") if ch.isdigit())
             familia = familia_digits[2:6] if len(familia_digits) >= 6 else familia_digits
-            _execute(
-                conn,
-                """
-                INSERT INTO pedidos_talla_todas (
-                    articulo, descripcion, tipo, familia, tallas_json, total
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(articulo, tipo) DO UPDATE
-                SET descripcion = excluded.descripcion,
-                    familia = excluded.familia,
-                    tallas_json = excluded.tallas_json,
-                    total = excluded.total,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
+            values.append(
                 (
                     row["articulo"],
                     row.get("descripcion", ""),
                     row["tipo"],
                     familia,
-                    tallas_json,
+                    json.dumps(row.get("tallas", []), ensure_ascii=True),
                     int(row.get("total") or 0),
-                ),
+                )
             )
-            updated += 1
+        _executemany(
+            conn,
+            """
+            INSERT INTO pedidos_talla_todas (
+                articulo, descripcion, tipo, familia, tallas_json, total
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            values,
+        )
+        if not isinstance(conn, sqlite3.Connection):
+            _execute(
+                conn,
+                "UPDATE pedidos_talla_todas SET updated_at = CURRENT_TIMESTAMP",
+            )
 
     conn.close()
-    return {"read": read, "inserted": inserted, "updated": updated}
+    return {"read": read, "inserted": read, "updated": 0}
 
 
 def import_exs_map_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
-    inserted = 0
-    updated = 0
-    read = 0
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
 
     with conn:
-        for row in rows:
-            read += 1
+        _execute(conn, "DELETE FROM exs_map")
+        values = []
+        for row in rows_list:
             actual = str(row.get("actual") or "").strip()
-            ex = str(row.get("ex") or "").strip()
             if not actual:
                 continue
-            _execute(
+            values.append((actual, str(row.get("ex") or "").strip()))
+        if values:
+            _executemany(
                 conn,
                 """
                 INSERT INTO exs_map (actual, ex)
                 VALUES (?, ?)
-                ON CONFLICT(actual) DO UPDATE
-                SET ex = excluded.ex,
-                    updated_at = CURRENT_TIMESTAMP
                 """,
-                (actual, ex),
+                values,
             )
-            updated += 1
+            if not isinstance(conn, sqlite3.Connection):
+                _execute(
+                    conn,
+                    "UPDATE exs_map SET updated_at = CURRENT_TIMESTAMP",
+                )
 
     conn.close()
-    return {"read": read, "inserted": inserted, "updated": updated}
+    return {"read": read, "inserted": len(values), "updated": 0}
 
 
 def query_pedidos_talla_sections(db_path: Path, q: str = "") -> dict[str, list[dict]]:

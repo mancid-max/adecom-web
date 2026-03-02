@@ -229,6 +229,7 @@ def upload():
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
     except Exception as exc:
+        app.logger.exception("Fallo en carga de archivo", exc_info=exc)
         flash("No se pudo cargar la data. Inténtelo nuevamente.", "error")
         return redirect(url_for("index"))
 
@@ -306,3 +307,4 @@ def export_csv():
 if __name__ == "__main__":
     init_db(DB_PATH)
     app.run(debug=True)
+
