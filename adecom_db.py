@@ -210,11 +210,6 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
             _execute(conn, "DELETE FROM saldos_seccion")
         for row in rows:
             read += 1
-            existing = _execute(conn, 
-                "SELECT id FROM saldos_seccion WHERE corte = ?",
-                (row["corte"],),
-            ).fetchone()
-
             values = (
                 row["articulo"],
                 row["corte"],
@@ -233,61 +228,38 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
                 row["segunda"],
                 row["taller_nombre"],
             )
-
-            if existing:
-                _execute(conn, 
-                    """
-                    UPDATE saldos_seccion
-                    SET articulo = ?,
-                        fecha_iso = ?,
-                        programa = ?,
-                        proceso = ?,
-                        bodega = ?,
-                        saldo = ?,
-                        corte_1 = ?,
-                        taller = ?,
-                        t_externo = ?,
-                        limpiado = ?,
-                        lavanderia = ?,
-                        terminacion = ?,
-                        muestra = ?,
-                        segunda = ?,
-                        taller_nombre = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE corte = ?
-                    """,
-                    (
-                        row["articulo"],
-                        row["fecha_iso"],
-                        row["programa"],
-                        row["proceso"],
-                        row["bodega"],
-                        row["saldo"],
-                        row["corte_1"],
-                        row["taller"],
-                        row["t_externo"],
-                        row["limpiado"],
-                        row["lavanderia"],
-                        row["terminacion"],
-                        row["muestra"],
-                        row["segunda"],
-                        row["taller_nombre"],
-                        row["corte"],
-                    ),
-                )
-                updated += 1
-            else:
-                _execute(conn, 
-                    """
-                    INSERT INTO saldos_seccion (
-                        articulo, corte, fecha_iso, programa, proceso, bodega, saldo,
-                        corte_1, taller, t_externo, limpiado, lavanderia, terminacion,
-                        muestra, segunda, taller_nombre
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    values,
-                )
+            _execute(
+                conn,
+                """
+                INSERT INTO saldos_seccion (
+                    articulo, corte, fecha_iso, programa, proceso, bodega, saldo,
+                    corte_1, taller, t_externo, limpiado, lavanderia, terminacion,
+                    muestra, segunda, taller_nombre
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(corte) DO UPDATE
+                SET articulo = excluded.articulo,
+                    fecha_iso = excluded.fecha_iso,
+                    programa = excluded.programa,
+                    proceso = excluded.proceso,
+                    bodega = excluded.bodega,
+                    saldo = excluded.saldo,
+                    corte_1 = excluded.corte_1,
+                    taller = excluded.taller,
+                    t_externo = excluded.t_externo,
+                    limpiado = excluded.limpiado,
+                    lavanderia = excluded.lavanderia,
+                    terminacion = excluded.terminacion,
+                    muestra = excluded.muestra,
+                    segunda = excluded.segunda,
+                    taller_nombre = excluded.taller_nombre,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                values,
+            )
+            if replace_all:
                 inserted += 1
+            else:
+                updated += 1
 
     conn.close()
     return {"read": read, "inserted": inserted, "updated": updated}
@@ -303,47 +275,28 @@ def import_pedidos_talla_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     with conn:
         for row in rows:
             read += 1
-            existing = _execute(conn, 
-                "SELECT id FROM pedidos_talla WHERE articulo = ? AND tipo = ?",
-                (row["articulo"], row["tipo"]),
-            ).fetchone()
-
             tallas_json = json.dumps(row.get("tallas", []), ensure_ascii=True)
-            if existing:
-                _execute(conn, 
-                    """
-                    UPDATE pedidos_talla
-                    SET descripcion = ?,
-                        tallas_json = ?,
-                        total = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE articulo = ? AND tipo = ?
-                    """,
-                    (
-                        row.get("descripcion", ""),
-                        tallas_json,
-                        int(row.get("total") or 0),
-                        row["articulo"],
-                        row["tipo"],
-                    ),
-                )
-                updated += 1
-            else:
-                _execute(conn, 
-                    """
-                    INSERT INTO pedidos_talla (
-                        articulo, descripcion, tipo, tallas_json, total
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        row["articulo"],
-                        row.get("descripcion", ""),
-                        row["tipo"],
-                        tallas_json,
-                        int(row.get("total") or 0),
-                    ),
-                )
-                inserted += 1
+            _execute(
+                conn,
+                """
+                INSERT INTO pedidos_talla (
+                    articulo, descripcion, tipo, tallas_json, total
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(articulo, tipo) DO UPDATE
+                SET descripcion = excluded.descripcion,
+                    tallas_json = excluded.tallas_json,
+                    total = excluded.total,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    row["articulo"],
+                    row.get("descripcion", ""),
+                    row["tipo"],
+                    tallas_json,
+                    int(row.get("total") or 0),
+                ),
+            )
+            updated += 1
 
     conn.close()
     return {"read": read, "inserted": inserted, "updated": updated}
@@ -359,52 +312,32 @@ def import_pedidos_talla_todas_rows(db_path: Path, rows: Iterable[dict]) -> dict
     with conn:
         for row in rows:
             read += 1
-            existing = _execute(conn, 
-                "SELECT id FROM pedidos_talla_todas WHERE articulo = ? AND tipo = ?",
-                (row["articulo"], row["tipo"]),
-            ).fetchone()
-
             tallas_json = json.dumps(row.get("tallas", []), ensure_ascii=True)
             familia_digits = "".join(ch for ch in str(row.get("articulo") or "") if ch.isdigit())
             familia = familia_digits[2:6] if len(familia_digits) >= 6 else familia_digits
-            if existing:
-                _execute(conn, 
-                    """
-                    UPDATE pedidos_talla_todas
-                    SET descripcion = ?,
-                        familia = ?,
-                        tallas_json = ?,
-                        total = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE articulo = ? AND tipo = ?
-                    """,
-                    (
-                        row.get("descripcion", ""),
-                        familia,
-                        tallas_json,
-                        int(row.get("total") or 0),
-                        row["articulo"],
-                        row["tipo"],
-                    ),
-                )
-                updated += 1
-            else:
-                _execute(conn, 
-                    """
-                    INSERT INTO pedidos_talla_todas (
-                        articulo, descripcion, tipo, familia, tallas_json, total
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        row["articulo"],
-                        row.get("descripcion", ""),
-                        row["tipo"],
-                        familia,
-                        tallas_json,
-                        int(row.get("total") or 0),
-                    ),
-                )
-                inserted += 1
+            _execute(
+                conn,
+                """
+                INSERT INTO pedidos_talla_todas (
+                    articulo, descripcion, tipo, familia, tallas_json, total
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(articulo, tipo) DO UPDATE
+                SET descripcion = excluded.descripcion,
+                    familia = excluded.familia,
+                    tallas_json = excluded.tallas_json,
+                    total = excluded.total,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    row["articulo"],
+                    row.get("descripcion", ""),
+                    row["tipo"],
+                    familia,
+                    tallas_json,
+                    int(row.get("total") or 0),
+                ),
+            )
+            updated += 1
 
     conn.close()
     return {"read": read, "inserted": inserted, "updated": updated}
@@ -424,29 +357,18 @@ def import_exs_map_rows(db_path: Path, rows: Iterable[dict]) -> dict:
             ex = str(row.get("ex") or "").strip()
             if not actual:
                 continue
-            existing = _execute(conn, 
-                "SELECT id FROM exs_map WHERE actual = ?",
-                (actual,),
-            ).fetchone()
-            if existing:
-                _execute(conn, 
-                    """
-                    UPDATE exs_map
-                    SET ex = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE actual = ?
-                    """,
-                    (ex, actual),
-                )
-                updated += 1
-            else:
-                _execute(conn, 
-                    """
-                    INSERT INTO exs_map (actual, ex)
-                    VALUES (?, ?)
-                    """,
-                    (actual, ex),
-                )
-                inserted += 1
+            _execute(
+                conn,
+                """
+                INSERT INTO exs_map (actual, ex)
+                VALUES (?, ?)
+                ON CONFLICT(actual) DO UPDATE
+                SET ex = excluded.ex,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (actual, ex),
+            )
+            updated += 1
 
     conn.close()
     return {"read": read, "inserted": inserted, "updated": updated}
