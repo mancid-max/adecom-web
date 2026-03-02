@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
     get_conn,
@@ -36,6 +37,7 @@ if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
 
 
 def _table_count(table_name: str) -> int:
@@ -208,17 +210,17 @@ def index():
 
 @app.post("/upload")
 def upload():
-    file = request.files.get("file")
-    if not file or not file.filename:
-        flash("No se pudo cargar la data. Inténtelo nuevamente.", "error")
-        return redirect(url_for("index"))
-
     try:
+        file = request.files.get("file")
+        if not file or not file.filename:
+            flash("No se pudo cargar la data. Intentelo nuevamente.", "error")
+            return redirect(url_for("index"))
+
         parsed = parse_uploaded_file(file)
         kind = parsed["kind"]
         rows = parsed["rows"]
         if not rows:
-            flash("No se encontraron filas válidas en el archivo. Verifique formato e inténtelo nuevamente.", "error")
+            flash("No se encontraron filas validas en el archivo. Verifique formato e intentelo nuevamente.", "error")
             return redirect(url_for("index"))
         if kind == "pedidos_talla":
             stats = import_pedidos_talla_rows(DB_PATH, rows)
@@ -228,14 +230,21 @@ def upload():
             stats = import_exs_map_rows(DB_PATH, rows)
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
+    except RequestEntityTooLarge:
+        flash("El archivo supera el tamano permitido. Intentelo con un archivo mas liviano.", "error")
+        return redirect(url_for("index"))
     except Exception as exc:
         app.logger.exception("Fallo en carga de archivo", exc_info=exc)
-        flash("No se pudo cargar la data. Inténtelo nuevamente.", "error")
+        flash("No se pudo cargar la data. Intentelo nuevamente.", "error")
         return redirect(url_for("index"))
 
-    flash("Data cargada con éxito.", "success")
+    flash("Data cargada con exito.", "success")
     return redirect(url_for("index"))
 
+
+@app.get("/upload")
+def upload_get_redirect():
+    return redirect(url_for("index"))
 
 @app.get("/export.csv")
 def export_csv():
