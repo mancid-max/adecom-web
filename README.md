@@ -103,7 +103,8 @@ Por defecto el asistente usa logica local de la app. Si quieres usar Gemini:
 
 - `ADECOM_ASSISTANT_PROVIDER=gemini`
 - `GEMINI_API_KEY=tu_api_key`
-- `GEMINI_MODEL=gemini-1.5-flash` (opcional)
+- `GEMINI_MODEL=gemini-2.5-flash` (opcional)
+- `GEMINI_API_VERSION=v1` (opcional, recomendado)
 
 Si Gemini falla o no responde, el sistema vuelve automaticamente al asistente local.
 

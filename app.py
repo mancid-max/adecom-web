@@ -342,7 +342,17 @@ def _answer_with_gemini(question: str) -> str:
         raise RuntimeError("GEMINI_API_KEY no configurada.")
 
     env_model = os.environ.get("GEMINI_MODEL", "").strip()
-    model_candidates = [m for m in [env_model, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"] if m]
+    api_version = os.environ.get("GEMINI_API_VERSION", "v1").strip() or "v1"
+    model_candidates = [
+        m
+        for m in [
+            env_model,
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+        ]
+        if m
+    ]
 
     rows, _, summary = query_rows(DB_PATH, {"q": "", "fecha": ""})
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, "")
@@ -376,7 +386,7 @@ def _answer_with_gemini(question: str) -> str:
     last_error = None
     for model in model_candidates:
         endpoint = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={api_key}"
         )
         req = url_request.Request(
             endpoint,
@@ -399,7 +409,7 @@ def _answer_with_gemini(question: str) -> str:
                 continue
             return text
         except url_error.HTTPError as exc:
-            # 404 suele ser modelo no disponible; intentamos siguiente modelo.
+            # 404: modelo no disponible. 403/401: key/permisos.
             last_error = RuntimeError(f"Gemini ({model}) HTTP {exc.code}")
             continue
         except Exception as exc:
@@ -409,15 +419,30 @@ def _answer_with_gemini(question: str) -> str:
     raise RuntimeError(f"Gemini no disponible. Detalle: {last_error}")
 
 
-def _answer_assistant_router(question: str) -> str:
+def _answer_assistant_router(question: str) -> dict:
     provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
     if provider in {"gemini", "google"}:
         try:
-            return _answer_with_gemini(question)
+            return {
+                "answer": _answer_with_gemini(question),
+                "provider": "gemini",
+                "fallback": False,
+                "detail": "",
+            }
         except (url_error.URLError, RuntimeError, TimeoutError, ValueError) as exc:
             app.logger.warning("Gemini fallback a local: %s", exc)
-            return _answer_assistant(question)
-    return _answer_assistant(question)
+            return {
+                "answer": _answer_assistant(question),
+                "provider": "local",
+                "fallback": True,
+                "detail": str(exc),
+            }
+    return {
+        "answer": _answer_assistant(question),
+        "provider": "local",
+        "fallback": False,
+        "detail": "",
+    }
 
 
 def _table_count(table_name: str) -> int:
@@ -664,8 +689,8 @@ def admin_logout():
 def assistant_query():
     payload = request.get_json(silent=True) or {}
     question = str(payload.get("question") or "").strip()
-    answer = _answer_assistant_router(question)
-    return jsonify({"answer": answer})
+    result = _answer_assistant_router(question)
+    return jsonify(result)
 
 
 @app.get("/export.csv")
