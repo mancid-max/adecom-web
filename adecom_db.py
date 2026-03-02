@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import sqlite3
 import json
+import sqlite3
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 
 NUMERIC_FIELDS = [
@@ -22,80 +22,179 @@ NUMERIC_FIELDS = [
 ]
 
 
-def get_conn(db_path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+def _is_postgres(db_path: str | Path) -> bool:
+    value = str(db_path)
+    return value.startswith("postgres://") or value.startswith("postgresql://")
+
+
+def _to_driver_sql(db_path: str | Path, sql: str) -> str:
+    if not _is_postgres(db_path):
+        return sql
+    return sql.replace("?", "%s")
+
+
+def _execute(conn: Any, sql: str, params: Iterable | None = None):
+    driver_sql = sql if isinstance(conn, sqlite3.Connection) else sql.replace("?", "%s")
+    if params is None:
+        return conn.execute(driver_sql)
+    return conn.execute(driver_sql, tuple(params))
+
+
+def get_conn(db_path: str | Path):
+    if _is_postgres(db_path):
+        from psycopg import connect
+        from psycopg.rows import dict_row
+
+        return connect(str(db_path), row_factory=dict_row)
+
+    local_path = Path(db_path)
+    conn = sqlite3.connect(local_path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db(db_path: Path) -> None:
-    db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+def init_db(db_path: str | Path) -> None:
+    if not _is_postgres(db_path):
+        local_path = Path(db_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
     conn = get_conn(db_path)
     with conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS saldos_seccion (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                articulo TEXT NOT NULL,
-                corte TEXT NOT NULL UNIQUE,
-                fecha_iso TEXT,
-                programa INTEGER NOT NULL DEFAULT 0,
-                proceso INTEGER NOT NULL DEFAULT 0,
-                bodega INTEGER NOT NULL DEFAULT 0,
-                saldo INTEGER NOT NULL DEFAULT 0,
-                corte_1 INTEGER NOT NULL DEFAULT 0,
-                taller INTEGER NOT NULL DEFAULT 0,
-                t_externo INTEGER NOT NULL DEFAULT 0,
-                limpiado INTEGER NOT NULL DEFAULT 0,
-                lavanderia INTEGER NOT NULL DEFAULT 0,
-                terminacion INTEGER NOT NULL DEFAULT 0,
-                muestra INTEGER NOT NULL DEFAULT 0,
-                segunda INTEGER NOT NULL DEFAULT 0,
-                taller_nombre TEXT NOT NULL DEFAULT '',
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        if _is_postgres(db_path):
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS saldos_seccion (
+                    id BIGSERIAL PRIMARY KEY,
+                    articulo TEXT NOT NULL,
+                    corte TEXT NOT NULL UNIQUE,
+                    fecha_iso TEXT,
+                    programa INTEGER NOT NULL DEFAULT 0,
+                    proceso INTEGER NOT NULL DEFAULT 0,
+                    bodega INTEGER NOT NULL DEFAULT 0,
+                    saldo INTEGER NOT NULL DEFAULT 0,
+                    corte_1 INTEGER NOT NULL DEFAULT 0,
+                    taller INTEGER NOT NULL DEFAULT 0,
+                    t_externo INTEGER NOT NULL DEFAULT 0,
+                    limpiado INTEGER NOT NULL DEFAULT 0,
+                    lavanderia INTEGER NOT NULL DEFAULT 0,
+                    terminacion INTEGER NOT NULL DEFAULT 0,
+                    muestra INTEGER NOT NULL DEFAULT 0,
+                    segunda INTEGER NOT NULL DEFAULT 0,
+                    taller_nombre TEXT NOT NULL DEFAULT '',
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
             )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS pedidos_talla (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                articulo TEXT NOT NULL,
-                descripcion TEXT NOT NULL DEFAULT '',
-                tipo TEXT NOT NULL,
-                tallas_json TEXT NOT NULL DEFAULT '[]',
-                total INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(articulo, tipo)
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS pedidos_talla (
+                    id BIGSERIAL PRIMARY KEY,
+                    articulo TEXT NOT NULL,
+                    descripcion TEXT NOT NULL DEFAULT '',
+                    tipo TEXT NOT NULL,
+                    tallas_json TEXT NOT NULL DEFAULT '[]',
+                    total INTEGER NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(articulo, tipo)
+                )
+                """,
             )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS pedidos_talla_todas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                articulo TEXT NOT NULL,
-                descripcion TEXT NOT NULL DEFAULT '',
-                tipo TEXT NOT NULL,
-                familia TEXT NOT NULL DEFAULT '',
-                tallas_json TEXT NOT NULL DEFAULT '[]',
-                total INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(articulo, tipo)
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS pedidos_talla_todas (
+                    id BIGSERIAL PRIMARY KEY,
+                    articulo TEXT NOT NULL,
+                    descripcion TEXT NOT NULL DEFAULT '',
+                    tipo TEXT NOT NULL,
+                    familia TEXT NOT NULL DEFAULT '',
+                    tallas_json TEXT NOT NULL DEFAULT '[]',
+                    total INTEGER NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(articulo, tipo)
+                )
+                """,
             )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS exs_map (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                actual TEXT NOT NULL UNIQUE,
-                ex TEXT NOT NULL DEFAULT '',
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS exs_map (
+                    id BIGSERIAL PRIMARY KEY,
+                    actual TEXT NOT NULL UNIQUE,
+                    ex TEXT NOT NULL DEFAULT '',
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
             )
-            """
-        )
+        else:
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS saldos_seccion (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    articulo TEXT NOT NULL,
+                    corte TEXT NOT NULL UNIQUE,
+                    fecha_iso TEXT,
+                    programa INTEGER NOT NULL DEFAULT 0,
+                    proceso INTEGER NOT NULL DEFAULT 0,
+                    bodega INTEGER NOT NULL DEFAULT 0,
+                    saldo INTEGER NOT NULL DEFAULT 0,
+                    corte_1 INTEGER NOT NULL DEFAULT 0,
+                    taller INTEGER NOT NULL DEFAULT 0,
+                    t_externo INTEGER NOT NULL DEFAULT 0,
+                    limpiado INTEGER NOT NULL DEFAULT 0,
+                    lavanderia INTEGER NOT NULL DEFAULT 0,
+                    terminacion INTEGER NOT NULL DEFAULT 0,
+                    muestra INTEGER NOT NULL DEFAULT 0,
+                    segunda INTEGER NOT NULL DEFAULT 0,
+                    taller_nombre TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS pedidos_talla (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    articulo TEXT NOT NULL,
+                    descripcion TEXT NOT NULL DEFAULT '',
+                    tipo TEXT NOT NULL,
+                    tallas_json TEXT NOT NULL DEFAULT '[]',
+                    total INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(articulo, tipo)
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS pedidos_talla_todas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    articulo TEXT NOT NULL,
+                    descripcion TEXT NOT NULL DEFAULT '',
+                    tipo TEXT NOT NULL,
+                    familia TEXT NOT NULL DEFAULT '',
+                    tallas_json TEXT NOT NULL DEFAULT '[]',
+                    total INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(articulo, tipo)
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS exs_map (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    actual TEXT NOT NULL UNIQUE,
+                    ex TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
     conn.close()
 
 
@@ -108,10 +207,10 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
 
     with conn:
         if replace_all:
-            conn.execute("DELETE FROM saldos_seccion")
+            _execute(conn, "DELETE FROM saldos_seccion")
         for row in rows:
             read += 1
-            existing = conn.execute(
+            existing = _execute(conn, 
                 "SELECT id FROM saldos_seccion WHERE corte = ?",
                 (row["corte"],),
             ).fetchone()
@@ -136,7 +235,7 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
             )
 
             if existing:
-                conn.execute(
+                _execute(conn, 
                     """
                     UPDATE saldos_seccion
                     SET articulo = ?,
@@ -178,7 +277,7 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
                 )
                 updated += 1
             else:
-                conn.execute(
+                _execute(conn, 
                     """
                     INSERT INTO saldos_seccion (
                         articulo, corte, fecha_iso, programa, proceso, bodega, saldo,
@@ -204,14 +303,14 @@ def import_pedidos_talla_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     with conn:
         for row in rows:
             read += 1
-            existing = conn.execute(
+            existing = _execute(conn, 
                 "SELECT id FROM pedidos_talla WHERE articulo = ? AND tipo = ?",
                 (row["articulo"], row["tipo"]),
             ).fetchone()
 
             tallas_json = json.dumps(row.get("tallas", []), ensure_ascii=True)
             if existing:
-                conn.execute(
+                _execute(conn, 
                     """
                     UPDATE pedidos_talla
                     SET descripcion = ?,
@@ -230,7 +329,7 @@ def import_pedidos_talla_rows(db_path: Path, rows: Iterable[dict]) -> dict:
                 )
                 updated += 1
             else:
-                conn.execute(
+                _execute(conn, 
                     """
                     INSERT INTO pedidos_talla (
                         articulo, descripcion, tipo, tallas_json, total
@@ -260,7 +359,7 @@ def import_pedidos_talla_todas_rows(db_path: Path, rows: Iterable[dict]) -> dict
     with conn:
         for row in rows:
             read += 1
-            existing = conn.execute(
+            existing = _execute(conn, 
                 "SELECT id FROM pedidos_talla_todas WHERE articulo = ? AND tipo = ?",
                 (row["articulo"], row["tipo"]),
             ).fetchone()
@@ -269,7 +368,7 @@ def import_pedidos_talla_todas_rows(db_path: Path, rows: Iterable[dict]) -> dict
             familia_digits = "".join(ch for ch in str(row.get("articulo") or "") if ch.isdigit())
             familia = familia_digits[2:6] if len(familia_digits) >= 6 else familia_digits
             if existing:
-                conn.execute(
+                _execute(conn, 
                     """
                     UPDATE pedidos_talla_todas
                     SET descripcion = ?,
@@ -290,7 +389,7 @@ def import_pedidos_talla_todas_rows(db_path: Path, rows: Iterable[dict]) -> dict
                 )
                 updated += 1
             else:
-                conn.execute(
+                _execute(conn, 
                     """
                     INSERT INTO pedidos_talla_todas (
                         articulo, descripcion, tipo, familia, tallas_json, total
@@ -325,12 +424,12 @@ def import_exs_map_rows(db_path: Path, rows: Iterable[dict]) -> dict:
             ex = str(row.get("ex") or "").strip()
             if not actual:
                 continue
-            existing = conn.execute(
+            existing = _execute(conn, 
                 "SELECT id FROM exs_map WHERE actual = ?",
                 (actual,),
             ).fetchone()
             if existing:
-                conn.execute(
+                _execute(conn, 
                     """
                     UPDATE exs_map
                     SET ex = ?, updated_at = CURRENT_TIMESTAMP
@@ -340,7 +439,7 @@ def import_exs_map_rows(db_path: Path, rows: Iterable[dict]) -> dict:
                 )
                 updated += 1
             else:
-                conn.execute(
+                _execute(conn, 
                     """
                     INSERT INTO exs_map (actual, ex)
                     VALUES (?, ?)
@@ -374,7 +473,7 @@ def query_pedidos_talla_sections(db_path: Path, q: str = "") -> dict[str, list[d
                 params.append(q_digits)
         where = "WHERE " + " OR ".join(clauses)
 
-    rows = conn.execute(
+    rows = _execute(conn, 
         f"""
         SELECT articulo, descripcion, tipo, tallas_json, total
         FROM pedidos_talla
@@ -461,7 +560,7 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
         {where}
         ORDER BY fecha_iso DESC, corte ASC
     """
-    db_rows = conn.execute(sql, params).fetchall()
+    db_rows = _execute(conn, sql, params).fetchall()
 
     rows: list[dict] = []
     totals = {key: 0 for key in NUMERIC_FIELDS}
@@ -531,7 +630,7 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
 def query_exs_balance_summary(db_path: Path, q: str = "") -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
-    saldo_rows = conn.execute(
+    saldo_rows = _execute(conn, 
         """
         SELECT familia, SUM(total) AS total
         FROM pedidos_talla_todas
@@ -543,7 +642,7 @@ def query_exs_balance_summary(db_path: Path, q: str = "") -> dict:
         str(r["familia"]).strip(): int(r["total"] or 0) for r in saldo_rows
     }
 
-    map_rows = conn.execute(
+    map_rows = _execute(conn, 
         """
         SELECT actual, ex
         FROM exs_map

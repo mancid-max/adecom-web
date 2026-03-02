@@ -23,15 +23,16 @@ from parsers import parse_pedidos_talla_txt, parse_saldos_txt, parse_uploaded_fi
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
-DB_PATH = Path(
-    os.environ.get("ADECOM_DB_PATH", str(BASE_DIR / "data" / "adecom.db"))
-).resolve()
+DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
+    "ADECOM_DB_PATH", str(BASE_DIR / "data" / "adecom.db")
+)
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
+    Path(DB_PATH).resolve().parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")

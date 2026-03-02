@@ -106,6 +106,27 @@ gunicorn app:app
 
 5. Deploy.
 
+## Auto deploy gratis: Koyeb + Neon (Postgres persistente)
+
+Si quieres deploy automatico en cada `git push` y datos persistentes:
+
+1. Crea una BD gratis en Neon y copia `DATABASE_URL`.
+2. En Koyeb crea un `Web Service` desde este repo (rama `main`).
+3. En variables de entorno del servicio configura:
+
+```text
+DATABASE_URL=postgresql://...
+ADECOM_ENABLE_SEED=0
+```
+
+4. Comando de inicio:
+
+```bash
+gunicorn app:app
+```
+
+Desde este punto, cada push a `main` dispara redeploy y la data queda persistente en Postgres.
+
 ## Render (actual)
 
 Tu proyecto ya incluye archivos para Render (`Procfile` y `render.yaml`), pero Render Free suspende el servicio tras 15 minutos sin trafico y el filesystem es efimero.
