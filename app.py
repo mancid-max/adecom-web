@@ -522,30 +522,12 @@ def _answer_with_gemini(question: str) -> str:
 def _answer_assistant_router(question: str) -> dict:
     provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
     if provider in {"gemini", "google"}:
-        try:
-            return {
-                "answer": _answer_with_gemini(question),
-                "provider": "gemini",
-                "fallback": False,
-                "detail": "",
-            }
-        except Exception as exc:
-            app.logger.warning("Gemini fallback a local: %s", exc)
-            try:
-                return {
-                    "answer": _answer_assistant(question),
-                    "provider": "local",
-                    "fallback": True,
-                    "detail": str(exc),
-                }
-            except Exception as local_exc:
-                app.logger.exception("Fallo en fallback local del asistente", exc_info=local_exc)
-                return {
-                    "answer": "No fue posible responder en este momento. Intenta nuevamente.",
-                    "provider": "local",
-                    "fallback": True,
-                    "detail": f"gemini={exc}; local={local_exc}",
-                }
+        return {
+            "answer": _answer_with_gemini(question),
+            "provider": "gemini",
+            "fallback": False,
+            "detail": "",
+        }
     try:
         return {
             "answer": _answer_assistant(question),
@@ -805,6 +787,7 @@ def admin_logout():
 
 @app.post("/assistant/query")
 def assistant_query():
+    provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
     try:
         payload = request.get_json(silent=True) or {}
         question = str(payload.get("question") or "").strip()
@@ -812,6 +795,15 @@ def assistant_query():
         return jsonify(result)
     except Exception as exc:
         app.logger.exception("Error en /assistant/query", exc_info=exc)
+        if provider in {"gemini", "google"}:
+            return jsonify(
+                {
+                    "answer": f"Gemini no disponible. Detalle: {exc}",
+                    "provider": "gemini",
+                    "fallback": False,
+                    "detail": str(exc),
+                }
+            ), 503
         return jsonify(
             {
                 "answer": "No fue posible responder en este momento. Intenta nuevamente.",
