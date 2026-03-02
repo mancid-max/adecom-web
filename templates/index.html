@@ -788,7 +788,7 @@
 
       const setOpen = (open) => {
         widget.classList.toggle("assistant-open", open);
-        if (!open && historyPanel) historyPanel.hidden = true;
+        if (!open) setHistoryOpen(false);
       };
 
       fab.addEventListener("click", () => setOpen(true));
@@ -818,13 +818,14 @@
       };
 
       if (historyBtn && historyPanel && historyClose) {
+        setHistoryOpen(false);
         historyBtn.addEventListener("click", () => {
-          const open = historyPanel.hidden;
+          const open = historyPanel.style.display === "none" || historyPanel.style.display === "";
           if (open) renderArchive();
-          historyPanel.hidden = !open;
+          setHistoryOpen(open);
         });
         historyClose.addEventListener("click", () => {
-          historyPanel.hidden = true;
+          setHistoryOpen(false);
         });
       }
 
@@ -1423,3 +1424,7 @@
   </script>
 </body>
 </html>
+      const setHistoryOpen = (open) => {
+        if (!historyPanel) return;
+        historyPanel.style.display = open ? "grid" : "none";
+      };

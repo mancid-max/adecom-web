@@ -413,15 +413,14 @@ button:hover, .btn-ghost:hover {
 }
 
 .assistant-history-panel {
-  position: absolute;
-  inset: 52px 10px 62px 10px;
+  margin: 0 10px 8px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 12px 20px rgba(18, 22, 34, 0.16);
-  z-index: 2;
   display: grid;
   grid-template-rows: auto 1fr;
+  max-height: 180px;
 }
 
 .assistant-history-head {
