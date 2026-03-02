@@ -789,6 +789,7 @@
       const setHistoryOpen = (open) => {
         if (!historyPanel) return;
         historyPanel.style.display = open ? "grid" : "none";
+        chat.classList.toggle("assistant-history-open", open);
       };
 
       const setOpen = (open) => {

@@ -323,6 +323,10 @@ button:hover, .btn-ghost:hover {
   animation: fadeUp .22s ease both;
 }
 
+.assistant-open .assistant-chat.assistant-history-open {
+  grid-template-rows: auto 1fr auto auto;
+}
+
 .assistant-chat-head {
   display: flex;
   align-items: center;
