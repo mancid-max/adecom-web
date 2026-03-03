@@ -150,6 +150,37 @@ Desde este punto, cada push a `main` dispara redeploy y la data queda persistent
 
 Tu proyecto ya incluye archivos para Render (`Procfile` y `render.yaml`), pero Render Free suspende el servicio tras 15 minutos sin trafico y el filesystem es efimero.
 
+## Recomendado ahora: Railway + Supabase
+
+Para evitar lentitud/costos de Render y mantener datos persistentes:
+
+1. Crea proyecto en Supabase y copia `DATABASE_URL` (pooler).
+2. En Railway crea un servicio desde este repo (`main`).
+3. En Railway define variables:
+
+```text
+DATABASE_URL=postgresql://...
+ADECOM_ENABLE_SEED=0
+ADECOM_ADMIN_KEY=tu_clave
+ADECOM_ASSISTANT_PROVIDER=gemini
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_API_VERSION=v1
+ADECOM_AUTOLOAD_SALDOS_SOURCE=https://raw.githubusercontent.com/mancid-max/adecom-web/main/seed/SALDOS-SECCI.TXT
+ADECOM_AUTOLOAD_PEDIDOS_SOURCE=https://raw.githubusercontent.com/mancid-max/adecom-web/main/seed/PEDIDOSXTALLA.TXT
+ADECOM_AUTOLOAD_ETAPAS_SOURCE=https://raw.githubusercontent.com/mancid-max/adecom-web/main/seed/Grande-Adecom.TXT
+```
+
+4. Start command:
+
+```text
+gunicorn app:app
+```
+
+5. Deploy.
+
+Luego de desplegar, usa el boton `Actualizar data web` para poblar/actualizar la BD de Supabase.
+
 ## Regla de actualizacion (upsert)
 
 Se usa `CORTE` como clave de negocio principal:
