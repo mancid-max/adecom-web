@@ -872,16 +872,21 @@ td.etapas-fecha {
 }
 
 .etapa-line {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  column-gap: 6px;
+  width: 100%;
 }
 
 .etapa-chip-date {
   background: #f8f2e8;
   border-color: #d9ccb9;
   color: #3f352b;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .etapa-chip-days {
