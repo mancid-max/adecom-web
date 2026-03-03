@@ -159,3 +159,35 @@ Se usa `CORTE` como clave de negocio principal:
 
 Nota: si en el futuro aparecen casos donde `CORTE` no sea unico globalmente,
 se puede cambiar a clave compuesta (`ARTICULO + CORTE`) con un ajuste pequeno.
+
+## Auto-sync carpeta local a Git (Windows)
+
+Si quieres que todo lo que cambies en:
+
+`C:\Users\manuh\Desktop\APIS\Documentos a cargar ADECOM WEB`
+
+se copie solo a `seed/` y haga push automatico a GitHub:
+
+1. Ejecutar una sincronizacion manual:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_data_to_git.ps1
+```
+
+2. Instalar tarea programada (se inicia al entrar a Windows):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_sync_task.ps1
+```
+
+Archivos que sincroniza:
+
+- `SALDOS-SECCI*` -> `seed/SALDOS-SECCI.TXT`
+- `PEDIDOSXTALLA*` (excluye `TODAS`) -> `seed/PEDIDOSXTALLA.TXT`
+- `Grande-Adecom*` -> `seed/Grande-Adecom.TXT`
+
+Cuando detecta cambios, ejecuta:
+
+- `git add`
+- `git commit`
+- `git push origin main`
