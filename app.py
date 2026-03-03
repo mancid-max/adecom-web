@@ -29,6 +29,7 @@ from adecom_db import (
     query_rows,
 )
 from parsers import parse_pedidos_talla_txt, parse_saldos_txt, parse_uploaded_file
+from parsers import parse_corte_etapas_txt
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,6 +40,12 @@ DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
+AUTOLOAD_DIR = Path(
+    os.environ.get(
+        "ADECOM_AUTOLOAD_DIR",
+        r"C:\Users\manuh\Desktop\APIS\Documentos a cargar ADECOM WEB",
+    )
+)
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -733,6 +740,33 @@ def _table_count(table_name: str) -> int:
         conn.close()
 
 
+def _norm_file_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(name or "").lower())
+
+
+def _find_autoload_file(folder: Path, token: str, *, exclude_token: str = "") -> Path | None:
+    if not folder.exists() or not folder.is_dir():
+        return None
+    token_n = _norm_file_key(token)
+    exclude_n = _norm_file_key(exclude_token) if exclude_token else ""
+    candidates: list[Path] = []
+    for p in folder.iterdir():
+        if not p.is_file():
+            continue
+        if p.suffix.lower() not in {".txt", ".csv"}:
+            continue
+        key = _norm_file_key(p.name)
+        if token_n not in key:
+            continue
+        if exclude_n and exclude_n in key:
+            continue
+        candidates.append(p)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    return candidates[0]
+
+
 def ensure_seed_data() -> None:
     init_db(DB_PATH)
     if _table_count("saldos_seccion") == 0 and SEED_SALDOS.exists():
@@ -954,6 +988,60 @@ def upload():
 
 @app.get("/upload")
 def upload_get_redirect():
+    return redirect(url_for("index"))
+
+
+@app.post("/upload/refresh-local")
+def upload_refresh_local():
+    if not _can_upload():
+        flash("Acceso denegado para cargar archivos.", "error")
+        return redirect(url_for("index"))
+
+    folder = AUTOLOAD_DIR
+    try:
+        saldos_file = _find_autoload_file(folder, "saldos-secci")
+        pedidos_file = _find_autoload_file(folder, "pedidosxtalla", exclude_token="todas")
+        etapas_file = _find_autoload_file(folder, "grande-adecom")
+
+        missing: list[str] = []
+        if not saldos_file:
+            missing.append("SALDOS-SECCI")
+        if not pedidos_file:
+            missing.append("PEDIDOSXTALLA")
+        if not etapas_file:
+            missing.append("Grande-Adecom")
+        if missing:
+            session["upload_debug"] = f"Faltan archivos: {', '.join(missing)}. Carpeta: {folder}"
+            flash("No se encontraron todos los archivos requeridos en la carpeta configurada.", "error")
+            return redirect(url_for("index"))
+
+        saldos_rows = parse_saldos_txt(saldos_file.read_bytes())
+        pedidos_rows = parse_pedidos_talla_txt(pedidos_file.read_bytes())
+        etapas_rows = parse_corte_etapas_txt(etapas_file.read_bytes())
+        if not saldos_rows or not pedidos_rows or not etapas_rows:
+            session["upload_debug"] = (
+                f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, "
+                f"etapas={len(etapas_rows)}"
+            )
+            flash("Uno o mas archivos no contienen filas validas. Revise formato y datos.", "error")
+            return redirect(url_for("index"))
+
+        stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
+        stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
+        stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
+
+        session.pop("upload_debug", None)
+        flash(
+            "Actualizacion completa. "
+            f"SALDOS-SECCI: I {stats_saldos.get('inserted', 0)} / A {stats_saldos.get('updated', 0)}. "
+            f"PEDIDOSXTALLA: I {stats_pedidos.get('inserted', 0)} / A {stats_pedidos.get('updated', 0)}. "
+            f"Grande-Adecom: I {stats_etapas.get('inserted', 0)} / A {stats_etapas.get('updated', 0)}.",
+            "success",
+        )
+    except Exception as exc:
+        app.logger.exception("Fallo en actualizacion automatica", exc_info=exc)
+        session["upload_debug"] = f"{exc.__class__.__name__}: {exc}"
+        flash("No se pudo actualizar la data automaticamente. Intentelo nuevamente.", "error")
     return redirect(url_for("index"))
 
 

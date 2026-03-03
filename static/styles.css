@@ -173,11 +173,17 @@ body.modal-open {
   display: flex;
   justify-content: flex-end;
   align-items: start;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .upload-cta button {
   min-width: 220px;
   padding: 12px 18px;
+}
+
+.upload-quick-form {
+  margin: 0;
 }
 
 .upload-card,
