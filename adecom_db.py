@@ -172,6 +172,36 @@ def init_db(db_path: str | Path) -> None:
             _execute(
                 conn,
                 """
+                CREATE TABLE IF NOT EXISTS corte_etapas (
+                    id BIGSERIAL PRIMARY KEY,
+                    corte TEXT NOT NULL UNIQUE,
+                    articulo TEXT NOT NULL DEFAULT '',
+                    fecha_orden_iso TEXT,
+                    programado INTEGER NOT NULL DEFAULT 0,
+                    cortado INTEGER NOT NULL DEFAULT 0,
+                    entrega INTEGER NOT NULL DEFAULT 0,
+                    saldo INTEGER NOT NULL DEFAULT 0,
+                    corte_inicio_iso TEXT,
+                    corte_fin_iso TEXT,
+                    taller_inicio_iso TEXT,
+                    taller_fin_iso TEXT,
+                    t_externo_inicio_iso TEXT,
+                    t_externo_fin_iso TEXT,
+                    limpiado_inicio_iso TEXT,
+                    limpiado_fin_iso TEXT,
+                    lavanderia_inicio_iso TEXT,
+                    lavanderia_fin_iso TEXT,
+                    terminacion_inicio_iso TEXT,
+                    terminacion_fin_iso TEXT,
+                    muestra_inicio_iso TEXT,
+                    muestra_fin_iso TEXT,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
                 CREATE TABLE IF NOT EXISTS assistant_rules (
                     id BIGSERIAL PRIMARY KEY,
                     rule_key TEXT NOT NULL UNIQUE,
@@ -246,6 +276,36 @@ def init_db(db_path: str | Path) -> None:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     actual TEXT NOT NULL UNIQUE,
                     ex TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS corte_etapas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    corte TEXT NOT NULL UNIQUE,
+                    articulo TEXT NOT NULL DEFAULT '',
+                    fecha_orden_iso TEXT,
+                    programado INTEGER NOT NULL DEFAULT 0,
+                    cortado INTEGER NOT NULL DEFAULT 0,
+                    entrega INTEGER NOT NULL DEFAULT 0,
+                    saldo INTEGER NOT NULL DEFAULT 0,
+                    corte_inicio_iso TEXT,
+                    corte_fin_iso TEXT,
+                    taller_inicio_iso TEXT,
+                    taller_fin_iso TEXT,
+                    t_externo_inicio_iso TEXT,
+                    t_externo_fin_iso TEXT,
+                    limpiado_inicio_iso TEXT,
+                    limpiado_fin_iso TEXT,
+                    lavanderia_inicio_iso TEXT,
+                    lavanderia_fin_iso TEXT,
+                    terminacion_inicio_iso TEXT,
+                    terminacion_fin_iso TEXT,
+                    muestra_inicio_iso TEXT,
+                    muestra_fin_iso TEXT,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
@@ -465,6 +525,68 @@ def import_exs_map_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     return {"read": read, "inserted": len(values), "updated": 0}
 
 
+def import_corte_etapas_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
+
+    with conn:
+        _execute(conn, "DELETE FROM corte_etapas")
+        values = [
+            (
+                str(row.get("corte") or "").strip(),
+                str(row.get("articulo") or "").strip(),
+                row.get("fecha_orden_iso"),
+                int(row.get("programado") or 0),
+                int(row.get("cortado") or 0),
+                int(row.get("entrega") or 0),
+                int(row.get("saldo") or 0),
+                row.get("corte_inicio_iso"),
+                row.get("corte_fin_iso"),
+                row.get("taller_inicio_iso"),
+                row.get("taller_fin_iso"),
+                row.get("t_externo_inicio_iso"),
+                row.get("t_externo_fin_iso"),
+                row.get("limpiado_inicio_iso"),
+                row.get("limpiado_fin_iso"),
+                row.get("lavanderia_inicio_iso"),
+                row.get("lavanderia_fin_iso"),
+                row.get("terminacion_inicio_iso"),
+                row.get("terminacion_fin_iso"),
+                row.get("muestra_inicio_iso"),
+                row.get("muestra_fin_iso"),
+            )
+            for row in rows_list
+            if str(row.get("corte") or "").strip()
+        ]
+        if values:
+            _executemany(
+                conn,
+                """
+                INSERT INTO corte_etapas (
+                    corte, articulo, fecha_orden_iso, programado, cortado, entrega, saldo,
+                    corte_inicio_iso, corte_fin_iso, taller_inicio_iso, taller_fin_iso,
+                    t_externo_inicio_iso, t_externo_fin_iso, limpiado_inicio_iso, limpiado_fin_iso,
+                    lavanderia_inicio_iso, lavanderia_fin_iso, terminacion_inicio_iso, terminacion_fin_iso,
+                    muestra_inicio_iso, muestra_fin_iso
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            if not isinstance(conn, sqlite3.Connection):
+                _execute(
+                    conn,
+                    "UPDATE corte_etapas SET updated_at = CURRENT_TIMESTAMP",
+                )
+
+    conn.close()
+    return {"read": read, "inserted": len(values), "updated": 0}
+
+
 def query_pedidos_talla_sections(db_path: Path, q: str = "") -> dict[str, list[dict]]:
     init_db(db_path)
     conn = get_conn(db_path)
@@ -575,6 +697,18 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
     """
     db_rows = _execute(conn, sql, params).fetchall()
 
+    stage_rows = _execute(
+        conn,
+        """
+        SELECT *
+        FROM corte_etapas
+        """,
+    ).fetchall()
+    corte_stage_map: dict[str, dict] = {
+        str(dict(sr).get("corte") or "").strip(): dict(sr)
+        for sr in stage_rows
+    }
+
     rows: list[dict] = []
     totals = {key: 0 for key in NUMERIC_FIELDS}
     summary = {
@@ -597,6 +731,9 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
         row["tiene_pendiente_trazabilidad"] = row["pendiente_en_trazabilidad"] > 0
         row["ubicacion_restante"] = _ubicacion_restante(row)
         row["restante_detalle"] = _restante_detalle(row)
+        stage_row = corte_stage_map.get(str(row.get("corte") or "").strip())
+        row["etapas_fechas"] = _etapas_fechas_map(stage_row) if stage_row else {}
+        row["etapas_fechas_detalle"] = _etapas_fechas_detalle(row["etapas_fechas"])
 
         if int(row.get("bodega") or 0) > 0:
             summary["ordenes_en_bodega"] += 1
@@ -876,3 +1013,37 @@ def _restante_detalle(row: dict) -> str:
         if value > 0:
             parts.append(f"{label}: {value}")
     return " | ".join(parts) if parts else "Sin restante"
+
+
+def _etapas_fechas_map(stage_row: dict | None) -> dict:
+    if not stage_row:
+        return {}
+    return {
+        "corte": _format_date(stage_row.get("corte_inicio_iso")),
+        "taller": _format_date(stage_row.get("taller_inicio_iso")),
+        "t_externo": _format_date(stage_row.get("t_externo_inicio_iso")),
+        "limpiado": _format_date(stage_row.get("limpiado_inicio_iso")),
+        "lavanderia": _format_date(stage_row.get("lavanderia_inicio_iso")),
+        "terminacion": _format_date(stage_row.get("terminacion_inicio_iso")),
+        "muestra": _format_date(stage_row.get("muestra_inicio_iso")),
+    }
+
+
+def _etapas_fechas_detalle(etapas: dict | None) -> str:
+    if not etapas:
+        return "-"
+    labels = [
+        ("corte", "Corte"),
+        ("taller", "Taller"),
+        ("t_externo", "T. Externo"),
+        ("limpiado", "Limpiado"),
+        ("lavanderia", "Lavanderia"),
+        ("terminacion", "Terminacion"),
+        ("muestra", "Muestra"),
+    ]
+    parts = []
+    for key, label in labels:
+        val = str((etapas or {}).get(key) or "").strip()
+        if val:
+            parts.append(f"{label}: {val}")
+    return " | ".join(parts) if parts else "-"

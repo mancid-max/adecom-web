@@ -32,6 +32,8 @@ def parse_uploaded_file(file_storage) -> dict[str, Any]:
 
     if filename.endswith(".txt") or filename.endswith(".csv"):
         kind = detect_txt_kind(content, filename)
+        if kind == "corte_etapas":
+            return {"kind": "corte_etapas", "rows": parse_corte_etapas_txt(content)}
         if kind == "pedidos_talla_todas":
             return {"kind": "pedidos_talla_todas", "rows": parse_pedidos_talla_todas_txt(content)}
         if kind == "pedidos_talla":
@@ -86,6 +88,8 @@ def detect_txt_kind(content: bytes, filename: str) -> str:
             break
     if not first_line:
         return "saldos"
+    if first_line.upper().startswith("O.CORTE;FECHA;ARTICULO"):
+        return "corte_etapas"
     if first_line.upper().startswith("ARTICULO;CORTE;FECHA"):
         return "saldos"
     if ";Ventas;" in first_line or ";Despacho;" in first_line or ";saldo;" in first_line:
@@ -194,6 +198,53 @@ def parse_pedidos_talla_todas_txt(content: bytes) -> list[dict]:
             }
         )
 
+    return parsed
+
+
+def parse_corte_etapas_txt(content: bytes) -> list[dict]:
+    text = _decode_bytes(content)
+    reader = csv.reader(io.StringIO(text), delimiter=";")
+    rows = list(reader)
+    if not rows:
+        return []
+
+    parsed: list[dict] = []
+    for raw in rows[1:]:
+        if not raw or not any(str(c).strip() for c in raw):
+            continue
+        cells = [str(c).strip() for c in raw]
+        if len(cells) < 35:
+            continue
+
+        corte = _clean_code(cells[0])
+        if not corte:
+            continue
+
+        parsed.append(
+            {
+                "corte": corte,
+                "fecha_orden_iso": _parse_date(cells[1] if len(cells) > 1 else ""),
+                "articulo": _clean_code(cells[2]) if len(cells) > 2 else "",
+                "programado": _to_int(cells[3] if len(cells) > 3 else "0"),
+                "cortado": _to_int(cells[4] if len(cells) > 4 else "0"),
+                "entrega": _to_int(cells[5] if len(cells) > 5 else "0"),
+                "saldo": _to_int(cells[6] if len(cells) > 6 else "0"),
+                "corte_inicio_iso": _parse_date(cells[7] if len(cells) > 7 else ""),
+                "corte_fin_iso": _parse_date(cells[8] if len(cells) > 8 else ""),
+                "taller_inicio_iso": _parse_date(cells[11] if len(cells) > 11 else ""),
+                "taller_fin_iso": _parse_date(cells[12] if len(cells) > 12 else ""),
+                "t_externo_inicio_iso": _parse_date(cells[15] if len(cells) > 15 else ""),
+                "t_externo_fin_iso": _parse_date(cells[16] if len(cells) > 16 else ""),
+                "limpiado_inicio_iso": _parse_date(cells[19] if len(cells) > 19 else ""),
+                "limpiado_fin_iso": _parse_date(cells[20] if len(cells) > 20 else ""),
+                "lavanderia_inicio_iso": _parse_date(cells[23] if len(cells) > 23 else ""),
+                "lavanderia_fin_iso": _parse_date(cells[24] if len(cells) > 24 else ""),
+                "terminacion_inicio_iso": _parse_date(cells[27] if len(cells) > 27 else ""),
+                "terminacion_fin_iso": _parse_date(cells[28] if len(cells) > 28 else ""),
+                "muestra_inicio_iso": _parse_date(cells[31] if len(cells) > 31 else ""),
+                "muestra_fin_iso": _parse_date(cells[32] if len(cells) > 32 else ""),
+            }
+        )
     return parsed
 
 

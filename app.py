@@ -17,6 +17,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
     get_conn,
+    import_corte_etapas_rows,
     import_exs_map_rows,
     import_pedidos_talla_todas_rows,
     init_db,
@@ -920,6 +921,8 @@ def upload():
             stats = import_pedidos_talla_rows(DB_PATH, rows)
         elif kind == "pedidos_talla_todas":
             stats = import_pedidos_talla_todas_rows(DB_PATH, rows)
+        elif kind == "corte_etapas":
+            stats = import_corte_etapas_rows(DB_PATH, rows)
         elif kind == "exs_map":
             stats = import_exs_map_rows(DB_PATH, rows)
         else:

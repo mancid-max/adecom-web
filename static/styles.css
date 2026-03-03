@@ -835,6 +835,13 @@ td.num {
   font-variant-numeric: tabular-nums;
 }
 
+td.etapas-fecha {
+  white-space: normal;
+  min-width: 280px;
+  line-height: 1.35;
+  color: #3f3a34;
+}
+
 .modal {
   width: min(1080px, 95vw);
   max-height: 90vh;

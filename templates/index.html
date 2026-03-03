@@ -162,6 +162,7 @@
               <th class="sortable-th" data-sort-key="total">Total</th>
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="restante">Restante</th>
+              <th>Ingreso por etapa</th>
             </tr>
           </thead>
           <tbody>
@@ -178,10 +179,11 @@
               <td class="num">{{ row.proceso|miles }}</td>
               <td class="num">{{ row.bodega|miles }}</td>
               <td>{{ row.restante_detalle }}</td>
+              <td class="etapas-fecha">{{ row.etapas_fechas_detalle }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="5" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
+              <td colspan="6" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -220,6 +222,7 @@
               <th class="sortable-th" data-sort-key="total">Total</th>
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="restante">Restante</th>
+              <th>Ingreso por etapa</th>
             </tr>
           </thead>
           <tbody>
@@ -236,10 +239,11 @@
               <td class="num">{{ row.proceso|miles }}</td>
               <td class="num">{{ row.bodega|miles }}</td>
               <td>{{ row.restante_detalle }}</td>
+              <td class="etapas-fecha">{{ row.etapas_fechas_detalle }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="5" class="empty">No hay muestras con los filtros actuales.</td>
+              <td colspan="6" class="empty">No hay muestras con los filtros actuales.</td>
             </tr>
             {% endfor %}
           </tbody>
