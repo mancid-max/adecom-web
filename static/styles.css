@@ -913,6 +913,15 @@ td.etapas-fecha {
   white-space: nowrap;
 }
 
+.etapa-chip-end {
+  min-width: 92px;
+  justify-content: center;
+  border-color: #c8d8ea;
+  background: #ecf3fb;
+  color: #2f4f73;
+  font-variant-numeric: tabular-nums;
+}
+
 .etapa-chip-days {
   min-width: 54px;
   justify-content: center;

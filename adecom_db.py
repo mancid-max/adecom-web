@@ -735,6 +735,7 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
         row["ubicacion_restante"] = _ubicacion_restante(row)
         row["restante_detalle"] = _restante_detalle(row)
         stage_row = corte_stage_map.get(_normalize_corte_key(row.get("corte")))
+        row["etapas_rangos"] = _etapas_rangos_map(stage_row) if stage_row else {}
         row["etapas_fechas"] = _etapas_fechas_map(stage_row) if stage_row else {}
         row["etapas_fechas_detalle"] = _etapas_fechas_detalle(row["etapas_fechas"])
         etapas_dias = _etapas_dias_map(stage_row) if stage_row else {"por_etapa": {}, "total_dias": 0}
@@ -1033,6 +1034,41 @@ def _etapas_fechas_map(stage_row: dict | None) -> dict:
         "lavanderia": _format_date(stage_row.get("lavanderia_inicio_iso")),
         "terminacion": _format_date(stage_row.get("terminacion_inicio_iso")),
         "muestra": _format_date(stage_row.get("muestra_inicio_iso")),
+    }
+
+
+def _etapas_rangos_map(stage_row: dict | None) -> dict:
+    if not stage_row:
+        return {}
+    return {
+        "corte": {
+            "inicio": _format_date(stage_row.get("corte_inicio_iso")),
+            "fin": _format_date(stage_row.get("corte_fin_iso")),
+        },
+        "taller": {
+            "inicio": _format_date(stage_row.get("taller_inicio_iso")),
+            "fin": _format_date(stage_row.get("taller_fin_iso")),
+        },
+        "t_externo": {
+            "inicio": _format_date(stage_row.get("t_externo_inicio_iso")),
+            "fin": _format_date(stage_row.get("t_externo_fin_iso")),
+        },
+        "limpiado": {
+            "inicio": _format_date(stage_row.get("limpiado_inicio_iso")),
+            "fin": _format_date(stage_row.get("limpiado_fin_iso")),
+        },
+        "lavanderia": {
+            "inicio": _format_date(stage_row.get("lavanderia_inicio_iso")),
+            "fin": _format_date(stage_row.get("lavanderia_fin_iso")),
+        },
+        "terminacion": {
+            "inicio": _format_date(stage_row.get("terminacion_inicio_iso")),
+            "fin": _format_date(stage_row.get("terminacion_fin_iso")),
+        },
+        "muestra": {
+            "inicio": _format_date(stage_row.get("muestra_inicio_iso")),
+            "fin": _format_date(stage_row.get("muestra_fin_iso")),
+        },
     }
 
 
