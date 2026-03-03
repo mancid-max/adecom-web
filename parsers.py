@@ -88,9 +88,12 @@ def detect_txt_kind(content: bytes, filename: str) -> str:
             break
     if not first_line:
         return "saldos"
-    if first_line.upper().startswith("O.CORTE;FECHA;ARTICULO"):
+    normalized_header = (
+        first_line.replace("\ufeff", "").replace('"', "").replace(" ", "").upper()
+    )
+    if normalized_header.startswith("O.CORTE;FECHA;ARTICULO"):
         return "corte_etapas"
-    if first_line.upper().startswith("ARTICULO;CORTE;FECHA"):
+    if normalized_header.startswith("ARTICULO;CORTE;FECHA"):
         return "saldos"
     if ";Ventas;" in first_line or ";Despacho;" in first_line or ";saldo;" in first_line:
         if "todas" in filename:

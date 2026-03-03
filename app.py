@@ -938,7 +938,10 @@ def upload():
         return redirect(url_for("index"))
 
     session.pop("upload_debug", None)
-    flash("Data cargada con exito.", "success")
+    flash(
+        f"Data cargada con exito. Tipo: {kind}. Leidos: {stats.get('read', 0)} | Insertados: {stats.get('inserted', 0)} | Actualizados: {stats.get('updated', 0)}",
+        "success",
+    )
     return redirect(url_for("index"))
 
 
