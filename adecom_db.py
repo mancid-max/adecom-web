@@ -704,10 +704,12 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
         FROM corte_etapas
         """,
     ).fetchall()
-    corte_stage_map: dict[str, dict] = {
-        str(dict(sr).get("corte") or "").strip(): dict(sr)
-        for sr in stage_rows
-    }
+    corte_stage_map: dict[str, dict] = {}
+    for sr in stage_rows:
+        sr_dict = dict(sr)
+        key = _normalize_corte_key(sr_dict.get("corte"))
+        if key and key not in corte_stage_map:
+            corte_stage_map[key] = sr_dict
 
     rows: list[dict] = []
     totals = {key: 0 for key in NUMERIC_FIELDS}
@@ -731,7 +733,7 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
         row["tiene_pendiente_trazabilidad"] = row["pendiente_en_trazabilidad"] > 0
         row["ubicacion_restante"] = _ubicacion_restante(row)
         row["restante_detalle"] = _restante_detalle(row)
-        stage_row = corte_stage_map.get(str(row.get("corte") or "").strip())
+        stage_row = corte_stage_map.get(_normalize_corte_key(row.get("corte")))
         row["etapas_fechas"] = _etapas_fechas_map(stage_row) if stage_row else {}
         row["etapas_fechas_detalle"] = _etapas_fechas_detalle(row["etapas_fechas"])
 
@@ -1047,3 +1049,14 @@ def _etapas_fechas_detalle(etapas: dict | None) -> str:
         if val:
             parts.append(f"{label}: {val}")
     return " | ".join(parts) if parts else "-"
+
+
+def _normalize_corte_key(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if digits:
+        normalized = digits.lstrip("0")
+        return normalized or "0"
+    return raw
