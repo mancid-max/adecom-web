@@ -46,6 +46,9 @@ AUTOLOAD_DIR = Path(
         r"C:\Users\manuh\Desktop\APIS\Documentos a cargar ADECOM WEB",
     )
 )
+AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
+AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
+AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -767,6 +770,26 @@ def _find_autoload_file(folder: Path, token: str, *, exclude_token: str = "") ->
     return candidates[0]
 
 
+def _read_source_bytes(source: str) -> bytes:
+    src = str(source or "").strip()
+    if not src:
+        raise ValueError("Fuente vacia.")
+    if src.startswith(("http://", "https://")):
+        req = url_request.Request(
+            src,
+            headers={
+                "User-Agent": "ADECOM-WEB/1.0",
+                "Accept": "text/plain,application/octet-stream,*/*",
+            },
+        )
+        with url_request.urlopen(req, timeout=35) as resp:
+            return resp.read()
+    path = Path(src)
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError(f"No existe archivo fuente: {src}")
+    return path.read_bytes()
+
+
 def ensure_seed_data() -> None:
     init_db(DB_PATH)
     if _table_count("saldos_seccion") == 0 and SEED_SALDOS.exists():
@@ -991,33 +1014,34 @@ def upload_get_redirect():
     return redirect(url_for("index"))
 
 
-@app.post("/upload/refresh-local")
-def upload_refresh_local():
+@app.post("/upload/refresh-web")
+def upload_refresh_web():
     if not _can_upload():
         flash("Acceso denegado para cargar archivos.", "error")
         return redirect(url_for("index"))
 
-    folder = AUTOLOAD_DIR
+    sources = {
+        "SALDOS-SECCI": AUTOLOAD_SALDOS_SOURCE,
+        "PEDIDOSXTALLA": AUTOLOAD_PEDIDOS_SOURCE,
+        "Grande-Adecom": AUTOLOAD_ETAPAS_SOURCE,
+    }
+    missing_cfg = [label for label, src in sources.items() if not str(src or "").strip()]
+    if missing_cfg:
+        session["upload_debug"] = (
+            "Faltan variables de entorno para actualizacion web: "
+            "ADECOM_AUTOLOAD_SALDOS_SOURCE, ADECOM_AUTOLOAD_PEDIDOS_SOURCE, "
+            "ADECOM_AUTOLOAD_ETAPAS_SOURCE."
+        )
+        flash(
+            f"Configuracion incompleta para actualizacion web. Falta: {', '.join(missing_cfg)}.",
+            "error",
+        )
+        return redirect(url_for("index"))
+
     try:
-        saldos_file = _find_autoload_file(folder, "saldos-secci")
-        pedidos_file = _find_autoload_file(folder, "pedidosxtalla", exclude_token="todas")
-        etapas_file = _find_autoload_file(folder, "grande-adecom")
-
-        missing: list[str] = []
-        if not saldos_file:
-            missing.append("SALDOS-SECCI")
-        if not pedidos_file:
-            missing.append("PEDIDOSXTALLA")
-        if not etapas_file:
-            missing.append("Grande-Adecom")
-        if missing:
-            session["upload_debug"] = f"Faltan archivos: {', '.join(missing)}. Carpeta: {folder}"
-            flash("No se encontraron todos los archivos requeridos en la carpeta configurada.", "error")
-            return redirect(url_for("index"))
-
-        saldos_rows = parse_saldos_txt(saldos_file.read_bytes())
-        pedidos_rows = parse_pedidos_talla_txt(pedidos_file.read_bytes())
-        etapas_rows = parse_corte_etapas_txt(etapas_file.read_bytes())
+        saldos_rows = parse_saldos_txt(_read_source_bytes(AUTOLOAD_SALDOS_SOURCE))
+        pedidos_rows = parse_pedidos_talla_txt(_read_source_bytes(AUTOLOAD_PEDIDOS_SOURCE))
+        etapas_rows = parse_corte_etapas_txt(_read_source_bytes(AUTOLOAD_ETAPAS_SOURCE))
         if not saldos_rows or not pedidos_rows or not etapas_rows:
             session["upload_debug"] = (
                 f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, "
@@ -1032,17 +1056,26 @@ def upload_refresh_local():
 
         session.pop("upload_debug", None)
         flash(
-            "Actualizacion completa. "
+            "Actualizacion web completa. "
             f"SALDOS-SECCI: I {stats_saldos.get('inserted', 0)} / A {stats_saldos.get('updated', 0)}. "
             f"PEDIDOSXTALLA: I {stats_pedidos.get('inserted', 0)} / A {stats_pedidos.get('updated', 0)}. "
             f"Grande-Adecom: I {stats_etapas.get('inserted', 0)} / A {stats_etapas.get('updated', 0)}.",
             "success",
         )
+    except url_error.URLError as exc:
+        app.logger.exception("Error de red en actualizacion web", exc_info=exc)
+        session["upload_debug"] = f"URLError: {exc}"
+        flash("No se pudo descargar una o mas fuentes web.", "error")
     except Exception as exc:
-        app.logger.exception("Fallo en actualizacion automatica", exc_info=exc)
+        app.logger.exception("Fallo en actualizacion web", exc_info=exc)
         session["upload_debug"] = f"{exc.__class__.__name__}: {exc}"
-        flash("No se pudo actualizar la data automaticamente. Intentelo nuevamente.", "error")
+        flash("No se pudo actualizar la data web. Intentelo nuevamente.", "error")
     return redirect(url_for("index"))
+
+
+@app.post("/upload/refresh-local")
+def upload_refresh_local():
+    return upload_refresh_web()
 
 
 @app.post("/admin/login")

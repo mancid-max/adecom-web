@@ -31,8 +31,8 @@
       </div>
       {% if can_upload %}
         <div class="upload-cta">
-          <form method="post" action="{{ url_for('upload_refresh_local') }}" class="upload-quick-form">
-            <button type="submit" class="btn-ghost">Actualizar data</button>
+          <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
+            <button type="submit" class="btn-ghost">Actualizar data web</button>
           </form>
           <button type="button" id="openUploadModal">Subir archivo</button>
         </div>
