@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -736,6 +737,10 @@ def query_rows(db_path: Path, filters: dict) -> tuple[list[dict], dict, dict]:
         stage_row = corte_stage_map.get(_normalize_corte_key(row.get("corte")))
         row["etapas_fechas"] = _etapas_fechas_map(stage_row) if stage_row else {}
         row["etapas_fechas_detalle"] = _etapas_fechas_detalle(row["etapas_fechas"])
+        etapas_dias = _etapas_dias_map(stage_row) if stage_row else {"por_etapa": {}, "total_dias": 0}
+        row["etapas_dias"] = etapas_dias.get("por_etapa", {})
+        row["etapas_dias_detalle"] = _etapas_dias_detalle(row["etapas_dias"])
+        row["etapas_total_dias"] = int(etapas_dias.get("total_dias") or 0)
 
         if int(row.get("bodega") or 0) > 0:
             summary["ordenes_en_bodega"] += 1
@@ -1031,6 +1036,54 @@ def _etapas_fechas_map(stage_row: dict | None) -> dict:
     }
 
 
+def _etapas_dias_map(stage_row: dict | None) -> dict:
+    if not stage_row:
+        return {"por_etapa": {}, "total_dias": 0}
+
+    def _d(v: Any):
+        s = str(v or "").strip()
+        if not s:
+            return None
+        try:
+            return datetime.strptime(s, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    today = date.today()
+    etapa_fields = [
+        ("corte", "corte_inicio_iso", "corte_fin_iso"),
+        ("taller", "taller_inicio_iso", "taller_fin_iso"),
+        ("t_externo", "t_externo_inicio_iso", "t_externo_fin_iso"),
+        ("limpiado", "limpiado_inicio_iso", "limpiado_fin_iso"),
+        ("lavanderia", "lavanderia_inicio_iso", "lavanderia_fin_iso"),
+        ("terminacion", "terminacion_inicio_iso", "terminacion_fin_iso"),
+        ("muestra", "muestra_inicio_iso", "muestra_fin_iso"),
+    ]
+
+    out: dict[str, int] = {}
+    starts: list[date] = []
+    for key, s_key, e_key in etapa_fields:
+        start = _d(stage_row.get(s_key))
+        end = _d(stage_row.get(e_key))
+        if not start:
+            continue
+        if not end or end < start:
+            end = today
+        days = (end - start).days + 1
+        out[key] = max(days, 1)
+        starts.append(start)
+
+    fecha_orden = _d(stage_row.get("fecha_orden_iso"))
+    if fecha_orden:
+        starts.append(fecha_orden)
+    total_dias = 0
+    if starts:
+        min_start = min(starts)
+        total_dias = max((today - min_start).days + 1, 1)
+
+    return {"por_etapa": out, "total_dias": total_dias}
+
+
 def _etapas_fechas_detalle(etapas: dict | None) -> str:
     if not etapas:
         return "-"
@@ -1048,6 +1101,26 @@ def _etapas_fechas_detalle(etapas: dict | None) -> str:
         val = str((etapas or {}).get(key) or "").strip()
         if val:
             parts.append(f"{label}: {val}")
+    return " | ".join(parts) if parts else "-"
+
+
+def _etapas_dias_detalle(etapas: dict | None) -> str:
+    if not etapas:
+        return "-"
+    labels = [
+        ("corte", "Corte"),
+        ("taller", "Taller"),
+        ("t_externo", "T. Externo"),
+        ("limpiado", "Limpiado"),
+        ("lavanderia", "Lavanderia"),
+        ("terminacion", "Terminacion"),
+        ("muestra", "Muestra"),
+    ]
+    parts = []
+    for key, label in labels:
+        val = int((etapas or {}).get(key) or 0)
+        if val > 0:
+            parts.append(f"{label}: {val}d")
     return " | ".join(parts) if parts else "-"
 
 
