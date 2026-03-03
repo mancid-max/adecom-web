@@ -730,6 +730,9 @@ def _table_count(table_name: str) -> int:
     try:
         row = conn.execute(f"SELECT COUNT(*) AS n FROM {table_name}").fetchone()
         return int(row["n"] if row else 0)
+    except Exception as exc:
+        app.logger.warning("No se pudo contar tabla %s: %s", table_name, exc)
+        return 0
     finally:
         conn.close()
 
