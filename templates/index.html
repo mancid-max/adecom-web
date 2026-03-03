@@ -19,7 +19,7 @@
         <a href="#openBodegaModal" class="side-link">Ordenes bodega</a>
         <a href="#openMuestrasModal" class="side-link">Muestras</a>
         <a href="#openFullTableModal" class="side-link">Tabla completa</a>
-        <a href="#openVentasTotalModal" class="side-link">Ventas</a>
+        <a href="#openVentasTotalModal" class="side-link">Pedidos</a>
         <a href="#openExsModal" class="side-link">EXS</a>
       </nav>
     </aside>
@@ -373,12 +373,12 @@
     </dialog>
 
     <section class="ventas-block">
-      <h2>Ventas</h2>
+      <h2>Pedidos</h2>
       <p class="ventas-note">Datos divididos por secciones.</p>
       <section class="summary ventas-summary">
         <article class="card-action summary-secondary">
           <button type="button" class="summary-open" id="openVentasTotalModal">
-            <h2>Total ventas</h2>
+            <h2>Total pedidos</h2>
             <p>{{ ventas_total|miles }}</p>
             <small>Abrir detalle</small>
           </button>
@@ -394,20 +394,20 @@
 
       <dialog id="ventasTotalModal" class="modal">
         <div class="modal-head">
-          <h3>Total ventas</h3>
+          <h3>Total pedidos</h3>
           <button type="button" id="closeVentasTotalModal" class="modal-close">Cerrar</button>
         </div>
         <div class="modal-kpis">
           <article class="kpi-clickable">
             <button type="button" id="openVentasDetalleModal" class="kpi-open-btn">
-              <h4>Total ventas</h4>
+              <h4>Total pedidos</h4>
               <p>{{ ventas_total|miles }}</p>
               <small class="kpi-hint">Ver detalle</small>
             </button>
           </article>
           <article class="kpi-clickable">
             <button type="button" id="openTopFamiliaModal" class="kpi-open-btn" {% if not ventas_top_familia %}disabled{% endif %}>
-              <h4>Familia mas vendida</h4>
+              <h4>Familia con mas pedidos</h4>
               {% if ventas_top_familia %}
               <p>{{ ventas_top_familia.familia }}</p>
               <small class="kpi-hint">Ver detalle</small>
@@ -452,7 +452,7 @@
               </tr>
               {% else %}
               <tr>
-                <td colspan="3" class="empty">Sin ventas con los filtros actuales.</td>
+                <td colspan="3" class="empty">Sin pedidos con los filtros actuales.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -462,17 +462,17 @@
 
       <dialog id="ventasDetalleModal" class="modal modal-ventas-dashboard">
         <div class="modal-head">
-          <h3>Detalle ventas</h3>
+          <h3>Detalle pedidos</h3>
           <button type="button" id="closeVentasDetalleModal" class="modal-close">Cerrar</button>
         </div>
 
         <div class="modal-kpis ventas-kpis">
           <article>
-            <h4>Total ventas</h4>
+            <h4>Total pedidos</h4>
             <p>{{ ventas_total|miles }}</p>
           </article>
           <article>
-            <h4>Talla mas vendida</h4>
+            <h4>Talla con mas pedidos</h4>
             {% if ventas_top_talla %}
             <p>{{ ventas_top_talla.talla }}</p>
             <small class="kpi-hint">{{ ventas_top_talla.total|miles }} unidades</small>
@@ -481,7 +481,7 @@
             {% endif %}
           </article>
           <article>
-            <h4>Articulo mas vendido</h4>
+            <h4>Articulo con mas pedidos</h4>
             {% if ventas_top_articulo %}
             <p>{{ ventas_top_articulo.articulo }}</p>
             <small class="kpi-hint">{{ ventas_top_articulo.total|miles }} unidades</small>
@@ -492,7 +492,7 @@
         </div>
 
         <section class="ventas-talla-curve-card">
-          <h4>Curva de ventas por talla</h4>
+          <h4>Curva de pedidos por talla</h4>
           <div
             id="ventasTallasChart"
             class="ventas-talla-curve"
@@ -507,7 +507,7 @@
             <thead>
               <tr>
                 <th class="sortable-th" data-sort-key="talla">Talla</th>
-                <th class="sortable-th" data-sort-key="total">Vendido</th>
+                <th class="sortable-th" data-sort-key="total">Pedidos</th>
               </tr>
             </thead>
             <tbody>
@@ -518,7 +518,7 @@
               </tr>
               {% else %}
               <tr>
-                <td colspan="2" class="empty">Sin ventas por talla.</td>
+                <td colspan="2" class="empty">Sin pedidos por talla.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -603,7 +603,7 @@
 
       <dialog id="topArticulosModal" class="modal modal-top-familia">
         <div class="modal-head">
-          <h3>Top articulos vendidos</h3>
+          <h3>Top articulos con mas pedidos</h3>
           <button type="button" id="closeTopArticulosModal" class="modal-close">Cerrar</button>
         </div>
         <section class="table-wrap bodega-wrap">
@@ -613,7 +613,7 @@
               <tr>
                 <th class="sortable-th" data-sort-key="rank">#</th>
                 <th class="sortable-th" data-sort-key="articulo">Articulo</th>
-                <th class="sortable-th" data-sort-key="total">Cantidad vendida</th>
+                <th class="sortable-th" data-sort-key="total">Cantidad de pedidos</th>
               </tr>
             </thead>
             <tbody>
@@ -625,7 +625,7 @@
               </tr>
               {% else %}
               <tr>
-                <td colspan="3" class="empty">Sin articulos vendidos.</td>
+                <td colspan="3" class="empty">Sin articulos con pedidos.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -661,7 +661,7 @@
           <input
             type="text"
             id="assistantQuestion"
-            placeholder="Pregunta por 4210, bodega, ventas, EXS..."
+            placeholder="Pregunta por 4210, bodega, pedidos, EXS..."
             autocomplete="off"
           >
           <button type="button" id="assistantMicBtn" class="assistant-mic-btn" aria-label="Dictar pregunta por voz">Voz</button>
@@ -1198,7 +1198,7 @@
         .map((p) => `<circle cx="${p.x}" cy="${p.y}" r="3.6" class="line-dot"><title>Talla ${p.label}: ${p.v}</title></circle>`)
         .join("");
       root.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Curva de ventas por talla">
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Curva de pedidos por talla">
           <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" class="line-axis"></line>
           <polygon points="${area}" class="line-area"></polygon>
           <polyline points="${polyline}" class="line-path"></polyline>

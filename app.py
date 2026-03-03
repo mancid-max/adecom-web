@@ -367,13 +367,13 @@ def _answer_assistant(question: str) -> str:
     ):
         return (
             "Si. Trabajo con la data que cargaste en ADECOM WEB (TXT/Excel) una vez importada a la base de datos. "
-            "Puedo responder por articulo, familia, tallas, bodega, ventas, EXS y cruces entre esas tablas."
+            "Puedo responder por articulo, familia, tallas, bodega, pedidos, EXS y cruces entre esas tablas."
         )
 
     if _has_keyword(qn, ["ayuda", "que puedes", "que sabes", "como funcionas"]):
         return (
             "Puedo responder sobre: ordenes en bodega, total muestras, tabla completa, "
-            "ventas totales, familia mas vendida, top articulos, EXS y ubicacion por articulo/familia "
+            "pedidos totales, familia con mas pedidos, top articulos, EXS y ubicacion por articulo/familia "
             "(ej: 4210 o 01420100)."
         )
 
@@ -440,7 +440,7 @@ def _answer_assistant(question: str) -> str:
             f"Total saldo ex: {exs_summary.get('total_ex', 0)}."
         )
 
-    if _has_keyword(qn, ["venta", "ventas", "vendido", "vendida", "vender", "mas vendido"]):
+    if _has_keyword(qn, ["venta", "ventas", "pedido", "pedidos", "vendido", "vendida", "vender", "mas vendido", "mas pedidos"]):
         ventas_rows = pedidos_sections.get("ventas", [])
         ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
         ventas_por_familia: dict[str, int] = {}
@@ -459,37 +459,37 @@ def _answer_assistant(question: str) -> str:
         articulos_sorted = sorted(ventas_por_articulo.items(), key=lambda x: x[1], reverse=True)
         asks_familia = _has_keyword(qn, ["familia"])
         asks_articulo = _has_keyword(qn, ["articulo", "modelo", "referencia"])
-        asks_rank = rank > 1 or _has_keyword(qn, ["top", "mas vendido", "mas vendida"])
+        asks_rank = rank > 1 or _has_keyword(qn, ["top", "mas vendido", "mas vendida", "mas pedidos"])
 
         if asks_familia:
             if not familias_sorted:
-                return "No hay datos de ventas para calcular familias."
+                return "No hay datos de pedidos para calcular familias."
             if rank > len(familias_sorted):
                 return f"No hay suficientes familias para obtener el puesto {rank}."
             fam, total = familias_sorted[rank - 1]
-            return f"Familia #{rank} en ventas: {fam}, con {total} unidades."
+            return f"Familia #{rank} en pedidos: {fam}, con {total} unidades."
 
         if asks_articulo:
             if not articulos_sorted:
-                return "No hay datos de ventas para calcular articulos."
+                return "No hay datos de pedidos para calcular articulos."
             if rank > len(articulos_sorted):
                 return f"No hay suficientes articulos para obtener el puesto {rank}."
             art, total = articulos_sorted[rank - 1]
-            return f"Articulo #{rank} en ventas: {art}, con {total} unidades."
+            return f"Articulo #{rank} en pedidos: {art}, con {total} unidades."
 
         if asks_rank:
             if not articulos_sorted or not familias_sorted:
-                return "No hay datos de ventas para calcular ranking."
+                return "No hay datos de pedidos para calcular ranking."
             if rank > len(articulos_sorted) or rank > len(familias_sorted):
                 return f"No hay suficientes datos para obtener el puesto {rank}."
             art, art_total = articulos_sorted[rank - 1]
             fam, fam_total = familias_sorted[rank - 1]
             return (
-                f"Puesto #{rank} en ventas: articulo {art} ({art_total}) y familia {fam} ({fam_total}). "
+                f"Puesto #{rank} en pedidos: articulo {art} ({art_total}) y familia {fam} ({fam_total}). "
                 f"Si quieres uno especifico, pregunta por 'articulo' o 'familia'."
             )
 
-        return f"Total ventas actual: {ventas_total} unidades."
+        return f"Total pedidos actual: {ventas_total} unidades."
 
     if _has_keyword(qn, ["tabla completa", "total ordenes", "cuantas ordenes", "cuantos registros"]):
         return f"Tabla completa: {len(rows)} orden(es) registradas."
@@ -525,7 +525,7 @@ def _answer_assistant(question: str) -> str:
         )
         return (
             f"{code}: ordenes {ordenes}; en bodega {prendas_bodega}; total proceso {prendas_proceso}; "
-            f"pendiente {pendientes}; etapas {stage_txt}; ventas relacionadas {ventas_total}; {ex_txt}."
+            f"pendiente {pendientes}; etapas {stage_txt}; pedidos relacionados {ventas_total}; {ex_txt}."
         )
 
     if code:
@@ -538,8 +538,8 @@ def _answer_assistant(question: str) -> str:
         )
 
     return (
-        "Puedo ayudarte con bodega, muestras, ventas, EXS o por codigo de articulo/familia. "
-        "Ejemplos: 'Ordenes en bodega', 'Familia mas vendida', 'EXS total', 'En que parte se encuentra 4210'."
+        "Puedo ayudarte con bodega, muestras, pedidos, EXS o por codigo de articulo/familia. "
+        "Ejemplos: 'Ordenes en bodega', 'Familia con mas pedidos', 'EXS total', 'En que parte se encuentra 4210'."
     )
 
 
