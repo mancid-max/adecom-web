@@ -182,8 +182,36 @@
               <td class="num">{{ row.proceso|miles }}</td>
               <td class="num">{{ row.bodega|miles }}</td>
               <td>{{ row.restante_detalle }}</td>
-              <td class="etapas-fecha">{{ row.etapas_fechas_detalle }}</td>
-              <td class="etapas-fecha">{{ row.etapas_dias_detalle }}</td>
+              <td class="etapas-fecha">
+                {% set etapas_fechas = (row.etapas_fechas_detalle or '') %}
+                {% if etapas_fechas and etapas_fechas != '-' %}
+                  <div class="etapas-list">
+                    {% for item in etapas_fechas.split('|') %}
+                      {% set etapa_item = item.strip() %}
+                      {% if etapa_item %}
+                        <span class="etapa-chip">{{ etapa_item }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="etapa-empty">-</span>
+                {% endif %}
+              </td>
+              <td class="etapas-fecha">
+                {% set etapas_dias = (row.etapas_dias_detalle or '') %}
+                {% if etapas_dias and etapas_dias != '-' %}
+                  <div class="etapas-list">
+                    {% for item in etapas_dias.split('|') %}
+                      {% set etapa_item = item.strip() %}
+                      {% if etapa_item %}
+                        <span class="etapa-chip etapa-chip-days">{{ etapa_item }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="etapa-empty">-</span>
+                {% endif %}
+              </td>
               <td class="num">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
@@ -247,8 +275,36 @@
               <td class="num">{{ row.proceso|miles }}</td>
               <td class="num">{{ row.bodega|miles }}</td>
               <td>{{ row.restante_detalle }}</td>
-              <td class="etapas-fecha">{{ row.etapas_fechas_detalle }}</td>
-              <td class="etapas-fecha">{{ row.etapas_dias_detalle }}</td>
+              <td class="etapas-fecha">
+                {% set etapas_fechas = (row.etapas_fechas_detalle or '') %}
+                {% if etapas_fechas and etapas_fechas != '-' %}
+                  <div class="etapas-list">
+                    {% for item in etapas_fechas.split('|') %}
+                      {% set etapa_item = item.strip() %}
+                      {% if etapa_item %}
+                        <span class="etapa-chip">{{ etapa_item }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="etapa-empty">-</span>
+                {% endif %}
+              </td>
+              <td class="etapas-fecha">
+                {% set etapas_dias = (row.etapas_dias_detalle or '') %}
+                {% if etapas_dias and etapas_dias != '-' %}
+                  <div class="etapas-list">
+                    {% for item in etapas_dias.split('|') %}
+                      {% set etapa_item = item.strip() %}
+                      {% if etapa_item %}
+                        <span class="etapa-chip etapa-chip-days">{{ etapa_item }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="etapa-empty">-</span>
+                {% endif %}
+              </td>
               <td class="num">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
