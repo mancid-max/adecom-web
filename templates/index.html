@@ -164,6 +164,7 @@
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="restante">Restante</th>
               <th>Ingreso por etapa</th>
+              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
             </tr>
           </thead>
           <tbody>
@@ -213,10 +214,11 @@
                   <span class="etapa-empty">-</span>
                 {% endif %}
               </td>
+              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="6" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
+              <td colspan="7" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -257,6 +259,7 @@
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="restante">Restante</th>
               <th>Ingreso por etapa</th>
+              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
             </tr>
           </thead>
           <tbody>
@@ -306,10 +309,11 @@
                   <span class="etapa-empty">-</span>
                 {% endif %}
               </td>
+              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="6" class="empty">No hay muestras con los filtros actuales.</td>
+              <td colspan="7" class="empty">No hay muestras con los filtros actuales.</td>
             </tr>
             {% endfor %}
           </tbody>

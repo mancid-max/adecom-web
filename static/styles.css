@@ -797,7 +797,9 @@ button:hover, .btn-ghost:hover {
 }
 
 .bodega-table-etapas {
-  min-width: 980px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 th, td {
@@ -841,10 +843,25 @@ td.num {
 
 td.etapas-fecha {
   white-space: normal;
-  min-width: 250px;
+  min-width: 0;
   line-height: 1.4;
   color: #3f3a34;
 }
+
+.bodega-table-etapas th:nth-child(1),
+.bodega-table-etapas td:nth-child(1) { width: 10%; }
+.bodega-table-etapas th:nth-child(2),
+.bodega-table-etapas td:nth-child(2) { width: 12%; }
+.bodega-table-etapas th:nth-child(3),
+.bodega-table-etapas td:nth-child(3) { width: 7%; }
+.bodega-table-etapas th:nth-child(4),
+.bodega-table-etapas td:nth-child(4) { width: 8%; }
+.bodega-table-etapas th:nth-child(5),
+.bodega-table-etapas td:nth-child(5) { width: 16%; }
+.bodega-table-etapas th:nth-child(6),
+.bodega-table-etapas td:nth-child(6) { width: 39%; }
+.bodega-table-etapas th:nth-child(7),
+.bodega-table-etapas td:nth-child(7) { width: 8%; }
 
 .etapas-list {
   display: flex;
@@ -872,10 +889,10 @@ td.etapas-fecha {
 }
 
 .etapa-line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  column-gap: 6px;
+  gap: 6px;
+  flex-wrap: nowrap;
   width: 100%;
 }
 
@@ -883,10 +900,17 @@ td.etapas-fecha {
   background: #f8f2e8;
   border-color: #d9ccb9;
   color: #3f352b;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.etapa-chip-days {
+  min-width: 54px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .etapa-chip-days {
@@ -1477,6 +1501,10 @@ td.etapas-fecha {
   }
   td.etapas-fecha {
     min-width: 220px;
+  }
+  .bodega-table-etapas {
+    table-layout: auto;
+    min-width: 960px;
   }
 }
 
