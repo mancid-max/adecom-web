@@ -154,6 +154,7 @@
 
       <section class="table-wrap bodega-wrap">
         <p class="table-hint">Clic en encabezado para ordenar</p>
+        <p class="table-hint">Etapas vinculadas: {{ bodega_con_etapas|miles }} / {{ bodega_rows|length|miles }}</p>
         <table class="bodega-table" id="bodegaTable">
           <thead>
             <tr>
@@ -214,6 +215,7 @@
 
       <section class="table-wrap bodega-wrap">
         <p class="table-hint">Clic en encabezado para ordenar</p>
+        <p class="table-hint">Etapas vinculadas: {{ muestras_con_etapas|miles }} / {{ muestras_rows|length|miles }}</p>
         <table class="bodega-table" id="muestrasTable">
           <thead>
             <tr>
@@ -260,6 +262,12 @@
         <label for="file">Seleccionar TXT, CSV o Excel</label>
         <input id="file" name="file" type="file" accept=".txt,.csv,.xlsx" required>
         <button type="submit">Importar</button>
+      </form>
+      <form class="upload-card" action="{{ url_for('sync_corte_etapas') }}" method="post">
+        <label for="syncCortePath">Sincronizar etapas (O.Corte)</label>
+        <input id="syncCortePath" name="source_path" type="text" value="{{ corte_etapas_path }}" readonly>
+        <small class="search-help">Registros de etapas cargados: {{ corte_etapas_rows|miles }}</small>
+        <button type="submit" class="btn-ghost">Sincronizar etapas</button>
       </form>
     </dialog>
 

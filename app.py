@@ -29,6 +29,7 @@ from adecom_db import (
     query_rows,
 )
 from parsers import parse_pedidos_talla_txt, parse_saldos_txt, parse_uploaded_file
+from parsers import parse_corte_etapas_txt
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,6 +40,9 @@ DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
+DEFAULT_CORTE_ETAPAS_PATH = (
+    r"C:\Users\manuh\Desktop\APIS\Documentos a cargar ADECOM WEB\Grande-Adecom.TXT"
+)
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -859,6 +863,7 @@ def index():
     bodega_total = sum(int(row.get("proceso") or 0) for row in bodega_rows)
     bodega_en_bodega = sum(int(row.get("bodega") or 0) for row in bodega_rows)
     bodega_restante = sum(int(row.get("pendiente_en_trazabilidad") or 0) for row in bodega_rows)
+    bodega_con_etapas = sum(1 for row in bodega_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
     muestras_rows = [
         row
         for row in rows
@@ -867,6 +872,9 @@ def index():
     muestras_total = sum(int(row.get("proceso") or 0) for row in muestras_rows)
     muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
     muestras_restante = max(muestras_total - muestras_bodega, 0)
+    muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
+    corte_etapas_rows = _table_count("corte_etapas")
+    corte_etapas_path = os.environ.get("ADECOM_CORTE_ETAPAS_PATH", DEFAULT_CORTE_ETAPAS_PATH).strip()
     upload_debug = session.get("upload_debug", "")
     return render_template(
         "index.html",
@@ -888,10 +896,14 @@ def index():
         bodega_total=bodega_total,
         bodega_en_bodega=bodega_en_bodega,
         bodega_restante=bodega_restante,
+        bodega_con_etapas=bodega_con_etapas,
         muestras_rows=muestras_rows,
         muestras_total=muestras_total,
         muestras_bodega=muestras_bodega,
         muestras_restante=muestras_restante,
+        muestras_con_etapas=muestras_con_etapas,
+        corte_etapas_rows=corte_etapas_rows,
+        corte_etapas_path=corte_etapas_path,
         upload_debug=upload_debug,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
@@ -947,6 +959,36 @@ def upload():
 
 @app.get("/upload")
 def upload_get_redirect():
+    return redirect(url_for("index"))
+
+
+@app.post("/sync-corte-etapas")
+def sync_corte_etapas():
+    if not _can_upload():
+        flash("Acceso denegado para sincronizar etapas.", "error")
+        return redirect(url_for("index"))
+
+    source_path = str(
+        request.form.get("source_path")
+        or os.environ.get("ADECOM_CORTE_ETAPAS_PATH", DEFAULT_CORTE_ETAPAS_PATH)
+    ).strip()
+    try:
+        path = Path(source_path)
+        if not path.exists():
+            flash(f"No se encontro archivo de etapas: {source_path}", "error")
+            return redirect(url_for("index"))
+        rows = parse_corte_etapas_txt(path.read_bytes())
+        if not rows:
+            flash("El archivo de etapas no contiene filas validas.", "error")
+            return redirect(url_for("index"))
+        stats = import_corte_etapas_rows(DB_PATH, rows)
+        flash(
+            f"Etapas sincronizadas. Ruta: {source_path}. Leidos: {stats.get('read', 0)} | Insertados: {stats.get('inserted', 0)}",
+            "success",
+        )
+    except Exception as exc:
+        app.logger.exception("Fallo sincronizando corte_etapas", exc_info=exc)
+        flash(f"No se pudo sincronizar etapas: {exc}", "error")
     return redirect(url_for("index"))
 
 
