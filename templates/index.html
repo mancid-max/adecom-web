@@ -155,7 +155,7 @@
       <section class="table-wrap bodega-wrap">
         <p class="table-hint">Clic en encabezado para ordenar</p>
         <p class="table-hint">Etapas vinculadas: {{ bodega_con_etapas|miles }} / {{ bodega_rows|length|miles }}</p>
-        <table class="bodega-table" id="bodegaTable">
+        <table class="bodega-table bodega-table-etapas" id="bodegaTable">
           <thead>
             <tr>
               <th class="sortable-th" data-sort-key="articulo">Articulo</th>
@@ -165,7 +165,7 @@
               <th class="sortable-th" data-sort-key="restante">Restante</th>
               <th>Ingreso por etapa</th>
               <th>Dias por etapa</th>
-              <th>Total dias</th>
+              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
             </tr>
           </thead>
           <tbody>
@@ -176,6 +176,7 @@
               data-total="{{ row.proceso }}"
               data-bodega="{{ row.bodega }}"
               data-restante="{{ row.pendiente_en_trazabilidad }}"
+              data-totaldias="{{ row.etapas_total_dias }}"
             >
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
@@ -185,7 +186,7 @@
               <td class="etapas-fecha">
                 {% set etapas_fechas = (row.etapas_fechas_detalle or '') %}
                 {% if etapas_fechas and etapas_fechas != '-' %}
-                  <div class="etapas-list">
+                  <div class="etapas-list etapas-list-col">
                     {% for item in etapas_fechas.split('|') %}
                       {% set etapa_item = item.strip() %}
                       {% if etapa_item %}
@@ -200,7 +201,7 @@
               <td class="etapas-fecha">
                 {% set etapas_dias = (row.etapas_dias_detalle or '') %}
                 {% if etapas_dias and etapas_dias != '-' %}
-                  <div class="etapas-list">
+                  <div class="etapas-list etapas-list-col">
                     {% for item in etapas_dias.split('|') %}
                       {% set etapa_item = item.strip() %}
                       {% if etapa_item %}
@@ -212,7 +213,7 @@
                   <span class="etapa-empty">-</span>
                 {% endif %}
               </td>
-              <td class="num">{{ row.etapas_total_dias|miles }}</td>
+              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
             <tr>
@@ -248,7 +249,7 @@
       <section class="table-wrap bodega-wrap">
         <p class="table-hint">Clic en encabezado para ordenar</p>
         <p class="table-hint">Etapas vinculadas: {{ muestras_con_etapas|miles }} / {{ muestras_rows|length|miles }}</p>
-        <table class="bodega-table" id="muestrasTable">
+        <table class="bodega-table bodega-table-etapas" id="muestrasTable">
           <thead>
             <tr>
               <th class="sortable-th" data-sort-key="articulo">Articulo</th>
@@ -258,7 +259,7 @@
               <th class="sortable-th" data-sort-key="restante">Restante</th>
               <th>Ingreso por etapa</th>
               <th>Dias por etapa</th>
-              <th>Total dias</th>
+              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
             </tr>
           </thead>
           <tbody>
@@ -269,6 +270,7 @@
               data-total="{{ row.proceso }}"
               data-bodega="{{ row.bodega }}"
               data-restante="{{ row.pendiente_en_trazabilidad }}"
+              data-totaldias="{{ row.etapas_total_dias }}"
             >
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
@@ -278,7 +280,7 @@
               <td class="etapas-fecha">
                 {% set etapas_fechas = (row.etapas_fechas_detalle or '') %}
                 {% if etapas_fechas and etapas_fechas != '-' %}
-                  <div class="etapas-list">
+                  <div class="etapas-list etapas-list-col">
                     {% for item in etapas_fechas.split('|') %}
                       {% set etapa_item = item.strip() %}
                       {% if etapa_item %}
@@ -293,7 +295,7 @@
               <td class="etapas-fecha">
                 {% set etapas_dias = (row.etapas_dias_detalle or '') %}
                 {% if etapas_dias and etapas_dias != '-' %}
-                  <div class="etapas-list">
+                  <div class="etapas-list etapas-list-col">
                     {% for item in etapas_dias.split('|') %}
                       {% set etapa_item = item.strip() %}
                       {% if etapa_item %}
@@ -305,7 +307,7 @@
                   <span class="etapa-empty">-</span>
                 {% endif %}
               </td>
-              <td class="num">{{ row.etapas_total_dias|miles }}</td>
+              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
             <tr>

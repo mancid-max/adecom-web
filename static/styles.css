@@ -796,6 +796,10 @@ button:hover, .btn-ghost:hover {
   min-width: 760px;
 }
 
+.bodega-table-etapas {
+  min-width: 1260px;
+}
+
 th, td {
   border-bottom: 1px solid #e6ddd2;
   padding: 9px 10px;
@@ -842,9 +846,21 @@ td.etapas-fecha {
   color: #3f3a34;
 }
 
+th.total-dias-col,
+td.total-dias-col {
+  min-width: 110px;
+  white-space: nowrap;
+}
+
 .etapas-list {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
+}
+
+.etapas-list-col {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
