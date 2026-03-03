@@ -797,7 +797,7 @@ button:hover, .btn-ghost:hover {
 }
 
 .bodega-table-etapas {
-  min-width: 1260px;
+  min-width: 980px;
 }
 
 th, td {
@@ -846,12 +846,6 @@ td.etapas-fecha {
   color: #3f3a34;
 }
 
-th.total-dias-col,
-td.total-dias-col {
-  min-width: 110px;
-  white-space: nowrap;
-}
-
 .etapas-list {
   display: flex;
   flex-wrap: wrap;
@@ -875,6 +869,19 @@ td.total-dias-col {
   font-size: 12px;
   color: #3f352b;
   line-height: 1.25;
+}
+
+.etapa-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.etapa-chip-date {
+  background: #f8f2e8;
+  border-color: #d9ccb9;
+  color: #3f352b;
 }
 
 .etapa-chip-days {

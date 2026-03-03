@@ -164,8 +164,6 @@
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="restante">Restante</th>
               <th>Ingreso por etapa</th>
-              <th>Dias por etapa</th>
-              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
             </tr>
           </thead>
           <tbody>
@@ -184,40 +182,41 @@
               <td class="num">{{ row.bodega|miles }}</td>
               <td>{{ row.restante_detalle }}</td>
               <td class="etapas-fecha">
-                {% set etapas_fechas = (row.etapas_fechas_detalle or '') %}
-                {% if etapas_fechas and etapas_fechas != '-' %}
-                  <div class="etapas-list etapas-list-col">
-                    {% for item in etapas_fechas.split('|') %}
-                      {% set etapa_item = item.strip() %}
-                      {% if etapa_item %}
-                        <span class="etapa-chip">{{ etapa_item }}</span>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                {% else %}
+                {% set labels = [
+                  ("corte", "Corte"),
+                  ("taller", "Taller"),
+                  ("t_externo", "T. Externo"),
+                  ("limpiado", "Limpiado"),
+                  ("lavanderia", "Lavanderia"),
+                  ("terminacion", "Terminacion"),
+                  ("muestra", "Muestra"),
+                ] %}
+                {% set fechas_map = row.etapas_fechas or {} %}
+                {% set dias_map = row.etapas_dias or {} %}
+                {% set ns = namespace(has_data=false) %}
+                <div class="etapas-list etapas-list-col">
+                  {% for key, label in labels %}
+                    {% set fecha_val = (fechas_map.get(key) or '') %}
+                    {% if fecha_val %}
+                      {% set ns.has_data = true %}
+                      <span class="etapa-line">
+                        <span class="etapa-chip etapa-chip-date">{{ label }}: {{ fecha_val }}</span>
+                        {% set dias_val = (dias_map.get(key) or 0)|int %}
+                        {% if dias_val > 0 %}
+                          <span class="etapa-chip etapa-chip-days">{{ dias_val }}d</span>
+                        {% endif %}
+                      </span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+                {% if not ns.has_data %}
                   <span class="etapa-empty">-</span>
                 {% endif %}
               </td>
-              <td class="etapas-fecha">
-                {% set etapas_dias = (row.etapas_dias_detalle or '') %}
-                {% if etapas_dias and etapas_dias != '-' %}
-                  <div class="etapas-list etapas-list-col">
-                    {% for item in etapas_dias.split('|') %}
-                      {% set etapa_item = item.strip() %}
-                      {% if etapa_item %}
-                        <span class="etapa-chip etapa-chip-days">{{ etapa_item }}</span>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                {% else %}
-                  <span class="etapa-empty">-</span>
-                {% endif %}
-              </td>
-              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="8" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
+              <td colspan="6" class="empty">No hay ordenes en bodega con los filtros actuales.</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -258,8 +257,6 @@
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="restante">Restante</th>
               <th>Ingreso por etapa</th>
-              <th>Dias por etapa</th>
-              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
             </tr>
           </thead>
           <tbody>
@@ -278,40 +275,41 @@
               <td class="num">{{ row.bodega|miles }}</td>
               <td>{{ row.restante_detalle }}</td>
               <td class="etapas-fecha">
-                {% set etapas_fechas = (row.etapas_fechas_detalle or '') %}
-                {% if etapas_fechas and etapas_fechas != '-' %}
-                  <div class="etapas-list etapas-list-col">
-                    {% for item in etapas_fechas.split('|') %}
-                      {% set etapa_item = item.strip() %}
-                      {% if etapa_item %}
-                        <span class="etapa-chip">{{ etapa_item }}</span>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                {% else %}
+                {% set labels = [
+                  ("corte", "Corte"),
+                  ("taller", "Taller"),
+                  ("t_externo", "T. Externo"),
+                  ("limpiado", "Limpiado"),
+                  ("lavanderia", "Lavanderia"),
+                  ("terminacion", "Terminacion"),
+                  ("muestra", "Muestra"),
+                ] %}
+                {% set fechas_map = row.etapas_fechas or {} %}
+                {% set dias_map = row.etapas_dias or {} %}
+                {% set ns = namespace(has_data=false) %}
+                <div class="etapas-list etapas-list-col">
+                  {% for key, label in labels %}
+                    {% set fecha_val = (fechas_map.get(key) or '') %}
+                    {% if fecha_val %}
+                      {% set ns.has_data = true %}
+                      <span class="etapa-line">
+                        <span class="etapa-chip etapa-chip-date">{{ label }}: {{ fecha_val }}</span>
+                        {% set dias_val = (dias_map.get(key) or 0)|int %}
+                        {% if dias_val > 0 %}
+                          <span class="etapa-chip etapa-chip-days">{{ dias_val }}d</span>
+                        {% endif %}
+                      </span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+                {% if not ns.has_data %}
                   <span class="etapa-empty">-</span>
                 {% endif %}
               </td>
-              <td class="etapas-fecha">
-                {% set etapas_dias = (row.etapas_dias_detalle or '') %}
-                {% if etapas_dias and etapas_dias != '-' %}
-                  <div class="etapas-list etapas-list-col">
-                    {% for item in etapas_dias.split('|') %}
-                      {% set etapa_item = item.strip() %}
-                      {% if etapa_item %}
-                        <span class="etapa-chip etapa-chip-days">{{ etapa_item }}</span>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                {% else %}
-                  <span class="etapa-empty">-</span>
-                {% endif %}
-              </td>
-              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="8" class="empty">No hay muestras con los filtros actuales.</td>
+              <td colspan="6" class="empty">No hay muestras con los filtros actuales.</td>
             </tr>
             {% endfor %}
           </tbody>
