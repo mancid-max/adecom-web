@@ -1060,18 +1060,47 @@ def _etapas_dias_map(stage_row: dict | None) -> dict:
         ("muestra", "muestra_inicio_iso", "muestra_fin_iso"),
     ]
 
-    out: dict[str, int] = {}
-    starts: list[date] = []
+    starts_by_key: dict[str, date] = {}
+    ends_by_key: dict[str, date | None] = {}
     for key, s_key, e_key in etapa_fields:
         start = _d(stage_row.get(s_key))
-        end = _d(stage_row.get(e_key))
         if not start:
             continue
-        if not end or end < start:
+        end = _d(stage_row.get(e_key))
+        if end and end < start:
+            end = None
+        starts_by_key[key] = start
+        ends_by_key[key] = end
+
+    out: dict[str, int] = {}
+    starts: list[date] = []
+    effective_ends: list[date] = []
+    has_open_stage = False
+    ordered_keys = [k for k, _, _ in etapa_fields if k in starts_by_key]
+    for idx, key in enumerate(ordered_keys):
+        start = starts_by_key[key]
+        end = ends_by_key.get(key)
+
+        next_start = None
+        for next_key in ordered_keys[idx + 1 :]:
+            ns = starts_by_key.get(next_key)
+            if ns:
+                next_start = ns
+                break
+
+        # La duracion de una etapa se corta por el inicio de la siguiente etapa si existe.
+        if next_start:
+            if not end or end > next_start:
+                end = next_start
+        elif not end:
             end = today
-        days = (end - start).days + 1
+            has_open_stage = True
+
+        days = (end - start).days + 1 if end else 1
         out[key] = max(days, 1)
         starts.append(start)
+        if end:
+            effective_ends.append(end)
 
     fecha_orden = _d(stage_row.get("fecha_orden_iso"))
     if fecha_orden:
@@ -1079,7 +1108,8 @@ def _etapas_dias_map(stage_row: dict | None) -> dict:
     total_dias = 0
     if starts:
         min_start = min(starts)
-        total_dias = max((today - min_start).days + 1, 1)
+        total_end = today if has_open_stage else (max(effective_ends) if effective_ends else today)
+        total_dias = max((total_end - min_start).days + 1, 1)
 
     return {"por_etapa": out, "total_dias": total_dias}
 
