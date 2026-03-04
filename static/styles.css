@@ -2305,8 +2305,11 @@ td.etapas-fecha {
 }
 
 .bodega-panel .dash-block-head small {
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #7f89a6;
+  font-weight: 700;
 }
 
 .bodega-panel .dash-table thead th {
@@ -2320,6 +2323,15 @@ td.etapas-fecha {
 .bodega-panel .dash-table td {
   color: #dbe2f1;
   font-size: 14px;
+  border-bottom-color: #273046;
+  padding: 12px 14px;
+}
+
+.bodega-panel .dash-table td:first-child {
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #f0f2f8;
 }
 
 .bodega-panel .dash-table tbody tr {
@@ -2328,6 +2340,49 @@ td.etapas-fecha {
 
 .bodega-panel .dash-table tbody tr:hover td {
   background: #202737;
+}
+
+.bodega-panel .bodega-num {
+  color: #49f0a0;
+  font-weight: 700;
+}
+
+.bodega-panel .restante-num {
+  color: #ffcb37;
+  font-weight: 700;
+}
+
+.estado-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.estado-pill-yellow {
+  color: #f3ba20;
+  border-color: rgba(243, 186, 32, 0.35);
+  background: rgba(243, 186, 32, 0.12);
+}
+
+.estado-pill-blue {
+  color: #5ba9ff;
+  border-color: rgba(91, 169, 255, 0.35);
+  background: rgba(91, 169, 255, 0.14);
+}
+
+.estado-pill-green {
+  color: #57e68a;
+  border-color: rgba(87, 230, 138, 0.35);
+  background: rgba(87, 230, 138, 0.14);
 }
 
 .ventas-block > h2,
