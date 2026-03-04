@@ -1377,6 +1377,34 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
             }
         )
 
+    if not months:
+        today = date.today()
+        month_key = f"{today.year:04d}-{today.month:02d}"
+        month_label = f"{today.month:02d}/{today.year}"
+        area_rows: list[dict[str, object]] = []
+        for area, weight in AREA_WEIGHTS.items():
+            target = int(round(goal * (weight / total_weight))) if total_weight > 0 else 0
+            area_rows.append(
+                {
+                    "area": area,
+                    "target": target,
+                    "actual": 0,
+                    "ratio_pct": 0.0,
+                    "status": "red",
+                    "daily_rows": [],
+                }
+            )
+        months.append(
+            {
+                "key": month_key,
+                "label": month_label,
+                "areas": area_rows,
+                "total_actual": 0,
+                "total_ratio_pct": 0.0,
+                "status": "red",
+            }
+        )
+
     default_month_key = months[-1]["key"] if months else ""
     return {
         "monthly_goal": goal,
