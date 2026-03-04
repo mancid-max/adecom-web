@@ -2359,7 +2359,7 @@ td.etapas-fecha {
 .dash-bar-track {
   background: #1d2230;
   border-radius: 4px;
-  height: 22px;
+  height: 26px;
   overflow: hidden;
 }
 
@@ -2375,20 +2375,6 @@ td.etapas-fecha {
   padding: 0 10px;
   border-radius: 4px;
   white-space: nowrap;
-}
-
-.familias-panel .dash-bars {
-  gap: 8px;
-}
-
-.familias-panel .dash-bar-track {
-  height: 12px;
-  border-radius: 999px;
-}
-
-.familias-panel .dash-bar-fill {
-  border-radius: 999px;
-  padding: 0;
 }
 
 .dash-note {
