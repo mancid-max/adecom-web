@@ -1093,6 +1093,8 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
             mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo", "periodo mes"}), None)
             dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
             meta_key = next((keys[k] for k in keys if k in {"meta", "meta dia", "meta_diaria", "objetivo"}), None)
+            persona_key = next((keys[k] for k in keys if k in {"persona", "operario", "nombre", "trabajador"}), None)
+            meta_personal_key = next((keys[k] for k in keys if k in {"meta personal", "meta_personal", "meta_persona"}), None)
             if not area_key or not actual_key:
                 continue
             month_key = ""
@@ -1114,9 +1116,11 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
                     "month_key": month_key,
                     "month_label": month_label or month_key,
                     "area": str(row.get(area_key) or "").strip(),
+                    "persona": str(row.get(persona_key) or "").strip() if persona_key else "",
                     "day": day,
                     "actual": int(round(_to_float(row.get(actual_key)))),
                     "meta_day": int(round(_to_float(row.get(meta_key)))) if meta_key else 0,
+                    "meta_personal": int(round(_to_float(row.get(meta_personal_key)))) if meta_personal_key else 0,
                 }
             )
         return out
@@ -1196,9 +1200,11 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
                         "month_key": mk,
                         "month_label": ml or mk,
                         "area": area_label,
+                        "persona": "",
                         "day": day,
                         "actual": val,
                         "meta_day": max(meta_day, 0),
+                        "meta_personal": 0,
                         "days_month": max(days_month, 0),
                     }
                 )
@@ -1208,9 +1214,11 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
                         "month_key": mk,
                         "month_label": ml or mk,
                         "area": area_label,
+                        "persona": "",
                         "day": 0,
                         "actual": 0,
                         "meta_day": max(meta_day, 0),
+                        "meta_personal": 0,
                         "days_month": max(days_month, 0),
                     }
                 )
@@ -1266,6 +1274,8 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
         mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo"}), None)
         dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
         meta_key = next((keys[k] for k in keys if k in {"meta", "meta dia", "meta_diaria"}), None)
+        persona_key = next((keys[k] for k in keys if k in {"persona", "operario", "nombre", "trabajador"}), None)
+        meta_personal_key = next((keys[k] for k in keys if k in {"meta personal", "meta_personal", "meta_persona"}), None)
         if not area_key or not actual_key:
             continue
         month_key = ""
@@ -1287,9 +1297,11 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
                 "month_key": month_key,
                 "month_label": month_label or month_key,
                 "area": str(row.get(area_key) or "").strip(),
+                "persona": str(row.get(persona_key) or "").strip() if persona_key else "",
                 "day": day,
                 "actual": int(round(_to_float(row.get(actual_key)))),
                 "meta_day": int(round(_to_float(row.get(meta_key)))) if meta_key else 0,
+                "meta_personal": int(round(_to_float(row.get(meta_personal_key)))) if meta_personal_key else 0,
             }
         )
     return parsed
@@ -1303,6 +1315,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
     by_month_area_meta_day: dict[str, dict[str, int]] = {}
     by_month_days_count: dict[str, int] = {}
     by_month_label: dict[str, str] = {}
+    by_month_people: dict[str, dict[tuple[str, str], dict[str, int]]] = {}
     for row in rows:
         month_key = str(row.get("month_key") or "").strip()
         if not month_key:
@@ -1310,10 +1323,21 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
         by_month_label[month_key] = str(row.get("month_label") or month_key)
         area = str(row.get("area") or "").strip().upper()
         area = _canonical_area(area) if area in AREA_WEIGHTS else area
+        persona = str(row.get("persona") or "").strip()
         day = int(row.get("day") or 0)
         day = day if 1 <= day <= 31 else 0
         by_month_area_daily.setdefault(month_key, {}).setdefault(area, {})
         by_month_area_daily[month_key][area][day] = by_month_area_daily[month_key][area].get(day, 0) + int(row.get("actual") or 0)
+        if persona:
+            p_key = (area, persona)
+            by_month_people.setdefault(month_key, {})
+            if p_key not in by_month_people[month_key]:
+                by_month_people[month_key][p_key] = {"actual": 0, "meta_personal": 0}
+            by_month_people[month_key][p_key]["actual"] += int(row.get("actual") or 0)
+            by_month_people[month_key][p_key]["meta_personal"] = max(
+                by_month_people[month_key][p_key]["meta_personal"],
+                int(row.get("meta_personal") or 0),
+            )
         meta_day = int(row.get("meta_day") or 0)
         if meta_day > 0:
             by_month_area_meta_day.setdefault(month_key, {})
@@ -1339,6 +1363,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
             days_month = len(day_set)
 
         use_sheet_meta = bool(by_month_area_meta_day.get(month_key))
+        area_target_map: dict[str, int] = {}
         for area in month_areas:
             area_weight = AREA_WEIGHTS.get(area, 0)
             fallback_target = int(round(goal * (area_weight / total_weight))) if area_weight > 0 else 0
@@ -1347,6 +1372,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
             if area_target <= 0 and not use_sheet_meta:
                 # para areas extras (ej. ventas) sin peso fijo, repartir una fraccion minima
                 area_target = int(round(goal / max(len(month_areas), 1)))
+            area_target_map[area] = area_target
             area_actual = sum(int(v) for v in area_daily_map.values())
             month_total += area_actual
             ratio = (area_actual / area_target) if area_target > 0 else 0.0
@@ -1371,6 +1397,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
                 "key": month_key,
                 "label": by_month_label.get(month_key, month_key),
                 "areas": area_rows,
+                "area_target_map": area_target_map,
                 "total_actual": month_total,
                 "total_ratio_pct": round(month_ratio * 100, 1),
                 "status": _status_from_ratio(month_ratio),
@@ -1399,6 +1426,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
                 "key": month_key,
                 "label": month_label,
                 "areas": area_rows,
+                "area_target_map": {a["area"]: int(a["target"]) for a in area_rows},
                 "total_actual": 0,
                 "total_ratio_pct": 0.0,
                 "status": "red",
@@ -1406,8 +1434,42 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
         )
 
     default_month_key = months[-1]["key"] if months else ""
+    active_month = next((m for m in months if m.get("key") == default_month_key), months[-1] if months else None)
+    active_areas = list((active_month or {}).get("areas") or [])
+    active_target_map = dict((active_month or {}).get("area_target_map") or {})
+    people_rows: list[dict[str, object]] = []
+    if active_month:
+        month_people = by_month_people.get(default_month_key, {})
+        by_area_people: dict[str, list[tuple[str, dict[str, int]]]] = {}
+        for (area, persona), payload in month_people.items():
+            by_area_people.setdefault(area, []).append((persona, payload))
+        for area, people in sorted(by_area_people.items(), key=lambda x: x[0]):
+            area_target = int(active_target_map.get(area, 0))
+            count = len(people) or 1
+            default_target = int(round(area_target / count)) if count else 0
+            for persona, payload in sorted(people, key=lambda x: x[0].lower()):
+                person_actual = int(payload.get("actual", 0))
+                person_target = int(payload.get("meta_personal", 0)) or default_target
+                ratio = (person_actual / person_target) if person_target > 0 else 0.0
+                people_rows.append(
+                    {
+                        "area": area,
+                        "persona": persona,
+                        "target": person_target,
+                        "actual": person_actual,
+                        "ratio_pct": round(ratio * 100, 1),
+                        "status": _status_from_ratio(ratio),
+                    }
+                )
+
     return {
         "monthly_goal": goal,
+        "weekly_goal": goal,
+        "total_actual": int((active_month or {}).get("total_actual") or 0),
+        "total_ratio_pct": float((active_month or {}).get("total_ratio_pct") or 0.0),
+        "status": str((active_month or {}).get("status") or "red"),
+        "areas": active_areas,
+        "people": people_rows,
         "months": months,
         "default_month_key": default_month_key,
     }
