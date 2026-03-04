@@ -39,7 +39,7 @@
         <button type="button" class="top-nav-tab" data-nav-target="exs">EXS</button>
       </nav>
       <div class="top-nav-actions">
-        <button type="button" class="top-action-btn" id="openProyeccionModal">Proyeccion mensual</button>
+        <button type="button" class="top-action-btn" id="openProyeccionModal">Proyeccion semanal</button>
         {% if can_upload %}
           <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
             <button type="submit" class="top-action-btn">Actualizar data web</button>
@@ -890,14 +890,14 @@
 
       <dialog id="proyeccionModal" class="modal modal-metas">
         <div class="modal-head">
-          <h3>Proyeccion mensual por area</h3>
+          <h3>Proyeccion semanal por area</h3>
           <button type="button" id="closeProyeccionModal" class="modal-close">Cerrar</button>
         </div>
         <div class="metas-toolbar">
           {% if can_upload %}
             <form action="{{ url_for('upload_proyeccion') }}" method="post" enctype="multipart/form-data" class="proyeccion-upload-form">
-              <label for="monthly_goal">Meta mensual total</label>
-              <input id="monthly_goal" name="monthly_goal" type="number" min="1" step="1" value="{{ proyeccion_state.monthly_goal }}">
+              <label for="weekly_goal">Meta semanal total</label>
+              <input id="weekly_goal" name="weekly_goal" type="number" min="1" step="1" value="{{ proyeccion_state.monthly_goal }}">
               <input name="proyeccion_file" type="file" accept=".csv,.txt,.xlsx" required>
               <button type="submit">Cargar hoja</button>
             </form>
@@ -924,11 +924,11 @@
                 <p>{{ month.label }}</p>
               </article>
               <article>
-                <h4>Meta mensual</h4>
+                <h4>Meta semanal</h4>
                 <p>{{ proyeccion_state.monthly_goal|miles }}</p>
               </article>
               <article>
-                <h4>Real mensual</h4>
+                <h4>Real semanal</h4>
                 <p>{{ month.total_actual|miles }}</p>
               </article>
               <article>
@@ -942,7 +942,7 @@
                 <thead>
                   <tr>
                     <th>Area</th>
-                    <th>Meta mensual</th>
+                    <th>Meta semanal</th>
                     <th>Real</th>
                     <th>% cumplimiento</th>
                     <th>Estado</th>
@@ -981,7 +981,7 @@
             </section>
           </section>
         {% else %}
-          <p class="empty">Aun no hay hoja cargada para proyeccion mensual.</p>
+          <p class="empty">Aun no hay hoja cargada para proyeccion semanal.</p>
         {% endfor %}
       </dialog>
 

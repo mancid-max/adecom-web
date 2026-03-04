@@ -1416,10 +1416,10 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
 def _load_proyeccion_state() -> dict[str, object]:
     if not PROYECCION_STATE_PATH.exists():
         auto_rows = _autoload_proyeccion_rows()
-        return {"monthly_goal": 48000, "rows": auto_rows, "view": _build_proyeccion_view(48000, auto_rows)}
+        return {"monthly_goal": 12000, "rows": auto_rows, "view": _build_proyeccion_view(12000, auto_rows)}
     try:
         payload = json.loads(PROYECCION_STATE_PATH.read_text(encoding="utf-8"))
-        goal = int(payload.get("monthly_goal") or payload.get("weekly_goal") or 48000)
+        goal = int(payload.get("monthly_goal") or payload.get("weekly_goal") or 12000)
         rows = payload.get("rows") or []
         if not isinstance(rows, list):
             rows = []
@@ -1429,7 +1429,7 @@ def _load_proyeccion_state() -> dict[str, object]:
         return {"monthly_goal": goal, "rows": rows, "view": view}
     except Exception:
         auto_rows = _autoload_proyeccion_rows()
-        return {"monthly_goal": 48000, "rows": auto_rows, "view": _build_proyeccion_view(48000, auto_rows)}
+        return {"monthly_goal": 12000, "rows": auto_rows, "view": _build_proyeccion_view(12000, auto_rows)}
 
 
 def _save_proyeccion_state(monthly_goal: int, rows: list[dict[str, object]]) -> None:
@@ -1647,10 +1647,10 @@ def upload_proyeccion():
         return redirect(url_for("index"))
     try:
         monthly_goal = int(
-            str(request.form.get("monthly_goal") or request.form.get("weekly_goal") or "48000").strip() or "48000"
+            str(request.form.get("weekly_goal") or request.form.get("monthly_goal") or "12000").strip() or "12000"
         )
         if monthly_goal <= 0:
-            raise ValueError("La meta mensual debe ser mayor que 0.")
+            raise ValueError("La meta semanal debe ser mayor que 0.")
         file = request.files.get("proyeccion_file")
         if not file or not file.filename:
             raise ValueError("Debes seleccionar una hoja CSV o XLSX.")
@@ -1659,7 +1659,7 @@ def upload_proyeccion():
             raise ValueError("No se detectaron filas validas. Usa columnas: area, real y fecha/mes.")
         _save_proyeccion_state(monthly_goal, rows)
         flash(
-            f"Proyeccion cargada. Meta mensual: {monthly_goal}. Filas validas: {len(rows)}.",
+            f"Proyeccion cargada. Meta semanal: {monthly_goal}. Filas validas: {len(rows)}.",
             "success",
         )
     except Exception as exc:
