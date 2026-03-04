@@ -2466,8 +2466,19 @@ td.etapas-fecha {
 }
 
 .bodega-panel .restante-num {
-  color: #ffcb37;
   font-weight: 700;
+}
+
+.bodega-panel .restante-num-yellow {
+  color: #ffcb37;
+}
+
+.bodega-panel .restante-num-blue {
+  color: #5ba9ff;
+}
+
+.bodega-panel .restante-num-green {
+  color: #57e68a;
 }
 
 .estado-pill {

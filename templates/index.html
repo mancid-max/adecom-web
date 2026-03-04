@@ -221,19 +221,22 @@
             <tbody>
               {% for row in bodega_rows[:6] %}
                 <tr class="dash-bodega-row" data-open-bodega-modal="1">
+                  {% set etapa = (row.proceso_actual or "Sin etapa")|upper %}
+                  {% set etapa_cls = "estado-pill estado-pill-yellow" %}
+                  {% set restante_cls = "restante-num restante-num-yellow" %}
+                  {% if "LAVANDERIA" in etapa %}
+                    {% set etapa_cls = "estado-pill estado-pill-blue" %}
+                    {% set restante_cls = "restante-num restante-num-blue" %}
+                  {% elif "TALLER" in etapa %}
+                    {% set etapa_cls = "estado-pill estado-pill-green" %}
+                    {% set restante_cls = "restante-num restante-num-green" %}
+                  {% endif %}
                   <td>{{ row.articulo }}</td>
                   <td>{{ row.corte }}</td>
                   <td class="num">{{ row.proceso|miles }}</td>
                   <td class="num bodega-num">{{ row.bodega|miles }}</td>
-                  <td class="num restante-num">{{ row.pendiente_en_trazabilidad|miles }}</td>
+                  <td class="num {{ restante_cls }}">{{ row.pendiente_en_trazabilidad|miles }}</td>
                   <td>
-                    {% set etapa = (row.proceso_actual or "Sin etapa")|upper %}
-                    {% set etapa_cls = "estado-pill estado-pill-yellow" %}
-                    {% if "LAVANDERIA" in etapa %}
-                      {% set etapa_cls = "estado-pill estado-pill-blue" %}
-                    {% elif "TALLER" in etapa %}
-                      {% set etapa_cls = "estado-pill estado-pill-green" %}
-                    {% endif %}
                     <span class="{{ etapa_cls }}">{{ etapa }}</span>
                   </td>
                 </tr>
