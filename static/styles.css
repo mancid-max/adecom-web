@@ -2115,6 +2115,11 @@ td.etapas-fecha {
   padding: 18px 20px;
 }
 
+.dashboard-kpi-row .summary-focus::before,
+.dashboard-kpi-row .summary-secondary::before {
+  background: linear-gradient(145deg, #0f131b 0%, #0b0f15 62%, #090c11 100%);
+}
+
 .dashboard-kpi-row .summary-open h2 {
   text-transform: uppercase;
   letter-spacing: .12em;
@@ -2137,8 +2142,8 @@ td.etapas-fecha {
   border-radius: 999px;
   padding: 4px 10px;
   border: 1px solid rgba(200, 169, 110, 0.28);
-  background: rgba(200, 169, 110, 0.12);
-  color: #d9b97d;
+  background: rgba(200, 169, 110, 0.16);
+  color: #e4c386;
   font-size: 11px;
   letter-spacing: .05em;
   text-transform: uppercase;
