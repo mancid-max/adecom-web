@@ -89,23 +89,6 @@
       </section>
     {% endif %}
 
-    <section class="filters">
-      <form method="get" action="{{ url_for('index') }}" id="filtersForm">
-        <div class="search-field">
-          <input
-            type="text"
-            name="q"
-            placeholder="Escriba el articulo completo o familia"
-            value="{{ filters.q }}"
-          >
-          <small class="search-help">EJ: Articulo 01420100 | Familia 4201</small>
-        </div>
-        <input type="date" name="fecha" value="{{ filters.fecha }}">
-        <a class="btn-ghost" href="{{ url_for('index') }}">Limpiar</a>
-        <a class="btn-ghost" href="{{ url_for('export_csv', **filters) }}">Exportar CSV</a>
-      </form>
-    </section>
-
     <section class="summary" id="sectionProduccion">
       <article class="card-action summary-focus">
         <button type="button" class="summary-open" id="openBodegaModal">
