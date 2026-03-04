@@ -1054,6 +1054,10 @@ def _parse_day(value: object) -> int:
     if text.isdigit():
         d = int(text)
         return d if 1 <= d <= 31 else 0
+    m0 = re.match(r"^\s*(\d{1,2})\b", text)
+    if m0:
+        d = int(m0.group(1))
+        return d if 1 <= d <= 31 else 0
     m = re.search(r"(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})", text)
     if m:
         d = int(m.group(1))
@@ -1122,21 +1126,30 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
             return []
         mk, ml = _month_from_text(sheet_name)
         if not mk:
+            for i in range(min(6, len(values))):
+                for cell in values[i]:
+                    mk, ml = _month_from_text(cell)
+                    if mk:
+                        break
+                if mk:
+                    break
+        if not mk:
             return []
-        head1 = list(values[0]) if len(values) > 0 else []
-        head2 = list(values[1]) if len(values) > 1 else []
-        head3 = list(values[2]) if len(values) > 2 else []
-        head4 = list(values[3]) if len(values) > 3 else []
+        head0 = list(values[0]) if len(values) > 0 else []
+        head1 = list(values[1]) if len(values) > 1 else []
+        head2 = list(values[2]) if len(values) > 2 else []
+        head3 = list(values[3]) if len(values) > 3 else []
+        head4 = list(values[4]) if len(values) > 4 else []
 
         days_month = 0
-        line0 = [str(c or "").strip() for c in head1]
+        line0 = [str(c or "").strip() for c in head0]
         for i, cell in enumerate(line0[:-1]):
             n = _norm_text(cell)
             if "dias habiles mes" in n:
                 days_month = int(round(_to_float(line0[i + 1])))
                 break
         if days_month <= 0:
-            for row in values[4:]:
+            for row in values[5:]:
                 day = _parse_day(row[0] if len(row) > 0 else "")
                 if not day:
                     continue
@@ -1146,9 +1159,15 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
                 days_month += 1
 
         max_cols = max(len(head2), len(head3), len(head4))
+        day_col = 0
+        for idx in range(len(head2)):
+            if _norm_text(head2[idx]) in {"dia", "day"}:
+                day_col = idx
+                break
+
         current_area = ""
         out: list[dict[str, object]] = []
-        for col in range(3, max_cols):
+        for col in range(day_col + 1, max_cols):
             area_raw = str(head2[col] if col < len(head2) else "").strip()
             if area_raw:
                 current_area = area_raw
@@ -1157,14 +1176,14 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
             meta_day = int(round(_to_float(head4[col] if col < len(head4) else 0)))
             if not area_name and not tipo_raw:
                 continue
-            area_label = area_name or tipo_raw
+            area_label = _canonical_area(area_name or tipo_raw)
             tipo_norm = _norm_text(tipo_raw)
             if tipo_norm and tipo_norm not in {"dia"}:
-                area_label = f"{area_label} / {tipo_raw}"
+                area_label = f"{area_label} / {tipo_raw.upper()}"
 
             has_any = False
-            for row in values[4:]:
-                day = _parse_day(row[0] if len(row) > 0 else "")
+            for row in values[5:]:
+                day = _parse_day(row[day_col] if len(row) > day_col else "")
                 if not day:
                     continue
                 raw_val = row[col] if col < len(row) else 0
