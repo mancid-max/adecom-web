@@ -312,10 +312,15 @@
             <tr
               data-articulo="{{ row.articulo }}"
               data-corte="{{ row.corte }}"
+              data-fecha="{{ row.fecha_iso or '' }}"
               data-total="{{ row.proceso }}"
               data-bodega="{{ row.bodega }}"
               data-restante="{{ row.pendiente_en_trazabilidad }}"
+              data-restantedetalle="{{ row.restante_detalle }}"
+              data-procesoactual="{{ row.proceso_actual or '' }}"
+              data-etapas='{{ (row.etapas_rangos or {})|tojson|forceescape }}'
               data-totaldias="{{ row.etapas_total_dias }}"
+              data-clickable="1"
             >
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
@@ -579,20 +584,42 @@
     </dialog>
 
     <dialog id="rowDetailModal" class="modal modal-row-detail">
-      <div class="modal-head">
-        <h3>Detalle de orden</h3>
-        <button type="button" id="closeRowDetailModal" class="modal-close">Cerrar</button>
-      </div>
-      <div id="rowDetailBox" class="row-detail-box">
-        <div class="row-detail-grid">
-          <article><h4>Articulo</h4><p id="dArticulo">-</p></article>
-          <article><h4>Orden corte</h4><p id="dCorte">-</p></article>
-          <article><h4>Fecha ingreso</h4><p id="dFecha">-</p></article>
-          <article><h4>Etapa actual</h4><p id="dEtapa">-</p></article>
-          <article><h4>Dias transcurridos</h4><p id="dDias">-</p></article>
-          <article><h4>Estado</h4><p id="dEstado">-</p></article>
+      <div id="rowDetailBox" class="row-detail-box row-detail-shell">
+        <div class="row-detail-top">
+          <div>
+            <h3 id="dArticulo">-</h3>
+            <p class="row-detail-subline">
+              Orden <span id="dCorte">-</span>
+              <span class="row-detail-dot">&middot;</span>
+              <span id="dFecha">-</span>
+            </p>
+          </div>
+          <button type="button" id="closeRowDetailModal" class="row-detail-close" aria-label="Cerrar">×</button>
         </div>
-        <p class="detail-restante"><strong>Restante:</strong> <span id="dRestante">-</span></p>
+
+        <div class="row-detail-kpis">
+          <article>
+            <h4>Total unidades</h4>
+            <p id="dTotal">-</p>
+          </article>
+          <article>
+            <h4>En bodega</h4>
+            <p id="dBodega" class="kpi-green">-</p>
+          </article>
+          <article>
+            <h4>Restante</h4>
+            <p id="dRestante" class="kpi-yellow">-</p>
+          </article>
+          <article>
+            <h4>Etapa actual</h4>
+            <p><span id="dEtapa" class="estado-pill estado-pill-yellow">-</span></p>
+          </article>
+        </div>
+
+        <div class="row-detail-timeline-wrap">
+          <h4>Linea de etapas</h4>
+          <div id="dTimeline" class="row-detail-timeline"></div>
+        </div>
       </div>
     </dialog>
 
@@ -1691,9 +1718,10 @@
       const rowModal = document.getElementById("rowDetailModal");
       const closeBtn = document.getElementById("closeRowDetailModal");
       const box = document.getElementById("rowDetailBox");
-      const estadoEl = document.getElementById("dEstado");
       if (!rowModal || !closeBtn || !box) return;
 
+      const timelineEl = document.getElementById("dTimeline");
+      const etapaEl = document.getElementById("dEtapa");
       const stageFromRow = (row) => {
         const checks = [
           ["bodega", "BODEGA"],
@@ -1712,54 +1740,90 @@
         return "Sin movimiento";
       };
 
+      const stageOrder = [
+        ["corte", "Corte"],
+        ["taller", "Taller"],
+        ["t_externo", "T. Externo"],
+        ["limpiado", "Limpiado"],
+        ["lavanderia", "Lavanderia"],
+        ["terminacion", "Terminacion"],
+        ["muestra", "Muestra"],
+      ];
+
+      const stageClass = (name) => {
+        const n = String(name || "").toUpperCase();
+        if (n.includes("LAVANDERIA")) return "estado-pill estado-pill-blue";
+        if (n.includes("TALLER")) return "estado-pill estado-pill-green";
+        return "estado-pill estado-pill-yellow";
+      };
+
       const toDisplayDate = (iso) => {
         if (!iso || !iso.includes("-")) return "-";
         const [y, m, d] = iso.split("-");
         return `${d}/${m}/${y}`;
       };
 
-      const daysBetween = (iso) => {
-        if (!iso) return 0;
-        const inDate = new Date(`${iso}T00:00:00`);
-        const now = new Date();
-        const diff = now.getTime() - inDate.getTime();
-        return diff > 0 ? Math.floor(diff / 86400000) : 0;
+      const parseEtapas = (row) => {
+        const raw = row.dataset.etapas || "{}";
+        try {
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (_) {
+          return {};
+        }
       };
 
-      const applySemaforo = (row) => {
-        const bodega = Number(row.dataset.bodega || 0);
-        const dias = daysBetween(row.dataset.fecha || "");
-        if (bodega > 0) return "En bodega";
-        if (dias <= 7) {
-          return "Reciente";
+      const renderTimeline = (row, etapaActual) => {
+        if (!timelineEl) return;
+        const etapasMap = parseEtapas(row);
+        const rows = [];
+        stageOrder.forEach(([key, label]) => {
+          const range = etapasMap[key] || {};
+          const inicio = String(range.inicio || "");
+          const fin = String(range.fin || "");
+          const dateValue = inicio || fin;
+          if (!dateValue) return;
+          rows.push({
+            label,
+            date: toDisplayDate(dateValue),
+            active: String(etapaActual || "").toUpperCase().includes(label.toUpperCase().replace(".", "")),
+          });
+        });
+        if (!rows.length) {
+          timelineEl.innerHTML = '<div class="row-detail-empty">Sin etapas registradas.</div>';
+          return;
         }
-        if (dias <= 21) {
-          return "Intermedio";
-        }
-        return "Demorado";
+        timelineEl.innerHTML = rows
+          .map(
+            (item) => `
+              <div class="timeline-item ${item.active ? "is-active" : ""}">
+                <span class="timeline-dot"></span>
+                <div class="timeline-content">
+                  <strong>${item.label}</strong>
+                  <small>${item.date}</small>
+                </div>
+              </div>
+            `
+          )
+          .join("");
       };
 
       const setDetail = (row) => {
-        const etapa = stageFromRow(row);
-        const estado = applySemaforo(row);
-        const dias = daysBetween(row.dataset.fecha || "");
+        const etapa = row.dataset.procesoactual || stageFromRow(row);
         document.getElementById("dArticulo").textContent = row.dataset.articulo || "-";
         document.getElementById("dCorte").textContent = row.dataset.corte || "-";
         document.getElementById("dFecha").textContent = toDisplayDate(row.dataset.fecha || "");
-        document.getElementById("dEtapa").textContent = etapa;
-        document.getElementById("dDias").textContent = String(dias);
-        if (estadoEl) {
-          estadoEl.textContent = estado;
-          estadoEl.classList.remove("estado-green", "estado-red", "estado-yellow", "estado-orange");
-          if (estado === "En bodega") estadoEl.classList.add("estado-green");
-          else if (estado === "Reciente") estadoEl.classList.add("estado-red");
-          else if (estado === "Intermedio") estadoEl.classList.add("estado-yellow");
-          else estadoEl.classList.add("estado-orange");
+        document.getElementById("dTotal").textContent = row.dataset.total || row.dataset.proceso || "-";
+        document.getElementById("dBodega").textContent = row.dataset.bodega || "-";
+        document.getElementById("dRestante").textContent = row.dataset.restante || row.dataset.restantedetalle || "-";
+        if (etapaEl) {
+          etapaEl.textContent = etapa || "-";
+          etapaEl.className = stageClass(etapa);
         }
-        document.getElementById("dRestante").textContent = row.dataset.restantedetalle || "Sin restante";
+        renderTimeline(row, etapa);
       };
 
-      const rows = document.querySelectorAll('#fullTableModal tbody tr[data-clickable="1"]');
+      const rows = document.querySelectorAll('tr[data-clickable="1"]');
       rows.forEach((row) => {
         row.addEventListener("click", () => {
           setDetail(row);

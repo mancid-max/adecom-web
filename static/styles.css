@@ -1122,66 +1122,172 @@ td.etapas-fecha {
 }
 
 .modal-row-detail {
-  width: min(760px, 94vw);
+  width: min(780px, 95vw);
+  padding: 0;
 }
 
-.row-detail-box {
-  border: 1px solid var(--line);
+.row-detail-shell {
+  border: 1px solid #2a3144;
   border-radius: 12px;
-  padding: 12px;
-  background: linear-gradient(180deg, #fff 0%, #f6efe4 100%);
+  padding: 22px;
+  background: #161b26;
+  color: #dbe2f1;
 }
 
-.row-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(110px, 1fr));
-  gap: 10px;
+.row-detail-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.row-detail-grid article {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
-  background: #fff;
-}
-
-.row-detail-grid h4 {
-  margin: 0 0 4px;
-  font-size: 11px;
-  color: #6b6258;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-
-.row-detail-grid p {
+.row-detail-top h3 {
   margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: 30px;
+  line-height: 1;
+  color: #f4f7ff;
+}
+
+.row-detail-subline {
+  margin: 6px 0 0;
+  color: #8fa0c2;
   font-size: 18px;
+}
+
+.row-detail-dot {
+  margin: 0 8px;
+  color: #6e7c98;
+}
+
+.row-detail-close {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #2f3a52;
+  background: #1b2232;
+  color: #8aa0c8;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.row-detail-close:hover {
+  border-color: #435579;
+  color: #b7caeb;
+}
+
+.row-detail-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.row-detail-kpis article {
+  border: 1px solid #2a3246;
+  border-radius: 8px;
+  background: #1b2232;
+  padding: 12px 14px;
+}
+
+.row-detail-kpis h4 {
+  margin: 0 0 6px;
+  color: #8897b5;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 12px;
   font-weight: 700;
 }
 
-#dFecha {
-  font-size: 16px;
+.row-detail-kpis p {
+  margin: 0;
+  font-size: 33px;
+  font-family: "Syne", sans-serif;
+  line-height: 1.05;
+  color: #f3f7ff;
 }
 
-#dEstado.estado-green {
-  color: #1f6a40;
+.row-detail-kpis .kpi-green {
+  color: #49f0a0;
 }
 
-#dEstado.estado-red {
-  color: #9a1f1f;
+.row-detail-kpis .kpi-yellow {
+  color: #ffcb37;
 }
 
-#dEstado.estado-yellow {
-  color: #916000;
-}
-
-#dEstado.estado-orange {
-  color: #a64b00;
-}
-
-.detail-restante {
-  margin: 10px 2px 0;
+.row-detail-kpis #dEtapa {
   font-size: 14px;
+}
+
+.row-detail-timeline-wrap h4 {
+  margin: 0 0 12px;
+  color: #8897b5;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.row-detail-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  column-gap: 10px;
+  padding: 2px 0 12px;
+}
+
+.timeline-item::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 17px;
+  bottom: -2px;
+  width: 1px;
+  background: #2a3248;
+}
+
+.timeline-item:last-child::after {
+  display: none;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d3b16f;
+  margin-top: 5px;
+}
+
+.timeline-item.is-active .timeline-dot {
+  background: #ffcb37;
+}
+
+.timeline-content strong {
+  display: block;
+  color: #f2f6ff;
+  font-size: 23px;
+  line-height: 1.1;
+  font-family: "Syne", sans-serif;
+}
+
+.timeline-content small {
+  color: #86a0cd;
+  font-size: 18px;
+}
+
+.row-detail-empty {
+  color: #8ea1c8;
+  font-size: 14px;
+  padding: 4px 2px;
 }
 
 .ventas-block {
@@ -1564,8 +1670,20 @@ td.etapas-fecha {
   .ventas-kpis {
     grid-template-columns: 1fr;
   }
-  .row-detail-grid {
+  .row-detail-kpis {
     grid-template-columns: 1fr;
+  }
+  .row-detail-top h3 {
+    font-size: 24px;
+  }
+  .row-detail-subline {
+    font-size: 15px;
+  }
+  .timeline-content strong {
+    font-size: 18px;
+  }
+  .timeline-content small {
+    font-size: 15px;
   }
   .sufijos-grid {
     grid-template-columns: 1fr 1fr;
