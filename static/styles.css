@@ -2284,6 +2284,49 @@ td.etapas-fecha {
   background: #1b2030;
 }
 
+.bodega-panel {
+  background: #161b26;
+  border: 1px solid #2b3142;
+}
+
+.bodega-panel .dash-block-head {
+  border-bottom: 1px solid #2b3142;
+  padding: 14px 20px;
+}
+
+.bodega-panel .dash-block-head h3 {
+  font-size: 18px;
+  letter-spacing: .06em;
+  font-family: "DM Sans", sans-serif;
+  font-weight: 800;
+}
+
+.bodega-panel .dash-block-head small {
+  font-size: 14px;
+  letter-spacing: .08em;
+}
+
+.bodega-panel .dash-table thead th {
+  background: #1b2130;
+  color: #8e99b6;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.bodega-panel .dash-table td {
+  color: #dbe2f1;
+  font-size: 14px;
+}
+
+.bodega-panel .dash-table tbody tr {
+  cursor: pointer;
+}
+
+.bodega-panel .dash-table tbody tr:hover td {
+  background: #202737;
+}
+
 .ventas-block > h2,
 .ventas-block > .ventas-note,
 .ventas-block > .ventas-summary {

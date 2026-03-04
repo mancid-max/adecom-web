@@ -198,7 +198,7 @@
     </section>
 
     <section class="dashboard-grid dashboard-grid-bottom">
-      <article class="dash-block">
+      <article class="dash-block bodega-panel">
         <header class="dash-block-head">
           <h3>Ordenes en bodega</h3>
           <small>{{ bodega_rows|length|miles }} activas</small>
@@ -216,7 +216,7 @@
             </thead>
             <tbody>
               {% for row in bodega_rows[:7] %}
-                <tr>
+                <tr class="dash-bodega-row" data-open-bodega-modal="1">
                   <td>{{ row.articulo }}</td>
                   <td>{{ row.corte }}</td>
                   <td class="num">{{ row.proceso|miles }}</td>
@@ -957,6 +957,10 @@
       if (exsTopBtn) {
         exsTopBtn.addEventListener("click", () => openById("openExsModal"));
       }
+
+      document.querySelectorAll(".dash-bodega-row[data-open-bodega-modal='1']").forEach((row) => {
+        row.addEventListener("click", () => openById("openBodegaModal"));
+      });
 
       const navUploadBtn = document.getElementById("navUploadBtn");
       const openUploadBtn = document.getElementById("openUploadModal");
