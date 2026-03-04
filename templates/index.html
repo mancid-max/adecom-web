@@ -25,14 +25,36 @@
     </aside>
 
   <main class="page" id="sectionPrincipal">
+    <header class="top-nav-redesign">
+      <div class="top-nav-brand">
+        <span class="top-brand-square">A</span>
+        <span class="top-brand-text">ADECOM</span>
+      </div>
+      <nav class="top-nav-tabs" aria-label="Secciones dashboard">
+        <button type="button" class="top-nav-tab active" data-nav-target="dashboard">Dashboard</button>
+        <button type="button" class="top-nav-tab" data-nav-target="bodega">Bodega</button>
+        <button type="button" class="top-nav-tab" data-nav-target="muestras">Muestras</button>
+        <button type="button" class="top-nav-tab" data-nav-target="tabla">Tabla completa</button>
+        <button type="button" class="top-nav-tab" data-nav-target="ventas">Ventas</button>
+        <button type="button" class="top-nav-tab" data-nav-target="exs">EXS</button>
+      </nav>
+      <div class="top-nav-actions">
+        {% if can_upload %}
+          <button type="button" class="top-action-btn" id="navUploadBtn">Modo carga</button>
+        {% elif admin_key_enabled %}
+          <button type="button" class="top-action-btn" id="navModeFocusBtn">Modo carga</button>
+        {% endif %}
+        <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
+          <button type="submit" class="top-logout-btn">Salir</button>
+        </form>
+      </div>
+    </header>
+
     <header class="hero">
       <div>
         <h1>ADECOM WEB</h1>
       </div>
       <div class="upload-cta">
-        <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
-          <button type="submit" class="btn-ghost">Cerrar sesion</button>
-        </form>
       {% if can_upload %}
           <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
             <button type="submit" class="btn-ghost">Actualizar data web</button>
@@ -43,7 +65,7 @@
     </header>
 
     {% if admin_key_enabled %}
-      <section class="admin-access">
+      <section class="admin-access" id="adminAccessSection">
         {% if can_upload %}
           <form method="post" action="{{ url_for('admin_logout') }}">
             <button type="submit" class="btn-ghost">Salir modo carga</button>
@@ -92,27 +114,142 @@
       </section>
     {% endif %}
 
-    <section class="summary" id="sectionProduccion">
+    <section class="summary dashboard-kpi-row" id="sectionProduccion">
       <article class="card-action summary-focus">
+        <button type="button" class="summary-open" id="openVentasTotalModalTop">
+          <h2>Total ventas</h2>
+          <p>{{ ventas_total|miles }}</p>
+          <small>Unidades vendidas</small>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
         <button type="button" class="summary-open" id="openBodegaModal">
           <h2>Ordenes en bodega</h2>
           <p>{{ summary.ordenes_en_bodega|miles }}</p>
-          <small>Abrir detalle</small>
+          <small>En proceso</small>
         </button>
       </article>
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open" id="openMuestrasModal">
-          <h2>Total muestras</h2>
+          <h2>Muestras</h2>
           <p>{{ muestras_rows|length|miles }}</p>
-          <small>Abrir detalle</small>
+          <small>{{ muestras_total|miles }} unidades total</small>
         </button>
       </article>
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open" id="openFullTableModal">
           <h2>Tabla completa</h2>
           <p>{{ rows|length|miles }}</p>
-          <small>Abrir detalle</small>
+          <small>Registros activos</small>
         </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open" id="openExsModalTop">
+          <h2>EXS vinculados</h2>
+          <p>{{ exs_summary.count|miles }}</p>
+          <small>Saldo ex: {{ exs_summary.total_ex|miles }}</small>
+        </button>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="dash-block">
+        <header class="dash-block-head">
+          <h3>Top articulos vendidos</h3>
+          <small>Por unidades</small>
+        </header>
+        <div class="dash-bars">
+          {% set art_max = (ventas_top_articulos[0].total if ventas_top_articulos else 1) %}
+          {% for item in ventas_top_articulos[:9] %}
+            <div class="dash-bar-row">
+              <span class="dash-bar-label">{{ item.articulo[-4:] }}</span>
+              <div class="dash-bar-track">
+                <span class="dash-bar-fill" style="width: {{ ((item.total * 100) / art_max)|round(1) }}%">{{ item.total|miles }}</span>
+              </div>
+            </div>
+          {% else %}
+            <p class="empty">Sin datos.</p>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="dash-block">
+        <header class="dash-block-head">
+          <h3>Curva de ventas por talla</h3>
+          <small>Distribucion total</small>
+        </header>
+        <div class="dash-bars">
+          {% set talla_max = (ventas_top_talla.total if ventas_top_talla else 1) %}
+          {% for t in ventas_tallas %}
+            <div class="dash-bar-row">
+              <span class="dash-bar-label">{{ t.talla }}</span>
+              <div class="dash-bar-track">
+                <span class="dash-bar-fill" style="width: {{ ((t.total * 100) / talla_max)|round(1) }}%">{{ t.total|miles }}</span>
+              </div>
+            </div>
+          {% else %}
+            <p class="empty">Sin datos.</p>
+          {% endfor %}
+        </div>
+        {% if ventas_top_talla %}
+          <p class="dash-note">Talla mas vendida: <strong>{{ ventas_top_talla.talla }}</strong> - {{ ventas_top_talla.total|miles }} unidades</p>
+        {% endif %}
+      </article>
+    </section>
+
+    <section class="dashboard-grid dashboard-grid-bottom">
+      <article class="dash-block">
+        <header class="dash-block-head">
+          <h3>Ordenes en bodega</h3>
+          <small>{{ bodega_rows|length|miles }} activas</small>
+        </header>
+        <div class="table-wrap dash-table-wrap">
+          <table class="bodega-table dash-table">
+            <thead>
+              <tr>
+                <th>Articulo</th>
+                <th>Orden corte</th>
+                <th>Total</th>
+                <th>Bodega</th>
+                <th>Restante</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in bodega_rows[:7] %}
+                <tr>
+                  <td>{{ row.articulo }}</td>
+                  <td>{{ row.corte }}</td>
+                  <td class="num">{{ row.proceso|miles }}</td>
+                  <td class="num">{{ row.bodega|miles }}</td>
+                  <td class="num">{{ row.pendiente_en_trazabilidad|miles }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="5" class="empty">Sin ordenes.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="dash-block">
+        <header class="dash-block-head">
+          <h3>Top familias</h3>
+          <small>Por ventas</small>
+        </header>
+        <div class="dash-bars">
+          {% set fam_max = (ventas_top_familia.total if ventas_top_familia else 1) %}
+          {% for g in ventas_grouped[:10] %}
+            <div class="dash-bar-row">
+              <span class="dash-bar-label">{{ g.familia }}</span>
+              <div class="dash-bar-track">
+                <span class="dash-bar-fill" style="width: {{ ((g.total * 100) / fam_max)|round(1) }}%"></span>
+              </div>
+              <span class="dash-bar-value">{{ g.total|miles }}</span>
+            </div>
+          {% else %}
+            <p class="empty">Sin datos.</p>
+          {% endfor %}
+        </div>
       </article>
     </section>
 
@@ -760,23 +897,22 @@
 
     (function () {
       const shell = document.getElementById("appShell");
-      const nav = document.getElementById("sideNav");
       const toggle = document.getElementById("sideToggleBtn");
-      if (!shell || !nav || !toggle) return;
-      const key = "adecom_side_collapsed";
-      const setState = (collapsed) => {
-        shell.classList.toggle("side-collapsed", collapsed);
-        toggle.textContent = collapsed ? "▶" : "◀";
-        toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
-        toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-      };
-      const initialCollapsed = localStorage.getItem(key) === "1";
-      setState(initialCollapsed);
-      toggle.addEventListener("click", () => {
-        const collapsed = !shell.classList.contains("side-collapsed");
-        setState(collapsed);
-        localStorage.setItem(key, collapsed ? "1" : "0");
-      });
+      if (shell && toggle) {
+        const key = "adecom_side_collapsed";
+        const setState = (collapsed) => {
+          shell.classList.toggle("side-collapsed", collapsed);
+          toggle.textContent = collapsed ? ">" : "<";
+          toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
+          toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        };
+        setState(localStorage.getItem(key) === "1");
+        toggle.addEventListener("click", () => {
+          const collapsed = !shell.classList.contains("side-collapsed");
+          setState(collapsed);
+          localStorage.setItem(key, collapsed ? "1" : "0");
+        });
+      }
 
       document.querySelectorAll(".side-link[href^='#']").forEach((link) => {
         link.addEventListener("click", (event) => {
@@ -784,13 +920,57 @@
           const target = id ? document.getElementById(id) : null;
           if (!target) return;
           event.preventDefault();
-          if (target.tagName === "BUTTON") {
-            target.click();
-            return;
-          }
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       });
+
+      const topTabs = Array.from(document.querySelectorAll(".top-nav-tab"));
+      const setActiveTab = (target) => {
+        topTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.navTarget === target));
+      };
+      const openById = (id) => {
+        const el = document.getElementById(id);
+        if (el && typeof el.click === "function") el.click();
+      };
+      topTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = tab.dataset.navTarget || "dashboard";
+          setActiveTab(target);
+          if (target === "dashboard") {
+            const section = document.getElementById("sectionPrincipal");
+            if (section) section.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          if (target === "bodega") return openById("openBodegaModal");
+          if (target === "muestras") return openById("openMuestrasModal");
+          if (target === "tabla") return openById("openFullTableModal");
+          if (target === "ventas") return openById("openVentasTotalModal");
+          if (target === "exs") return openById("openExsModal");
+        });
+      });
+
+      const ventasTopBtn = document.getElementById("openVentasTotalModalTop");
+      if (ventasTopBtn) {
+        ventasTopBtn.addEventListener("click", () => openById("openVentasTotalModal"));
+      }
+      const exsTopBtn = document.getElementById("openExsModalTop");
+      if (exsTopBtn) {
+        exsTopBtn.addEventListener("click", () => openById("openExsModal"));
+      }
+
+      const navUploadBtn = document.getElementById("navUploadBtn");
+      const openUploadBtn = document.getElementById("openUploadModal");
+      if (navUploadBtn && openUploadBtn) {
+        navUploadBtn.addEventListener("click", () => openUploadBtn.click());
+      }
+
+      const navModeFocusBtn = document.getElementById("navModeFocusBtn");
+      if (navModeFocusBtn) {
+        navModeFocusBtn.addEventListener("click", () => {
+          const adminBox = document.getElementById("adminAccessSection");
+          if (adminBox) adminBox.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
     })();
 
     (function () {
