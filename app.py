@@ -49,6 +49,7 @@ AUTOLOAD_DIR = Path(
 AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
+AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -790,6 +791,49 @@ def _read_source_bytes(source: str) -> bytes:
     return path.read_bytes()
 
 
+def _refresh_web_data() -> dict:
+    saldos_rows = parse_saldos_txt(_read_source_bytes(AUTOLOAD_SALDOS_SOURCE))
+    pedidos_rows = parse_pedidos_talla_txt(_read_source_bytes(AUTOLOAD_PEDIDOS_SOURCE))
+    etapas_rows = parse_corte_etapas_txt(_read_source_bytes(AUTOLOAD_ETAPAS_SOURCE))
+    if not saldos_rows or not pedidos_rows or not etapas_rows:
+        raise ValueError(
+            f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, etapas={len(etapas_rows)}"
+        )
+    stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
+    stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
+    stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
+    return {
+        "saldos": stats_saldos,
+        "pedidos": stats_pedidos,
+        "etapas": stats_etapas,
+    }
+
+
+def _auto_refresh_web_on_startup() -> None:
+    sources = [AUTOLOAD_SALDOS_SOURCE, AUTOLOAD_PEDIDOS_SOURCE, AUTOLOAD_ETAPAS_SOURCE]
+    if not AUTO_REFRESH_WEB_ON_START:
+        app.logger.info("Auto refresh web al iniciar deshabilitado (ADECOM_AUTO_REFRESH_WEB_ON_START=0).")
+        return
+    if not all(str(src or "").strip() for src in sources):
+        app.logger.warning(
+            "Auto refresh web omitido: faltan variables ADECOM_AUTOLOAD_SALDOS_SOURCE/ADECOM_AUTOLOAD_PEDIDOS_SOURCE/ADECOM_AUTOLOAD_ETAPAS_SOURCE."
+        )
+        return
+    try:
+        stats = _refresh_web_data()
+        app.logger.info(
+            "Auto refresh web OK al iniciar. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s",
+            stats["saldos"].get("inserted", 0),
+            stats["saldos"].get("updated", 0),
+            stats["pedidos"].get("inserted", 0),
+            stats["pedidos"].get("updated", 0),
+            stats["etapas"].get("inserted", 0),
+            stats["etapas"].get("updated", 0),
+        )
+    except Exception as exc:
+        app.logger.exception("Auto refresh web fallo al iniciar: %s", exc, exc_info=exc)
+
+
 def ensure_seed_data() -> None:
     init_db(DB_PATH)
     if _table_count("saldos_seccion") == 0 and SEED_SALDOS.exists():
@@ -808,6 +852,8 @@ if os.environ.get("ADECOM_ENABLE_SEED", "0").strip() == "1":
     ensure_seed_data()
 else:
     init_db(DB_PATH)
+
+_auto_refresh_web_on_startup()
 
 
 @app.template_filter("miles")
@@ -1039,20 +1085,10 @@ def upload_refresh_web():
         return redirect(url_for("index"))
 
     try:
-        saldos_rows = parse_saldos_txt(_read_source_bytes(AUTOLOAD_SALDOS_SOURCE))
-        pedidos_rows = parse_pedidos_talla_txt(_read_source_bytes(AUTOLOAD_PEDIDOS_SOURCE))
-        etapas_rows = parse_corte_etapas_txt(_read_source_bytes(AUTOLOAD_ETAPAS_SOURCE))
-        if not saldos_rows or not pedidos_rows or not etapas_rows:
-            session["upload_debug"] = (
-                f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, "
-                f"etapas={len(etapas_rows)}"
-            )
-            flash("Uno o mas archivos no contienen filas validas. Revise formato y datos.", "error")
-            return redirect(url_for("index"))
-
-        stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
-        stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
-        stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
+        stats = _refresh_web_data()
+        stats_saldos = stats["saldos"]
+        stats_pedidos = stats["pedidos"]
+        stats_etapas = stats["etapas"]
 
         session.pop("upload_debug", None)
         flash(

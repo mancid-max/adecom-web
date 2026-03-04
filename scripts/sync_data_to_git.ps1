@@ -25,15 +25,15 @@ function Find-SourceFile {
   $tokenN = ($Token -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
   $excludeN = ($ExcludeToken -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
   $files = Get-ChildItem -Path $Dir -File
-  $matches = @()
+  $foundFiles = @()
   foreach ($f in $files) {
     $nameN = ($f.Name -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
     if ($nameN -notmatch $tokenN) { continue }
     if ($excludeN -and $nameN -match $excludeN) { continue }
-    $matches += $f
+    $foundFiles += $f
   }
-  if ($matches.Count -eq 0) { return $null }
-  return ($matches | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)
+  if ($foundFiles.Count -eq 0) { return $null }
+  return ($foundFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)
 }
 
 function Stage-And-Push {
