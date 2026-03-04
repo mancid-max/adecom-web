@@ -50,13 +50,18 @@ AUTOLOAD_DIR = Path(
 AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
-METAS_SOURCE = os.environ.get(
-    "ADECOM_METAS_SOURCE",
-    str(SEED_DIR / "metas_2025_adcm.xlsx"),
-).strip()
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
+PROYECCION_STATE_PATH = BASE_DIR / "data" / "proyeccion_personas.json"
+AREA_WEIGHTS = {
+    "CORTE": 600,
+    "TALLER": 400,
+    "TALLER EXTERNO": 200,
+    "LIMPIADO": 600,
+    "LAVANDERIA": 600,
+    "TERMINACION": 600,
+}
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -65,7 +70,7 @@ if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
-_METAS_CACHE: dict[str, object] = {"stamp": "", "data": {"available": False, "sheets": []}}
+PROYECCION_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _admin_key() -> str:
@@ -952,150 +957,174 @@ def _to_float(value: object) -> float:
         return 0.0
 
 
-def _to_upper_ascii(text: object) -> str:
-    raw = str(text or "").strip().upper()
-    norm = unicodedata.normalize("NFKD", raw)
-    return "".join(c for c in norm if not unicodedata.combining(c))
+def _canonical_area(area: object) -> str:
+    probe = _norm_text(str(area or ""))
+    if "corte" in probe:
+        return "CORTE"
+    if "taller externo" in probe or "t externo" in probe or "ext" in probe:
+        return "TALLER EXTERNO"
+    if "taller" in probe:
+        return "TALLER"
+    if "limpi" in probe:
+        return "LIMPIADO"
+    if "lavander" in probe:
+        return "LAVANDERIA"
+    if "termina" in probe:
+        return "TERMINACION"
+    if "bodega" in probe:
+        return "BODEGA"
+    return str(area or "").strip().upper() or "SIN AREA"
 
 
-def _slug(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+def _status_from_ratio(ratio: float) -> str:
+    if ratio >= 1:
+        return "green"
+    if ratio >= 0.85:
+        return "yellow"
+    return "red"
 
 
-def _extract_days_metrics(row: tuple | list) -> dict[str, float]:
-    metrics: dict[str, float] = {}
-    cells = ["" if c is None else str(c).strip() for c in row]
-    for idx, label in enumerate(cells[:-1]):
-        if not label:
-            continue
-        probe = _to_upper_ascii(label)
-        value = _to_float(cells[idx + 1])
-        if "DIAS HABILES MES" in probe:
-            metrics["days_month"] = value
-        elif "DIAS HABILES RESTANTES" in probe:
-            metrics["days_remaining"] = value
-        elif "DIAS HABILES PASADOS" in probe:
-            metrics["days_elapsed"] = value
-        elif "% ESPERADO DEL MES" in probe:
-            metrics["expected_pct"] = value if value <= 1 else value / 100.0
-    return metrics
-
-
-def _is_day_value(cell: object) -> bool:
-    if isinstance(cell, (int, float)):
-        return 1 <= int(cell) <= 31
-    raw = str(cell or "").strip()
-    return raw.isdigit() and 1 <= int(raw) <= 31
-
-
-def _load_metas_dashboard() -> dict[str, object]:
-    source = Path(METAS_SOURCE)
-    if not source.exists():
-        return {"available": False, "source": str(source), "sheets": []}
-    try:
+def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dict[str, object]]:
+    ext = Path(filename or "").suffix.lower()
+    if ext in {".csv", ".txt"}:
+        text = content.decode("utf-8-sig", errors="ignore")
+        reader = csv.DictReader(io.StringIO(text), delimiter=";" if ";" in text.splitlines()[0] else ",")
+        raw_rows = list(reader)
+    elif ext == ".xlsx":
         from openpyxl import load_workbook
-    except ImportError:
-        return {
-            "available": False,
-            "source": str(source),
-            "sheets": [],
-            "error": "openpyxl no disponible",
-        }
 
-    wb = load_workbook(source, data_only=True, read_only=True)
-    names = [n for n in wb.sheetnames if "SOLO PRODUCCION" in _to_upper_ascii(n)]
-    if not names:
-        names = [
-            n
-            for n in wb.sheetnames
-            if re.match(r"^(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-\d{2}$", _to_upper_ascii(n))
-        ]
+        wb = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+        ws = wb.active
+        values = list(ws.iter_rows(values_only=True))
+        if not values:
+            return []
+        header = [str(c or "").strip() for c in values[0]]
+        raw_rows = [dict(zip(header, row)) for row in values[1:]]
+    else:
+        raise ValueError("Formato no soportado para proyeccion. Usa CSV o XLSX.")
 
-    sheets: list[dict[str, object]] = []
-    for name in names:
-        ws = wb[name]
-        rows = list(ws.iter_rows(values_only=True, min_row=1, max_row=140))
-        if len(rows) < 4:
+    parsed: list[dict[str, object]] = []
+    for row in raw_rows:
+        keys = { _norm_text(k): k for k in row.keys() if str(k or "").strip() }
+        persona_key = next((keys[k] for k in keys if k in {"persona", "operario", "nombre", "trabajador"}), None)
+        area_key = next((keys[k] for k in keys if k in {"area", "seccion", "proceso"}), None)
+        actual_key = next(
+            (
+                keys[k]
+                for k in keys
+                if k in {"actual", "producido", "avance", "unidades", "cantidad", "real"}
+            ),
+            None,
+        )
+        meta_key = next((keys[k] for k in keys if k in {"meta", "meta personal", "meta_personal", "objetivo"}), None)
+        if not persona_key or not area_key or not actual_key:
             continue
-        head1 = rows[0]
-        head2 = rows[1]
-        head3 = rows[2]
+        persona = str(row.get(persona_key) or "").strip()
+        area = _canonical_area(row.get(area_key))
+        actual = int(round(_to_float(row.get(actual_key))))
+        meta_personal = int(round(_to_float(row.get(meta_key)))) if meta_key else 0
+        if not persona or not area:
+            continue
+        parsed.append(
+            {
+                "persona": persona,
+                "area": area,
+                "actual": max(actual, 0),
+                "meta_personal": max(meta_personal, 0),
+            }
+        )
+    return parsed
 
-        metrics = _extract_days_metrics(head1)
-        days_month = int(metrics.get("days_month", 0) or 0)
-        days_elapsed = int(metrics.get("days_elapsed", 0) or 0)
-        days_remaining = int(metrics.get("days_remaining", 0) or 0)
-        if days_elapsed <= 0 and days_month > 0:
-            days_elapsed = max(days_month - days_remaining, 0)
-        expected_pct = float(metrics.get("expected_pct", 0.0) or 0.0)
 
-        areas: list[dict[str, object]] = []
-        for idx in range(3, min(len(head2), 24)):
-            area_name = str(head2[idx] or "").strip()
-            probe = _to_upper_ascii(area_name)
-            if not area_name or probe in {"", "OBSERVACIONES"}:
-                continue
-            meta_day = _to_float(head3[idx] if idx < len(head3) else 0)
-            actual = 0.0
-            for row in rows[3:]:
-                day_cell = row[0] if len(row) > 0 else ""
-                if not _is_day_value(day_cell):
-                    continue
-                actual += _to_float(row[idx] if idx < len(row) else 0)
+def _build_proyeccion_view(weekly_goal: int, rows: list[dict[str, object]]) -> dict[str, object]:
+    goal = max(int(weekly_goal or 0), 0)
+    total_weight = sum(v for v in AREA_WEIGHTS.values() if v > 0) or 1
 
-            if meta_day <= 0 and actual <= 0:
-                continue
+    merged_people: dict[tuple[str, str], dict[str, object]] = {}
+    for row in rows:
+        area = _canonical_area(row.get("area"))
+        persona = str(row.get("persona") or "").strip()
+        key = (area, persona)
+        if key not in merged_people:
+            merged_people[key] = {"area": area, "persona": persona, "actual": 0, "meta_personal": 0}
+        merged_people[key]["actual"] = int(merged_people[key]["actual"]) + int(row.get("actual") or 0)
+        merged_people[key]["meta_personal"] = max(
+            int(merged_people[key]["meta_personal"] or 0),
+            int(row.get("meta_personal") or 0),
+        )
 
-            target_to_date = meta_day * days_elapsed if days_elapsed > 0 else 0.0
-            target_month = meta_day * days_month if days_month > 0 else 0.0
-            progress_pct = (actual * 100.0 / target_to_date) if target_to_date > 0 else 0.0
-            areas.append(
+    people_by_area: dict[str, list[dict[str, object]]] = {}
+    for item in merged_people.values():
+        people_by_area.setdefault(str(item["area"]), []).append(item)
+
+    area_rows: list[dict[str, object]] = []
+    person_rows: list[dict[str, object]] = []
+
+    for area, weight in AREA_WEIGHTS.items():
+        area_target = int(round(goal * (weight / total_weight)))
+        area_people = people_by_area.get(area, [])
+        area_actual = sum(int(p.get("actual") or 0) for p in area_people)
+        ratio = (area_actual / area_target) if area_target > 0 else 0.0
+        area_rows.append(
+            {
+                "area": area,
+                "target": area_target,
+                "actual": area_actual,
+                "ratio_pct": round(ratio * 100, 1),
+                "status": _status_from_ratio(ratio),
+            }
+        )
+        persons_count = len(area_people) or 1
+        default_target = int(round(area_target / persons_count))
+        for person in sorted(area_people, key=lambda x: str(x.get("persona") or "").lower()):
+            person_target = int(person.get("meta_personal") or 0) or default_target
+            person_actual = int(person.get("actual") or 0)
+            person_ratio = (person_actual / person_target) if person_target > 0 else 0.0
+            person_rows.append(
                 {
-                    "area": area_name,
-                    "meta_dia": int(round(meta_day)),
-                    "actual": int(round(actual)),
-                    "target_to_date": int(round(target_to_date)),
-                    "target_month": int(round(target_month)),
-                    "progress_pct": round(progress_pct, 1),
+                    "area": area,
+                    "persona": person.get("persona"),
+                    "target": person_target,
+                    "actual": person_actual,
+                    "ratio_pct": round(person_ratio * 100, 1),
+                    "status": _status_from_ratio(person_ratio),
                 }
             )
 
-        if not areas:
-            continue
-
-        total_actual = sum(int(a["actual"]) for a in areas)
-        total_target = sum(int(a["target_to_date"]) for a in areas)
-        total_progress_pct = round((total_actual * 100.0 / total_target), 1) if total_target > 0 else 0.0
-        sheets.append(
-            {
-                "key": _slug(name),
-                "name": name,
-                "days_month": days_month,
-                "days_elapsed": days_elapsed,
-                "days_remaining": days_remaining,
-                "expected_pct": round(expected_pct * 100.0, 1),
-                "total_actual": total_actual,
-                "total_target": total_target,
-                "total_progress_pct": total_progress_pct,
-                "areas": areas,
-            }
-        )
-
-    return {"available": bool(sheets), "source": str(source), "sheets": sheets}
+    total_actual = sum(int(a["actual"]) for a in area_rows)
+    total_ratio = (total_actual / goal) if goal > 0 else 0.0
+    return {
+        "weekly_goal": goal,
+        "total_actual": total_actual,
+        "total_ratio_pct": round(total_ratio * 100, 1),
+        "status": _status_from_ratio(total_ratio),
+        "areas": area_rows,
+        "people": person_rows,
+        "rows_count": len(person_rows),
+    }
 
 
-def _get_metas_dashboard() -> dict[str, object]:
-    source = Path(METAS_SOURCE)
-    stamp = "missing"
-    if source.exists():
-        stat = source.stat()
-        stamp = f"{source.resolve()}:{stat.st_mtime_ns}:{stat.st_size}"
-    if _METAS_CACHE.get("stamp") == stamp:
-        return _METAS_CACHE.get("data", {"available": False, "sheets": []})  # type: ignore[return-value]
-    data = _load_metas_dashboard()
-    _METAS_CACHE["stamp"] = stamp
-    _METAS_CACHE["data"] = data
-    return data
+def _load_proyeccion_state() -> dict[str, object]:
+    if not PROYECCION_STATE_PATH.exists():
+        return {"weekly_goal": 12000, "rows": [], "view": _build_proyeccion_view(12000, [])}
+    try:
+        payload = json.loads(PROYECCION_STATE_PATH.read_text(encoding="utf-8"))
+        goal = int(payload.get("weekly_goal") or 12000)
+        rows = payload.get("rows") or []
+        if not isinstance(rows, list):
+            rows = []
+        view = _build_proyeccion_view(goal, rows)
+        return {"weekly_goal": goal, "rows": rows, "view": view}
+    except Exception:
+        return {"weekly_goal": 12000, "rows": [], "view": _build_proyeccion_view(12000, [])}
+
+
+def _save_proyeccion_state(weekly_goal: int, rows: list[dict[str, object]]) -> None:
+    payload = {"weekly_goal": int(weekly_goal), "rows": rows}
+    PROYECCION_STATE_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def ensure_seed_data() -> None:
@@ -1242,7 +1271,7 @@ def index():
     muestras_restante = max(muestras_total - muestras_bodega, 0)
     muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
     upload_debug = session.get("upload_debug", "")
-    metas_dashboard = _get_metas_dashboard()
+    proyeccion_state = _load_proyeccion_state()
     return render_template(
         "index.html",
         rows=rows,
@@ -1270,12 +1299,51 @@ def index():
         muestras_restante=muestras_restante,
         muestras_con_etapas=muestras_con_etapas,
         upload_debug=upload_debug,
-        metas_dashboard=metas_dashboard,
+        proyeccion_state=proyeccion_state,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
         assistant_enabled=ASSISTANT_ENABLED,
         assistant_provider=assistant_provider,
     )
+
+
+@app.post("/upload-proyeccion")
+def upload_proyeccion():
+    if not _can_upload():
+        flash("Acceso denegado para actualizar proyeccion.", "error")
+        return redirect(url_for("index"))
+    try:
+        weekly_goal = int(str(request.form.get("weekly_goal") or "12000").strip() or "12000")
+        if weekly_goal <= 0:
+            raise ValueError("La meta semanal debe ser mayor que 0.")
+        file = request.files.get("proyeccion_file")
+        if not file or not file.filename:
+            raise ValueError("Debes seleccionar una hoja CSV o XLSX.")
+        rows = _parse_proyeccion_rows_from_bytes(file.read(), file.filename or "")
+        if not rows:
+            raise ValueError("No se detectaron filas validas. Usa columnas: persona, area, actual.")
+        _save_proyeccion_state(weekly_goal, rows)
+        flash(
+            f"Proyeccion cargada. Meta semanal: {weekly_goal}. Filas validas: {len(rows)}.",
+            "success",
+        )
+    except Exception as exc:
+        flash(f"No se pudo cargar la proyeccion: {exc}", "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/clear-proyeccion")
+def clear_proyeccion():
+    if not _can_upload():
+        flash("Acceso denegado para limpiar proyeccion.", "error")
+        return redirect(url_for("index"))
+    try:
+        if PROYECCION_STATE_PATH.exists():
+            PROYECCION_STATE_PATH.unlink()
+        flash("Proyeccion reiniciada.", "success")
+    except Exception as exc:
+        flash(f"No se pudo limpiar la proyeccion: {exc}", "error")
+    return redirect(url_for("index"))
 
 
 @app.post("/upload")

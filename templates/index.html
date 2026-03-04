@@ -39,7 +39,7 @@
         <button type="button" class="top-nav-tab" data-nav-target="exs">EXS</button>
       </nav>
       <div class="top-nav-actions">
-        <button type="button" class="top-action-btn" id="openMetasModal">Metas</button>
+        <button type="button" class="top-action-btn" id="openProyeccionModal">Proyeccion semanal</button>
         {% if can_upload %}
           <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
             <button type="submit" class="top-action-btn">Actualizar data web</button>
@@ -888,81 +888,118 @@
         </section>
       </dialog>
 
-      <dialog id="metasModal" class="modal modal-metas">
+      <dialog id="proyeccionModal" class="modal modal-metas">
         <div class="modal-head">
-          <h3>Metas 2025</h3>
-          <button type="button" id="closeMetasModal" class="modal-close">Cerrar</button>
+          <h3>Proyeccion semanal por persona</h3>
+          <button type="button" id="closeProyeccionModal" class="modal-close">Cerrar</button>
         </div>
-        {% if metas_dashboard.available %}
-          <div class="metas-toolbar">
-            <label for="metasSheetSelect">Mes:</label>
-            <select id="metasSheetSelect">
-              {% for sheet in metas_dashboard.sheets %}
-                <option value="{{ sheet.key }}">{{ sheet.name }}</option>
-              {% endfor %}
-            </select>
-            <small>Fuente: {{ metas_dashboard.source }}</small>
-          </div>
+        <div class="metas-toolbar">
+          {% if can_upload %}
+            <form action="{{ url_for('upload_proyeccion') }}" method="post" enctype="multipart/form-data" class="proyeccion-upload-form">
+              <label for="weekly_goal">Meta semanal total</label>
+              <input id="weekly_goal" name="weekly_goal" type="number" min="1" step="1" value="{{ proyeccion_state.weekly_goal }}">
+              <input name="proyeccion_file" type="file" accept=".csv,.txt,.xlsx" required>
+              <button type="submit">Cargar hoja</button>
+            </form>
+            <form action="{{ url_for('clear_proyeccion') }}" method="post">
+              <button type="submit" class="btn-ghost">Limpiar</button>
+            </form>
+          {% endif %}
+          <small>Columnas requeridas en la hoja: persona, area, actual. Opcional: meta_personal.</small>
+        </div>
 
-          {% for sheet in metas_dashboard.sheets %}
-            <section class="metas-sheet" data-metas-key="{{ sheet.key }}"{% if not loop.first %} hidden{% endif %}>
-              <div class="metas-kpis">
-                <article>
-                  <h4>Dias habiles</h4>
-                  <p>{{ sheet.days_month|miles }}</p>
-                </article>
-                <article>
-                  <h4>Dias transcurridos</h4>
-                  <p>{{ sheet.days_elapsed|miles }}</p>
-                </article>
-                <article>
-                  <h4>Avance esperado</h4>
-                  <p>{{ sheet.expected_pct }}%</p>
-                </article>
-                <article>
-                  <h4>Avance real</h4>
-                  <p>{{ sheet.total_progress_pct }}%</p>
-                </article>
-              </div>
-              <section class="table-wrap bodega-wrap metas-wrap">
-                <table class="bodega-table metas-table">
-                  <thead>
-                    <tr>
-                      <th>Area</th>
-                      <th>Meta dia</th>
-                      <th>Meta a la fecha</th>
-                      <th>Real a la fecha</th>
-                      <th>% cumplimiento</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for area in sheet.areas %}
-                      {% set pct = area.progress_pct|float %}
-                      <tr>
-                        <td>{{ area.area }}</td>
-                        <td class="num">{{ area.meta_dia|miles }}</td>
-                        <td class="num">{{ area.target_to_date|miles }}</td>
-                        <td class="num">{{ area.actual|miles }}</td>
-                        <td>
-                          <div class="metas-progress">
-                            <span class="metas-progress-fill" style="width: {{ [pct, 100]|min }}%"></span>
-                          </div>
-                          <span class="metas-progress-text">{{ pct }}%</span>
-                        </td>
-                      </tr>
-                    {% else %}
-                      <tr>
-                        <td colspan="5" class="empty">Sin datos de metas para este mes.</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </section>
-            </section>
-          {% endfor %}
-        {% else %}
-          <p class="empty">No se pudo leer el archivo de metas. Verifica `ADECOM_METAS_SOURCE`.</p>
-        {% endif %}
+        <div class="metas-kpis">
+          <article>
+            <h4>Meta semanal</h4>
+            <p>{{ proyeccion_state.view.weekly_goal|miles }}</p>
+          </article>
+          <article>
+            <h4>Produccion acumulada</h4>
+            <p>{{ proyeccion_state.view.total_actual|miles }}</p>
+          </article>
+          <article>
+            <h4>Cumplimiento total</h4>
+            <p>{{ proyeccion_state.view.total_ratio_pct }}%</p>
+          </article>
+          <article>
+            <h4>Semaforo</h4>
+            <p>
+              <span class="status-chip status-{{ proyeccion_state.view.status }}">
+                {% if proyeccion_state.view.status == "green" %}En meta{% elif proyeccion_state.view.status == "yellow" %}Cerca{% else %}Bajo{% endif %}
+              </span>
+            </p>
+          </article>
+        </div>
+
+        <section class="table-wrap bodega-wrap metas-wrap">
+          <h4 class="metas-subtitle">Resumen por area</h4>
+          <table class="bodega-table metas-table">
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Meta semanal</th>
+                <th>Real</th>
+                <th>% cumplimiento</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for area in proyeccion_state.view.areas %}
+                {% set pct = area.ratio_pct|float %}
+                <tr>
+                  <td>{{ area.area }}</td>
+                  <td class="num">{{ area.target|miles }}</td>
+                  <td class="num">{{ area.actual|miles }}</td>
+                  <td>
+                    <div class="metas-progress">
+                      <span class="metas-progress-fill" style="width: {{ [pct, 100]|min }}%"></span>
+                    </div>
+                    <span class="metas-progress-text">{{ pct }}%</span>
+                  </td>
+                  <td><span class="status-chip status-{{ area.status }}">{{ area.status|upper }}</span></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="5" class="empty">Sin datos por area.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+
+        <section class="table-wrap bodega-wrap metas-wrap">
+          <h4 class="metas-subtitle">Detalle por persona</h4>
+          <table class="bodega-table metas-table">
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Persona</th>
+                <th>Meta</th>
+                <th>Real</th>
+                <th>% cumplimiento</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in proyeccion_state.view.people %}
+                {% set pct = row.ratio_pct|float %}
+                <tr>
+                  <td>{{ row.area }}</td>
+                  <td>{{ row.persona }}</td>
+                  <td class="num">{{ row.target|miles }}</td>
+                  <td class="num">{{ row.actual|miles }}</td>
+                  <td>
+                    <div class="metas-progress">
+                      <span class="metas-progress-fill" style="width: {{ [pct, 100]|min }}%"></span>
+                    </div>
+                    <span class="metas-progress-text">{{ pct }}%</span>
+                  </td>
+                  <td><span class="status-chip status-{{ row.status }}">{{ row.status|upper }}</span></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="empty">Aun no hay hoja cargada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
       </dialog>
 
     </section>
@@ -1542,9 +1579,9 @@
     })();
 
     (function () {
-      const modal = document.getElementById("metasModal");
-      const openBtn = document.getElementById("openMetasModal");
-      const closeBtn = document.getElementById("closeMetasModal");
+      const modal = document.getElementById("proyeccionModal");
+      const openBtn = document.getElementById("openProyeccionModal");
+      const closeBtn = document.getElementById("closeProyeccionModal");
       if (!modal || !openBtn || !closeBtn) return;
 
       openBtn.addEventListener("click", () => modal.showModal());
@@ -1558,18 +1595,6 @@
           event.clientY <= rect.bottom;
         if (!clickedInside) modal.close();
       });
-
-      const select = document.getElementById("metasSheetSelect");
-      const sheets = Array.from(modal.querySelectorAll(".metas-sheet[data-metas-key]"));
-      if (!select || !sheets.length) return;
-      const syncSheet = (key) => {
-        sheets.forEach((node) => {
-          const match = node.getAttribute("data-metas-key") === key;
-          node.hidden = !match;
-        });
-      };
-      select.addEventListener("change", () => syncSheet(select.value || ""));
-      syncSheet(select.value || sheets[0].getAttribute("data-metas-key") || "");
     })();
 
     (function () {

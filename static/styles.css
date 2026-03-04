@@ -2488,6 +2488,7 @@ td.etapas-fecha {
 .metas-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 2px 0 10px;
   color: #8b93a8;
@@ -2499,7 +2500,9 @@ td.etapas-fecha {
   color: #cdd5e8;
 }
 
-.metas-toolbar select {
+.metas-toolbar select,
+.metas-toolbar input[type="number"],
+.metas-toolbar input[type="file"] {
   border: 1px solid #2f374a;
   border-radius: 8px;
   background: #171c28;
@@ -2507,12 +2510,20 @@ td.etapas-fecha {
   padding: 6px 10px;
 }
 
+.proyeccion-upload-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proyeccion-upload-form button {
+  padding: 7px 12px;
+}
+
 .metas-toolbar small {
   margin-left: auto;
   color: #6f7894;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .metas-kpis {
@@ -2578,6 +2589,45 @@ td.etapas-fecha {
   color: #f3d18c;
   font-weight: 700;
   font-size: 12px;
+}
+
+.metas-subtitle {
+  margin: 4px 0 8px;
+  color: #cbd4ea;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.status-green {
+  color: #57e68a;
+  background: rgba(87, 230, 138, 0.14);
+  border-color: rgba(87, 230, 138, 0.35);
+}
+
+.status-yellow {
+  color: #ffcb37;
+  background: rgba(255, 203, 55, 0.14);
+  border-color: rgba(255, 203, 55, 0.35);
+}
+
+.status-red {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.14);
+  border-color: rgba(255, 107, 107, 0.35);
 }
 
 .estado-pill {
