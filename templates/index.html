@@ -15,16 +15,13 @@
         <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">◀</button>
       </div>
       <nav class="side-menu">
-        <a href="{{ url_for('index') }}" class="side-link side-link-active">Pagina Principal</a>
-        <a href="#openBodegaModal" class="side-link">Ordenes bodega</a>
-        <a href="#openMuestrasModal" class="side-link">Muestras</a>
-        <a href="#openFullTableModal" class="side-link">Tabla completa</a>
-        <a href="#openVentasTotalModal" class="side-link">Pedidos</a>
-        <a href="#openExsModal" class="side-link">EXS</a>
+        <a href="#sectionPrincipal" class="side-link side-link-active">Pagina Principal</a>
+        <a href="#sectionProduccion" class="side-link">Produccion</a>
+        <a href="#sectionPedidos" class="side-link">Pedidos</a>
       </nav>
     </aside>
 
-  <main class="page">
+  <main class="page" id="sectionPrincipal">
     <header class="hero">
       <div>
         <h1>ADECOM WEB</h1>
@@ -109,7 +106,7 @@
       </form>
     </section>
 
-    <section class="summary">
+    <section class="summary" id="sectionProduccion">
       <article class="card-action summary-focus">
         <button type="button" class="summary-open" id="openBodegaModal">
           <h2>Ordenes en bodega</h2>
@@ -444,7 +441,7 @@
       </div>
     </dialog>
 
-    <section class="ventas-block">
+    <section class="ventas-block" id="sectionPedidos">
       <h2>Pedidos</h2>
       <p class="ventas-note">Datos divididos por secciones.</p>
       <section class="summary ventas-summary">
