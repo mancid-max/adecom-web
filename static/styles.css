@@ -2284,6 +2284,12 @@ td.etapas-fecha {
   background: #1b2030;
 }
 
+.ventas-block > h2,
+.ventas-block > .ventas-note,
+.ventas-block > .ventas-summary {
+  display: none !important;
+}
+
 @media (max-width: 1300px) {
   .dashboard-kpi-row {
     grid-template-columns: repeat(3, minmax(180px, 1fr));
