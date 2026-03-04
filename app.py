@@ -50,6 +50,10 @@ AUTOLOAD_DIR = Path(
 AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
+METAS_SOURCE = os.environ.get(
+    "ADECOM_METAS_SOURCE",
+    str(SEED_DIR / "metas_2025_adcm.xlsx"),
+).strip()
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
@@ -61,6 +65,7 @@ if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
+_METAS_CACHE: dict[str, object] = {"stamp": "", "data": {"available": False, "sheets": []}}
 
 
 def _admin_key() -> str:
@@ -931,6 +936,168 @@ def _auto_refresh_web_on_startup() -> None:
         app.logger.exception("Auto refresh web fallo al iniciar: %s", exc, exc_info=exc)
 
 
+def _to_float(value: object) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text:
+        return 0.0
+    text = text.replace("%", "").replace(" ", "")
+    text = text.replace(".", "").replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def _to_upper_ascii(text: object) -> str:
+    raw = str(text or "").strip().upper()
+    norm = unicodedata.normalize("NFKD", raw)
+    return "".join(c for c in norm if not unicodedata.combining(c))
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+
+
+def _extract_days_metrics(row: tuple | list) -> dict[str, float]:
+    metrics: dict[str, float] = {}
+    cells = ["" if c is None else str(c).strip() for c in row]
+    for idx, label in enumerate(cells[:-1]):
+        if not label:
+            continue
+        probe = _to_upper_ascii(label)
+        value = _to_float(cells[idx + 1])
+        if "DIAS HABILES MES" in probe:
+            metrics["days_month"] = value
+        elif "DIAS HABILES RESTANTES" in probe:
+            metrics["days_remaining"] = value
+        elif "DIAS HABILES PASADOS" in probe:
+            metrics["days_elapsed"] = value
+        elif "% ESPERADO DEL MES" in probe:
+            metrics["expected_pct"] = value if value <= 1 else value / 100.0
+    return metrics
+
+
+def _is_day_value(cell: object) -> bool:
+    if isinstance(cell, (int, float)):
+        return 1 <= int(cell) <= 31
+    raw = str(cell or "").strip()
+    return raw.isdigit() and 1 <= int(raw) <= 31
+
+
+def _load_metas_dashboard() -> dict[str, object]:
+    source = Path(METAS_SOURCE)
+    if not source.exists():
+        return {"available": False, "source": str(source), "sheets": []}
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return {
+            "available": False,
+            "source": str(source),
+            "sheets": [],
+            "error": "openpyxl no disponible",
+        }
+
+    wb = load_workbook(source, data_only=True, read_only=True)
+    names = [n for n in wb.sheetnames if "SOLO PRODUCCION" in _to_upper_ascii(n)]
+    if not names:
+        names = [
+            n
+            for n in wb.sheetnames
+            if re.match(r"^(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-\d{2}$", _to_upper_ascii(n))
+        ]
+
+    sheets: list[dict[str, object]] = []
+    for name in names:
+        ws = wb[name]
+        rows = list(ws.iter_rows(values_only=True, min_row=1, max_row=140))
+        if len(rows) < 4:
+            continue
+        head1 = rows[0]
+        head2 = rows[1]
+        head3 = rows[2]
+
+        metrics = _extract_days_metrics(head1)
+        days_month = int(metrics.get("days_month", 0) or 0)
+        days_elapsed = int(metrics.get("days_elapsed", 0) or 0)
+        days_remaining = int(metrics.get("days_remaining", 0) or 0)
+        if days_elapsed <= 0 and days_month > 0:
+            days_elapsed = max(days_month - days_remaining, 0)
+        expected_pct = float(metrics.get("expected_pct", 0.0) or 0.0)
+
+        areas: list[dict[str, object]] = []
+        for idx in range(3, min(len(head2), 24)):
+            area_name = str(head2[idx] or "").strip()
+            probe = _to_upper_ascii(area_name)
+            if not area_name or probe in {"", "OBSERVACIONES"}:
+                continue
+            meta_day = _to_float(head3[idx] if idx < len(head3) else 0)
+            actual = 0.0
+            for row in rows[3:]:
+                day_cell = row[0] if len(row) > 0 else ""
+                if not _is_day_value(day_cell):
+                    continue
+                actual += _to_float(row[idx] if idx < len(row) else 0)
+
+            if meta_day <= 0 and actual <= 0:
+                continue
+
+            target_to_date = meta_day * days_elapsed if days_elapsed > 0 else 0.0
+            target_month = meta_day * days_month if days_month > 0 else 0.0
+            progress_pct = (actual * 100.0 / target_to_date) if target_to_date > 0 else 0.0
+            areas.append(
+                {
+                    "area": area_name,
+                    "meta_dia": int(round(meta_day)),
+                    "actual": int(round(actual)),
+                    "target_to_date": int(round(target_to_date)),
+                    "target_month": int(round(target_month)),
+                    "progress_pct": round(progress_pct, 1),
+                }
+            )
+
+        if not areas:
+            continue
+
+        total_actual = sum(int(a["actual"]) for a in areas)
+        total_target = sum(int(a["target_to_date"]) for a in areas)
+        total_progress_pct = round((total_actual * 100.0 / total_target), 1) if total_target > 0 else 0.0
+        sheets.append(
+            {
+                "key": _slug(name),
+                "name": name,
+                "days_month": days_month,
+                "days_elapsed": days_elapsed,
+                "days_remaining": days_remaining,
+                "expected_pct": round(expected_pct * 100.0, 1),
+                "total_actual": total_actual,
+                "total_target": total_target,
+                "total_progress_pct": total_progress_pct,
+                "areas": areas,
+            }
+        )
+
+    return {"available": bool(sheets), "source": str(source), "sheets": sheets}
+
+
+def _get_metas_dashboard() -> dict[str, object]:
+    source = Path(METAS_SOURCE)
+    stamp = "missing"
+    if source.exists():
+        stat = source.stat()
+        stamp = f"{source.resolve()}:{stat.st_mtime_ns}:{stat.st_size}"
+    if _METAS_CACHE.get("stamp") == stamp:
+        return _METAS_CACHE.get("data", {"available": False, "sheets": []})  # type: ignore[return-value]
+    data = _load_metas_dashboard()
+    _METAS_CACHE["stamp"] = stamp
+    _METAS_CACHE["data"] = data
+    return data
+
+
 def ensure_seed_data() -> None:
     init_db(DB_PATH)
     if _table_count("saldos_seccion") == 0 and SEED_SALDOS.exists():
@@ -1075,6 +1242,7 @@ def index():
     muestras_restante = max(muestras_total - muestras_bodega, 0)
     muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
     upload_debug = session.get("upload_debug", "")
+    metas_dashboard = _get_metas_dashboard()
     return render_template(
         "index.html",
         rows=rows,
@@ -1102,6 +1270,7 @@ def index():
         muestras_restante=muestras_restante,
         muestras_con_etapas=muestras_con_etapas,
         upload_debug=upload_debug,
+        metas_dashboard=metas_dashboard,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
         assistant_enabled=ASSISTANT_ENABLED,
