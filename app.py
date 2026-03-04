@@ -1068,6 +1068,135 @@ def _parse_day(value: object) -> int:
 
 
 def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dict[str, object]]:
+    def parse_tabular_rows(values: list[tuple]) -> list[dict[str, object]]:
+        if not values:
+            return []
+        header = [str(c or "").strip() for c in values[0]]
+        rows_dict = [dict(zip(header, row)) for row in values[1:]]
+        out: list[dict[str, object]] = []
+        for row in rows_dict:
+            keys = {_norm_text(k): k for k in row.keys() if str(k or "").strip()}
+            area_key = next((keys[k] for k in keys if k in {"area", "seccion", "proceso"}), None)
+            actual_key = next(
+                (
+                    keys[k]
+                    for k in keys
+                    if k in {"actual", "producido", "avance", "unidades", "cantidad", "real", "total"}
+                ),
+                None,
+            )
+            fecha_key = next((keys[k] for k in keys if k in {"fecha", "date"}), None)
+            mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo", "periodo mes"}), None)
+            dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
+            meta_key = next((keys[k] for k in keys if k in {"meta", "meta dia", "meta_diaria", "objetivo"}), None)
+            if not area_key or not actual_key:
+                continue
+            month_key = ""
+            month_label = ""
+            day = 0
+            if fecha_key:
+                mk, ml = _month_from_text(row.get(fecha_key))
+                month_key, month_label = mk, ml
+                day = _parse_day(row.get(fecha_key))
+            if not month_key and mes_key:
+                mk, ml = _month_from_text(row.get(mes_key))
+                month_key, month_label = mk, ml
+            if day == 0 and dia_key:
+                day = _parse_day(row.get(dia_key))
+            if not month_key:
+                continue
+            out.append(
+                {
+                    "month_key": month_key,
+                    "month_label": month_label or month_key,
+                    "area": str(row.get(area_key) or "").strip(),
+                    "day": day,
+                    "actual": int(round(_to_float(row.get(actual_key)))),
+                    "meta_day": int(round(_to_float(row.get(meta_key)))) if meta_key else 0,
+                }
+            )
+        return out
+
+    def parse_matrix_rows(sheet_name: str, values: list[tuple]) -> list[dict[str, object]]:
+        if len(values) < 6:
+            return []
+        mk, ml = _month_from_text(sheet_name)
+        if not mk:
+            return []
+        head1 = list(values[0]) if len(values) > 0 else []
+        head2 = list(values[1]) if len(values) > 1 else []
+        head3 = list(values[2]) if len(values) > 2 else []
+        head4 = list(values[3]) if len(values) > 3 else []
+
+        days_month = 0
+        line0 = [str(c or "").strip() for c in head1]
+        for i, cell in enumerate(line0[:-1]):
+            n = _norm_text(cell)
+            if "dias habiles mes" in n:
+                days_month = int(round(_to_float(line0[i + 1])))
+                break
+        if days_month <= 0:
+            for row in values[4:]:
+                day = _parse_day(row[0] if len(row) > 0 else "")
+                if not day:
+                    continue
+                marker = _norm_text(str(row[2] if len(row) > 2 else ""))
+                if marker in {"f", "feriado"}:
+                    continue
+                days_month += 1
+
+        max_cols = max(len(head2), len(head3), len(head4))
+        current_area = ""
+        out: list[dict[str, object]] = []
+        for col in range(3, max_cols):
+            area_raw = str(head2[col] if col < len(head2) else "").strip()
+            if area_raw:
+                current_area = area_raw
+            area_name = current_area.strip()
+            tipo_raw = str(head3[col] if col < len(head3) else "").strip()
+            meta_day = int(round(_to_float(head4[col] if col < len(head4) else 0)))
+            if not area_name and not tipo_raw:
+                continue
+            area_label = area_name or tipo_raw
+            tipo_norm = _norm_text(tipo_raw)
+            if tipo_norm and tipo_norm not in {"dia"}:
+                area_label = f"{area_label} / {tipo_raw}"
+
+            has_any = False
+            for row in values[4:]:
+                day = _parse_day(row[0] if len(row) > 0 else "")
+                if not day:
+                    continue
+                raw_val = row[col] if col < len(row) else 0
+                val = int(round(_to_float(raw_val)))
+                if val == 0 and not str(raw_val or "").strip():
+                    continue
+                has_any = True
+                out.append(
+                    {
+                        "month_key": mk,
+                        "month_label": ml or mk,
+                        "area": area_label,
+                        "day": day,
+                        "actual": val,
+                        "meta_day": max(meta_day, 0),
+                        "days_month": max(days_month, 0),
+                    }
+                )
+            if not has_any and meta_day > 0:
+                out.append(
+                    {
+                        "month_key": mk,
+                        "month_label": ml or mk,
+                        "area": area_label,
+                        "day": 0,
+                        "actual": 0,
+                        "meta_day": max(meta_day, 0),
+                        "days_month": max(days_month, 0),
+                    }
+                )
+        return out
+
     ext = Path(filename or "").suffix.lower()
     if ext in {".csv", ".txt"}:
         text = content.decode("utf-8-sig", errors="ignore")
@@ -1078,151 +1207,36 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
 
         wb = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
         parsed: list[dict[str, object]] = []
-        # Modo 1: hoja tabular (columnas explicitas)
-        def parse_tabular(values: list[tuple]) -> list[dict[str, object]]:
-            if not values:
-                return []
-            header = [str(c or "").strip() for c in values[0]]
-            rows_dict = [dict(zip(header, row)) for row in values[1:]]
-            out: list[dict[str, object]] = []
-            for row in rows_dict:
-                keys = {_norm_text(k): k for k in row.keys() if str(k or "").strip()}
-                area_key = next((keys[k] for k in keys if k in {"area", "seccion", "proceso"}), None)
-                actual_key = next(
-                    (
-                        keys[k]
-                        for k in keys
-                        if k in {"actual", "producido", "avance", "unidades", "cantidad", "real", "total"}
-                    ),
-                    None,
-                )
-                fecha_key = next((keys[k] for k in keys if k in {"fecha", "date"}), None)
-                mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo", "periodo mes"}), None)
-                dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
-                meta_key = next((keys[k] for k in keys if k in {"meta", "meta dia", "meta_diaria", "objetivo"}), None)
-                if not area_key or not actual_key:
-                    continue
-                month_key = ""
-                month_label = ""
-                day = 0
-                if fecha_key:
-                    mk, ml = _month_from_text(row.get(fecha_key))
-                    month_key, month_label = mk, ml
-                    day = _parse_day(row.get(fecha_key))
-                if not month_key and mes_key:
-                    mk, ml = _month_from_text(row.get(mes_key))
-                    month_key, month_label = mk, ml
-                if day == 0 and dia_key:
-                    day = _parse_day(row.get(dia_key))
-                if not month_key:
-                    continue
-                out.append(
-                    {
-                        "month_key": month_key,
-                        "month_label": month_label or month_key,
-                        "area": str(row.get(area_key) or "").strip(),
-                        "day": day,
-                        "actual": int(round(_to_float(row.get(actual_key)))),
-                        "meta_day": int(round(_to_float(row.get(meta_key)))) if meta_key else 0,
-                    }
-                )
-            return out
-
-        # Modo 2: hoja matricial (fila area + fila tipo + fila meta x dia)
-        def parse_matrix_sheet(sheet_name: str, values: list[tuple]) -> list[dict[str, object]]:
-            if len(values) < 6:
-                return []
-            mk, ml = _month_from_text(sheet_name)
-            if not mk:
-                return []
-            head1 = list(values[0]) if len(values) > 0 else []
-            head2 = list(values[1]) if len(values) > 1 else []
-            head3 = list(values[2]) if len(values) > 2 else []
-            head4 = list(values[3]) if len(values) > 3 else []
-
-            # dias habiles del mes
-            days_month = 0
-            line0 = [str(c or "").strip() for c in head1]
-            for i, cell in enumerate(line0[:-1]):
-                n = _norm_text(cell)
-                if "dias habiles mes" in n:
-                    days_month = int(round(_to_float(line0[i + 1])))
-                    break
-
-            # Si no viene el total, estimar por filas diarias habiles
-            if days_month <= 0:
-                for row in values[4:]:
-                    day = _parse_day(row[0] if len(row) > 0 else "")
-                    if not day:
-                        continue
-                    marker = _norm_text(str(row[2] if len(row) > 2 else ""))
-                    if marker in {"f", "feriado"}:
-                        continue
-                    days_month += 1
-
-            max_cols = max(len(head2), len(head3), len(head4))
-            current_area = ""
-            out: list[dict[str, object]] = []
-            for col in range(3, max_cols):
-                area_raw = str(head2[col] if col < len(head2) else "").strip()
-                if area_raw:
-                    current_area = area_raw
-                area_name = current_area.strip()
-                tipo_raw = str(head3[col] if col < len(head3) else "").strip()
-                meta_day = int(round(_to_float(head4[col] if col < len(head4) else 0)))
-                if not area_name and not tipo_raw:
-                    continue
-                area_label = area_name or tipo_raw
-                tipo_norm = _norm_text(tipo_raw)
-                if tipo_norm and tipo_norm not in {"dia"}:
-                    area_label = f"{area_label} / {tipo_raw}"
-
-                has_any = False
-                for row in values[4:]:
-                    day = _parse_day(row[0] if len(row) > 0 else "")
-                    if not day:
-                        continue
-                    raw_val = row[col] if col < len(row) else 0
-                    val = int(round(_to_float(raw_val)))
-                    if val == 0 and not str(raw_val or "").strip():
-                        continue
-                    has_any = True
-                    out.append(
-                        {
-                            "month_key": mk,
-                            "month_label": ml or mk,
-                            "area": area_label,
-                            "day": day,
-                            "actual": val,
-                            "meta_day": max(meta_day, 0),
-                            "days_month": max(days_month, 0),
-                        }
-                    )
-                if not has_any and meta_day > 0:
-                    out.append(
-                        {
-                            "month_key": mk,
-                            "month_label": ml or mk,
-                            "area": area_label,
-                            "day": 0,
-                            "actual": 0,
-                            "meta_day": max(meta_day, 0),
-                            "days_month": max(days_month, 0),
-                        }
-                    )
-            return out
-
         for ws in wb.worksheets:
             values = list(ws.iter_rows(values_only=True, min_row=1, max_row=220))
             if not values:
                 continue
-            sheet_rows = parse_matrix_sheet(ws.title, values)
+            sheet_rows = parse_matrix_rows(ws.title, values)
             if not sheet_rows:
-                sheet_rows = parse_tabular(values)
+                sheet_rows = parse_tabular_rows(values)
+            parsed.extend(sheet_rows)
+        return parsed
+    elif ext == ".xls":
+        try:
+            import xlrd  # type: ignore
+        except Exception as exc:
+            raise ValueError("Para leer .xls falta dependencia xlrd. Guarda el archivo como .xlsx.") from exc
+        wb = xlrd.open_workbook(file_contents=content)
+        parsed: list[dict[str, object]] = []
+        for sheet in wb.sheets():
+            values: list[tuple] = []
+            for r in range(min(sheet.nrows, 220)):
+                row = tuple(sheet.cell_value(r, c) for c in range(sheet.ncols))
+                values.append(row)
+            if not values:
+                continue
+            sheet_rows = parse_matrix_rows(sheet.name, values)
+            if not sheet_rows:
+                sheet_rows = parse_tabular_rows(values)
             parsed.extend(sheet_rows)
         return parsed
     else:
-        raise ValueError("Formato no soportado para proyeccion. Usa CSV o XLSX (no XLS).")
+        raise ValueError("Formato no soportado para proyeccion. Usa CSV, XLS o XLSX.")
     # CSV/TXT tabular
     parsed: list[dict[str, object]] = []
     for row in raw_rows:
@@ -1354,17 +1368,21 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
 
 def _load_proyeccion_state() -> dict[str, object]:
     if not PROYECCION_STATE_PATH.exists():
-        return {"monthly_goal": 48000, "rows": [], "view": _build_proyeccion_view(48000, [])}
+        auto_rows = _autoload_proyeccion_rows()
+        return {"monthly_goal": 48000, "rows": auto_rows, "view": _build_proyeccion_view(48000, auto_rows)}
     try:
         payload = json.loads(PROYECCION_STATE_PATH.read_text(encoding="utf-8"))
         goal = int(payload.get("monthly_goal") or payload.get("weekly_goal") or 48000)
         rows = payload.get("rows") or []
         if not isinstance(rows, list):
             rows = []
+        if not rows:
+            rows = _autoload_proyeccion_rows()
         view = _build_proyeccion_view(goal, rows)
         return {"monthly_goal": goal, "rows": rows, "view": view}
     except Exception:
-        return {"monthly_goal": 48000, "rows": [], "view": _build_proyeccion_view(48000, [])}
+        auto_rows = _autoload_proyeccion_rows()
+        return {"monthly_goal": 48000, "rows": auto_rows, "view": _build_proyeccion_view(48000, auto_rows)}
 
 
 def _save_proyeccion_state(monthly_goal: int, rows: list[dict[str, object]]) -> None:
@@ -1373,6 +1391,26 @@ def _save_proyeccion_state(monthly_goal: int, rows: list[dict[str, object]]) -> 
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _autoload_proyeccion_rows() -> list[dict[str, object]]:
+    candidates = []
+    if AUTOLOAD_DIR.exists():
+        for pattern in ("*MOVTOS*SECCIONES*.xlsx", "*MOVTOS*SECCIONES*.xls", "*MOVTOS*.xlsx", "*MOVTOS*.xls"):
+            candidates.extend(sorted(AUTOLOAD_DIR.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True))
+    seen: set[str] = set()
+    for path in candidates:
+        key = str(path.resolve()).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            rows = _parse_proyeccion_rows_from_bytes(path.read_bytes(), path.name)
+            if rows:
+                return rows
+        except Exception:
+            continue
+    return []
 
 
 def ensure_seed_data() -> None:
