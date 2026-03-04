@@ -155,14 +155,14 @@
     <section class="dashboard-grid">
       <article class="dash-block">
         <header class="dash-block-head">
-          <h3>Top articulos vendidos</h3>
-          <small>Por unidades</small>
+          <h3>Top articulos pedidos</h3>
+          <small>Por pedidos</small>
         </header>
         <div class="dash-bars">
           {% set art_max = (ventas_top_articulos[0].total if ventas_top_articulos else 1) %}
           {% for item in ventas_top_articulos[:9] %}
             <div class="dash-bar-row">
-              <span class="dash-bar-label">{{ item.articulo[-4:] }}</span>
+              <span class="dash-bar-label">{{ item.articulo }}</span>
               <div class="dash-bar-track">
                 <span class="dash-bar-fill" style="width: {{ ((item.total * 100) / art_max)|round(1) }}%">{{ item.total|miles }}</span>
               </div>

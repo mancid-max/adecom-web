@@ -2217,15 +2217,18 @@ td.etapas-fecha {
 
 .dash-bar-row {
   display: grid;
-  grid-template-columns: 56px 1fr auto;
+  grid-template-columns: 90px 1fr auto;
   gap: 10px;
   align-items: center;
 }
 
 .dash-bar-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #808aa7;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dash-bar-value {
@@ -2370,7 +2373,7 @@ td.etapas-fecha {
     grid-template-columns: 1fr;
   }
   .dash-bar-row {
-    grid-template-columns: 44px 1fr;
+    grid-template-columns: 78px 1fr;
   }
   .dash-bar-value {
     display: none;
