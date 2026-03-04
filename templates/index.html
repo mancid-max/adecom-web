@@ -705,6 +705,7 @@
     </section>
   </main>
 
+    {% if assistant_enabled %}
     <div class="assistant-fab-wrap" id="assistantWidget">
       <button type="button" id="assistantFab" class="assistant-fab" aria-label="Abrir asistente virtual">
         Asistente virtual
@@ -738,6 +739,7 @@
         </form>
       </section>
     </div>
+    {% endif %}
   </div>
   <script>
     (function () {

@@ -50,6 +50,7 @@ AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").str
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
+ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -872,6 +873,8 @@ def index():
         assistant_provider = "gemini"
     else:
         assistant_provider = "local"
+    if not ASSISTANT_ENABLED:
+        assistant_provider = "off"
     filters = {
         "q": request.args.get("q", "").strip(),
         "fecha": request.args.get("fecha", "").strip(),
@@ -1005,6 +1008,7 @@ def index():
         upload_debug=upload_debug,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
+        assistant_enabled=ASSISTANT_ENABLED,
         assistant_provider=assistant_provider,
     )
 
@@ -1138,6 +1142,15 @@ def admin_logout():
 
 @app.post("/assistant/query")
 def assistant_query():
+    if not ASSISTANT_ENABLED:
+        return jsonify(
+            {
+                "answer": "Asistente virtual deshabilitado.",
+                "provider": "off",
+                "fallback": False,
+                "detail": "ADECOM_ASSISTANT_ENABLED=0",
+            }
+        ), 410
     provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
     try:
         payload = request.get_json(silent=True) or {}
