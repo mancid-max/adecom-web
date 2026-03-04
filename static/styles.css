@@ -1603,3 +1603,222 @@ td.etapas-fecha {
   }
 }
 
+/* ===== Rediseno Dashboard (skin) ===== */
+.app-shell {
+  background: #0e0f11;
+}
+
+.app-shell .page {
+  max-width: 1460px;
+  color: #e8eaf0;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+.app-shell .side-nav {
+  background: linear-gradient(180deg, #111319 0%, #0f1218 100%);
+  border-right: 1px solid #252830;
+  color: #e8eaf0;
+}
+
+.app-shell .side-head {
+  border-bottom-color: #252830;
+}
+
+.app-shell .side-brand {
+  font-family: "Syne", sans-serif;
+  font-size: 30px;
+  letter-spacing: .04em;
+}
+
+.app-shell .side-link {
+  border: 1px solid #2a2e39;
+  background: #151923;
+  color: #c9cedd;
+}
+
+.app-shell .side-link:hover {
+  border-color: #3a404e;
+  background: #1a1f2b;
+}
+
+.app-shell .side-link-active {
+  border-color: #c8a96e;
+  color: #f2d6a3;
+  background: rgba(200, 169, 110, 0.12);
+}
+
+.app-shell .hero h1 {
+  font-family: "Syne", sans-serif;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: #f0f2f8;
+}
+
+.app-shell .upload-cta button,
+.app-shell .upload-cta .btn-ghost,
+.app-shell button,
+.app-shell .btn-ghost {
+  border-radius: 8px;
+}
+
+.app-shell .btn-ghost {
+  border-color: #323744;
+  color: #d6dbea;
+  background: #171b25;
+}
+
+.app-shell .btn-ghost:hover {
+  border-color: #c8a96e;
+  color: #f3d9aa;
+  background: rgba(200, 169, 110, 0.12);
+}
+
+.app-shell button {
+  background: #c8a96e;
+  color: #101116;
+  border-color: #c8a96e;
+}
+
+.app-shell button:hover {
+  background: #d9b77a;
+}
+
+.app-shell .summary article,
+.app-shell .upload-card,
+.app-shell .table-wrap,
+.app-shell .modal-kpis article,
+.app-shell .row-detail-box,
+.app-shell .ventas-talla-curve-card,
+.app-shell .sufijo-card {
+  background: #1a1d24;
+  border-color: #2a2e39;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
+.app-shell .summary-focus::before,
+.app-shell .summary-secondary::before {
+  background: linear-gradient(145deg, #1f232d 0%, #171a22 60%, #13161d 100%);
+}
+
+.app-shell .summary-open h2 {
+  font-family: "Syne", sans-serif;
+  color: #e6eaf6;
+}
+
+.app-shell .summary-open p {
+  color: #f1f4fb;
+}
+
+.app-shell .summary-open small {
+  color: #d1d8e8;
+  background: rgba(200, 169, 110, 0.12);
+  border-color: rgba(200, 169, 110, 0.24);
+}
+
+.app-shell .table-hint,
+.app-shell .ventas-note {
+  color: #8b93a8;
+}
+
+.app-shell .bodega-table {
+  color: #dde3f0;
+}
+
+.app-shell thead th {
+  background: #1d212a;
+  color: #9ca5ba;
+  border-bottom-color: #2c303b;
+}
+
+.app-shell th,
+.app-shell td {
+  border-bottom-color: #2b2f3a;
+}
+
+.app-shell tbody tr:nth-child(even) {
+  background: #171b24;
+}
+
+.app-shell tbody tr:hover td {
+  background: #202530;
+}
+
+.app-shell .variante-chip,
+.app-shell .etapa-chip {
+  background: #202430;
+  border-color: #313747;
+  color: #d5dcef;
+}
+
+.app-shell .etapa-chip-start {
+  background: rgba(200, 169, 110, 0.16);
+  border-color: rgba(200, 169, 110, 0.3);
+  color: #f0d39f;
+}
+
+.app-shell .etapa-chip-end {
+  background: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #9ac3ff;
+}
+
+.app-shell .etapa-chip-days {
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.28);
+  color: #82eab0;
+}
+
+.app-shell .etapas-head {
+  color: #7f879c;
+}
+
+.app-shell .modal {
+  background: #161a22;
+  border-color: #2a2e39;
+  color: #e7ebf7;
+}
+
+.app-shell .modal::backdrop {
+  background: rgba(5, 7, 10, 0.68);
+}
+
+.app-shell .modal-head h3 {
+  font-family: "Syne", sans-serif;
+  color: #f0f3fb;
+}
+
+.app-shell .modal-kpis h4 {
+  color: #9ca5ba;
+}
+
+.app-shell .modal-kpis p {
+  color: #f4f7ff;
+}
+
+.app-shell .table-tools select,
+.app-shell input[type="text"],
+.app-shell input[type="date"],
+.app-shell input[type="file"] {
+  background: #12161f;
+  border-color: #2b3040;
+  color: #dbe2f2;
+}
+
+.app-shell input::placeholder {
+  color: #707b93;
+}
+
+.app-shell #fullTableModal .full-table tfoot td {
+  background: #10141c;
+  color: #cfd6e8;
+  border-top-color: #2a3040;
+}
+
+@media (max-width: 980px) {
+  .app-shell .side-nav {
+    border-bottom: 1px solid #252830;
+    border-right: 0;
+  }
+}
+
