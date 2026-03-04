@@ -135,6 +135,24 @@
       border: 1px solid rgba(244, 126, 126, .45);
       background: rgba(244, 126, 126, .12);
       color: #8d2c2c;
+      animation: flashIn .35s ease;
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .45s ease, transform .45s ease;
+    }
+    .flash.flash-hide {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    @keyframes flashIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
     @media (max-width: 900px) {
       .login-wrap {
@@ -195,5 +213,17 @@
       </form>
     </main>
   </section>
+  <script>
+    (function () {
+      const alerts = Array.from(document.querySelectorAll(".flash"));
+      if (!alerts.length) return;
+      setTimeout(() => {
+        alerts.forEach((el) => el.classList.add("flash-hide"));
+      }, 5000);
+      setTimeout(() => {
+        alerts.forEach((el) => el.remove());
+      }, 5600);
+    })();
+  </script>
 </body>
 </html>

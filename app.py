@@ -52,6 +52,7 @@ AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").s
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
+NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -74,6 +75,20 @@ def _access_key_new() -> str:
     return os.environ.get("ADECOM_ACCESS_KEY_NEW", "adecom-nueva").strip()
 
 
+def _access_key_web_aliases() -> list[str]:
+    raw = os.environ.get("ADECOM_ACCESS_KEY_WEB_ALIASES", "adecom-web,adecom,web")
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def _match_any_key(entered: str, keys: list[str]) -> bool:
+    if not entered:
+        return False
+    for key in keys:
+        if key and hmac.compare_digest(entered, key):
+            return True
+    return False
+
+
 def _portal_section() -> str:
     return str(session.get("portal_section") or "").strip().lower()
 
@@ -85,7 +100,7 @@ def _is_authenticated() -> bool:
 @app.before_request
 def _guard_portal_routes():
     endpoint = request.endpoint or ""
-    public_endpoints = {"login", "static"}
+    public_endpoints = {"login", "login_post", "static"}
     if endpoint in public_endpoints:
         return
 
@@ -121,16 +136,19 @@ def login():
 @app.post("/login")
 def login_post():
     entered_key = str(request.form.get("access_key") or "").strip()
-    key_web = _access_key_web()
+    web_keys = [_access_key_web(), *_access_key_web_aliases()]
     key_new = _access_key_new()
-    if entered_key and hmac.compare_digest(entered_key, key_web):
+    if _match_any_key(entered_key, web_keys):
         session["portal_section"] = "web"
         session.permanent = True
         return redirect(url_for("index"))
-    if entered_key and hmac.compare_digest(entered_key, key_new):
+    if NEW_SECTION_ENABLED and entered_key and hmac.compare_digest(entered_key, key_new):
         session["portal_section"] = "new"
         session.permanent = True
         return redirect(url_for("new_section"))
+    if not NEW_SECTION_ENABLED and entered_key and hmac.compare_digest(entered_key, key_new):
+        flash("El acceso para la nueva seccion aun no esta habilitado.", "error")
+        return redirect(url_for("login"))
     flash("Clave incorrecta.", "error")
     return redirect(url_for("login"))
 
@@ -145,6 +163,8 @@ def logout():
 
 @app.get("/nueva-seccion")
 def new_section():
+    if not NEW_SECTION_ENABLED:
+        return redirect(url_for("index"))
     return render_template("new_section.html")
 
 
