@@ -1077,44 +1077,171 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
         from openpyxl import load_workbook
 
         wb = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
-        ws = wb.active
-        values = list(ws.iter_rows(values_only=True))
-        if not values:
-            return []
-        header = [str(c or "").strip() for c in values[0]]
-        raw_rows = [dict(zip(header, row)) for row in values[1:]]
+        parsed: list[dict[str, object]] = []
+        # Modo 1: hoja tabular (columnas explicitas)
+        def parse_tabular(values: list[tuple]) -> list[dict[str, object]]:
+            if not values:
+                return []
+            header = [str(c or "").strip() for c in values[0]]
+            rows_dict = [dict(zip(header, row)) for row in values[1:]]
+            out: list[dict[str, object]] = []
+            for row in rows_dict:
+                keys = {_norm_text(k): k for k in row.keys() if str(k or "").strip()}
+                area_key = next((keys[k] for k in keys if k in {"area", "seccion", "proceso"}), None)
+                actual_key = next(
+                    (
+                        keys[k]
+                        for k in keys
+                        if k in {"actual", "producido", "avance", "unidades", "cantidad", "real", "total"}
+                    ),
+                    None,
+                )
+                fecha_key = next((keys[k] for k in keys if k in {"fecha", "date"}), None)
+                mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo", "periodo mes"}), None)
+                dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
+                meta_key = next((keys[k] for k in keys if k in {"meta", "meta dia", "meta_diaria", "objetivo"}), None)
+                if not area_key or not actual_key:
+                    continue
+                month_key = ""
+                month_label = ""
+                day = 0
+                if fecha_key:
+                    mk, ml = _month_from_text(row.get(fecha_key))
+                    month_key, month_label = mk, ml
+                    day = _parse_day(row.get(fecha_key))
+                if not month_key and mes_key:
+                    mk, ml = _month_from_text(row.get(mes_key))
+                    month_key, month_label = mk, ml
+                if day == 0 and dia_key:
+                    day = _parse_day(row.get(dia_key))
+                if not month_key:
+                    continue
+                out.append(
+                    {
+                        "month_key": month_key,
+                        "month_label": month_label or month_key,
+                        "area": str(row.get(area_key) or "").strip(),
+                        "day": day,
+                        "actual": int(round(_to_float(row.get(actual_key)))),
+                        "meta_day": int(round(_to_float(row.get(meta_key)))) if meta_key else 0,
+                    }
+                )
+            return out
+
+        # Modo 2: hoja matricial (fila area + fila tipo + fila meta x dia)
+        def parse_matrix_sheet(sheet_name: str, values: list[tuple]) -> list[dict[str, object]]:
+            if len(values) < 6:
+                return []
+            mk, ml = _month_from_text(sheet_name)
+            if not mk:
+                return []
+            head1 = list(values[0]) if len(values) > 0 else []
+            head2 = list(values[1]) if len(values) > 1 else []
+            head3 = list(values[2]) if len(values) > 2 else []
+            head4 = list(values[3]) if len(values) > 3 else []
+
+            # dias habiles del mes
+            days_month = 0
+            line0 = [str(c or "").strip() for c in head1]
+            for i, cell in enumerate(line0[:-1]):
+                n = _norm_text(cell)
+                if "dias habiles mes" in n:
+                    days_month = int(round(_to_float(line0[i + 1])))
+                    break
+
+            # Si no viene el total, estimar por filas diarias habiles
+            if days_month <= 0:
+                for row in values[4:]:
+                    day = _parse_day(row[0] if len(row) > 0 else "")
+                    if not day:
+                        continue
+                    marker = _norm_text(str(row[2] if len(row) > 2 else ""))
+                    if marker in {"f", "feriado"}:
+                        continue
+                    days_month += 1
+
+            max_cols = max(len(head2), len(head3), len(head4))
+            current_area = ""
+            out: list[dict[str, object]] = []
+            for col in range(3, max_cols):
+                area_raw = str(head2[col] if col < len(head2) else "").strip()
+                if area_raw:
+                    current_area = area_raw
+                area_name = current_area.strip()
+                tipo_raw = str(head3[col] if col < len(head3) else "").strip()
+                meta_day = int(round(_to_float(head4[col] if col < len(head4) else 0)))
+                if not area_name and not tipo_raw:
+                    continue
+                area_label = area_name or tipo_raw
+                tipo_norm = _norm_text(tipo_raw)
+                if tipo_norm and tipo_norm not in {"dia"}:
+                    area_label = f"{area_label} / {tipo_raw}"
+
+                has_any = False
+                for row in values[4:]:
+                    day = _parse_day(row[0] if len(row) > 0 else "")
+                    if not day:
+                        continue
+                    raw_val = row[col] if col < len(row) else 0
+                    val = int(round(_to_float(raw_val)))
+                    if val == 0 and not str(raw_val or "").strip():
+                        continue
+                    has_any = True
+                    out.append(
+                        {
+                            "month_key": mk,
+                            "month_label": ml or mk,
+                            "area": area_label,
+                            "day": day,
+                            "actual": val,
+                            "meta_day": max(meta_day, 0),
+                            "days_month": max(days_month, 0),
+                        }
+                    )
+                if not has_any and meta_day > 0:
+                    out.append(
+                        {
+                            "month_key": mk,
+                            "month_label": ml or mk,
+                            "area": area_label,
+                            "day": 0,
+                            "actual": 0,
+                            "meta_day": max(meta_day, 0),
+                            "days_month": max(days_month, 0),
+                        }
+                    )
+            return out
+
+        for ws in wb.worksheets:
+            values = list(ws.iter_rows(values_only=True, min_row=1, max_row=220))
+            if not values:
+                continue
+            sheet_rows = parse_matrix_sheet(ws.title, values)
+            if not sheet_rows:
+                sheet_rows = parse_tabular(values)
+            parsed.extend(sheet_rows)
+        return parsed
     else:
         raise ValueError("Formato no soportado para proyeccion. Usa CSV o XLSX (no XLS).")
-
+    # CSV/TXT tabular
     parsed: list[dict[str, object]] = []
     for row in raw_rows:
         keys = {_norm_text(k): k for k in row.keys() if str(k or "").strip()}
         area_key = next((keys[k] for k in keys if k in {"area", "seccion", "proceso"}), None)
-        actual_key = next(
-            (
-                keys[k]
-                for k in keys
-                if k in {"actual", "producido", "avance", "unidades", "cantidad", "real", "total"}
-            ),
-            None,
-        )
+        actual_key = next((keys[k] for k in keys if k in {"actual", "real", "total", "cantidad", "producido"}), None)
         fecha_key = next((keys[k] for k in keys if k in {"fecha", "date"}), None)
-        mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo", "periodo mes"}), None)
+        mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo"}), None)
         dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
+        meta_key = next((keys[k] for k in keys if k in {"meta", "meta dia", "meta_diaria"}), None)
         if not area_key or not actual_key:
-            continue
-        area = _canonical_area(row.get(area_key))
-        actual = int(round(_to_float(row.get(actual_key))))
-        if not area:
             continue
         month_key = ""
         month_label = ""
         day = 0
         if fecha_key:
-            raw_fecha = row.get(fecha_key)
-            mk, ml = _month_from_text(raw_fecha)
+            mk, ml = _month_from_text(row.get(fecha_key))
             month_key, month_label = mk, ml
-            day = _parse_day(raw_fecha)
+            day = _parse_day(row.get(fecha_key))
         if not month_key and mes_key:
             mk, ml = _month_from_text(row.get(mes_key))
             month_key, month_label = mk, ml
@@ -1126,9 +1253,10 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
             {
                 "month_key": month_key,
                 "month_label": month_label or month_key,
-                "area": area,
+                "area": str(row.get(area_key) or "").strip(),
                 "day": day,
-                "actual": max(actual, 0),
+                "actual": int(round(_to_float(row.get(actual_key)))),
+                "meta_day": int(round(_to_float(row.get(meta_key)))) if meta_key else 0,
             }
         )
     return parsed
@@ -1139,23 +1267,53 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
     total_weight = sum(v for v in AREA_WEIGHTS.values() if v > 0) or 1
 
     by_month_area_daily: dict[str, dict[str, dict[int, int]]] = {}
+    by_month_area_meta_day: dict[str, dict[str, int]] = {}
+    by_month_days_count: dict[str, int] = {}
+    by_month_label: dict[str, str] = {}
     for row in rows:
         month_key = str(row.get("month_key") or "").strip()
         if not month_key:
             continue
-        area = _canonical_area(row.get("area"))
+        by_month_label[month_key] = str(row.get("month_label") or month_key)
+        area = str(row.get("area") or "").strip().upper()
+        area = _canonical_area(area) if area in AREA_WEIGHTS else area
         day = int(row.get("day") or 0)
         day = day if 1 <= day <= 31 else 0
         by_month_area_daily.setdefault(month_key, {}).setdefault(area, {})
         by_month_area_daily[month_key][area][day] = by_month_area_daily[month_key][area].get(day, 0) + int(row.get("actual") or 0)
+        meta_day = int(row.get("meta_day") or 0)
+        if meta_day > 0:
+            by_month_area_meta_day.setdefault(month_key, {})
+            by_month_area_meta_day[month_key][area] = max(by_month_area_meta_day[month_key].get(area, 0), meta_day)
+        dm = int(row.get("days_month") or 0)
+        if dm > 0:
+            by_month_days_count[month_key] = max(by_month_days_count.get(month_key, 0), dm)
 
     months: list[dict[str, object]] = []
     for month_key in sorted(by_month_area_daily.keys()):
         area_rows: list[dict[str, object]] = []
         month_total = 0
-        for area, weight in AREA_WEIGHTS.items():
-            area_target = int(round(goal * (weight / total_weight)))
-            area_daily_map = by_month_area_daily[month_key].get(area, {})
+        month_areas = sorted(by_month_area_daily[month_key].keys())
+        if not month_areas:
+            continue
+        days_month = by_month_days_count.get(month_key, 0)
+        if days_month <= 0:
+            day_set = set()
+            for a in month_areas:
+                for d in by_month_area_daily[month_key].get(a, {}):
+                    if d > 0:
+                        day_set.add(d)
+            days_month = len(day_set)
+
+        use_sheet_meta = bool(by_month_area_meta_day.get(month_key))
+        for area in month_areas:
+            area_weight = AREA_WEIGHTS.get(area, 0)
+            fallback_target = int(round(goal * (area_weight / total_weight))) if area_weight > 0 else 0
+            meta_day = by_month_area_meta_day.get(month_key, {}).get(area, 0)
+            area_target = (meta_day * days_month) if use_sheet_meta and meta_day > 0 else fallback_target
+            if area_target <= 0 and not use_sheet_meta:
+                # para areas extras (ej. ventas) sin peso fijo, repartir una fraccion minima
+                area_target = int(round(goal / max(len(month_areas), 1)))
             area_actual = sum(int(v) for v in area_daily_map.values())
             month_total += area_actual
             ratio = (area_actual / area_target) if area_target > 0 else 0.0
@@ -1178,7 +1336,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
         months.append(
             {
                 "key": month_key,
-                "label": month_key,
+                "label": by_month_label.get(month_key, month_key),
                 "areas": area_rows,
                 "total_actual": month_total,
                 "total_ratio_pct": round(month_ratio * 100, 1),
