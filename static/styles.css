@@ -1088,29 +1088,8 @@ td.etapas-fecha {
 
 .full-table td.saldo-dist {
   white-space: normal;
-  min-width: 250px;
+  min-width: 220px;
   color: #3e372f;
-}
-
-.etapas-head-mini {
-  grid-template-columns: 74px 78px 78px;
-  gap: 4px;
-  margin-bottom: 3px;
-  font-size: 9px;
-}
-
-.etapas-list-mini {
-  gap: 3px;
-}
-
-.etapa-line-mini {
-  grid-template-columns: 74px 78px 78px;
-  gap: 4px;
-}
-
-.etapa-line-mini .etapa-chip {
-  padding: 3px 6px;
-  font-size: 11px;
 }
 
 .full-table th:last-child,

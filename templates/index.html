@@ -368,7 +368,7 @@
               <th class="sortable-th" data-sort-key="proceso">Proceso</th>
               <th class="sortable-th" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th" data-sort-key="saldo">Saldo</th>
-              <th class="sortable-th" data-sort-key="etapasfechas">Etapas con fechas</th>
+              <th class="sortable-th" data-sort-key="restantedetalle">Distribucion saldo</th>
             </tr>
           </thead>
           <tbody>
@@ -393,7 +393,6 @@
               data-segunda="{{ row.segunda }}"
               data-procesoactual="{{ row.proceso_actual }}"
               data-restantedetalle="{{ row.restante_detalle }}"
-              data-etapasfechas="{{ row.etapas_fechas_detalle }}"
               data-esmuestra="{% if row.corte and row.corte.lstrip('0').startswith('96') %}1{% else %}0{% endif %}"
             >
               <td>{{ row.articulo }}</td>
@@ -403,42 +402,7 @@
               <td class="num">{{ row.proceso|miles }}</td>
               <td class="num">{{ row.bodega|miles }}</td>
               <td class="num">{{ row.saldo|miles }}</td>
-              <td class="saldo-dist">
-                {% set labels = [
-                  ("corte", "Corte"),
-                  ("taller", "Taller"),
-                  ("t_externo", "T. Externo"),
-                  ("limpiado", "Limpiado"),
-                  ("lavanderia", "Lavanderia"),
-                  ("terminacion", "Terminacion"),
-                  ("muestra", "Muestra"),
-                ] %}
-                {% set rangos_map = row.etapas_rangos or {} %}
-                {% set ns = namespace(has_data=false) %}
-                <div class="etapas-head etapas-head-mini" aria-hidden="true">
-                  <span>Etapa</span>
-                  <span>Inicio</span>
-                  <span>Termino</span>
-                </div>
-                <div class="etapas-list etapas-list-col etapas-list-mini">
-                  {% for key, label in labels %}
-                    {% set rango = rangos_map.get(key) or {} %}
-                    {% set fecha_ini = (rango.get('inicio') or '') %}
-                    {% set fecha_fin = (rango.get('fin') or '') %}
-                    {% if fecha_ini %}
-                      {% set ns.has_data = true %}
-                      <span class="etapa-line etapa-line-mini">
-                        <span class="etapa-chip etapa-chip-label">{{ label }}</span>
-                        <span class="etapa-chip etapa-chip-start">{{ fecha_ini }}</span>
-                        <span class="etapa-chip etapa-chip-end">{{ fecha_fin if fecha_fin else '-' }}</span>
-                      </span>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-                {% if not ns.has_data %}
-                  <span class="etapa-empty">-</span>
-                {% endif %}
-              </td>
+              <td class="saldo-dist">{{ row.restante_detalle }}</td>
             </tr>
             {% else %}
             <tr>
