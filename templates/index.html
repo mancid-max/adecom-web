@@ -40,7 +40,10 @@
       </nav>
       <div class="top-nav-actions">
         {% if can_upload %}
-          <button type="button" class="top-action-btn" id="navUploadBtn">Modo carga</button>
+          <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
+            <button type="submit" class="top-action-btn">Actualizar data web</button>
+          </form>
+          <button type="button" class="top-action-btn" id="navUploadBtn">Subir archivo</button>
         {% elif admin_key_enabled %}
           <button type="button" class="top-action-btn" id="navModeFocusBtn">Modo carga</button>
         {% endif %}
