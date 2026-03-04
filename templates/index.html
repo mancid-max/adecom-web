@@ -890,14 +890,14 @@
 
       <dialog id="proyeccionModal" class="modal modal-metas">
         <div class="modal-head">
-          <h3>Proyeccion semanal por persona</h3>
+          <h3>Proyeccion mensual por area</h3>
           <button type="button" id="closeProyeccionModal" class="modal-close">Cerrar</button>
         </div>
         <div class="metas-toolbar">
           {% if can_upload %}
             <form action="{{ url_for('upload_proyeccion') }}" method="post" enctype="multipart/form-data" class="proyeccion-upload-form">
-              <label for="weekly_goal">Meta semanal total</label>
-              <input id="weekly_goal" name="weekly_goal" type="number" min="1" step="1" value="{{ proyeccion_state.weekly_goal }}">
+              <label for="monthly_goal">Meta mensual total</label>
+              <input id="monthly_goal" name="monthly_goal" type="number" min="1" step="1" value="{{ proyeccion_state.monthly_goal }}">
               <input name="proyeccion_file" type="file" accept=".csv,.txt,.xlsx" required>
               <button type="submit">Cargar hoja</button>
             </form>
@@ -905,98 +905,101 @@
               <button type="submit" class="btn-ghost">Limpiar</button>
             </form>
           {% endif %}
-          <small>Columnas requeridas en la hoja: persona, area, actual. Opcional: meta_personal.</small>
+          {% if proyeccion_state.view.months %}
+            <label for="proyeccionMonthSelect">Mes</label>
+            <select id="proyeccionMonthSelect">
+              {% for month in proyeccion_state.view.months %}
+                <option value="{{ month.key }}" {% if month.key == proyeccion_state.view.default_month_key %}selected{% endif %}>{{ month.label }}</option>
+              {% endfor %}
+            </select>
+          {% endif %}
+          <small>Columnas requeridas: `area`, `real` y `fecha` o (`mes` + `dia`).</small>
         </div>
 
-        <div class="metas-kpis">
-          <article>
-            <h4>Meta semanal</h4>
-            <p>{{ proyeccion_state.view.weekly_goal|miles }}</p>
-          </article>
-          <article>
-            <h4>Produccion acumulada</h4>
-            <p>{{ proyeccion_state.view.total_actual|miles }}</p>
-          </article>
-          <article>
-            <h4>Cumplimiento total</h4>
-            <p>{{ proyeccion_state.view.total_ratio_pct }}%</p>
-          </article>
-          <article>
-            <h4>Semaforo</h4>
-            <p>
-              <span class="status-chip status-{{ proyeccion_state.view.status }}">
-                {% if proyeccion_state.view.status == "green" %}En meta{% elif proyeccion_state.view.status == "yellow" %}Cerca{% else %}Bajo{% endif %}
-              </span>
-            </p>
-          </article>
+        {% for month in proyeccion_state.view.months %}
+          <section class="proyeccion-month" data-month-key="{{ month.key }}" {% if month.key != proyeccion_state.view.default_month_key %}hidden{% endif %}>
+            <div class="metas-kpis">
+              <article>
+                <h4>Mes</h4>
+                <p>{{ month.label }}</p>
+              </article>
+              <article>
+                <h4>Meta mensual</h4>
+                <p>{{ proyeccion_state.monthly_goal|miles }}</p>
+              </article>
+              <article>
+                <h4>Real mensual</h4>
+                <p>{{ month.total_actual|miles }}</p>
+              </article>
+              <article>
+                <h4>Semaforo</h4>
+                <p><span class="status-chip status-{{ month.status }}">{{ month.total_ratio_pct }}%</span></p>
+              </article>
+            </div>
+            <section class="table-wrap bodega-wrap metas-wrap">
+              <h4 class="metas-subtitle">Resumen por area</h4>
+              <table class="bodega-table metas-table">
+                <thead>
+                  <tr>
+                    <th>Area</th>
+                    <th>Meta mensual</th>
+                    <th>Real</th>
+                    <th>% cumplimiento</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for area in month.areas %}
+                    {% set pct = area.ratio_pct|float %}
+                    <tr>
+                      <td>{{ area.area }}</td>
+                      <td class="num">{{ area.target|miles }}</td>
+                      <td class="num">
+                        <button
+                          type="button"
+                          class="real-detail-btn"
+                          data-area="{{ area.area }}"
+                          data-month="{{ month.label }}"
+                          data-daily='{{ area.daily_rows|tojson|forceescape }}'
+                        >
+                          {{ area.actual|miles }}
+                        </button>
+                      </td>
+                      <td>
+                        <div class="metas-progress">
+                          <span class="metas-progress-fill" style="width: {{ [pct, 100]|min }}%"></span>
+                        </div>
+                        <span class="metas-progress-text">{{ pct }}%</span>
+                      </td>
+                      <td><span class="status-chip status-{{ area.status }}">{{ area.status|upper }}</span></td>
+                    </tr>
+                  {% else %}
+                    <tr><td colspan="5" class="empty">Sin datos por area.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </section>
+          </section>
+        {% else %}
+          <p class="empty">Aun no hay hoja cargada para proyeccion mensual.</p>
+        {% endfor %}
+      </dialog>
+
+      <dialog id="proyeccionDailyModal" class="modal modal-top-familia">
+        <div class="modal-head">
+          <h3 id="dailyDetailTitle">Detalle diario</h3>
+          <button type="button" id="closeProyeccionDailyModal" class="modal-close">Cerrar</button>
         </div>
-
         <section class="table-wrap bodega-wrap metas-wrap">
-          <h4 class="metas-subtitle">Resumen por area</h4>
-          <table class="bodega-table metas-table">
+          <table class="bodega-table metas-table" id="proyeccionDailyTable">
             <thead>
               <tr>
-                <th>Area</th>
-                <th>Meta semanal</th>
-                <th>Real</th>
-                <th>% cumplimiento</th>
-                <th>Estado</th>
+                <th>Dia</th>
+                <th>Generado</th>
               </tr>
             </thead>
-            <tbody>
-              {% for area in proyeccion_state.view.areas %}
-                {% set pct = area.ratio_pct|float %}
-                <tr>
-                  <td>{{ area.area }}</td>
-                  <td class="num">{{ area.target|miles }}</td>
-                  <td class="num">{{ area.actual|miles }}</td>
-                  <td>
-                    <div class="metas-progress">
-                      <span class="metas-progress-fill" style="width: {{ [pct, 100]|min }}%"></span>
-                    </div>
-                    <span class="metas-progress-text">{{ pct }}%</span>
-                  </td>
-                  <td><span class="status-chip status-{{ area.status }}">{{ area.status|upper }}</span></td>
-                </tr>
-              {% else %}
-                <tr><td colspan="5" class="empty">Sin datos por area.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </section>
-
-        <section class="table-wrap bodega-wrap metas-wrap">
-          <h4 class="metas-subtitle">Detalle por persona</h4>
-          <table class="bodega-table metas-table">
-            <thead>
-              <tr>
-                <th>Area</th>
-                <th>Persona</th>
-                <th>Meta</th>
-                <th>Real</th>
-                <th>% cumplimiento</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in proyeccion_state.view.people %}
-                {% set pct = row.ratio_pct|float %}
-                <tr>
-                  <td>{{ row.area }}</td>
-                  <td>{{ row.persona }}</td>
-                  <td class="num">{{ row.target|miles }}</td>
-                  <td class="num">{{ row.actual|miles }}</td>
-                  <td>
-                    <div class="metas-progress">
-                      <span class="metas-progress-fill" style="width: {{ [pct, 100]|min }}%"></span>
-                    </div>
-                    <span class="metas-progress-text">{{ pct }}%</span>
-                  </td>
-                  <td><span class="status-chip status-{{ row.status }}">{{ row.status|upper }}</span></td>
-                </tr>
-              {% else %}
-                <tr><td colspan="6" class="empty">Aun no hay hoja cargada.</td></tr>
-              {% endfor %}
+            <tbody id="proyeccionDailyBody">
+              <tr><td colspan="2" class="empty">Sin detalle.</td></tr>
             </tbody>
           </table>
         </section>
@@ -1595,6 +1598,54 @@
           event.clientY <= rect.bottom;
         if (!clickedInside) modal.close();
       });
+
+      const monthSelect = document.getElementById("proyeccionMonthSelect");
+      const monthBlocks = Array.from(modal.querySelectorAll(".proyeccion-month[data-month-key]"));
+      const syncMonth = (key) => {
+        monthBlocks.forEach((block) => {
+          block.hidden = block.getAttribute("data-month-key") !== key;
+        });
+      };
+      if (monthSelect && monthBlocks.length) {
+        monthSelect.addEventListener("change", () => syncMonth(monthSelect.value || ""));
+        syncMonth(monthSelect.value || monthBlocks[0].getAttribute("data-month-key") || "");
+      }
+
+      const dailyModal = document.getElementById("proyeccionDailyModal");
+      const dailyClose = document.getElementById("closeProyeccionDailyModal");
+      const dailyBody = document.getElementById("proyeccionDailyBody");
+      const dailyTitle = document.getElementById("dailyDetailTitle");
+      const parseJson = (txt) => {
+        try { return JSON.parse(txt || "[]"); } catch (_) { return []; }
+      };
+      if (dailyModal && dailyClose && dailyBody && dailyTitle) {
+        modal.querySelectorAll(".real-detail-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const area = btn.getAttribute("data-area") || "-";
+            const month = btn.getAttribute("data-month") || "-";
+            const rows = parseJson(btn.getAttribute("data-daily"));
+            dailyTitle.textContent = `${area} - ${month}`;
+            if (!rows.length) {
+              dailyBody.innerHTML = '<tr><td colspan="2" class="empty">Sin detalle diario.</td></tr>';
+            } else {
+              dailyBody.innerHTML = rows
+                .map((r) => `<tr><td>${r.day}</td><td class="num">${Number(r.actual || 0).toLocaleString("es-CL")}</td></tr>`)
+                .join("");
+            }
+            dailyModal.showModal();
+          });
+        });
+        dailyClose.addEventListener("click", () => dailyModal.close());
+        dailyModal.addEventListener("click", (event) => {
+          const rect = dailyModal.getBoundingClientRect();
+          const clickedInside =
+            event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom;
+          if (!clickedInside) dailyModal.close();
+        });
+      }
     })();
 
     (function () {

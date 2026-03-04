@@ -2591,6 +2591,21 @@ td.etapas-fecha {
   font-size: 12px;
 }
 
+.real-detail-btn {
+  border: 1px solid #2f374a;
+  background: #171c28;
+  color: #e8edf9;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.real-detail-btn:hover {
+  border-color: #d7b679;
+  color: #f5dcae;
+}
+
 .metas-subtitle {
   margin: 4px 0 8px;
   color: #cbd4ea;

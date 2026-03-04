@@ -984,6 +984,89 @@ def _status_from_ratio(ratio: float) -> str:
     return "red"
 
 
+def _month_from_text(value: object) -> tuple[str, str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return "", ""
+    probe = _norm_text(raw)
+    months = {
+        "enero": 1,
+        "ene": 1,
+        "febrero": 2,
+        "feb": 2,
+        "marzo": 3,
+        "mar": 3,
+        "abril": 4,
+        "abr": 4,
+        "mayo": 5,
+        "may": 5,
+        "junio": 6,
+        "jun": 6,
+        "julio": 7,
+        "jul": 7,
+        "agosto": 8,
+        "ago": 8,
+        "septiembre": 9,
+        "setiembre": 9,
+        "sep": 9,
+        "octubre": 10,
+        "oct": 10,
+        "noviembre": 11,
+        "nov": 11,
+        "diciembre": 12,
+        "dic": 12,
+    }
+    # YYYY-MM
+    m = re.search(r"(\d{4})[-/](\d{1,2})", raw)
+    if m:
+        y = int(m.group(1))
+        mo = int(m.group(2))
+        if 1 <= mo <= 12:
+            key = f"{y:04d}-{mo:02d}"
+            return key, f"{mo:02d}/{y}"
+    # MM-YYYY or MM/YY
+    m2 = re.search(r"(\d{1,2})[-/](\d{2,4})", raw)
+    if m2:
+        mo = int(m2.group(1))
+        y = int(m2.group(2))
+        if y < 100:
+            y += 2000
+        if 1 <= mo <= 12:
+            key = f"{y:04d}-{mo:02d}"
+            return key, f"{mo:02d}/{y}"
+    # Marzo 2026
+    y3 = re.search(r"(20\d{2})", probe)
+    for token, mo in months.items():
+        if token in probe:
+            y = int(y3.group(1)) if y3 else date.today().year
+            key = f"{y:04d}-{mo:02d}"
+            return key, f"{mo:02d}/{y}"
+    return "", ""
+
+
+def _parse_day(value: object) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        d = int(value)
+        return d if 1 <= d <= 31 else 0
+    text = str(value).strip()
+    if text.isdigit():
+        d = int(text)
+        return d if 1 <= d <= 31 else 0
+    m = re.search(r"(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})", text)
+    if m:
+        d = int(m.group(1))
+        if 1 <= d <= 31:
+            return d
+    m2 = re.search(r"(20\d{2})[-/](\d{1,2})[-/](\d{1,2})", text)
+    if m2:
+        d = int(m2.group(3))
+        if 1 <= d <= 31:
+            return d
+    return 0
+
+
 def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dict[str, object]]:
     ext = Path(filename or "").suffix.lower()
     if ext in {".csv", ".txt"}:
@@ -1001,126 +1084,133 @@ def _parse_proyeccion_rows_from_bytes(content: bytes, filename: str) -> list[dic
         header = [str(c or "").strip() for c in values[0]]
         raw_rows = [dict(zip(header, row)) for row in values[1:]]
     else:
-        raise ValueError("Formato no soportado para proyeccion. Usa CSV o XLSX.")
+        raise ValueError("Formato no soportado para proyeccion. Usa CSV o XLSX (no XLS).")
 
     parsed: list[dict[str, object]] = []
     for row in raw_rows:
-        keys = { _norm_text(k): k for k in row.keys() if str(k or "").strip() }
-        persona_key = next((keys[k] for k in keys if k in {"persona", "operario", "nombre", "trabajador"}), None)
+        keys = {_norm_text(k): k for k in row.keys() if str(k or "").strip()}
         area_key = next((keys[k] for k in keys if k in {"area", "seccion", "proceso"}), None)
         actual_key = next(
             (
                 keys[k]
                 for k in keys
-                if k in {"actual", "producido", "avance", "unidades", "cantidad", "real"}
+                if k in {"actual", "producido", "avance", "unidades", "cantidad", "real", "total"}
             ),
             None,
         )
-        meta_key = next((keys[k] for k in keys if k in {"meta", "meta personal", "meta_personal", "objetivo"}), None)
-        if not persona_key or not area_key or not actual_key:
+        fecha_key = next((keys[k] for k in keys if k in {"fecha", "date"}), None)
+        mes_key = next((keys[k] for k in keys if k in {"mes", "month", "periodo", "periodo mes"}), None)
+        dia_key = next((keys[k] for k in keys if k in {"dia", "day"}), None)
+        if not area_key or not actual_key:
             continue
-        persona = str(row.get(persona_key) or "").strip()
         area = _canonical_area(row.get(area_key))
         actual = int(round(_to_float(row.get(actual_key))))
-        meta_personal = int(round(_to_float(row.get(meta_key)))) if meta_key else 0
-        if not persona or not area:
+        if not area:
+            continue
+        month_key = ""
+        month_label = ""
+        day = 0
+        if fecha_key:
+            raw_fecha = row.get(fecha_key)
+            mk, ml = _month_from_text(raw_fecha)
+            month_key, month_label = mk, ml
+            day = _parse_day(raw_fecha)
+        if not month_key and mes_key:
+            mk, ml = _month_from_text(row.get(mes_key))
+            month_key, month_label = mk, ml
+        if day == 0 and dia_key:
+            day = _parse_day(row.get(dia_key))
+        if not month_key:
             continue
         parsed.append(
             {
-                "persona": persona,
+                "month_key": month_key,
+                "month_label": month_label or month_key,
                 "area": area,
+                "day": day,
                 "actual": max(actual, 0),
-                "meta_personal": max(meta_personal, 0),
             }
         )
     return parsed
 
 
-def _build_proyeccion_view(weekly_goal: int, rows: list[dict[str, object]]) -> dict[str, object]:
-    goal = max(int(weekly_goal or 0), 0)
+def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> dict[str, object]:
+    goal = max(int(monthly_goal or 0), 0)
     total_weight = sum(v for v in AREA_WEIGHTS.values() if v > 0) or 1
 
-    merged_people: dict[tuple[str, str], dict[str, object]] = {}
+    by_month_area_daily: dict[str, dict[str, dict[int, int]]] = {}
     for row in rows:
+        month_key = str(row.get("month_key") or "").strip()
+        if not month_key:
+            continue
         area = _canonical_area(row.get("area"))
-        persona = str(row.get("persona") or "").strip()
-        key = (area, persona)
-        if key not in merged_people:
-            merged_people[key] = {"area": area, "persona": persona, "actual": 0, "meta_personal": 0}
-        merged_people[key]["actual"] = int(merged_people[key]["actual"]) + int(row.get("actual") or 0)
-        merged_people[key]["meta_personal"] = max(
-            int(merged_people[key]["meta_personal"] or 0),
-            int(row.get("meta_personal") or 0),
-        )
+        day = int(row.get("day") or 0)
+        day = day if 1 <= day <= 31 else 0
+        by_month_area_daily.setdefault(month_key, {}).setdefault(area, {})
+        by_month_area_daily[month_key][area][day] = by_month_area_daily[month_key][area].get(day, 0) + int(row.get("actual") or 0)
 
-    people_by_area: dict[str, list[dict[str, object]]] = {}
-    for item in merged_people.values():
-        people_by_area.setdefault(str(item["area"]), []).append(item)
-
-    area_rows: list[dict[str, object]] = []
-    person_rows: list[dict[str, object]] = []
-
-    for area, weight in AREA_WEIGHTS.items():
-        area_target = int(round(goal * (weight / total_weight)))
-        area_people = people_by_area.get(area, [])
-        area_actual = sum(int(p.get("actual") or 0) for p in area_people)
-        ratio = (area_actual / area_target) if area_target > 0 else 0.0
-        area_rows.append(
-            {
-                "area": area,
-                "target": area_target,
-                "actual": area_actual,
-                "ratio_pct": round(ratio * 100, 1),
-                "status": _status_from_ratio(ratio),
-            }
-        )
-        persons_count = len(area_people) or 1
-        default_target = int(round(area_target / persons_count))
-        for person in sorted(area_people, key=lambda x: str(x.get("persona") or "").lower()):
-            person_target = int(person.get("meta_personal") or 0) or default_target
-            person_actual = int(person.get("actual") or 0)
-            person_ratio = (person_actual / person_target) if person_target > 0 else 0.0
-            person_rows.append(
+    months: list[dict[str, object]] = []
+    for month_key in sorted(by_month_area_daily.keys()):
+        area_rows: list[dict[str, object]] = []
+        month_total = 0
+        for area, weight in AREA_WEIGHTS.items():
+            area_target = int(round(goal * (weight / total_weight)))
+            area_daily_map = by_month_area_daily[month_key].get(area, {})
+            area_actual = sum(int(v) for v in area_daily_map.values())
+            month_total += area_actual
+            ratio = (area_actual / area_target) if area_target > 0 else 0.0
+            daily = [
+                {"day": int(d), "actual": int(v)}
+                for d, v in sorted(area_daily_map.items(), key=lambda x: x[0])
+                if int(d) > 0
+            ]
+            area_rows.append(
                 {
                     "area": area,
-                    "persona": person.get("persona"),
-                    "target": person_target,
-                    "actual": person_actual,
-                    "ratio_pct": round(person_ratio * 100, 1),
-                    "status": _status_from_ratio(person_ratio),
+                    "target": area_target,
+                    "actual": area_actual,
+                    "ratio_pct": round(ratio * 100, 1),
+                    "status": _status_from_ratio(ratio),
+                    "daily_rows": daily,
                 }
             )
+        month_ratio = (month_total / goal) if goal > 0 else 0.0
+        months.append(
+            {
+                "key": month_key,
+                "label": month_key,
+                "areas": area_rows,
+                "total_actual": month_total,
+                "total_ratio_pct": round(month_ratio * 100, 1),
+                "status": _status_from_ratio(month_ratio),
+            }
+        )
 
-    total_actual = sum(int(a["actual"]) for a in area_rows)
-    total_ratio = (total_actual / goal) if goal > 0 else 0.0
+    default_month_key = months[-1]["key"] if months else ""
     return {
-        "weekly_goal": goal,
-        "total_actual": total_actual,
-        "total_ratio_pct": round(total_ratio * 100, 1),
-        "status": _status_from_ratio(total_ratio),
-        "areas": area_rows,
-        "people": person_rows,
-        "rows_count": len(person_rows),
+        "monthly_goal": goal,
+        "months": months,
+        "default_month_key": default_month_key,
     }
 
 
 def _load_proyeccion_state() -> dict[str, object]:
     if not PROYECCION_STATE_PATH.exists():
-        return {"weekly_goal": 12000, "rows": [], "view": _build_proyeccion_view(12000, [])}
+        return {"monthly_goal": 48000, "rows": [], "view": _build_proyeccion_view(48000, [])}
     try:
         payload = json.loads(PROYECCION_STATE_PATH.read_text(encoding="utf-8"))
-        goal = int(payload.get("weekly_goal") or 12000)
+        goal = int(payload.get("monthly_goal") or payload.get("weekly_goal") or 48000)
         rows = payload.get("rows") or []
         if not isinstance(rows, list):
             rows = []
         view = _build_proyeccion_view(goal, rows)
-        return {"weekly_goal": goal, "rows": rows, "view": view}
+        return {"monthly_goal": goal, "rows": rows, "view": view}
     except Exception:
-        return {"weekly_goal": 12000, "rows": [], "view": _build_proyeccion_view(12000, [])}
+        return {"monthly_goal": 48000, "rows": [], "view": _build_proyeccion_view(48000, [])}
 
 
-def _save_proyeccion_state(weekly_goal: int, rows: list[dict[str, object]]) -> None:
-    payload = {"weekly_goal": int(weekly_goal), "rows": rows}
+def _save_proyeccion_state(monthly_goal: int, rows: list[dict[str, object]]) -> None:
+    payload = {"monthly_goal": int(monthly_goal), "rows": rows}
     PROYECCION_STATE_PATH.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -1313,18 +1403,20 @@ def upload_proyeccion():
         flash("Acceso denegado para actualizar proyeccion.", "error")
         return redirect(url_for("index"))
     try:
-        weekly_goal = int(str(request.form.get("weekly_goal") or "12000").strip() or "12000")
-        if weekly_goal <= 0:
-            raise ValueError("La meta semanal debe ser mayor que 0.")
+        monthly_goal = int(
+            str(request.form.get("monthly_goal") or request.form.get("weekly_goal") or "48000").strip() or "48000"
+        )
+        if monthly_goal <= 0:
+            raise ValueError("La meta mensual debe ser mayor que 0.")
         file = request.files.get("proyeccion_file")
         if not file or not file.filename:
             raise ValueError("Debes seleccionar una hoja CSV o XLSX.")
         rows = _parse_proyeccion_rows_from_bytes(file.read(), file.filename or "")
         if not rows:
-            raise ValueError("No se detectaron filas validas. Usa columnas: persona, area, actual.")
-        _save_proyeccion_state(weekly_goal, rows)
+            raise ValueError("No se detectaron filas validas. Usa columnas: area, real y fecha/mes.")
+        _save_proyeccion_state(monthly_goal, rows)
         flash(
-            f"Proyeccion cargada. Meta semanal: {weekly_goal}. Filas validas: {len(rows)}.",
+            f"Proyeccion cargada. Meta mensual: {monthly_goal}. Filas validas: {len(rows)}.",
             "success",
         )
     except Exception as exc:
