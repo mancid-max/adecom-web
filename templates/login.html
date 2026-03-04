@@ -154,22 +154,6 @@
         transform: translateY(0);
       }
     }
-    .flash-top-wrap {
-      position: fixed;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1200;
-      width: min(720px, calc(100% - 24px));
-      display: grid;
-      gap: 10px;
-      pointer-events: none;
-    }
-    .flash-top-wrap .flash {
-      pointer-events: auto;
-      box-shadow: 0 12px 34px rgba(115, 26, 26, 0.18);
-      background: rgba(255, 235, 235, 0.98);
-    }
     @media (max-width: 900px) {
       .login-wrap {
         grid-template-columns: 1fr;
@@ -205,6 +189,14 @@
         Ingresa tu clave para continuar. Si no recuerda su clave, solicite asistencia al area responsable.
       </p>
 
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, msg in messages %}
+            <p class="flash">{{ msg }}</p>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
       <form method="post" action="{{ url_for('login_post') }}">
         <div class="field">
           <label for="access_key">Clave de acceso</label>
@@ -221,15 +213,6 @@
       </form>
     </main>
   </section>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <section class="flash-top-wrap" role="status" aria-live="polite">
-        {% for category, msg in messages %}
-          <p class="flash">{{ msg }}</p>
-        {% endfor %}
-      </section>
-    {% endif %}
-  {% endwith %}
   <script>
     (function () {
       const alerts = Array.from(document.querySelectorAll(".flash"));
