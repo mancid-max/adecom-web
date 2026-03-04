@@ -157,17 +157,19 @@
   <section class="login-wrap" aria-label="Ingreso ADECOM">
     <aside class="login-brand">
       <div>
-        <h1 class="brand-title">Adecom</h1>
+        <h1 class="brand-title">Bienvenido/a</h1>
         <p class="brand-sub">
-          Ingreso centralizado. Segun la clave de acceso, se habilita ADECOM WEB o la nueva seccion.
+          Acceso centralizado a la plataforma segun el perfil autorizado.
         </p>
       </div>
       <span class="brand-chip">Portal de acceso</span>
     </aside>
 
     <main class="login-form-side">
-      <h2>Bienvenido</h2>
-      <p class="muted">Ingresa tu clave para continuar.</p>
+      <h2>Bienvenido/a</h2>
+      <p class="muted">
+        Ingresa tu clave para continuar. Si no recuerda su clave, solicite asistencia al area responsable.
+      </p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
