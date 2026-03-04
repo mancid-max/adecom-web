@@ -2117,7 +2117,12 @@ td.etapas-fecha {
 
 .dashboard-kpi-row .summary-focus::before,
 .dashboard-kpi-row .summary-secondary::before {
-  background: linear-gradient(145deg, #0f131b 0%, #0b0f15 62%, #090c11 100%);
+  background: linear-gradient(145deg, #0f131b 0%, #0b0f15 62%, #090c11 100%) !important;
+}
+
+.dashboard-kpi-row .card-action {
+  background: #0f131b !important;
+  border-color: #2a3040 !important;
 }
 
 .dashboard-kpi-row .summary-open h2 {
