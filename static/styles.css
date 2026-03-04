@@ -863,11 +863,11 @@ td.etapas-fecha {
 .bodega-table-etapas th:nth-child(4),
 .bodega-table-etapas td:nth-child(4) { width: 8%; }
 .bodega-table-etapas th:nth-child(5),
-.bodega-table-etapas td:nth-child(5) { width: 16%; }
+.bodega-table-etapas td:nth-child(5) { width: 18%; }
 .bodega-table-etapas th:nth-child(6),
-.bodega-table-etapas td:nth-child(6) { width: 39%; }
+.bodega-table-etapas td:nth-child(6) { width: 35%; }
 .bodega-table-etapas th:nth-child(7),
-.bodega-table-etapas td:nth-child(7) { width: 8%; }
+.bodega-table-etapas td:nth-child(7) { width: 10%; }
 
 .etapas-list {
   display: flex;
@@ -878,7 +878,7 @@ td.etapas-fecha {
 .etapas-list-col {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 6px;
+  gap: 4px;
 }
 
 .etapa-chip {
@@ -894,27 +894,45 @@ td.etapas-fecha {
   line-height: 1.25;
 }
 
-.etapa-line {
-  display: flex;
-  align-items: center;
+.etapas-head {
+  display: grid;
+  grid-template-columns: 84px 82px 82px 48px;
   gap: 6px;
-  flex-wrap: nowrap;
-  width: 100%;
+  margin-bottom: 4px;
+  color: #5f554a;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
 
-.etapa-chip-date {
+.etapa-line {
+  display: grid;
+  grid-template-columns: 84px 82px 82px 48px;
+  align-items: center;
+  gap: 6px;
+}
+
+.etapa-chip-label {
   background: #f8f2e8;
   border-color: #d9ccb9;
   color: #3f352b;
-  flex: 1 1 auto;
-  min-width: 120px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.etapa-chip-start {
+  min-width: 0;
+  justify-content: center;
+  border-color: #d8c3a3;
+  background: #f5ede2;
+  color: #5a4630;
+  font-variant-numeric: tabular-nums;
+}
+
 .etapa-chip-end {
-  min-width: 92px;
+  min-width: 0;
   justify-content: center;
   border-color: #c8d8ea;
   background: #ecf3fb;
@@ -923,7 +941,7 @@ td.etapas-fecha {
 }
 
 .etapa-chip-days {
-  min-width: 54px;
+  min-width: 0;
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
@@ -1116,7 +1134,7 @@ td.etapas-fecha {
 
 .row-detail-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
   gap: 10px;
 }
 
@@ -1139,6 +1157,10 @@ td.etapas-fecha {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
+}
+
+#dFecha {
+  font-size: 16px;
 }
 
 #dEstado.estado-green {

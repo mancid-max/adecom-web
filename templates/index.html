@@ -181,6 +181,12 @@
                 {% set rangos_map = row.etapas_rangos or {} %}
                 {% set dias_map = row.etapas_dias or {} %}
                 {% set ns = namespace(has_data=false) %}
+                <div class="etapas-head" aria-hidden="true">
+                  <span>Etapa</span>
+                  <span>Inicio</span>
+                  <span>Termino</span>
+                  <span>Dias</span>
+                </div>
                 <div class="etapas-list etapas-list-col">
                   {% for key, label in labels %}
                     {% set rango = rangos_map.get(key) or {} %}
@@ -189,11 +195,14 @@
                     {% if fecha_ini %}
                       {% set ns.has_data = true %}
                       <span class="etapa-line">
-                        <span class="etapa-chip etapa-chip-date">{{ label }}: {{ fecha_ini }}</span>
+                        <span class="etapa-chip etapa-chip-label">{{ label }}</span>
+                        <span class="etapa-chip etapa-chip-start">{{ fecha_ini }}</span>
                         <span class="etapa-chip etapa-chip-end">{{ fecha_fin if fecha_fin else '-' }}</span>
                         {% set dias_val = (dias_map.get(key) or 0)|int %}
                         {% if dias_val > 0 %}
                           <span class="etapa-chip etapa-chip-days">{{ dias_val }}d</span>
+                        {% else %}
+                          <span class="etapa-chip etapa-chip-days">-</span>
                         {% endif %}
                       </span>
                     {% endif %}
@@ -279,6 +288,12 @@
                 {% set rangos_map = row.etapas_rangos or {} %}
                 {% set dias_map = row.etapas_dias or {} %}
                 {% set ns = namespace(has_data=false) %}
+                <div class="etapas-head" aria-hidden="true">
+                  <span>Etapa</span>
+                  <span>Inicio</span>
+                  <span>Termino</span>
+                  <span>Dias</span>
+                </div>
                 <div class="etapas-list etapas-list-col">
                   {% for key, label in labels %}
                     {% set rango = rangos_map.get(key) or {} %}
@@ -287,11 +302,14 @@
                     {% if fecha_ini %}
                       {% set ns.has_data = true %}
                       <span class="etapa-line">
-                        <span class="etapa-chip etapa-chip-date">{{ label }}: {{ fecha_ini }}</span>
+                        <span class="etapa-chip etapa-chip-label">{{ label }}</span>
+                        <span class="etapa-chip etapa-chip-start">{{ fecha_ini }}</span>
                         <span class="etapa-chip etapa-chip-end">{{ fecha_fin if fecha_fin else '-' }}</span>
                         {% set dias_val = (dias_map.get(key) or 0)|int %}
                         {% if dias_val > 0 %}
                           <span class="etapa-chip etapa-chip-days">{{ dias_val }}d</span>
+                        {% else %}
+                          <span class="etapa-chip etapa-chip-days">-</span>
                         {% endif %}
                       </span>
                     {% endif %}
