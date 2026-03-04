@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hmac
 import io
 import json
 import os
@@ -65,11 +66,86 @@ def _admin_key() -> str:
     return os.environ.get("ADECOM_ADMIN_KEY", "").strip()
 
 
+def _access_key_web() -> str:
+    return os.environ.get("ADECOM_ACCESS_KEY_WEB", "adecom-web").strip()
+
+
+def _access_key_new() -> str:
+    return os.environ.get("ADECOM_ACCESS_KEY_NEW", "adecom-nueva").strip()
+
+
+def _portal_section() -> str:
+    return str(session.get("portal_section") or "").strip().lower()
+
+
+def _is_authenticated() -> bool:
+    return _portal_section() in {"web", "new"}
+
+
+@app.before_request
+def _guard_portal_routes():
+    endpoint = request.endpoint or ""
+    public_endpoints = {"login", "static"}
+    if endpoint in public_endpoints:
+        return
+
+    section = _portal_section()
+    if not section:
+        return redirect(url_for("login"))
+
+    if section == "new":
+        allowed_new = {"new_section", "logout", "static", "login"}
+        if endpoint not in allowed_new:
+            return redirect(url_for("new_section"))
+
+    if section == "web" and endpoint == "new_section":
+        return redirect(url_for("index"))
+
+
 def _can_upload() -> bool:
     key = _admin_key()
     if not key:
         return True
     return bool(session.get("can_upload"))
+
+
+@app.get("/login")
+def login():
+    if _is_authenticated():
+        if _portal_section() == "new":
+            return redirect(url_for("new_section"))
+        return redirect(url_for("index"))
+    return render_template("login.html")
+
+
+@app.post("/login")
+def login_post():
+    entered_key = str(request.form.get("access_key") or "").strip()
+    key_web = _access_key_web()
+    key_new = _access_key_new()
+    if entered_key and hmac.compare_digest(entered_key, key_web):
+        session["portal_section"] = "web"
+        session.permanent = True
+        return redirect(url_for("index"))
+    if entered_key and hmac.compare_digest(entered_key, key_new):
+        session["portal_section"] = "new"
+        session.permanent = True
+        return redirect(url_for("new_section"))
+    flash("Clave incorrecta.", "error")
+    return redirect(url_for("login"))
+
+
+@app.post("/logout")
+def logout():
+    session.pop("portal_section", None)
+    session.pop("can_upload", None)
+    flash("Sesion cerrada.", "success")
+    return redirect(url_for("login"))
+
+
+@app.get("/nueva-seccion")
+def new_section():
+    return render_template("new_section.html")
 
 
 def _norm_text(value: str) -> str:

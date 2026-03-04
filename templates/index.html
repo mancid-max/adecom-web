@@ -29,14 +29,17 @@
       <div>
         <h1>ADECOM WEB</h1>
       </div>
+      <div class="upload-cta">
+        <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
+          <button type="submit" class="btn-ghost">Cerrar sesion</button>
+        </form>
       {% if can_upload %}
-        <div class="upload-cta">
           <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
             <button type="submit" class="btn-ghost">Actualizar data web</button>
           </form>
           <button type="button" id="openUploadModal">Subir archivo</button>
-        </div>
       {% endif %}
+      </div>
     </header>
 
     {% if admin_key_enabled %}

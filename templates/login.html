@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingreso | ADECOM</title>
+  <style>
+    :root {
+      --bg: #f4f2ee;
+      --panel: #1b2230;
+      --panel-2: #253043;
+      --ink: #f7f3ea;
+      --muted: #b4bccb;
+      --accent: #dccfb9;
+      --accent-2: #eadfcf;
+      --danger: #f47e7e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #171717;
+      background:
+        radial-gradient(1000px 480px at -10% -20%, #d4c6ae 0%, transparent 60%),
+        radial-gradient(860px 420px at 110% 120%, #253043 0%, transparent 62%),
+        var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .login-wrap {
+      width: min(960px, 100%);
+      min-height: 560px;
+      border-radius: 24px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      box-shadow: 0 30px 80px rgba(13, 20, 30, 0.26);
+      border: 1px solid rgba(27, 34, 48, 0.2);
+      background: #fff;
+    }
+    .login-brand {
+      background: linear-gradient(140deg, var(--panel), var(--panel-2));
+      color: var(--ink);
+      padding: 52px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .brand-title {
+      margin: 0;
+      font-size: 58px;
+      line-height: 1;
+      letter-spacing: 1px;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .brand-sub {
+      color: var(--muted);
+      max-width: 360px;
+      margin: 16px 0 0;
+      line-height: 1.5;
+    }
+    .brand-chip {
+      width: fit-content;
+      border: 1px solid rgba(220, 207, 185, 0.42);
+      background: rgba(220, 207, 185, 0.12);
+      color: var(--accent-2);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      letter-spacing: .4px;
+    }
+    .login-form-side {
+      padding: 56px 46px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+      background: #fbf9f5;
+    }
+    h2 {
+      margin: 0;
+      color: #141b28;
+      font-size: 34px;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .muted {
+      margin: 0;
+      color: #666b76;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    label {
+      color: #252c39;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid #c9c4bb;
+      border-radius: 12px;
+      padding: 14px 14px;
+      background: #fff;
+      color: #131313;
+      font-size: 16px;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    input:focus {
+      border-color: #253043;
+      box-shadow: 0 0 0 4px rgba(37, 48, 67, 0.1);
+    }
+    button {
+      margin-top: 12px;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      cursor: pointer;
+      background: linear-gradient(120deg, #1c2331, #2c374a);
+      color: #f2ede2;
+    }
+    .flash {
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      border: 1px solid rgba(244, 126, 126, .45);
+      background: rgba(244, 126, 126, .12);
+      color: #8d2c2c;
+    }
+    @media (max-width: 900px) {
+      .login-wrap {
+        grid-template-columns: 1fr;
+      }
+      .login-brand {
+        min-height: 200px;
+        padding: 34px 28px;
+      }
+      .brand-title {
+        font-size: 44px;
+      }
+      .login-form-side {
+        padding: 32px 24px 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="login-wrap" aria-label="Ingreso ADECOM">
+    <aside class="login-brand">
+      <div>
+        <h1 class="brand-title">Adecom</h1>
+        <p class="brand-sub">
+          Ingreso centralizado. Segun la clave de acceso, se habilita ADECOM WEB o la nueva seccion.
+        </p>
+      </div>
+      <span class="brand-chip">Portal de acceso</span>
+    </aside>
+
+    <main class="login-form-side">
+      <h2>Bienvenido</h2>
+      <p class="muted">Ingresa tu clave para continuar.</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, msg in messages %}
+            <p class="flash">{{ msg }}</p>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" action="{{ url_for('login_post') }}">
+        <div class="field">
+          <label for="access_key">Clave de acceso</label>
+          <input
+            id="access_key"
+            name="access_key"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Ingresa tu clave"
+            required
+          >
+        </div>
+        <button type="submit">Entrar</button>
+      </form>
+    </main>
+  </section>
+</body>
+</html>

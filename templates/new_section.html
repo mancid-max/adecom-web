@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nueva Seccion | ADECOM</title>
+  <style>
+    :root {
+      --bg: #f4f2ee;
+      --panel: #1d2533;
+      --panel-2: #283247;
+      --ink: #f6f1e8;
+      --accent: #dccfb9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: #181818;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    header {
+      background: linear-gradient(135deg, var(--panel), var(--panel-2));
+      color: var(--ink);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid rgba(220, 207, 185, 0.25);
+    }
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 34px;
+    }
+    form { margin: 0; }
+    button {
+      border: 1px solid rgba(220, 207, 185, 0.4);
+      background: rgba(220, 207, 185, 0.16);
+      color: #f2eadc;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    main {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(740px, 100%);
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid #ddd2c1;
+      padding: 30px;
+      box-shadow: 0 22px 46px rgba(22, 28, 40, 0.12);
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1b2230;
+    }
+    .card p {
+      margin: 0;
+      color: #3f4450;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ADECOM - Nueva Seccion</h1>
+    <form method="post" action="{{ url_for('logout') }}">
+      <button type="submit">Cerrar sesion</button>
+    </form>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Seccion nueva habilitada</h2>
+      <p>
+        Entraste con la clave de la nueva seccion. Aqui puedes montar el nuevo flujo sin mezclarlo con ADECOM WEB.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
