@@ -1843,6 +1843,11 @@ td.etapas-fecha {
   color: #dde3f0;
 }
 
+.app-shell .full-table td.saldo-dist {
+  color: #cfd6e8;
+  font-weight: 500;
+}
+
 .app-shell thead th {
   background: #1d212a;
   color: #9ca5ba;
