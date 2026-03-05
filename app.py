@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import hmac
 import io
 import json
 import os
 import re
+import threading
+import time
 import unicodedata
 from datetime import date
 from pathlib import Path
@@ -51,6 +54,8 @@ AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").str
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
+AUTO_REFRESH_WEB_POLL_SECONDS = max(int(os.environ.get("ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS", "60").strip() or "60"), 0)
+AUTO_REFRESH_WEB_BACKGROUND = os.environ.get("ADECOM_AUTO_REFRESH_WEB_BACKGROUND", "1").strip() == "1"
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
 PROYECCION_STATE_PATH = BASE_DIR / "data" / "proyeccion_personas.json"
@@ -71,6 +76,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
 PROYECCION_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+_refresh_lock = threading.Lock()
+_refresh_thread_started = False
+_last_sources_signature = ""
 
 
 def _admin_key() -> str:
@@ -916,29 +924,92 @@ def _refresh_web_data() -> dict:
     }
 
 
+def _sources_configured() -> bool:
+    return all(
+        str(src or "").strip()
+        for src in (AUTOLOAD_SALDOS_SOURCE, AUTOLOAD_PEDIDOS_SOURCE, AUTOLOAD_ETAPAS_SOURCE)
+    )
+
+
+def _sources_signature() -> str:
+    parts = []
+    for label, source in (
+        ("saldos", AUTOLOAD_SALDOS_SOURCE),
+        ("pedidos", AUTOLOAD_PEDIDOS_SOURCE),
+        ("etapas", AUTOLOAD_ETAPAS_SOURCE),
+    ):
+        payload = _read_source_bytes(source)
+        digest = hashlib.sha256(payload).hexdigest()
+        parts.append(f"{label}:{digest}")
+    raw = "|".join(parts).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _refresh_if_sources_changed(force: bool = False) -> bool:
+    global _last_sources_signature
+    if not _sources_configured():
+        return False
+    with _refresh_lock:
+        signature = _sources_signature()
+        if not force and signature == _last_sources_signature:
+            return False
+        stats = _refresh_web_data()
+        _last_sources_signature = signature
+    app.logger.info(
+        "Auto refresh web aplicado. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s",
+        stats["saldos"].get("inserted", 0),
+        stats["saldos"].get("updated", 0),
+        stats["pedidos"].get("inserted", 0),
+        stats["pedidos"].get("updated", 0),
+        stats["etapas"].get("inserted", 0),
+        stats["etapas"].get("updated", 0),
+    )
+    return True
+
+
 def _auto_refresh_web_on_startup() -> None:
-    sources = [AUTOLOAD_SALDOS_SOURCE, AUTOLOAD_PEDIDOS_SOURCE, AUTOLOAD_ETAPAS_SOURCE]
     if not AUTO_REFRESH_WEB_ON_START:
         app.logger.info("Auto refresh web al iniciar deshabilitado (ADECOM_AUTO_REFRESH_WEB_ON_START=0).")
         return
-    if not all(str(src or "").strip() for src in sources):
+    if not _sources_configured():
         app.logger.warning(
             "Auto refresh web omitido: faltan variables ADECOM_AUTOLOAD_SALDOS_SOURCE/ADECOM_AUTOLOAD_PEDIDOS_SOURCE/ADECOM_AUTOLOAD_ETAPAS_SOURCE."
         )
         return
     try:
-        stats = _refresh_web_data()
-        app.logger.info(
-            "Auto refresh web OK al iniciar. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s",
-            stats["saldos"].get("inserted", 0),
-            stats["saldos"].get("updated", 0),
-            stats["pedidos"].get("inserted", 0),
-            stats["pedidos"].get("updated", 0),
-            stats["etapas"].get("inserted", 0),
-            stats["etapas"].get("updated", 0),
-        )
+        _refresh_if_sources_changed(force=True)
+        app.logger.info("Auto refresh web OK al iniciar.")
     except Exception as exc:
         app.logger.exception("Auto refresh web fallo al iniciar: %s", exc, exc_info=exc)
+
+
+def _auto_refresh_web_loop() -> None:
+    if AUTO_REFRESH_WEB_POLL_SECONDS <= 0:
+        app.logger.info("Auto refresh web en loop deshabilitado (ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS=0).")
+        return
+    app.logger.info("Auto refresh web loop activo cada %ss.", AUTO_REFRESH_WEB_POLL_SECONDS)
+    while True:
+        time.sleep(AUTO_REFRESH_WEB_POLL_SECONDS)
+        try:
+            changed = _refresh_if_sources_changed(force=False)
+            if changed:
+                app.logger.info("Cambio detectado en fuentes. Data web actualizada automaticamente.")
+        except Exception as exc:
+            app.logger.warning("Auto refresh web loop: %s", exc)
+
+
+def _start_auto_refresh_web_loop() -> None:
+    global _refresh_thread_started
+    if _refresh_thread_started:
+        return
+    if not AUTO_REFRESH_WEB_BACKGROUND:
+        app.logger.info("Auto refresh web en segundo plano deshabilitado (ADECOM_AUTO_REFRESH_WEB_BACKGROUND=0).")
+        return
+    if not _sources_configured():
+        return
+    thread = threading.Thread(target=_auto_refresh_web_loop, name="adecom-auto-refresh", daemon=True)
+    thread.start()
+    _refresh_thread_started = True
 
 
 def _to_float(value: object) -> float:
@@ -1542,6 +1613,7 @@ else:
     init_db(DB_PATH)
 
 _auto_refresh_web_on_startup()
+_start_auto_refresh_web_loop()
 
 
 @app.template_filter("miles")
@@ -1819,7 +1891,9 @@ def upload_refresh_web():
         return redirect(url_for("index"))
 
     try:
+        global _last_sources_signature
         stats = _refresh_web_data()
+        _last_sources_signature = _sources_signature()
         stats_saldos = stats["saldos"]
         stats_pedidos = stats["pedidos"]
         stats_etapas = stats["etapas"]
