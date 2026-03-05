@@ -14,9 +14,9 @@ if (!(Test-Path $scriptPath)) {
 }
 
 $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
-$args = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Watch -SourceDir `"$SourceDir`" -RepoDir `"$repoRoot`" -IntervalSeconds $IntervalSeconds"
+$taskCommand = "`"$ps`" -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Watch -SourceDir `"$SourceDir`" -RepoDir `"$repoRoot`" -IntervalSeconds $IntervalSeconds"
 
-schtasks /Create /TN $TaskName /TR "`"$ps`" $args" /SC ONLOGON /RL LIMITED /F | Out-Host
+schtasks /Create /TN $TaskName /TR $taskCommand /SC ONLOGON /RL LIMITED /F | Out-Host
 if ($LASTEXITCODE -ne 0) {
   throw "No se pudo crear la tarea programada."
 }
