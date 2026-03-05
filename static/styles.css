@@ -1914,6 +1914,19 @@ td.etapas-fecha {
   color: #f4f7ff;
 }
 
+/* Mejor contraste en KPI cards del modal "Total pedidos" */
+.app-shell #ventasTotalModal .kpi-open-btn h4 {
+  color: #6f6558;
+}
+
+.app-shell #ventasTotalModal .kpi-open-btn p {
+  color: #f4f7ff;
+}
+
+.app-shell #ventasTotalModal .kpi-open-btn .kpi-hint {
+  color: #5f564b;
+}
+
 .app-shell .table-tools select,
 .app-shell input[type="text"],
 .app-shell input[type="date"],
