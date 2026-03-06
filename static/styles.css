@@ -1828,6 +1828,14 @@ td.etapas-fecha {
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
 }
 
+.app-shell .sufijo-card h4 {
+  color: #9ca6bd;
+}
+
+.app-shell .sufijo-card p {
+  color: #f4f7ff;
+}
+
 .app-shell .summary-focus::before,
 .app-shell .summary-secondary::before {
   background: linear-gradient(145deg, #1f232d 0%, #171a22 60%, #13161d 100%);
