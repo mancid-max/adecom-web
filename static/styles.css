@@ -2975,6 +2975,10 @@ body {
     padding: 7px 10px;
   }
 
+  .top-nav-tab[data-nav-target="dashboard"] {
+    display: none;
+  }
+
   .dashboard-kpi-row {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
