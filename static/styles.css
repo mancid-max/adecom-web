@@ -2802,17 +2802,78 @@ td.etapas-fecha {
   .app-shell .page {
     padding: 0 12px 14px;
   }
+  .top-nav-actions {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 2px;
+  }
+  .top-nav-actions button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 11px;
+    letter-spacing: .06em;
+  }
   .top-brand-text {
     font-size: 22px;
   }
   .dashboard-kpi-row {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .dashboard-kpi-row .summary-open {
+    padding: 14px 14px 12px;
+  }
+  .dashboard-kpi-row .summary-open h2 {
+    font-size: 11px;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+  .dashboard-kpi-row .summary-open p {
+    font-size: clamp(36px, 12vw, 46px);
+  }
+  .dashboard-kpi-row .summary-open small {
+    margin-top: 6px;
+    font-size: 10px;
+  }
+  .dashboard-grid,
+  .dashboard-grid-bottom {
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .dash-block-head {
+    padding: 12px 12px;
+    align-items: flex-start;
+  }
+  .dash-block-head h3 {
+    font-size: clamp(20px, 6.2vw, 28px);
+    line-height: 1.08;
+  }
+  .dash-block-head small {
+    font-size: 10px;
+    letter-spacing: .08em;
+  }
+  .dash-bars {
+    padding: 10px 10px 12px;
   }
   .dash-bar-row {
     grid-template-columns: 78px 1fr;
   }
   .dash-bar-value {
     display: none;
+  }
+  .table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+  .bodega-table {
+    min-width: 640px;
+  }
+  .sufijos-grid {
+    grid-template-columns: 1fr;
+  }
+  .sufijo-card p {
+    font-size: 28px;
   }
   .metas-kpis {
     grid-template-columns: 1fr 1fr;
