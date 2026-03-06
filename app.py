@@ -1676,13 +1676,16 @@ def index():
                 "total": 0,
             }
         ventas_por_familia[familia]["articulos"][articulo]["total"] += total
+        prefijo = articulo[:2] if len(articulo) >= 2 else ""
         sufijo = articulo[-2:] if len(articulo) >= 2 else articulo
-        if sufijo not in ventas_por_familia[familia]["sufijos"]:
-            ventas_por_familia[familia]["sufijos"][sufijo] = {
+        sufijo_key = f"{prefijo}|{sufijo}"
+        if sufijo_key not in ventas_por_familia[familia]["sufijos"]:
+            ventas_por_familia[familia]["sufijos"][sufijo_key] = {
+                "prefijo": prefijo,
                 "sufijo": sufijo,
                 "total": 0,
             }
-        ventas_por_familia[familia]["sufijos"][sufijo]["total"] += total
+        ventas_por_familia[familia]["sufijos"][sufijo_key]["total"] += total
 
     ventas_grouped = sorted(
         [

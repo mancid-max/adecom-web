@@ -701,7 +701,7 @@
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
                   {% for s in g.sufijos %}
-                    <span class="variante-chip">{{ s.sufijo }}:{{ s.total|miles }}</span>
+                    <span class="variante-chip">{{ s.prefijo }}|{{ s.sufijo }}:{{ s.total|miles }}</span>
                   {% endfor %}
                 </td>
               </tr>
