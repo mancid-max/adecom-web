@@ -213,9 +213,8 @@
             <div class="dash-bar-row">
               <span class="dash-bar-label">{{ g.familia }}</span>
               <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: {{ ((g.total * 100) / fam_max)|round(1) }}%"></span>
+                <span class="dash-bar-fill" style="width: {{ ((g.total * 100) / fam_max)|round(1) }}%">{{ g.total|miles }}</span>
               </div>
-              <span class="dash-bar-value">{{ g.total|miles }}</span>
             </div>
           {% else %}
             <p class="empty">Sin datos.</p>
