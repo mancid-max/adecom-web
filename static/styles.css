@@ -2175,9 +2175,16 @@ td.etapas-fecha {
 }
 
 /* ===== Dashboard 1:1 del mockup ===== */
+body {
+  background: #090b0f;
+  overflow-x: hidden;
+}
+
 .app-shell {
   grid-template-columns: 1fr;
   background: #090b0f;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .side-nav {
@@ -2792,6 +2799,11 @@ td.etapas-fecha {
   .dashboard-kpi-row {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
   }
+  .dashboard-kpi-row article:nth-child(4),
+  .dashboard-kpi-row article:nth-child(5) {
+    grid-column: auto;
+    grid-row: auto;
+  }
   .dashboard-grid,
   .dashboard-grid-bottom {
     grid-template-columns: 1fr;
@@ -2821,6 +2833,11 @@ td.etapas-fecha {
   .dashboard-kpi-row {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+  .dashboard-kpi-row article:nth-child(4),
+  .dashboard-kpi-row article:nth-child(5) {
+    grid-column: auto;
+    grid-row: auto;
   }
   .dashboard-kpi-row .summary-open {
     padding: 14px 14px 12px;
@@ -2874,6 +2891,26 @@ td.etapas-fecha {
   }
   .sufijo-card p {
     font-size: 28px;
+  }
+  #ventasTotalModal {
+    width: 100dvw;
+    max-width: 100dvw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    padding: 10px;
+  }
+  #ventasTotalModal .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+  #ventasTotalModal .bodega-table {
+    min-width: 100%;
+  }
+  #ventasTotalModal th,
+  #ventasTotalModal td {
+    white-space: normal;
   }
   .metas-kpis {
     grid-template-columns: 1fr 1fr;
