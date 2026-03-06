@@ -35,7 +35,7 @@
         <button type="button" class="top-nav-tab" data-nav-target="bodega">Bodega</button>
         <button type="button" class="top-nav-tab" data-nav-target="muestras">Muestras</button>
         <button type="button" class="top-nav-tab" data-nav-target="tabla">Tabla completa</button>
-        <button type="button" class="top-nav-tab" data-nav-target="ventas">Ventas</button>
+        <button type="button" class="top-nav-tab" data-nav-target="ventas">Pedidos</button>
         <button type="button" class="top-nav-tab" data-nav-target="exs">EXS</button>
       </nav>
       <div class="top-nav-actions">
@@ -121,9 +121,9 @@
     <section class="summary dashboard-kpi-row" id="sectionProduccion">
       <article class="card-action summary-focus">
         <button type="button" class="summary-open" id="openVentasTotalModalTop">
-          <h2>Total ventas</h2>
+          <h2>Total pedidos</h2>
           <p>{{ ventas_total|miles }}</p>
-          <small>Unidades vendidas</small>
+          <small>Unidades pedidas</small>
         </button>
       </article>
       <article class="card-action summary-secondary">
@@ -179,7 +179,7 @@
 
       <article class="dash-block">
         <header class="dash-block-head">
-          <h3>Curva de ventas por talla</h3>
+          <h3>Curva de pedidos por talla</h3>
           <small>Distribucion total</small>
         </header>
         <div class="dash-bars">
@@ -196,7 +196,7 @@
           {% endfor %}
         </div>
         {% if ventas_top_talla %}
-          <p class="dash-note">Talla mas vendida: <strong>{{ ventas_top_talla.talla }}</strong> - {{ ventas_top_talla.total|miles }} unidades</p>
+          <p class="dash-note">Talla mas pedida: <strong>{{ ventas_top_talla.talla }}</strong> - {{ ventas_top_talla.total|miles }} unidades</p>
         {% endif %}
       </article>
     </section>
@@ -252,7 +252,7 @@
       <article class="dash-block">
         <header class="dash-block-head">
           <h3>Top familias</h3>
-          <small>Por ventas</small>
+          <small>Por pedidos</small>
         </header>
         <div class="dash-bars">
           {% set fam_max = (ventas_top_familia.total if ventas_top_familia else 1) %}
