@@ -1321,6 +1321,20 @@ td.etapas-fecha {
   color: #4f463d;
 }
 
+.variante-chip-code {
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.variante-chip-sep {
+  opacity: .7;
+  padding: 0 2px;
+}
+
+.variante-chip-total {
+  font-weight: 700;
+}
+
 .ventas-talla-curve-card {
   margin-top: 10px;
   padding: 10px 12px;
@@ -1872,6 +1886,18 @@ td.etapas-fecha {
   background: #202430;
   border-color: #313747;
   color: #d5dcef;
+}
+
+.app-shell .variante-chip-code {
+  color: #f3d18e;
+}
+
+.app-shell .variante-chip-sep {
+  color: #8b93a8;
+}
+
+.app-shell .variante-chip-total {
+  color: #e7ecf9;
 }
 
 .app-shell .etapa-chip-start {
