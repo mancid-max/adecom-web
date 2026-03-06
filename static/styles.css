@@ -1946,16 +1946,37 @@ td.etapas-fecha {
 }
 
 /* Mejor contraste en KPI cards del modal "Total pedidos" */
+.app-shell #ventasTotalModal .kpi-open-btn,
+#ventasTotalModal .kpi-open-btn {
+  color: #f4f7ff;
+}
+
 .app-shell #ventasTotalModal .kpi-open-btn h4 {
   color: #6f6558;
+}
+
+.app-shell #ventasTotalModal .kpi-open-btn h4,
+#ventasTotalModal .kpi-open-btn h4 {
+  color: #6f6558 !important;
 }
 
 .app-shell #ventasTotalModal .kpi-open-btn p {
   color: #f4f7ff;
 }
 
+.app-shell #ventasTotalModal .kpi-open-btn p,
+#ventasTotalModal .kpi-open-btn p {
+  color: #f8fbff !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
 .app-shell #ventasTotalModal .kpi-open-btn .kpi-hint {
   color: #5f564b;
+}
+
+.app-shell #ventasTotalModal .kpi-open-btn .kpi-hint,
+#ventasTotalModal .kpi-open-btn .kpi-hint {
+  color: #5f564b !important;
 }
 
 .app-shell .table-tools select,
