@@ -202,54 +202,7 @@
     </section>
 
     <section class="dashboard-grid dashboard-grid-bottom">
-      <article class="dash-block bodega-panel">
-        <header class="dash-block-head">
-          <h3>Ordenes en bodega</h3>
-          <small>{{ bodega_rows|length|miles }} activas &middot; {{ bodega_en_bodega|miles }} en bodega &middot; {{ bodega_restante|miles }} restante</small>
-        </header>
-        <div class="table-wrap dash-table-wrap">
-          <table class="bodega-table dash-table">
-            <thead>
-              <tr>
-                <th>Articulo</th>
-                <th>Orden corte</th>
-                <th>Total</th>
-                <th>Bodega</th>
-                <th>Restante</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in bodega_rows[:6] %}
-                <tr class="dash-bodega-row" data-open-bodega-modal="1">
-                  {% set etapa = (row.proceso_actual or "Sin etapa")|upper %}
-                  {% set etapa_cls = "estado-pill estado-pill-yellow" %}
-                  {% set restante_cls = "restante-num restante-num-yellow" %}
-                  {% if "LAVANDERIA" in etapa %}
-                    {% set etapa_cls = "estado-pill estado-pill-blue" %}
-                    {% set restante_cls = "restante-num restante-num-blue" %}
-                  {% elif "TALLER" in etapa %}
-                    {% set etapa_cls = "estado-pill estado-pill-green" %}
-                    {% set restante_cls = "restante-num restante-num-green" %}
-                  {% endif %}
-                  <td>{{ row.articulo }}</td>
-                  <td>{{ row.corte }}</td>
-                  <td class="num">{{ row.proceso|miles }}</td>
-                  <td class="num bodega-num">{{ row.bodega|miles }}</td>
-                  <td class="num {{ restante_cls }}">{{ row.pendiente_en_trazabilidad|miles }}</td>
-                  <td>
-                    <span class="{{ etapa_cls }}">{{ etapa }}</span>
-                  </td>
-                </tr>
-              {% else %}
-                <tr><td colspan="6" class="empty">Sin ordenes.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </article>
-
-      <article class="dash-block">
+      <article class="dash-block dash-block-full">
         <header class="dash-block-head">
           <h3>Top familias</h3>
           <small>Por pedidos</small>

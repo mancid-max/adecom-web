@@ -2384,6 +2384,10 @@ td.etapas-fecha {
   overflow: hidden;
 }
 
+.dash-block-full {
+  grid-column: 1 / -1;
+}
+
 .dash-block-head {
   padding: 14px 18px;
   border-bottom: 1px solid #252b3a;
