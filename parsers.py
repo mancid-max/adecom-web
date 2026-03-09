@@ -309,6 +309,105 @@ def parse_saldos_xlsx(content: bytes) -> list[dict]:
     return parsed
 
 
+def parse_lavanderia_productividad_xlsx(content: bytes) -> list[dict]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("Para importar Excel instala dependencias: pip install -r requirements.txt") from exc
+
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    if not wb.worksheets:
+        return []
+    ws = wb.worksheets[0]
+
+    header_idx = None
+    header: list[str] = []
+    for idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
+        cells = ["" if c is None else str(c).strip() for c in row]
+        first = cells[0].strip().lower() if cells else ""
+        second = cells[1].strip().lower() if len(cells) > 1 else ""
+        if first == "articulo" and second in {"o.corte", "o corte", "ocorte"}:
+            header_idx = idx
+            header = cells
+            break
+    if not header_idx:
+        return []
+
+    ignore_headers = {
+        "",
+        "ingreso",
+        "inicio",
+        "hr inicio",
+        "hr termino",
+        "salida",
+        "cantidad",
+        "tiempo",
+        "proceso",
+        "lavandería",
+        "lavanderia",
+        "terminación",
+        "terminacion",
+    }
+
+    stage_columns: list[int] = []
+    for i, name in enumerate(header):
+        n = str(name or "").strip().lower()
+        if n in ignore_headers:
+            continue
+        if i < 3:
+            continue
+        if i + 1 < len(header) and str(header[i + 1] or "").strip().lower() == "cantidad":
+            stage_columns.append(i)
+
+    parsed: list[dict] = []
+    for row in ws.iter_rows(min_row=header_idx + 1, values_only=True):
+        vals = [None if v is None else v for v in row]
+        if not vals:
+            continue
+        articulo = _clean_code(vals[0] if len(vals) > 0 else "")
+        corte = _clean_code(vals[1] if len(vals) > 1 else "")
+        bota = str(vals[2]).strip() if len(vals) > 2 and vals[2] is not None else ""
+        if not articulo and not corte:
+            continue
+
+        base_fecha = _parse_excel_date(vals[4] if len(vals) > 4 else None)
+        for c in stage_columns:
+            etapa = str(header[c] or "").strip()
+            if not etapa:
+                continue
+            empleado_raw = vals[c] if c < len(vals) else None
+            empleado = str(empleado_raw).strip() if empleado_raw is not None else ""
+            if not empleado:
+                continue
+
+            cantidad = _to_int(vals[c + 1] if c + 1 < len(vals) else 0)
+            minutos = _parse_minutes(vals[c + 2] if c + 2 < len(vals) else None)
+            hora_inicio = _parse_excel_time(vals[c - 1] if c - 1 >= 0 and c - 1 < len(vals) else None)
+            hora_fin = _parse_excel_time(vals[c + 3] if c + 3 < len(vals) else None)
+            fecha_fin = _parse_excel_date(vals[c + 4] if c + 4 < len(vals) else None) or base_fecha
+
+            if cantidad <= 0 and minutos <= 0 and not hora_inicio and not hora_fin:
+                continue
+
+            parsed.append(
+                {
+                    "articulo": articulo,
+                    "corte": corte,
+                    "bota": bota,
+                    "etapa": etapa,
+                    "empleado": empleado,
+                    "cantidad": max(cantidad, 0),
+                    "minutos": max(minutos, 0),
+                    "fecha_inicio_iso": base_fecha,
+                    "hora_inicio": hora_inicio,
+                    "fecha_fin_iso": fecha_fin,
+                    "hora_fin": hora_fin,
+                }
+            )
+
+    return parsed
+
+
 def _decode_bytes(content: bytes) -> str:
     for encoding in ("utf-8-sig", "cp1252", "latin-1"):
         try:
@@ -362,6 +461,72 @@ def _to_int(value: str) -> int:
     except ValueError:
         digits = "".join(ch for ch in s if ch.isdigit())
         return int(digits) if digits else 0
+
+
+def _parse_excel_date(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    s = str(value).strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_excel_time(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.strftime("%H:%M:%S")
+    s = str(value).strip()
+    if not s:
+        return None
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%H:%M:%S")
+        except ValueError:
+            continue
+    if s.count(".") == 1 and s.replace(".", "").isdigit():
+        parts = s.split(".")
+        hh = int(parts[0])
+        mm = int(parts[1][:2] or "0")
+        if 0 <= hh <= 23 and 0 <= mm <= 59:
+            return f"{hh:02d}:{mm:02d}:00"
+    return None
+
+
+def _parse_minutes(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, datetime):
+        return value.hour * 60 + value.minute + (1 if value.second > 0 else 0)
+    s = str(value).strip()
+    if not s:
+        return 0
+    if ":" in s:
+        parts = s.split(":")
+        if len(parts) >= 2:
+            try:
+                hh = int(parts[0])
+                mm = int(parts[1])
+                ss = int(parts[2]) if len(parts) > 2 else 0
+                return max(hh * 60 + mm + (1 if ss > 0 else 0), 0)
+            except ValueError:
+                return 0
+    try:
+        # Excel puede guardar horas como decimal (0.2 = 12 minutos aprox) o 1.5 (1h30).
+        as_float = float(s.replace(",", "."))
+    except ValueError:
+        return 0
+    if as_float <= 0:
+        return 0
+    return int(round(as_float * 60)) if as_float <= 24 else int(round(as_float))
 
 
 def _to_int_signed(value: str) -> int:

@@ -136,6 +136,13 @@ ADECOM_ACCESS_KEY_OTHER=tu_clave_segura
 - Ruta de destino: `/otra-landing`.
 - El acceso principal ADECOM WEB sigue funcionando solo con clave.
 
+### Flujo recomendado para Lavanderia
+
+1. Entra con la clave de `ADECOM_ACCESS_KEY_OTHER`.
+2. En `/otra-landing`, usa `Cargar Excel inicial (una vez)` para importar la planilla.
+3. Desde ese punto, registra todo con `Ingreso manual por web`.
+4. Revisa KPI, productividad por empleado/etapa y registros recientes en la misma pagina.
+
 ## Asistente con Gemini (opcional)
 
 Por defecto el asistente usa logica local de la app. Si quieres usar Gemini:

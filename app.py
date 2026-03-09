@@ -20,19 +20,28 @@ from flask import Flask, Response, flash, jsonify, redirect, render_template, re
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
+    add_lavanderia_registro,
+    delete_lavanderia_registro,
     get_conn,
+    import_lavanderia_rows,
     import_corte_etapas_rows,
     import_exs_map_rows,
     import_pedidos_talla_todas_rows,
     init_db,
     import_pedidos_talla_rows,
     import_rows,
+    query_lavanderia_productividad,
     query_assistant_rules,
     query_exs_balance_summary,
     query_pedidos_talla_sections,
     query_rows,
 )
-from parsers import parse_pedidos_talla_txt, parse_saldos_txt, parse_uploaded_file
+from parsers import (
+    parse_lavanderia_productividad_xlsx,
+    parse_pedidos_talla_txt,
+    parse_saldos_txt,
+    parse_uploaded_file,
+)
 from parsers import parse_corte_etapas_txt
 
 
@@ -137,7 +146,15 @@ def _guard_portal_routes():
             return redirect(url_for("new_section"))
 
     if section == "other":
-        allowed_other = {"other_section", "logout", "static", "login"}
+        allowed_other = {
+            "other_section",
+            "other_import_excel",
+            "other_add_registro",
+            "other_delete_registro",
+            "logout",
+            "static",
+            "login",
+        }
         if endpoint not in allowed_other:
             return redirect(url_for("other_section"))
 
@@ -208,7 +225,74 @@ def new_section():
 def other_section():
     if not OTHER_SECTION_ENABLED:
         return redirect(url_for("index"))
-    return render_template("other_section.html")
+    fecha = str(request.args.get("fecha") or "").strip()
+    empleado = str(request.args.get("empleado") or "").strip()
+    data = query_lavanderia_productividad(DB_PATH, fecha=fecha, empleado=empleado, limit_rows=400)
+    return render_template(
+        "other_section.html",
+        data=data,
+        filters={"fecha": fecha, "empleado": empleado},
+    )
+
+
+@app.post("/otra-landing/import-excel")
+def other_import_excel():
+    if _portal_section() != "other":
+        return redirect(url_for("login"))
+    try:
+        file = request.files.get("file")
+        if not file or not file.filename:
+            raise ValueError("Debes seleccionar un archivo Excel.")
+        rows = parse_lavanderia_productividad_xlsx(file.read())
+        if not rows:
+            raise ValueError("No se detectaron filas validas en el Excel.")
+        stats = import_lavanderia_rows(DB_PATH, rows, replace_all=True, source="excel")
+        flash(
+            f"Excel importado. Leidos: {stats.get('read', 0)} | Insertados: {stats.get('inserted', 0)}.",
+            "success",
+        )
+    except Exception as exc:
+        flash(f"No se pudo importar el Excel: {exc}", "error")
+    return redirect(url_for("other_section"))
+
+
+@app.post("/otra-landing/add")
+def other_add_registro():
+    if _portal_section() != "other":
+        return redirect(url_for("login"))
+    try:
+        payload = {
+            "articulo": str(request.form.get("articulo") or "").strip(),
+            "corte": str(request.form.get("corte") or "").strip(),
+            "bota": str(request.form.get("bota") or "").strip(),
+            "etapa": str(request.form.get("etapa") or "").strip(),
+            "empleado": str(request.form.get("empleado") or "").strip(),
+            "cantidad": int(str(request.form.get("cantidad") or "0").strip() or "0"),
+            "minutos": int(str(request.form.get("minutos") or "0").strip() or "0"),
+            "fecha_inicio_iso": str(request.form.get("fecha_inicio_iso") or "").strip() or None,
+            "hora_inicio": str(request.form.get("hora_inicio") or "").strip() or None,
+            "fecha_fin_iso": str(request.form.get("fecha_fin_iso") or "").strip() or None,
+            "hora_fin": str(request.form.get("hora_fin") or "").strip() or None,
+            "source": "web",
+        }
+        if not payload["etapa"] or not payload["empleado"]:
+            raise ValueError("Etapa y empleado son obligatorios.")
+        add_lavanderia_registro(DB_PATH, payload)
+        flash("Registro agregado.", "success")
+    except Exception as exc:
+        flash(f"No se pudo agregar el registro: {exc}", "error")
+    return redirect(url_for("other_section"))
+
+
+@app.post("/otra-landing/delete/<int:row_id>")
+def other_delete_registro(row_id: int):
+    if _portal_section() != "other":
+        return redirect(url_for("login"))
+    if delete_lavanderia_registro(DB_PATH, row_id):
+        flash("Registro eliminado.", "success")
+    else:
+        flash("No se encontro el registro.", "error")
+    return redirect(url_for("other_section"))
 
 
 def _norm_text(value: str) -> str:

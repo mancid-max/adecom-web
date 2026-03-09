@@ -213,6 +213,27 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS lavanderia_trazabilidad (
+                    id BIGSERIAL PRIMARY KEY,
+                    articulo TEXT NOT NULL DEFAULT '',
+                    corte TEXT NOT NULL DEFAULT '',
+                    bota TEXT NOT NULL DEFAULT '',
+                    etapa TEXT NOT NULL,
+                    empleado TEXT NOT NULL,
+                    cantidad INTEGER NOT NULL DEFAULT 0,
+                    minutos INTEGER NOT NULL DEFAULT 0,
+                    fecha_inicio_iso TEXT,
+                    hora_inicio TEXT,
+                    fecha_fin_iso TEXT,
+                    hora_fin TEXT,
+                    source TEXT NOT NULL DEFAULT 'web',
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -320,6 +341,27 @@ def init_db(db_path: str | Path) -> None:
                     rule_text TEXT NOT NULL,
                     priority INTEGER NOT NULL DEFAULT 100,
                     enabled INTEGER NOT NULL DEFAULT 1,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS lavanderia_trazabilidad (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    articulo TEXT NOT NULL DEFAULT '',
+                    corte TEXT NOT NULL DEFAULT '',
+                    bota TEXT NOT NULL DEFAULT '',
+                    etapa TEXT NOT NULL,
+                    empleado TEXT NOT NULL,
+                    cantidad INTEGER NOT NULL DEFAULT 0,
+                    minutos INTEGER NOT NULL DEFAULT 0,
+                    fecha_inicio_iso TEXT,
+                    hora_inicio TEXT,
+                    fecha_fin_iso TEXT,
+                    hora_fin TEXT,
+                    source TEXT NOT NULL DEFAULT 'web',
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
@@ -906,6 +948,192 @@ def upsert_assistant_rule(
             (key, text, int(priority), 1 if enabled else 0),
         )
     conn.close()
+
+
+def import_lavanderia_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False, source: str = "excel") -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
+
+    inserted = 0
+    with conn:
+        if replace_all:
+            _execute(conn, "DELETE FROM lavanderia_trazabilidad")
+        for row in rows_list:
+            etapa = str(row.get("etapa") or "").strip()
+            empleado = str(row.get("empleado") or "").strip()
+            if not etapa or not empleado:
+                continue
+            _execute(
+                conn,
+                """
+                INSERT INTO lavanderia_trazabilidad (
+                    articulo, corte, bota, etapa, empleado, cantidad, minutos,
+                    fecha_inicio_iso, hora_inicio, fecha_fin_iso, hora_fin, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(row.get("articulo") or "").strip(),
+                    str(row.get("corte") or "").strip(),
+                    str(row.get("bota") or "").strip(),
+                    etapa,
+                    empleado,
+                    int(row.get("cantidad") or 0),
+                    int(row.get("minutos") or 0),
+                    row.get("fecha_inicio_iso"),
+                    row.get("hora_inicio"),
+                    row.get("fecha_fin_iso"),
+                    row.get("hora_fin"),
+                    str(row.get("source") or source or "web").strip() or "web",
+                ),
+            )
+            inserted += 1
+    conn.close()
+    return {"read": read, "inserted": inserted, "updated": 0}
+
+
+def add_lavanderia_registro(db_path: Path, payload: dict) -> int:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    with conn:
+        cur = _execute(
+            conn,
+            """
+            INSERT INTO lavanderia_trazabilidad (
+                articulo, corte, bota, etapa, empleado, cantidad, minutos,
+                fecha_inicio_iso, hora_inicio, fecha_fin_iso, hora_fin, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(payload.get("articulo") or "").strip(),
+                str(payload.get("corte") or "").strip(),
+                str(payload.get("bota") or "").strip(),
+                str(payload.get("etapa") or "").strip(),
+                str(payload.get("empleado") or "").strip(),
+                int(payload.get("cantidad") or 0),
+                int(payload.get("minutos") or 0),
+                payload.get("fecha_inicio_iso"),
+                payload.get("hora_inicio"),
+                payload.get("fecha_fin_iso"),
+                payload.get("hora_fin"),
+                str(payload.get("source") or "web").strip() or "web",
+            ),
+        )
+        if isinstance(conn, sqlite3.Connection):
+            new_id = int(cur.lastrowid)
+        else:
+            row = _execute(conn, "SELECT currval(pg_get_serial_sequence('lavanderia_trazabilidad','id')) AS id").fetchone()
+            new_id = int(dict(row).get("id") or 0)
+    conn.close()
+    return new_id
+
+
+def delete_lavanderia_registro(db_path: Path, row_id: int) -> bool:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    with conn:
+        cur = _execute(conn, "DELETE FROM lavanderia_trazabilidad WHERE id = ?", (int(row_id),))
+        deleted = int(getattr(cur, "rowcount", 0) or 0) > 0
+    conn.close()
+    return deleted
+
+
+def query_lavanderia_productividad(db_path: Path, fecha: str = "", empleado: str = "", limit_rows: int = 300) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    clauses = []
+    params: list[Any] = []
+    if fecha:
+        clauses.append("(fecha_fin_iso = ? OR fecha_inicio_iso = ?)")
+        params.extend([fecha, fecha])
+    if empleado:
+        clauses.append("lower(empleado) = lower(?)")
+        params.append(empleado)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    rows = _execute(
+        conn,
+        f"""
+        SELECT id, articulo, corte, bota, etapa, empleado, cantidad, minutos,
+               fecha_inicio_iso, hora_inicio, fecha_fin_iso, hora_fin, source, updated_at
+        FROM lavanderia_trazabilidad
+        {where}
+        ORDER BY COALESCE(fecha_fin_iso, fecha_inicio_iso) DESC, id DESC
+        LIMIT ?
+        """,
+        [*params, max(int(limit_rows or 0), 1)],
+    ).fetchall()
+
+    all_rows = [dict(r) for r in rows]
+    kpi_total_prendas = sum(int(r.get("cantidad") or 0) for r in all_rows)
+    kpi_total_minutos = sum(int(r.get("minutos") or 0) for r in all_rows)
+    kpi_total_horas = round(kpi_total_minutos / 60, 2) if kpi_total_minutos > 0 else 0.0
+    kpi_prendas_hora = round((kpi_total_prendas * 60) / kpi_total_minutos, 2) if kpi_total_minutos > 0 else 0.0
+
+    by_empleado: dict[str, dict[str, Any]] = {}
+    by_etapa: dict[str, dict[str, Any]] = {}
+    for r in all_rows:
+        emp = str(r.get("empleado") or "").strip() or "-"
+        etapa = str(r.get("etapa") or "").strip() or "-"
+        qty = int(r.get("cantidad") or 0)
+        mins = int(r.get("minutos") or 0)
+        if emp not in by_empleado:
+            by_empleado[emp] = {"empleado": emp, "cantidad": 0, "minutos": 0, "registros": 0}
+        by_empleado[emp]["cantidad"] += qty
+        by_empleado[emp]["minutos"] += mins
+        by_empleado[emp]["registros"] += 1
+
+        if etapa not in by_etapa:
+            by_etapa[etapa] = {"etapa": etapa, "cantidad": 0, "minutos": 0, "registros": 0}
+        by_etapa[etapa]["cantidad"] += qty
+        by_etapa[etapa]["minutos"] += mins
+        by_etapa[etapa]["registros"] += 1
+
+    top_empleados = []
+    for item in by_empleado.values():
+        mins = int(item["minutos"])
+        qty = int(item["cantidad"])
+        top_empleados.append(
+            {
+                **item,
+                "horas": round(mins / 60, 2) if mins > 0 else 0.0,
+                "prendas_hora": round((qty * 60) / mins, 2) if mins > 0 else 0.0,
+                "min_por_prenda": round(mins / qty, 2) if qty > 0 else 0.0,
+            }
+        )
+    top_empleados.sort(key=lambda x: (x["prendas_hora"], x["cantidad"]), reverse=True)
+
+    top_etapas = []
+    for item in by_etapa.values():
+        mins = int(item["minutos"])
+        qty = int(item["cantidad"])
+        top_etapas.append(
+            {
+                **item,
+                "horas": round(mins / 60, 2) if mins > 0 else 0.0,
+                "prendas_hora": round((qty * 60) / mins, 2) if mins > 0 else 0.0,
+                "min_por_prenda": round(mins / qty, 2) if qty > 0 else 0.0,
+            }
+        )
+    top_etapas.sort(key=lambda x: x["cantidad"], reverse=True)
+
+    conn.close()
+    return {
+        "rows": all_rows,
+        "kpi": {
+            "registros": len(all_rows),
+            "prendas": kpi_total_prendas,
+            "minutos": kpi_total_minutos,
+            "horas": kpi_total_horas,
+            "prendas_hora": kpi_prendas_hora,
+        },
+        "top_empleados": top_empleados[:20],
+        "top_etapas": top_etapas[:20],
+    }
 
 
 def _format_date(fecha_iso: str | None) -> str:
