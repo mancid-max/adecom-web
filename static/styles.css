@@ -2302,11 +2302,20 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
+  transition: transform .22s cubic-bezier(.22,.61,.36,1), box-shadow .24s ease, border-color .24s ease, background-color .24s ease;
 }
 
 .top-nav-menu-item:hover {
   border-color: #3f4d69;
   background: #1a2233;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(7, 12, 21, 0.35);
+}
+
+.top-nav-menu-item.is-dashboard-active {
+  border-color: #c9a863;
+  background: linear-gradient(135deg, rgba(201, 168, 99, 0.26), rgba(201, 168, 99, 0.12));
+  color: #f2deaf;
 }
 
 .top-nav-menu-form {
@@ -2372,6 +2381,18 @@ body {
 
 .dashboard-kpi-row .summary-open {
   background: transparent !important;
+  transition: transform .26s cubic-bezier(.22,.61,.36,1), box-shadow .28s ease, border-color .24s ease, background-color .24s ease;
+}
+
+.dashboard-kpi-row .summary-open:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 24px rgba(1, 8, 18, 0.34);
+}
+
+.dashboard-kpi-row .summary-open.is-dashboard-active {
+  border-color: #c9a863 !important;
+  background: linear-gradient(135deg, rgba(201, 168, 99, 0.16), rgba(201, 168, 99, 0.05)) !important;
+  box-shadow: 0 14px 26px rgba(12, 20, 34, 0.42);
 }
 
 .dashboard-kpi-row .summary-open h2 {
