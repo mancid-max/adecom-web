@@ -140,6 +140,7 @@ ADECOM_ACCESS_KEY_OTHER=tu_clave_segura
 
 1. Entra con la clave de `ADECOM_ACCESS_KEY_OTHER`.
 2. En `/otra-landing`, usa `Cargar Excel inicial (una vez)` para importar la planilla.
+   - El selector de `Bota` se carga desde la hoja `Maestros` del Excel.
 3. Desde ese punto, registra todo con `Ingreso manual por web`.
 4. Revisa KPI, productividad por empleado/etapa y registros recientes en la misma pagina.
 

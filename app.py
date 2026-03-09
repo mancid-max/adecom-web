@@ -24,6 +24,7 @@ from adecom_db import (
     delete_lavanderia_registro,
     get_conn,
     import_lavanderia_rows,
+    import_lavanderia_botas_maestro,
     import_corte_etapas_rows,
     import_exs_map_rows,
     import_pedidos_talla_todas_rows,
@@ -38,6 +39,7 @@ from adecom_db import (
     query_rows,
 )
 from parsers import (
+    parse_lavanderia_botas_maestros_xlsx,
     parse_lavanderia_productividad_xlsx,
     parse_pedidos_talla_txt,
     parse_saldos_txt,
@@ -253,12 +255,17 @@ def other_import_excel():
         file = request.files.get("file")
         if not file or not file.filename:
             raise ValueError("Debes seleccionar un archivo Excel.")
-        rows = parse_lavanderia_productividad_xlsx(file.read())
+        content = file.read()
+        rows = parse_lavanderia_productividad_xlsx(content)
         if not rows:
             raise ValueError("No se detectaron filas validas en el Excel.")
+        botas = parse_lavanderia_botas_maestros_xlsx(content)
         stats = import_lavanderia_rows(DB_PATH, rows, replace_all=True, source="excel")
+        botas_stats = import_lavanderia_botas_maestro(DB_PATH, botas, replace_all=True)
         flash(
-            f"Excel importado. Leidos: {stats.get('read', 0)} | Insertados: {stats.get('inserted', 0)}.",
+            "Excel importado. "
+            f"Registros: {stats.get('inserted', 0)} | "
+            f"Botas maestro: {botas_stats.get('inserted', 0)}.",
             "success",
         )
     except Exception as exc:

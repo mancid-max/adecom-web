@@ -408,6 +408,44 @@ def parse_lavanderia_productividad_xlsx(content: bytes) -> list[dict]:
     return parsed
 
 
+def parse_lavanderia_botas_maestros_xlsx(content: bytes) -> list[str]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("Para importar Excel instala dependencias: pip install -r requirements.txt") from exc
+
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = None
+    for sheet in wb.worksheets:
+        if str(sheet.title or "").strip().lower().startswith("maestro"):
+            ws = sheet
+            break
+    if ws is None:
+        return []
+
+    botas: list[str] = []
+    for row in ws.iter_rows(values_only=True):
+        if not row:
+            continue
+        value = "" if row[0] is None else str(row[0]).strip()
+        if not value:
+            continue
+        if value.lower() == "bota":
+            continue
+        botas.append(value)
+
+    # Mantener orden y eliminar repetidos.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for bota in botas:
+        key = bota.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(bota)
+    return unique
+
+
 def _decode_bytes(content: bytes) -> str:
     for encoding in ("utf-8-sig", "cp1252", "latin-1"):
         try:
