@@ -30,24 +30,34 @@
         <span class="top-brand-square">A</span>
         <span class="top-brand-text">ADECOM</span>
       </div>
-      <nav class="top-nav-tabs" aria-label="Secciones dashboard">
-        <button type="button" class="top-nav-tab active" data-nav-target="dashboard">Dashboard</button>
-        <button type="button" class="top-nav-tab" data-nav-target="bodega">Bodega</button>
-        <button type="button" class="top-nav-tab" data-nav-target="muestras">Muestras</button>
-        <button type="button" class="top-nav-tab" data-nav-target="tabla">Tabla completa</button>
-        <button type="button" class="top-nav-tab" data-nav-target="ventas">Pedidos</button>
-        <button type="button" class="top-nav-tab" data-nav-target="exs">EXS</button>
+      <nav class="top-nav-groups" aria-label="Atajos dashboard">
+        <details class="top-nav-group">
+          <summary class="top-nav-group-btn">Opciones</summary>
+          <div class="top-nav-menu">
+            <button type="button" class="top-nav-menu-item" data-scroll-id="sectionPrincipal">Dashboard</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openBodegaModal">Bodega</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openMuestrasModal">Muestras</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openFullTableModal">Tabla completa</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openVentasTotalModal">Pedidos</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openExsModal">EXS</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openProyeccionModal">Proyeccion semanal</button>
+          </div>
+        </details>
+        <details class="top-nav-group">
+          <summary class="top-nav-group-btn">Acciones</summary>
+          <div class="top-nav-menu">
+            {% if can_upload %}
+              <form method="post" action="{{ url_for('upload_refresh_web') }}" class="top-nav-menu-form">
+                <button type="submit" class="top-nav-menu-item">Actualizar data web</button>
+              </form>
+              <button type="button" class="top-nav-menu-item" id="navUploadBtn">Subir archivo</button>
+            {% elif admin_key_enabled %}
+              <button type="button" class="top-nav-menu-item" id="navModeFocusBtn">Modo carga</button>
+            {% endif %}
+          </div>
+        </details>
       </nav>
       <div class="top-nav-actions">
-        <button type="button" class="top-action-btn" id="openProyeccionModal">Proyeccion semanal</button>
-        {% if can_upload %}
-          <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
-            <button type="submit" class="top-action-btn">Actualizar data web</button>
-          </form>
-          <button type="button" class="top-action-btn" id="navUploadBtn">Subir archivo</button>
-        {% elif admin_key_enabled %}
-          <button type="button" class="top-action-btn" id="navModeFocusBtn">Modo carga</button>
-        {% endif %}
         <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
           <button type="submit" class="top-logout-btn">Salir</button>
         </form>
@@ -1052,28 +1062,17 @@
         });
       });
 
-      const topTabs = Array.from(document.querySelectorAll(".top-nav-tab"));
-      const setActiveTab = (target) => {
-        topTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.navTarget === target));
-      };
       const openById = (id) => {
         const el = document.getElementById(id);
         if (el && typeof el.click === "function") el.click();
       };
-      topTabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-          const target = tab.dataset.navTarget || "dashboard";
-          setActiveTab(target);
-          if (target === "dashboard") {
-            const section = document.getElementById("sectionPrincipal");
-            if (section) section.scrollIntoView({ behavior: "smooth", block: "start" });
-            return;
-          }
-          if (target === "bodega") return openById("openBodegaModal");
-          if (target === "muestras") return openById("openMuestrasModal");
-          if (target === "tabla") return openById("openFullTableModal");
-          if (target === "ventas") return openById("openVentasTotalModal");
-          if (target === "exs") return openById("openExsModal");
+      document.querySelectorAll("[data-open-id]").forEach((btn) => {
+        btn.addEventListener("click", () => openById(btn.getAttribute("data-open-id") || ""));
+      });
+      document.querySelectorAll("[data-scroll-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const target = document.getElementById(btn.getAttribute("data-scroll-id") || "");
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       });
 
