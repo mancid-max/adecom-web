@@ -649,24 +649,22 @@
                 <td>{{ g.familia }}</td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
-                  <div class="variante-group">
-                    <span class="variante-group-title">Pedidos</span>
-                    {% for s in g.sufijos %}
-                      <span class="variante-chip">
-                        <span class="variante-chip-code">{{ s.sufijo }}</span>
-                        <span class="variante-chip-sep"> : </span>
-                        <span class="variante-chip-total">{{ s.total|miles }}</span>
-                      </span>
-                    {% else %}
-                      <span class="variante-chip variante-chip-empty">-</span>
-                    {% endfor %}
-                  </div>
-                  <div class="variante-group variante-group-saldo">
-                    <span class="variante-group-title">Saldo</span>
-                    {% for s in g.sufijos_saldo %}
-                      <span class="variante-chip variante-chip-saldo">
-                        <span class="variante-chip-code">{{ s.sufijo }}</span>
-                      </span>
+                  <div class="variante-pair-grid">
+                    {% for s in g.sufijos_comp %}
+                      <div class="variante-pair">
+                        <span class="variante-chip">
+                          <span class="variante-chip-prefix">Pedidos</span>
+                          <span class="variante-chip-code">{{ s.sufijo }}</span>
+                          <span class="variante-chip-sep"> : </span>
+                          <span class="variante-chip-total">{{ s.pedidos_total|miles }}</span>
+                        </span>
+                        <span class="variante-chip variante-chip-saldo">
+                          <span class="variante-chip-prefix">Saldo</span>
+                          <span class="variante-chip-code">{{ s.sufijo }}</span>
+                          <span class="variante-chip-sep"> : </span>
+                          <span class="variante-chip-total">{{ s.saldo_total|miles }}</span>
+                        </span>
+                      </div>
                     {% else %}
                       <span class="variante-chip variante-chip-empty">-</span>
                     {% endfor %}

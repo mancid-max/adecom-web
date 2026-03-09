@@ -1385,6 +1385,27 @@ td.etapas-fecha {
   font-weight: 700;
 }
 
+.variante-chip-prefix {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 700;
+  opacity: .82;
+  margin-right: 5px;
+}
+
+.variante-pair-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.variante-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .variante-group {
   margin-top: 4px;
 }
@@ -1978,6 +1999,10 @@ td.etapas-fecha {
   color: #f3d18e;
 }
 
+.app-shell .variante-chip-prefix {
+  color: #aeb7cc;
+}
+
 .app-shell .variante-chip-sep {
   color: #8b93a8;
 }
@@ -1998,6 +2023,10 @@ td.etapas-fecha {
   background: rgba(55, 161, 122, 0.16);
   border-color: rgba(55, 161, 122, 0.38);
   color: #98e7c9;
+}
+
+.app-shell .variante-chip-saldo .variante-chip-prefix {
+  color: #8dd6ba;
 }
 
 .app-shell .variante-chip-empty {

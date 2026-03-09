@@ -1871,15 +1871,55 @@ def index():
             }
         ventas_por_familia[familia]["sufijos_saldo"][sufijo_key]["total"] += total
 
+    def _sort_sufijo_keys(keys):
+        prioridad = {"00": 0, "01": 1, "60": 2}
+
+        def _key(suf):
+            s = str(suf or "")
+            if s in prioridad:
+                return (0, prioridad[s], 0, s)
+            if s.isdigit():
+                return (1, 0, int(s), s)
+            return (2, 0, 0, s)
+
+        return sorted(keys, key=_key)
+
     def _sort_sufijos_saldo(items):
         prioridad = {"00": 0, "01": 1, "60": 2}
+
+        def _item_key(s):
+            suf = str(s.get("sufijo") or "")
+            if suf in prioridad:
+                return (0, prioridad[suf], 0, suf)
+            if suf.isdigit():
+                return (1, 0, int(suf), suf)
+            return (2, 0, 0, suf)
+
         return sorted(
             items,
-            key=lambda s: (
-                prioridad.get(str(s.get("sufijo") or ""), 99),
-                str(s.get("sufijo") or ""),
-            ),
+            key=_item_key,
         )
+
+    def _build_sufijos_comp(g):
+        pedidos_by_sufijo = {}
+        saldo_by_sufijo = {}
+        for s in g["sufijos"].values():
+            suf = str(s.get("sufijo") or "")
+            pedidos_by_sufijo[suf] = pedidos_by_sufijo.get(suf, 0) + int(s.get("total") or 0)
+        for s in g["sufijos_saldo"].values():
+            suf = str(s.get("sufijo") or "")
+            saldo_by_sufijo[suf] = saldo_by_sufijo.get(suf, 0) + int(s.get("total") or 0)
+        sufijos_ordenados = _sort_sufijo_keys(
+            set(pedidos_by_sufijo.keys()) | set(saldo_by_sufijo.keys())
+        )
+        return [
+            {
+                "sufijo": suf,
+                "pedidos_total": pedidos_by_sufijo.get(suf, 0),
+                "saldo_total": saldo_by_sufijo.get(suf, 0),
+            }
+            for suf in sufijos_ordenados
+        ]
 
     ventas_grouped = sorted(
         [
@@ -1900,6 +1940,7 @@ def index():
                 "sufijos_saldo": _sort_sufijos_saldo(
                     list(g["sufijos_saldo"].values())
                 ),
+                "sufijos_comp": _build_sufijos_comp(g),
             }
             for g in ventas_por_familia.values()
         ],
