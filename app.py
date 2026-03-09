@@ -27,6 +27,7 @@ from adecom_db import (
     import_lavanderia_botas_maestro,
     import_lavanderia_etapas_maestro,
     import_corte_etapas_rows,
+    import_comparativo_clientes_rows,
     import_exs_map_rows,
     import_pedidos_talla_todas_rows,
     init_db,
@@ -36,6 +37,7 @@ from adecom_db import (
     query_lavanderia_catalogos,
     query_assistant_rules,
     query_exs_balance_summary,
+    query_comparativo_clientes,
     query_pedidos_talla_sections,
     query_rows,
 )
@@ -1790,6 +1792,7 @@ def index():
     pedidos_q = filters["q"] or filters["articulo_exact"]
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, pedidos_q)
     exs_summary = query_exs_balance_summary(DB_PATH, filters["q"])
+    comparativo_summary = query_comparativo_clientes(DB_PATH, "")
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
     if filters["articulo_exact"] and not rows:
@@ -1907,6 +1910,7 @@ def index():
         ventas_top_articulo=ventas_top_articulo,
         ventas_top_articulos=ventas_top_articulos,
         exs_summary=exs_summary,
+        comparativo_summary=comparativo_summary,
         search_error=search_error,
         filters=filters,
         bodega_rows=bodega_rows,
@@ -1995,6 +1999,8 @@ def upload():
             stats = import_corte_etapas_rows(DB_PATH, rows)
         elif kind == "exs_map":
             stats = import_exs_map_rows(DB_PATH, rows)
+        elif kind == "comparativo_clientes":
+            stats = import_comparativo_clientes_rows(DB_PATH, rows)
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
     except RequestEntityTooLarge:

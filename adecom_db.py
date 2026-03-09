@@ -254,6 +254,33 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS comparativo_clientes (
+                    id BIGSERIAL PRIMARY KEY,
+                    rut TEXT NOT NULL,
+                    razon_social TEXT NOT NULL DEFAULT '',
+                    cod_vendedor TEXT NOT NULL DEFAULT '',
+                    vendedor TEXT NOT NULL DEFAULT '',
+                    ciudad TEXT NOT NULL DEFAULT '',
+                    cantidad_t01 INTEGER NOT NULL DEFAULT 0,
+                    valor_t01 BIGINT NOT NULL DEFAULT 0,
+                    facturado_t01 INTEGER NOT NULL DEFAULT 0,
+                    valor_fact_t01 BIGINT NOT NULL DEFAULT 0,
+                    cantidad_t02 INTEGER NOT NULL DEFAULT 0,
+                    valor_t02 BIGINT NOT NULL DEFAULT 0,
+                    facturado_t02 INTEGER NOT NULL DEFAULT 0,
+                    valor_fact_t02 BIGINT NOT NULL DEFAULT 0,
+                    cantidad_t03 INTEGER NOT NULL DEFAULT 0,
+                    valor_t03 BIGINT NOT NULL DEFAULT 0,
+                    facturado_t03 INTEGER NOT NULL DEFAULT 0,
+                    valor_fact_t03 BIGINT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(rut)
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -361,6 +388,32 @@ def init_db(db_path: str | Path) -> None:
                     rule_text TEXT NOT NULL,
                     priority INTEGER NOT NULL DEFAULT 100,
                     enabled INTEGER NOT NULL DEFAULT 1,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS comparativo_clientes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rut TEXT NOT NULL UNIQUE,
+                    razon_social TEXT NOT NULL DEFAULT '',
+                    cod_vendedor TEXT NOT NULL DEFAULT '',
+                    vendedor TEXT NOT NULL DEFAULT '',
+                    ciudad TEXT NOT NULL DEFAULT '',
+                    cantidad_t01 INTEGER NOT NULL DEFAULT 0,
+                    valor_t01 INTEGER NOT NULL DEFAULT 0,
+                    facturado_t01 INTEGER NOT NULL DEFAULT 0,
+                    valor_fact_t01 INTEGER NOT NULL DEFAULT 0,
+                    cantidad_t02 INTEGER NOT NULL DEFAULT 0,
+                    valor_t02 INTEGER NOT NULL DEFAULT 0,
+                    facturado_t02 INTEGER NOT NULL DEFAULT 0,
+                    valor_fact_t02 INTEGER NOT NULL DEFAULT 0,
+                    cantidad_t03 INTEGER NOT NULL DEFAULT 0,
+                    valor_t03 INTEGER NOT NULL DEFAULT 0,
+                    facturado_t03 INTEGER NOT NULL DEFAULT 0,
+                    valor_fact_t03 INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
@@ -1291,6 +1344,98 @@ def import_lavanderia_etapas_maestro(db_path: Path, etapas: Iterable[str], repla
             inserted += 1
     conn.close()
     return {"read": len(etapas_list), "inserted": inserted, "updated": 0}
+
+
+def import_comparativo_clientes_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
+
+    with conn:
+        _execute(conn, "DELETE FROM comparativo_clientes")
+        values = []
+        for row in rows_list:
+            rut = str(row.get("rut") or "").strip()
+            if not rut:
+                continue
+            values.append(
+                (
+                    rut,
+                    str(row.get("razon_social") or "").strip(),
+                    str(row.get("cod_vendedor") or "").strip(),
+                    str(row.get("vendedor") or "").strip(),
+                    str(row.get("ciudad") or "").strip(),
+                    int(row.get("cantidad_t01") or 0),
+                    int(row.get("valor_t01") or 0),
+                    int(row.get("facturado_t01") or 0),
+                    int(row.get("valor_fact_t01") or 0),
+                    int(row.get("cantidad_t02") or 0),
+                    int(row.get("valor_t02") or 0),
+                    int(row.get("facturado_t02") or 0),
+                    int(row.get("valor_fact_t02") or 0),
+                    int(row.get("cantidad_t03") or 0),
+                    int(row.get("valor_t03") or 0),
+                    int(row.get("facturado_t03") or 0),
+                    int(row.get("valor_fact_t03") or 0),
+                )
+            )
+        if values:
+            _executemany(
+                conn,
+                """
+                INSERT INTO comparativo_clientes (
+                    rut, razon_social, cod_vendedor, vendedor, ciudad,
+                    cantidad_t01, valor_t01, facturado_t01, valor_fact_t01,
+                    cantidad_t02, valor_t02, facturado_t02, valor_fact_t02,
+                    cantidad_t03, valor_t03, facturado_t03, valor_fact_t03
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            if not isinstance(conn, sqlite3.Connection):
+                _execute(conn, "UPDATE comparativo_clientes SET updated_at = CURRENT_TIMESTAMP")
+    conn.close()
+    return {"read": read, "inserted": len(values), "updated": 0}
+
+
+def query_comparativo_clientes(db_path: Path, q: str = "") -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    params: list[Any] = []
+    where = ""
+    if q:
+        like = f"%{str(q).strip()}%"
+        where = "WHERE rut LIKE ? OR razon_social LIKE ? OR ciudad LIKE ?"
+        params = [like, like, like]
+
+    rows = _execute(
+        conn,
+        f"""
+        SELECT *
+        FROM comparativo_clientes
+        {where}
+        ORDER BY razon_social ASC
+        """,
+        params,
+    ).fetchall()
+    conn.close()
+
+    out_rows = [dict(r) for r in rows]
+    total_2024 = sum(int(r.get("valor_fact_t01") or 0) for r in out_rows)
+    total_2025 = sum(int(r.get("valor_fact_t02") or 0) for r in out_rows)
+    total_2026 = sum(int(r.get("valor_fact_t03") or 0) for r in out_rows)
+
+    return {
+        "rows": out_rows,
+        "count": len(out_rows),
+        "total_2024": total_2024,
+        "total_2025": total_2025,
+        "total_2026": total_2026,
+    }
 
 
 def _format_date(fecha_iso: str | None) -> str:

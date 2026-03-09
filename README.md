@@ -239,6 +239,16 @@ Se usa `CORTE` como clave de negocio principal:
 Nota: si en el futuro aparecen casos donde `CORTE` no sea unico globalmente,
 se puede cambiar a clave compuesta (`ARTICULO + CORTE`) con un ajuste pequeno.
 
+## Comparativo clientes por anio (T01/T02/T03)
+
+Puedes subir el archivo `COMPARATIVO_*.TXT` desde `Subir archivo`.
+
+- `T:01` se muestra como `2024`
+- `T:02` se muestra como `2025`
+- `T:03` se muestra como `2026`
+
+Luego revisa el modal `Comparativo clientes` en el bloque de `Pedidos` para ver compras por cliente y por anio.
+
 ## Auto-sync carpeta local a Git (Windows)
 
 Si quieres que todo lo que cambies en:

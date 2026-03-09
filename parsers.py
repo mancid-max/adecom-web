@@ -38,6 +38,8 @@ def parse_uploaded_file(file_storage) -> dict[str, Any]:
             return {"kind": "pedidos_talla_todas", "rows": parse_pedidos_talla_todas_txt(content)}
         if kind == "pedidos_talla":
             return {"kind": "pedidos_talla", "rows": parse_pedidos_talla_txt(content)}
+        if kind == "comparativo_clientes":
+            return {"kind": "comparativo_clientes", "rows": parse_comparativo_clientes_txt(content)}
         return {"kind": "saldos", "rows": parse_saldos_txt(content)}
     if filename.endswith(".xlsx"):
         kind = detect_xlsx_kind(content, filename)
@@ -93,6 +95,8 @@ def detect_txt_kind(content: bytes, filename: str) -> str:
     )
     if normalized_header.startswith("O.CORTE;FECHA;ARTICULO"):
         return "corte_etapas"
+    if normalized_header.startswith("RUT;RAZONSOCIAL;CODVEN;VENDEDOR;CIUDAD;CANTIDADT:01"):
+        return "comparativo_clientes"
     if normalized_header.startswith("ARTICULO;CORTE;FECHA"):
         return "saldos"
     if ";Ventas;" in first_line or ";Despacho;" in first_line or ";saldo;" in first_line:
@@ -117,6 +121,72 @@ def parse_saldos_txt(content: bytes) -> list[dict]:
         parsed_row = _map_txt_row(raw)
         if parsed_row:
             parsed.append(parsed_row)
+    return parsed
+
+
+def parse_comparativo_clientes_txt(content: bytes) -> list[dict]:
+    text = _decode_bytes(content)
+    reader = csv.reader(io.StringIO(text), delimiter=";")
+    rows = list(reader)
+    if len(rows) <= 1:
+        return []
+
+    header_raw = [str(h or "").strip().upper() for h in rows[0]]
+
+    def _idx(col_name: str, default: int) -> int:
+        normalized = col_name.replace(" ", "")
+        for i, h in enumerate(header_raw):
+            if h.replace(" ", "") == normalized:
+                return i
+        return default
+
+    idx_rut = _idx("RUT", 0)
+    idx_razon = _idx("RAZON SOCIAL", 1)
+    idx_cod = _idx("COD VEN", 2)
+    idx_vendedor = _idx("VENDEDOR", 3)
+    idx_ciudad = _idx("CIUDAD", 4)
+    idx_c_t01 = _idx("CANTIDAD T:01", 5)
+    idx_v_t01 = _idx("VALOR T:01", 6)
+    idx_f_t01 = _idx("FACTURADO T:01", 7)
+    idx_vf_t01 = _idx("VALOR FACT. T:01", 8)
+    idx_c_t02 = _idx("CANTIDAD T:02", 9)
+    idx_v_t02 = _idx("VALOR T:02", 10)
+    idx_f_t02 = _idx("FACTURADO T:02", 11)
+    idx_vf_t02 = _idx("VALOR FACT. T:02", 12)
+    idx_c_t03 = _idx("CANTIDAD T:03", 13)
+    idx_v_t03 = _idx("VALOR T:03", 14)
+    idx_f_t03 = _idx("FACTURADO T:03", 15)
+    idx_vf_t03 = _idx("VALOR FACT. T:03", 16)
+
+    parsed: list[dict] = []
+    for raw in rows[1:]:
+        if not raw or not any(str(c).strip() for c in raw):
+            continue
+        cells = [str(c).strip() for c in raw]
+        rut = cells[idx_rut] if idx_rut < len(cells) else ""
+        if not rut:
+            continue
+        parsed.append(
+            {
+                "rut": rut,
+                "razon_social": cells[idx_razon] if idx_razon < len(cells) else "",
+                "cod_vendedor": cells[idx_cod] if idx_cod < len(cells) else "",
+                "vendedor": cells[idx_vendedor] if idx_vendedor < len(cells) else "",
+                "ciudad": cells[idx_ciudad] if idx_ciudad < len(cells) else "",
+                "cantidad_t01": _to_int(cells[idx_c_t01] if idx_c_t01 < len(cells) else "0"),
+                "valor_t01": _to_int(cells[idx_v_t01] if idx_v_t01 < len(cells) else "0"),
+                "facturado_t01": _to_int(cells[idx_f_t01] if idx_f_t01 < len(cells) else "0"),
+                "valor_fact_t01": _to_int(cells[idx_vf_t01] if idx_vf_t01 < len(cells) else "0"),
+                "cantidad_t02": _to_int(cells[idx_c_t02] if idx_c_t02 < len(cells) else "0"),
+                "valor_t02": _to_int(cells[idx_v_t02] if idx_v_t02 < len(cells) else "0"),
+                "facturado_t02": _to_int(cells[idx_f_t02] if idx_f_t02 < len(cells) else "0"),
+                "valor_fact_t02": _to_int(cells[idx_vf_t02] if idx_vf_t02 < len(cells) else "0"),
+                "cantidad_t03": _to_int(cells[idx_c_t03] if idx_c_t03 < len(cells) else "0"),
+                "valor_t03": _to_int(cells[idx_v_t03] if idx_v_t03 < len(cells) else "0"),
+                "facturado_t03": _to_int(cells[idx_f_t03] if idx_f_t03 < len(cells) else "0"),
+                "valor_fact_t03": _to_int(cells[idx_vf_t03] if idx_vf_t03 < len(cells) else "0"),
+            }
+        )
     return parsed
 
 

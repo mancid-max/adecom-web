@@ -39,6 +39,7 @@
             <button type="button" class="top-nav-menu-item" data-open-id="openMuestrasModal">Muestras</button>
             <button type="button" class="top-nav-menu-item" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="top-nav-menu-item" data-open-id="openVentasTotalModal">Pedidos</button>
+            <button type="button" class="top-nav-menu-item" data-open-id="openComparativoClientesModal">Clientes por año</button>
             <button type="button" class="top-nav-menu-item" data-open-id="openExsModal">EXS</button>
             <button type="button" class="top-nav-menu-item" data-open-id="openProyeccionModal">Proyeccion semanal</button>
           </div>
@@ -586,6 +587,13 @@
             <small>Abrir detalle</small>
           </button>
         </article>
+        <article class="card-action summary-secondary">
+          <button type="button" class="summary-open" id="openComparativoClientesModal">
+            <h2>Comparativo clientes</h2>
+            <p>{{ comparativo_summary.count|miles }}</p>
+            <small>T01:2024 | T02:2025 | T03:2026</small>
+          </button>
+        </article>
       </section>
 
       <dialog id="ventasTotalModal" class="modal">
@@ -826,6 +834,78 @@
               {% else %}
               <tr>
                 <td colspan="3" class="empty">Sin articulos con pedidos.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      </dialog>
+
+      <dialog id="comparativoClientesModal" class="modal">
+        <div class="modal-head">
+          <h3>Comparativo clientes</h3>
+          <button type="button" id="closeComparativoClientesModal" class="modal-close">Cerrar</button>
+        </div>
+        <div class="modal-kpis">
+          <article>
+            <h4>Clientes</h4>
+            <p>{{ comparativo_summary.count|miles }}</p>
+          </article>
+          <article>
+            <h4>Total 2024</h4>
+            <p>{{ comparativo_summary.total_2024|miles }}</p>
+          </article>
+          <article>
+            <h4>Total 2025</h4>
+            <p>{{ comparativo_summary.total_2025|miles }}</p>
+          </article>
+          <article>
+            <h4>Total 2026</h4>
+            <p>{{ comparativo_summary.total_2026|miles }}</p>
+          </article>
+        </div>
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Clic en encabezado para ordenar</p>
+          <table class="bodega-table" id="comparativoClientesTable">
+            <thead>
+              <tr>
+                <th class="sortable-th" data-sort-key="rut">RUT</th>
+                <th class="sortable-th" data-sort-key="razon">Cliente</th>
+                <th class="sortable-th" data-sort-key="ciudad">Ciudad</th>
+                <th class="sortable-th" data-sort-key="cantidad2024">Cant 2024</th>
+                <th class="sortable-th" data-sort-key="valor2024">Fact 2024</th>
+                <th class="sortable-th" data-sort-key="cantidad2025">Cant 2025</th>
+                <th class="sortable-th" data-sort-key="valor2025">Fact 2025</th>
+                <th class="sortable-th" data-sort-key="cantidad2026">Cant 2026</th>
+                <th class="sortable-th" data-sort-key="valor2026">Fact 2026</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in comparativo_summary.rows %}
+              <tr
+                data-rut="{{ row.rut }}"
+                data-razon="{{ row.razon_social }}"
+                data-ciudad="{{ row.ciudad }}"
+                data-cantidad2024="{{ row.cantidad_t01 }}"
+                data-valor2024="{{ row.valor_fact_t01 }}"
+                data-cantidad2025="{{ row.cantidad_t02 }}"
+                data-valor2025="{{ row.valor_fact_t02 }}"
+                data-cantidad2026="{{ row.cantidad_t03 }}"
+                data-valor2026="{{ row.valor_fact_t03 }}"
+              >
+                <td>{{ row.rut }}</td>
+                <td>{{ row.razon_social }}</td>
+                <td>{{ row.ciudad }}</td>
+                <td class="num">{{ row.cantidad_t01|miles }}</td>
+                <td class="num">{{ row.valor_fact_t01|miles }}</td>
+                <td class="num">{{ row.cantidad_t02|miles }}</td>
+                <td class="num">{{ row.valor_fact_t02|miles }}</td>
+                <td class="num">{{ row.cantidad_t03|miles }}</td>
+                <td class="num">{{ row.valor_fact_t03|miles }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="9" class="empty">No hay datos comparativos cargados.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -1124,6 +1204,7 @@
         openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
         openVentasTotalModal: "ventasTotalModal",
+        openComparativoClientesModal: "comparativoClientesModal",
         openExsModal: "exsModal",
         openProyeccionModal: "proyeccionModal",
       };
@@ -1132,6 +1213,7 @@
         openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
         openVentasTotalModal: "ventasTotalModal",
+        openComparativoClientesModal: "comparativoClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
         openExsModal: "exsModal",
         openExsModalTop: "exsModal",
@@ -1647,6 +1729,24 @@
     })();
 
     (function () {
+      const modal = document.getElementById("comparativoClientesModal");
+      const openBtn = document.getElementById("openComparativoClientesModal");
+      const closeBtn = document.getElementById("closeComparativoClientesModal");
+      if (!modal || !openBtn || !closeBtn) return;
+      openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
       const modal = document.getElementById("proyeccionModal");
       const openBtn = document.getElementById("openProyeccionModal");
       const closeBtn = document.getElementById("closeProyeccionModal");
@@ -1962,6 +2062,7 @@
       setupHeaderSort("ventasTallasTable");
       setupHeaderSort("topArticulosTable");
       setupHeaderSort("exsTable");
+      setupHeaderSort("comparativoClientesTable");
     })();
 
     (function () {
