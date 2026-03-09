@@ -811,9 +811,11 @@ button:hover, .btn-ghost:hover {
 .summary-open p {
   margin: 8px 0 4px;
   font-size: clamp(42px, 8vw, 74px);
-  line-height: 1;
+  line-height: 1.04;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
 .summary-open small {
@@ -1097,8 +1099,11 @@ td.etapas-fecha {
 .modal-kpis p {
   margin: 0;
   font-size: clamp(22px, 3.2vw, 34px);
-  line-height: 1;
+  line-height: 1.06;
   font-weight: 700;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
 .kpi-hint {
@@ -1996,6 +2001,9 @@ td.etapas-fecha {
 
 .app-shell .modal-kpis p {
   color: #f4f7ff;
+  font-family: "DM Sans", sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
 /* Mejor contraste en KPI cards del modal "Total pedidos" */
@@ -2496,9 +2504,12 @@ body {
 }
 
 .dashboard-kpi-row .summary-open p {
-  font-family: "Syne", sans-serif;
-  font-size: 56px;
-  line-height: .95;
+  font-family: "DM Sans", sans-serif;
+  font-size: 54px;
+  line-height: 1.02;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
   margin: 0;
 }
 
