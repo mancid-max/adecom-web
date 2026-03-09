@@ -134,7 +134,7 @@
     <section class="filters">
       <form id="filtersForm" method="get" action="{{ url_for('index') }}">
         <div class="search-field">
-          <label for="articuloExactInput">Buscar articulo exacto</label>
+          <label for="articuloExactInput">Buscar articulo</label>
           <input
             id="articuloExactInput"
             name="articulo_exact"
@@ -145,12 +145,8 @@
           >
           <small class="search-help">Busqueda exacta por codigo de articulo.</small>
         </div>
-        <div class="search-field">
-          <label for="fechaInput">Fecha</label>
-          <input id="fechaInput" name="fecha" type="date" value="{{ filters.fecha }}">
-        </div>
-        <button type="submit">Buscar</button>
-        <a href="{{ url_for('index') }}" class="btn-ghost">Limpiar</a>
+        <button type="submit" class="search-submit-btn">Buscar</button>
+        <a href="{{ url_for('index') }}" class="btn-ghost search-reset-btn">Restaurar</a>
       </form>
     </section>
 
@@ -1876,7 +1872,6 @@
       const form = document.getElementById("filtersForm");
       if (!form) return;
       const articuloExact = form.querySelector('input[name="articulo_exact"]');
-      const fecha = form.querySelector('input[name="fecha"]');
       if (articuloExact) {
         articuloExact.addEventListener("keydown", (event) => {
           if (event.key !== "Enter") return;
@@ -1884,7 +1879,6 @@
           form.submit();
         });
       }
-      if (fecha) fecha.addEventListener("change", () => form.submit());
     })();
 
     (function () {

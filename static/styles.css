@@ -262,7 +262,10 @@ button:hover, .btn-ghost:hover {
 
 .filters {
   margin-top: 14px;
-  padding: 10px;
+  padding: 12px;
+  background: #0f1522 !important;
+  border: 1px solid #28354e !important;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34) !important;
   animation: fadeUp .45s ease both;
 }
 
@@ -571,21 +574,63 @@ button:hover, .btn-ghost:hover {
 
 .filters form {
   display: grid;
-  grid-template-columns: 2fr 1fr auto auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
-  align-items: start;
+  align-items: end;
+}
+
+.search-field label {
+  display: block;
+  margin-bottom: 4px;
+  color: #c4cee2;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .search-field input {
   margin-bottom: 4px;
+  background: #111a2b !important;
+  border: 1px solid #354562 !important;
+  color: #e6edfc !important;
+}
+
+.search-field input::placeholder {
+  color: #8c9bb9;
+}
+
+.search-submit-btn {
+  min-height: 38px;
+  background: #c8a96e !important;
+  color: #0f1522 !important;
+  border: 1px solid #d8ba83 !important;
+}
+
+.search-reset-btn {
+  min-height: 38px;
+  border: 1px solid #3a4b6b !important;
+  background: #151f33 !important;
+  color: #d8e3fb !important;
+}
+
+.search-reset-btn:hover {
+  border-color: #4e638e !important;
+  background: #1b2840 !important;
 }
 
 .search-help {
   display: block;
+  margin-bottom: 0;
   padding: 0 2px;
-  color: #6f6458;
+  color: #8f9dbc;
   font-size: 12px;
+  font-weight: 500;
   letter-spacing: .01em;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: break-word;
+  transition: color .2s ease;
+  user-select: none;
+  pointer-events: none;
 }
 
 .search-alert {
