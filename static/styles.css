@@ -2293,16 +2293,16 @@ body {
 .top-nav-menu-item {
   width: 100%;
   text-align: left;
-  border: 1px solid #2e3649;
-  background: #121927;
-  color: #d6deef;
+  border: 1px solid #2e3649 !important;
+  background: #121927 !important;
+  color: #d6deef !important;
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
-  transition: transform .22s cubic-bezier(.22,.61,.36,1), box-shadow .24s ease, border-color .24s ease, background-color .24s ease;
+  transition: transform .24s cubic-bezier(.22,.61,.36,1), box-shadow .28s ease, border-color .26s ease, background-color .26s ease, color .26s ease;
 }
 
 .top-nav-menu-item:hover {
@@ -2313,9 +2313,11 @@ body {
 }
 
 .top-nav-menu-item.is-dashboard-active {
-  border-color: #c9a863;
-  background: linear-gradient(135deg, rgba(201, 168, 99, 0.26), rgba(201, 168, 99, 0.12));
-  color: #f2deaf;
+  border-color: #c9a863 !important;
+  background: linear-gradient(135deg, rgba(201, 168, 99, 0.32), rgba(201, 168, 99, 0.16)) !important;
+  color: #f7e5b8 !important;
+  box-shadow: 0 0 0 1px rgba(201, 168, 99, 0.35), 0 10px 22px rgba(6, 12, 20, 0.42);
+  transform: translateY(-1px);
 }
 
 .top-nav-menu-form {
@@ -2381,18 +2383,20 @@ body {
 
 .dashboard-kpi-row .summary-open {
   background: transparent !important;
-  transition: transform .26s cubic-bezier(.22,.61,.36,1), box-shadow .28s ease, border-color .24s ease, background-color .24s ease;
+  transition: transform .28s cubic-bezier(.22,.61,.36,1), box-shadow .3s ease, border-color .26s ease, background-color .26s ease, filter .26s ease;
 }
 
 .dashboard-kpi-row .summary-open:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   box-shadow: 0 14px 24px rgba(1, 8, 18, 0.34);
+  filter: brightness(1.03);
 }
 
 .dashboard-kpi-row .summary-open.is-dashboard-active {
   border-color: #c9a863 !important;
-  background: linear-gradient(135deg, rgba(201, 168, 99, 0.16), rgba(201, 168, 99, 0.05)) !important;
-  box-shadow: 0 14px 26px rgba(12, 20, 34, 0.42);
+  background: linear-gradient(135deg, rgba(201, 168, 99, 0.22), rgba(201, 168, 99, 0.08)) !important;
+  box-shadow: 0 0 0 1px rgba(201, 168, 99, 0.3), 0 16px 30px rgba(12, 20, 34, 0.5);
+  transform: translateY(-2px);
 }
 
 .dashboard-kpi-row .summary-open h2 {

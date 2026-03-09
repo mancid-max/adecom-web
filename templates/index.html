@@ -1066,9 +1066,6 @@
         const el = document.getElementById(id);
         if (el && typeof el.click === "function") el.click();
       };
-      document.querySelectorAll("[data-open-id]").forEach((btn) => {
-        btn.addEventListener("click", () => openById(btn.getAttribute("data-open-id") || ""));
-      });
       document.querySelectorAll("[data-scroll-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const target = document.getElementById(btn.getAttribute("data-scroll-id") || "");
@@ -1103,7 +1100,15 @@
         });
       }
 
-      const exclusiveMap = {
+      const openIdToModalId = {
+        openBodegaModal: "bodegaModal",
+        openMuestrasModal: "muestrasModal",
+        openFullTableModal: "fullTableModal",
+        openVentasTotalModal: "ventasTotalModal",
+        openExsModal: "exsModal",
+        openProyeccionModal: "proyeccionModal",
+      };
+      const triggerToModal = {
         openBodegaModal: "bodegaModal",
         openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
@@ -1113,7 +1118,7 @@
         openExsModalTop: "exsModal",
         openProyeccionModal: "proyeccionModal",
       };
-      const exclusiveModalIds = Array.from(new Set(Object.values(exclusiveMap)));
+      const exclusiveModalIds = Array.from(new Set(Object.values(triggerToModal)));
       const clearDashboardActive = () => {
         document
           .querySelectorAll(".summary-open, .top-nav-menu-item[data-open-id]")
@@ -1126,31 +1131,36 @@
           if (dlg && dlg.open) dlg.close();
         });
       };
+      const showDashboardModal = (modalId) => {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        if (!modal.open) modal.showModal();
+      };
       const bindExclusiveTrigger = (btn, modalId) => {
         if (!btn || !modalId) return;
         btn.addEventListener("click", () => {
           closeOtherDashboardModals(modalId);
+          showDashboardModal(modalId);
+          clearDashboardActive();
+          btn.classList.add("is-dashboard-active");
+        });
+      };
+      Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
+        bindExclusiveTrigger(document.getElementById(triggerId), modalId);
+      });
+      document.querySelectorAll(".top-nav-menu-item[data-open-id]").forEach((btn) => {
+        const openId = String(btn.getAttribute("data-open-id") || "");
+        btn.addEventListener("click", () => {
+          const modalId = openIdToModalId[openId] || "";
+          if (!modalId) return;
+          closeOtherDashboardModals(modalId);
+          showDashboardModal(modalId);
           clearDashboardActive();
           btn.classList.add("is-dashboard-active");
           document.querySelectorAll(".top-nav-group[open]").forEach((group) => {
             group.removeAttribute("open");
           });
         });
-      };
-      Object.entries(exclusiveMap).forEach(([triggerId, modalId]) => {
-        bindExclusiveTrigger(document.getElementById(triggerId), modalId);
-      });
-      const openIdToModalId = {
-        openBodegaModal: "bodegaModal",
-        openMuestrasModal: "muestrasModal",
-        openFullTableModal: "fullTableModal",
-        openVentasTotalModal: "ventasTotalModal",
-        openExsModal: "exsModal",
-        openProyeccionModal: "proyeccionModal",
-      };
-      document.querySelectorAll(".top-nav-menu-item[data-open-id]").forEach((btn) => {
-        const openId = String(btn.getAttribute("data-open-id") || "");
-        bindExclusiveTrigger(btn, openIdToModalId[openId] || "");
       });
       exclusiveModalIds.forEach((modalId) => {
         const dlg = document.getElementById(modalId);
