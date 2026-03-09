@@ -1784,13 +1784,17 @@ def index():
     filters = {
         "q": request.args.get("q", "").strip(),
         "fecha": request.args.get("fecha", "").strip(),
+        "articulo_exact": request.args.get("articulo_exact", "").strip(),
     }
     rows, totals, summary = query_rows(DB_PATH, filters)
-    pedidos_sections = query_pedidos_talla_sections(DB_PATH, filters["q"])
+    pedidos_q = filters["q"] or filters["articulo_exact"]
+    pedidos_sections = query_pedidos_talla_sections(DB_PATH, pedidos_q)
     exs_summary = query_exs_balance_summary(DB_PATH, filters["q"])
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
-    if filters["q"] and not rows and pedidos_count == 0:
+    if filters["articulo_exact"] and not rows:
+        search_error = "Articulo no encontrado"
+    elif filters["q"] and not rows and pedidos_count == 0:
         search_error = "No se encontraron resultados. Escriba el articulo completo o familia. Ej: 01420100 o 4201."
     ventas_rows = pedidos_sections.get("ventas", [])
     ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)

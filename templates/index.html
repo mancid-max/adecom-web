@@ -105,8 +105,11 @@
 
     {% if search_error %}
       <section class="search-alert-top-wrap">
-        <div class="search-alert search-alert-top" id="searchAlertTop" role="status" aria-live="polite">
-          {{ search_error }}
+        <div class="search-alert search-alert-top search-alert-error" id="searchAlertTop" role="status" aria-live="polite">
+          <div class="search-alert-body">
+            <span>{{ search_error }}</span>
+            <button type="button" class="search-alert-close" aria-label="Cerrar alerta">X</button>
+          </div>
         </div>
       </section>
     {% endif %}
@@ -117,6 +120,29 @@
         <code>{{ upload_debug }}</code>
       </section>
     {% endif %}
+
+    <section class="filters">
+      <form id="filtersForm" method="get" action="{{ url_for('index') }}">
+        <div class="search-field">
+          <label for="articuloExactInput">Buscar articulo exacto</label>
+          <input
+            id="articuloExactInput"
+            name="articulo_exact"
+            type="text"
+            value="{{ filters.articulo_exact }}"
+            placeholder="Ej: 01420100"
+            autocomplete="off"
+          >
+          <small class="search-help">Busqueda exacta por codigo de articulo.</small>
+        </div>
+        <div class="search-field">
+          <label for="fechaInput">Fecha</label>
+          <input id="fechaInput" name="fecha" type="date" value="{{ filters.fecha }}">
+        </div>
+        <button type="submit">Buscar</button>
+        <a href="{{ url_for('index') }}" class="btn-ghost">Limpiar</a>
+      </form>
+    </section>
 
     <section class="summary dashboard-kpi-row" id="sectionProduccion">
       <article class="card-action summary-focus">
@@ -1358,13 +1384,23 @@
     (function () {
       const alertBox = document.getElementById("searchAlertTop");
       if (!alertBox) return;
+      const closeBtn = alertBox.querySelector(".search-alert-close");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", () => {
+          alertBox.classList.add("search-alert-hide");
+          setTimeout(() => {
+            const wrap = alertBox.closest(".search-alert-top-wrap");
+            if (wrap) wrap.remove();
+          }, 380);
+        });
+      }
       setTimeout(() => {
         alertBox.classList.add("search-alert-hide");
         setTimeout(() => {
           const wrap = alertBox.closest(".search-alert-top-wrap");
           if (wrap) wrap.remove();
         }, 380);
-      }, 3800);
+      }, 5000);
     })();
 
     (function () {
@@ -1769,10 +1805,10 @@
     (function () {
       const form = document.getElementById("filtersForm");
       if (!form) return;
-      const q = form.querySelector('input[name="q"]');
+      const articuloExact = form.querySelector('input[name="articulo_exact"]');
       const fecha = form.querySelector('input[name="fecha"]');
-      if (q) {
-        q.addEventListener("keydown", (event) => {
+      if (articuloExact) {
+        articuloExact.addEventListener("keydown", (event) => {
           if (event.key !== "Enter") return;
           event.preventDefault();
           form.submit();

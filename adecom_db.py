@@ -741,6 +741,11 @@ def _build_where(filters: dict) -> tuple[str, list]:
     clauses = []
     params: list = []
 
+    if filters.get("articulo_exact"):
+        articulo_exact = str(filters["articulo_exact"]).strip()
+        clauses.append("articulo = ?")
+        params.append(articulo_exact)
+
     if filters.get("q"):
         q_raw = str(filters["q"]).strip()
         q = f"%{q_raw}%"
