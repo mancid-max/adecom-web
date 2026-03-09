@@ -31,6 +31,7 @@ from adecom_db import (
     import_pedidos_talla_rows,
     import_rows,
     query_lavanderia_productividad,
+    query_lavanderia_catalogos,
     query_assistant_rules,
     query_exs_balance_summary,
     query_pedidos_talla_sections,
@@ -228,10 +229,19 @@ def other_section():
     fecha = str(request.args.get("fecha") or "").strip()
     empleado = str(request.args.get("empleado") or "").strip()
     data = query_lavanderia_productividad(DB_PATH, fecha=fecha, empleado=empleado, limit_rows=400)
+    catalogos = query_lavanderia_catalogos(DB_PATH)
+    etapa_defaults = {
+        str(item.get("etapa") or "").strip(): float(item.get("min_por_prenda") or 0)
+        for item in (data.get("top_etapas") or [])
+        if str(item.get("etapa") or "").strip()
+    }
     return render_template(
         "other_section.html",
         data=data,
         filters={"fecha": fecha, "empleado": empleado},
+        catalogos=catalogos,
+        etapa_defaults=etapa_defaults,
+        today_iso=date.today().isoformat(),
     )
 
 

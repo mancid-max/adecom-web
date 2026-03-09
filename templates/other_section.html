@@ -117,11 +117,12 @@
       color: #4a5d6d;
       font-weight: 700;
     }
-    .field input {
+    .field input, .field select {
       border: 1px solid #c8c0af;
       border-radius: 8px;
       padding: 8px;
       min-height: 34px;
+      background: #fff;
     }
     .solid {
       border: 1px solid #1f6f68;
@@ -144,6 +145,9 @@
       width: 100%;
       min-width: 760px;
       background: #fff;
+    }
+    .compact-table {
+      min-width: 0;
     }
     th, td {
       border-bottom: 1px solid #efe7d6;
@@ -252,53 +256,73 @@
       <h2>Ingreso manual por web</h2>
       <form method="post" action="{{ url_for('other_add_registro') }}" class="form-grid">
         <div class="field">
-          <label>Articulo</label>
-          <input name="articulo" placeholder="4214-02">
-        </div>
-        <div class="field">
-          <label>O.Corte</label>
-          <input name="corte" placeholder="11541">
-        </div>
-        <div class="field">
           <label>Bota</label>
-          <input name="bota" placeholder="Pitillo">
+          <input name="bota" list="botaOptions" placeholder="Selecciona o escribe" required>
+          <datalist id="botaOptions">
+            {% for b in catalogos.botas %}
+              <option value="{{ b }}"></option>
+            {% endfor %}
+          </datalist>
         </div>
         <div class="field">
           <label>Etapa *</label>
-          <input name="etapa" required placeholder="Lav/Suav">
+          <select name="etapa" id="etapaField" required>
+            <option value="">Selecciona etapa</option>
+            {% for e in catalogos.etapas %}
+              <option value="{{ e }}">{{ e }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="field">
           <label>Empleado *</label>
-          <input name="empleado" required placeholder="Victor">
+          <select name="empleado" required>
+            <option value="">Selecciona empleado</option>
+            {% for e in catalogos.empleados %}
+              <option value="{{ e }}">{{ e }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="field">
-          <label>Cantidad</label>
-          <input name="cantidad" type="number" min="0" value="0">
+          <label>Cantidad *</label>
+          <input name="cantidad" id="cantidadField" type="number" min="1" value="1" required>
         </div>
         <div class="field">
-          <label>Minutos</label>
-          <input name="minutos" type="number" min="0" value="0">
-        </div>
-        <div class="field">
-          <label>Fecha inicio</label>
-          <input name="fecha_inicio_iso" type="date">
-        </div>
-        <div class="field">
-          <label>Hora inicio</label>
-          <input name="hora_inicio" type="time">
+          <label>Minutos (auto)</label>
+          <input name="minutos" id="minutosField" type="number" min="0" value="0">
         </div>
         <div class="field">
           <label>Fecha termino</label>
-          <input name="fecha_fin_iso" type="date">
-        </div>
-        <div class="field">
-          <label>Hora termino</label>
-          <input name="hora_fin" type="time">
+          <input name="fecha_fin_iso" type="date" value="{{ today_iso }}">
         </div>
         <div class="field">
           <label>&nbsp;</label>
           <button class="solid" type="submit">Guardar registro</button>
         </div>
+        <details style="grid-column: 1 / -1;">
+          <summary>Campos opcionales</summary>
+          <div class="form-grid" style="margin-top:8px;">
+            <div class="field">
+              <label>Articulo</label>
+              <input name="articulo" placeholder="4214-02">
+            </div>
+            <div class="field">
+              <label>O.Corte</label>
+              <input name="corte" placeholder="11541">
+            </div>
+            <div class="field">
+              <label>Fecha inicio</label>
+              <input name="fecha_inicio_iso" type="date" value="{{ today_iso }}">
+            </div>
+            <div class="field">
+              <label>Hora inicio</label>
+              <input name="hora_inicio" type="time">
+            </div>
+            <div class="field">
+              <label>Hora termino</label>
+              <input name="hora_fin" type="time">
+            </div>
+          </div>
+        </details>
       </form>
     </section>
 
@@ -324,7 +348,7 @@
       <article>
         <h2>Productividad por empleado</h2>
         <div class="table-wrap">
-          <table>
+          <table class="compact-table">
             <thead>
               <tr>
                 <th>Empleado</th>
@@ -353,7 +377,7 @@
       <article>
         <h2>Productividad por etapa</h2>
         <div class="table-wrap">
-          <table>
+          <table class="compact-table">
             <thead>
               <tr>
                 <th>Etapa</th>
@@ -429,5 +453,23 @@
       </div>
     </section>
   </div>
+  <script>
+    (function () {
+      const etapaDefaults = {{ etapa_defaults|tojson }};
+      const etapaField = document.getElementById("etapaField");
+      const cantidadField = document.getElementById("cantidadField");
+      const minutosField = document.getElementById("minutosField");
+      if (!etapaField || !cantidadField || !minutosField) return;
+      const recalc = () => {
+        const etapa = String(etapaField.value || "");
+        const qty = Number(cantidadField.value || 0);
+        const minPerUnit = Number(etapaDefaults[etapa] || 0);
+        if (!etapa || !qty || !minPerUnit) return;
+        minutosField.value = String(Math.max(Math.round(qty * minPerUnit), 0));
+      };
+      etapaField.addEventListener("change", recalc);
+      cantidadField.addEventListener("input", recalc);
+    })();
+  </script>
 </body>
 </html>

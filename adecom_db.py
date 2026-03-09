@@ -1136,6 +1136,44 @@ def query_lavanderia_productividad(db_path: Path, fecha: str = "", empleado: str
     }
 
 
+def query_lavanderia_catalogos(db_path: Path) -> dict[str, list[str]]:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    botas_rows = _execute(
+        conn,
+        """
+        SELECT DISTINCT bota
+        FROM lavanderia_trazabilidad
+        WHERE trim(coalesce(bota, '')) <> ''
+        ORDER BY bota ASC
+        """,
+    ).fetchall()
+    etapas_rows = _execute(
+        conn,
+        """
+        SELECT DISTINCT etapa
+        FROM lavanderia_trazabilidad
+        WHERE trim(coalesce(etapa, '')) <> ''
+        ORDER BY etapa ASC
+        """,
+    ).fetchall()
+    empleados_rows = _execute(
+        conn,
+        """
+        SELECT DISTINCT empleado
+        FROM lavanderia_trazabilidad
+        WHERE trim(coalesce(empleado, '')) <> ''
+        ORDER BY empleado ASC
+        """,
+    ).fetchall()
+    conn.close()
+    return {
+        "botas": [str(r.get("bota") or "").strip() for r in map(dict, botas_rows)],
+        "etapas": [str(r.get("etapa") or "").strip() for r in map(dict, etapas_rows)],
+        "empleados": [str(r.get("empleado") or "").strip() for r in map(dict, empleados_rows)],
+    }
+
+
 def _format_date(fecha_iso: str | None) -> str:
     if not fecha_iso:
         return ""
