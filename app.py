@@ -25,6 +25,7 @@ from adecom_db import (
     get_conn,
     import_lavanderia_rows,
     import_lavanderia_botas_maestro,
+    import_lavanderia_etapas_maestro,
     import_corte_etapas_rows,
     import_exs_map_rows,
     import_pedidos_talla_todas_rows,
@@ -40,6 +41,7 @@ from adecom_db import (
 )
 from parsers import (
     parse_lavanderia_botas_maestros_xlsx,
+    parse_lavanderia_etapas_gestion_xlsx,
     parse_lavanderia_productividad_xlsx,
     parse_pedidos_talla_txt,
     parse_saldos_txt,
@@ -257,15 +259,20 @@ def other_import_excel():
             raise ValueError("Debes seleccionar un archivo Excel.")
         content = file.read()
         rows = parse_lavanderia_productividad_xlsx(content)
-        if not rows:
-            raise ValueError("No se detectaron filas validas en el Excel.")
         botas = parse_lavanderia_botas_maestros_xlsx(content)
-        stats = import_lavanderia_rows(DB_PATH, rows, replace_all=True, source="excel")
+        etapas = parse_lavanderia_etapas_gestion_xlsx(content)
+        stats = {"read": 0, "inserted": 0, "updated": 0}
+        if rows:
+            stats = import_lavanderia_rows(DB_PATH, rows, replace_all=True, source="excel")
         botas_stats = import_lavanderia_botas_maestro(DB_PATH, botas, replace_all=True)
+        etapas_stats = import_lavanderia_etapas_maestro(DB_PATH, etapas, replace_all=True)
+        if not rows and botas_stats.get("inserted", 0) == 0 and etapas_stats.get("inserted", 0) == 0:
+            raise ValueError("No se detectaron datos validos en Gestion/Maestros.")
         flash(
             "Excel importado. "
             f"Registros: {stats.get('inserted', 0)} | "
-            f"Botas maestro: {botas_stats.get('inserted', 0)}.",
+            f"Botas maestro: {botas_stats.get('inserted', 0)} | "
+            f"Etapas maestro: {etapas_stats.get('inserted', 0)}.",
             "success",
         )
     except Exception as exc:

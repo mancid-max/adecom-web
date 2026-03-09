@@ -244,6 +244,16 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS lavanderia_etapas_maestro (
+                    id BIGSERIAL PRIMARY KEY,
+                    etapa TEXT NOT NULL UNIQUE,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -382,6 +392,16 @@ def init_db(db_path: str | Path) -> None:
                 CREATE TABLE IF NOT EXISTS lavanderia_botas_maestro (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     bota TEXT NOT NULL UNIQUE,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS lavanderia_etapas_maestro (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    etapa TEXT NOT NULL UNIQUE,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
@@ -1177,6 +1197,15 @@ def query_lavanderia_catalogos(db_path: Path) -> dict[str, list[str]]:
         ORDER BY bota ASC
         """,
     ).fetchall()
+    etapas_maestro_rows = _execute(
+        conn,
+        """
+        SELECT DISTINCT etapa
+        FROM lavanderia_etapas_maestro
+        WHERE trim(coalesce(etapa, '')) <> ''
+        ORDER BY etapa ASC
+        """,
+    ).fetchall()
     etapas_rows = _execute(
         conn,
         """
@@ -1197,10 +1226,12 @@ def query_lavanderia_catalogos(db_path: Path) -> dict[str, list[str]]:
     ).fetchall()
     conn.close()
     botas_maestro = [str(r.get("bota") or "").strip() for r in map(dict, botas_maestro_rows)]
+    etapas_maestro = [str(r.get("etapa") or "").strip() for r in map(dict, etapas_maestro_rows)]
     botas_source = botas_maestro if botas_maestro else [str(r.get("bota") or "").strip() for r in map(dict, botas_rows)]
+    etapas_source = etapas_maestro if etapas_maestro else [str(r.get("etapa") or "").strip() for r in map(dict, etapas_rows)]
     return {
         "botas": botas_source,
-        "etapas": [str(r.get("etapa") or "").strip() for r in map(dict, etapas_rows)],
+        "etapas": etapas_source,
         "empleados": [str(r.get("empleado") or "").strip() for r in map(dict, empleados_rows)],
     }
 
@@ -1229,6 +1260,32 @@ def import_lavanderia_botas_maestro(db_path: Path, botas: Iterable[str], replace
             inserted += 1
     conn.close()
     return {"read": len(botas_list), "inserted": inserted, "updated": 0}
+
+
+def import_lavanderia_etapas_maestro(db_path: Path, etapas: Iterable[str], replace_all: bool = True) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    etapas_list = [str(e or "").strip() for e in etapas if str(e or "").strip()]
+    if not etapas_list:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
+    inserted = 0
+    with conn:
+        if replace_all:
+            _execute(conn, "DELETE FROM lavanderia_etapas_maestro")
+        for etapa in etapas_list:
+            _execute(
+                conn,
+                """
+                INSERT INTO lavanderia_etapas_maestro (etapa)
+                VALUES (?)
+                ON CONFLICT(etapa) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+                """,
+                (etapa,),
+            )
+            inserted += 1
+    conn.close()
+    return {"read": len(etapas_list), "inserted": inserted, "updated": 0}
 
 
 def _format_date(fecha_iso: str | None) -> str:

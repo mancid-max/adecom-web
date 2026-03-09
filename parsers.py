@@ -446,6 +446,69 @@ def parse_lavanderia_botas_maestros_xlsx(content: bytes) -> list[str]:
     return unique
 
 
+def parse_lavanderia_etapas_gestion_xlsx(content: bytes) -> list[str]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("Para importar Excel instala dependencias: pip install -r requirements.txt") from exc
+
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    if not wb.worksheets:
+        return []
+    ws = wb.worksheets[0]
+
+    header: list[str] = []
+    for row in ws.iter_rows(values_only=True):
+        cells = ["" if c is None else str(c).strip() for c in row]
+        first = cells[0].strip().lower() if cells else ""
+        second = cells[1].strip().lower() if len(cells) > 1 else ""
+        if first == "articulo" and second in {"o.corte", "o corte", "ocorte"}:
+            header = cells
+            break
+    if not header:
+        return []
+
+    ignore_headers = {
+        "",
+        "articulo",
+        "o.corte",
+        "o corte",
+        "ocorte",
+        "bota",
+        "cantidad",
+        "ingreso",
+        "inicio",
+        "hr inicio",
+        "hr termino",
+        "salida",
+        "tiempo",
+        "proceso",
+        "lavandería",
+        "lavanderia",
+        "terminación",
+        "terminacion",
+    }
+
+    stages: list[str] = []
+    for i, name in enumerate(header):
+        n = str(name or "").strip()
+        n_lower = n.lower()
+        if n_lower in ignore_headers:
+            continue
+        if i + 1 < len(header) and str(header[i + 1] or "").strip().lower() == "cantidad":
+            stages.append(n)
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for stage in stages:
+        key = stage.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(stage)
+    return unique
+
+
 def _decode_bytes(content: bytes) -> str:
     for encoding in ("utf-8-sig", "cp1252", "latin-1"):
         try:
