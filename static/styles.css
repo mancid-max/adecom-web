@@ -2333,6 +2333,17 @@ body {
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.34);
   display: grid;
   gap: 6px;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.985);
+  transform-origin: top left;
+  pointer-events: none;
+  transition: opacity .26s ease, transform .32s cubic-bezier(.22,.61,.36,1);
+}
+
+.top-nav-group[open] .top-nav-menu {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 
 .top-nav-menu-item {
@@ -2348,6 +2359,37 @@ body {
   text-transform: uppercase;
   letter-spacing: .06em;
   transition: transform .24s cubic-bezier(.22,.61,.36,1), box-shadow .28s ease, border-color .26s ease, background-color .26s ease, color .26s ease;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.top-nav-group[open] .top-nav-menu-item {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity .34s ease,
+    transform .34s cubic-bezier(.22,.61,.36,1),
+    box-shadow .28s ease,
+    border-color .26s ease,
+    background-color .26s ease,
+    color .26s ease;
+}
+
+.top-nav-group[open] .top-nav-menu-item:nth-child(1) { transition-delay: .02s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(2) { transition-delay: .06s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(3) { transition-delay: .10s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(4) { transition-delay: .14s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(5) { transition-delay: .18s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(6) { transition-delay: .22s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(7) { transition-delay: .26s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(8) { transition-delay: .30s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(9) { transition-delay: .34s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(10) { transition-delay: .38s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(11) { transition-delay: .42s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(12) { transition-delay: .46s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(13) { transition-delay: .50s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(14) { transition-delay: .54s; }
+.top-nav-group[open] .top-nav-menu-item:nth-child(15) { transition-delay: .58s; }
 }
 
 .top-nav-menu-item:hover {

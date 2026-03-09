@@ -1096,6 +1096,25 @@
         });
       }
 
+      const topNavGroups = Array.from(document.querySelectorAll(".top-nav-group"));
+      topNavGroups.forEach((group) => {
+        group.addEventListener("toggle", () => {
+          if (!group.open) return;
+          topNavGroups.forEach((other) => {
+            if (other !== group && other.open) other.removeAttribute("open");
+          });
+        });
+      });
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const insideAnyGroup = topNavGroups.some((group) => group.contains(target));
+        if (insideAnyGroup) return;
+        topNavGroups.forEach((group) => {
+          if (group.open) group.removeAttribute("open");
+        });
+      });
+
       const openIdToModalId = {
         openBodegaModal: "bodegaModal",
         openMuestrasModal: "muestrasModal",
