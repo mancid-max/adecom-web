@@ -1385,6 +1385,34 @@ td.etapas-fecha {
   font-weight: 700;
 }
 
+.variante-group {
+  margin-top: 4px;
+}
+
+.variante-group-title {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #73675a;
+  font-weight: 700;
+}
+
+.variante-group-saldo .variante-group-title {
+  color: #2f6a5d;
+}
+
+.variante-chip-saldo {
+  background: #edf8f3;
+  border-color: #a9d8c4;
+  color: #1e5a4b;
+}
+
+.variante-chip-empty {
+  opacity: .82;
+}
+
 .ventas-talla-curve-card {
   margin-top: 10px;
   padding: 10px 12px;
@@ -1956,6 +1984,24 @@ td.etapas-fecha {
 
 .app-shell .variante-chip-total {
   color: #e7ecf9;
+}
+
+.app-shell .variante-group-title {
+  color: #8891a6;
+}
+
+.app-shell .variante-group-saldo .variante-group-title {
+  color: #7fc5ab;
+}
+
+.app-shell .variante-chip-saldo {
+  background: rgba(55, 161, 122, 0.16);
+  border-color: rgba(55, 161, 122, 0.38);
+  color: #98e7c9;
+}
+
+.app-shell .variante-chip-empty {
+  opacity: .72;
 }
 
 .app-shell .etapa-chip-start {

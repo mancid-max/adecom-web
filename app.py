@@ -1800,6 +1800,7 @@ def index():
     elif filters["q"] and not rows and pedidos_count == 0:
         search_error = "No se encontraron resultados. Escriba el articulo completo o familia. Ej: 01420100 o 4201."
     ventas_rows = pedidos_sections.get("ventas", [])
+    saldo_rows = pedidos_sections.get("saldo", [])
     ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
     ventas_por_articulo: dict[str, int] = {}
     ventas_por_familia: dict[str, dict] = {}
@@ -1820,8 +1821,10 @@ def index():
             ventas_por_familia[familia] = {
                 "familia": familia,
                 "total": 0,
+                "saldo_total": 0,
                 "articulos": {},
                 "sufijos": {},
+                "sufijos_saldo": {},
             }
         ventas_por_familia[familia]["total"] += total
         if articulo not in ventas_por_familia[familia]["articulos"]:
@@ -1841,11 +1844,39 @@ def index():
             }
         ventas_por_familia[familia]["sufijos"][sufijo_key]["total"] += total
 
+    for r in saldo_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        total = int(r.get("total") or 0)
+        if not articulo:
+            continue
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        if familia not in ventas_por_familia:
+            ventas_por_familia[familia] = {
+                "familia": familia,
+                "total": 0,
+                "saldo_total": 0,
+                "articulos": {},
+                "sufijos": {},
+                "sufijos_saldo": {},
+            }
+        ventas_por_familia[familia]["saldo_total"] += total
+        prefijo = articulo[:2] if len(articulo) >= 2 else ""
+        sufijo = articulo[-2:] if len(articulo) >= 2 else articulo
+        sufijo_key = f"{prefijo}|{sufijo}"
+        if sufijo_key not in ventas_por_familia[familia]["sufijos_saldo"]:
+            ventas_por_familia[familia]["sufijos_saldo"][sufijo_key] = {
+                "prefijo": prefijo,
+                "sufijo": sufijo,
+                "total": 0,
+            }
+        ventas_por_familia[familia]["sufijos_saldo"][sufijo_key]["total"] += total
+
     ventas_grouped = sorted(
         [
             {
                 "familia": g["familia"],
                 "total": g["total"],
+                "saldo_total": g["saldo_total"],
                 "articulos": sorted(
                     g["articulos"].values(),
                     key=lambda v: v["total"],
@@ -1853,6 +1884,11 @@ def index():
                 ),
                 "sufijos": sorted(
                     g["sufijos"].values(),
+                    key=lambda s: s["total"],
+                    reverse=True,
+                ),
+                "sufijos_saldo": sorted(
+                    g["sufijos_saldo"].values(),
                     key=lambda s: s["total"],
                     reverse=True,
                 ),

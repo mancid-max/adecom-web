@@ -645,17 +645,34 @@
             </thead>
             <tbody>
               {% for g in ventas_grouped %}
-              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ g.sufijos|length }}">
+              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}">
                 <td>{{ g.familia }}</td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
-                  {% for s in g.sufijos %}
-                    <span class="variante-chip">
-                      <span class="variante-chip-code">{{ s.sufijo }}</span>
-                      <span class="variante-chip-sep"> : </span>
-                      <span class="variante-chip-total">{{ s.total|miles }}</span>
-                    </span>
-                  {% endfor %}
+                  <div class="variante-group">
+                    <span class="variante-group-title">Pedidos</span>
+                    {% for s in g.sufijos %}
+                      <span class="variante-chip">
+                        <span class="variante-chip-code">{{ s.sufijo }}</span>
+                        <span class="variante-chip-sep"> : </span>
+                        <span class="variante-chip-total">{{ s.total|miles }}</span>
+                      </span>
+                    {% else %}
+                      <span class="variante-chip variante-chip-empty">-</span>
+                    {% endfor %}
+                  </div>
+                  <div class="variante-group variante-group-saldo">
+                    <span class="variante-group-title">Saldo</span>
+                    {% for s in g.sufijos_saldo %}
+                      <span class="variante-chip variante-chip-saldo">
+                        <span class="variante-chip-code">{{ s.sufijo }}</span>
+                        <span class="variante-chip-sep"> : </span>
+                        <span class="variante-chip-total">{{ s.total|miles }}</span>
+                      </span>
+                    {% else %}
+                      <span class="variante-chip variante-chip-empty">-</span>
+                    {% endfor %}
+                  </div>
                 </td>
               </tr>
               {% else %}
@@ -746,6 +763,12 @@
             {% for s in ventas_top_familia.sufijos %}
               <article class="sufijo-card">
                 <h4>{{ s.sufijo }}</h4>
+                <p>{{ s.total|miles }}</p>
+              </article>
+            {% endfor %}
+            {% for s in ventas_top_familia.sufijos_saldo %}
+              <article class="sufijo-card">
+                <h4>{{ s.sufijo }} (Saldo)</h4>
                 <p>{{ s.total|miles }}</p>
               </article>
             {% endfor %}
