@@ -82,6 +82,18 @@ AREA_WEIGHTS = {
     "LAVANDERIA": 600,
     "TERMINACION": 600,
 }
+DEFAULT_LAVANDERIA_BOTAS = [
+    "Oxford",
+    "Flared",
+    "Pitillo",
+    "Recto",
+    "Tobillero",
+    "Cargo",
+    "Palazzo",
+    "Wide Legs",
+    "Falda",
+    "Falda/Short",
+]
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -234,6 +246,8 @@ def other_section():
     empleado = str(request.args.get("empleado") or "").strip()
     data = query_lavanderia_productividad(DB_PATH, fecha=fecha, empleado=empleado, limit_rows=400)
     catalogos = query_lavanderia_catalogos(DB_PATH)
+    if not (catalogos.get("botas") or []):
+        catalogos["botas"] = DEFAULT_LAVANDERIA_BOTAS[:]
     etapa_defaults = {
         str(item.get("etapa") or "").strip(): float(item.get("min_por_prenda") or 0)
         for item in (data.get("top_etapas") or [])
