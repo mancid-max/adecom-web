@@ -27,6 +27,32 @@ python app.py
 
 Luego abrir `http://127.0.0.1:5000`
 
+## Trabajar con PostgreSQL (Railway)
+
+La app ya soporta Postgres por `DATABASE_URL`.
+
+1. Crea una base PostgreSQL (Railway, Supabase o Neon) y copia su `DATABASE_URL`.
+2. Define variables:
+
+```text
+DATABASE_URL=postgresql://...
+ADECOM_ENABLE_SEED=0
+```
+
+3. Si ya tienes data local en `data/adecom.db`, migrala:
+
+```powershell
+python .\scripts\migrate_sqlite_to_postgres.py --database-url "postgresql://..."
+```
+
+4. Inicia la app normalmente:
+
+```powershell
+python app.py
+```
+
+Con eso, toda lectura/escritura queda en PostgreSQL.
+
 ## Deploy recomendado (gratis y con almacenamiento): PythonAnywhere
 
 Si necesitas algo gratis que no se suspenda tan rapido como Render y que guarde tu SQLite, esta opcion suele funcionar mejor para este proyecto.
@@ -96,6 +122,19 @@ Si quieres que solo administradores puedan subir archivos:
 - `ADECOM_ADMIN_KEY=tu_clave_segura`
 
 Con esa variable activa, la web queda en modo lectura para todos y solo quien ingrese la clave en `Entrar modo carga` vera los botones de importacion.
+
+## Landing separada para otro usuario
+
+Puedes habilitar una landing independiente con una clave propia:
+
+```text
+ADECOM_ENABLE_OTHER_SECTION=1
+ADECOM_ACCESS_KEY_OTHER=tu_clave_segura
+```
+
+- Login: usa solo `clave` para este acceso.
+- Ruta de destino: `/otra-landing`.
+- El acceso principal ADECOM WEB sigue funcionando solo con clave.
 
 ## Asistente con Gemini (opcional)
 

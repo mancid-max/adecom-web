@@ -58,6 +58,7 @@ AUTO_REFRESH_WEB_POLL_SECONDS = max(int(os.environ.get("ADECOM_AUTO_REFRESH_WEB_
 AUTO_REFRESH_WEB_BACKGROUND = os.environ.get("ADECOM_AUTO_REFRESH_WEB_BACKGROUND", "1").strip() == "1"
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
+OTHER_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_OTHER_SECTION", "1").strip() == "1"
 PROYECCION_STATE_PATH = BASE_DIR / "data" / "proyeccion_personas.json"
 AREA_WEIGHTS = {
     "CORTE": 600,
@@ -93,6 +94,10 @@ def _access_key_new() -> str:
     return os.environ.get("ADECOM_ACCESS_KEY_NEW", "adecom-nueva").strip()
 
 
+def _access_key_other() -> str:
+    return os.environ.get("ADECOM_ACCESS_KEY_OTHER", "adecom-landing").strip()
+
+
 def _access_key_web_aliases() -> list[str]:
     raw = os.environ.get("ADECOM_ACCESS_KEY_WEB_ALIASES", "adecom-web,adecom,web")
     return [x.strip() for x in raw.split(",") if x.strip()]
@@ -112,7 +117,7 @@ def _portal_section() -> str:
 
 
 def _is_authenticated() -> bool:
-    return _portal_section() in {"web", "new"}
+    return _portal_section() in {"web", "new", "other"}
 
 
 @app.before_request
@@ -131,7 +136,12 @@ def _guard_portal_routes():
         if endpoint not in allowed_new:
             return redirect(url_for("new_section"))
 
-    if section == "web" and endpoint == "new_section":
+    if section == "other":
+        allowed_other = {"other_section", "logout", "static", "login"}
+        if endpoint not in allowed_other:
+            return redirect(url_for("other_section"))
+
+    if section == "web" and endpoint in {"new_section", "other_section"}:
         return redirect(url_for("index"))
 
 
@@ -147,6 +157,8 @@ def login():
     if _is_authenticated():
         if _portal_section() == "new":
             return redirect(url_for("new_section"))
+        if _portal_section() == "other":
+            return redirect(url_for("other_section"))
         return redirect(url_for("index"))
     return render_template("login.html")
 
@@ -156,6 +168,12 @@ def login_post():
     entered_key = str(request.form.get("access_key") or "").strip()
     web_keys = [_access_key_web(), *_access_key_web_aliases()]
     key_new = _access_key_new()
+    key_other = _access_key_other()
+    if OTHER_SECTION_ENABLED and entered_key and hmac.compare_digest(entered_key, key_other):
+        session["portal_section"] = "other"
+        session.permanent = True
+        return redirect(url_for("other_section"))
+
     if _match_any_key(entered_key, web_keys):
         session["portal_section"] = "web"
         session.permanent = True
@@ -184,6 +202,13 @@ def new_section():
     if not NEW_SECTION_ENABLED:
         return redirect(url_for("index"))
     return render_template("new_section.html")
+
+
+@app.get("/otra-landing")
+def other_section():
+    if not OTHER_SECTION_ENABLED:
+        return redirect(url_for("index"))
+    return render_template("other_section.html")
 
 
 def _norm_text(value: str) -> str:
