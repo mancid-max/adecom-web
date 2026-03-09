@@ -1407,6 +1407,11 @@ td.etapas-fecha {
   background: #edf8f3;
   border-color: #a9d8c4;
   color: #1e5a4b;
+  min-width: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .variante-chip-empty {

@@ -1871,6 +1871,16 @@ def index():
             }
         ventas_por_familia[familia]["sufijos_saldo"][sufijo_key]["total"] += total
 
+    def _sort_sufijos_saldo(items):
+        prioridad = {"00": 0, "01": 1, "60": 2}
+        return sorted(
+            items,
+            key=lambda s: (
+                prioridad.get(str(s.get("sufijo") or ""), 99),
+                str(s.get("sufijo") or ""),
+            ),
+        )
+
     ventas_grouped = sorted(
         [
             {
@@ -1887,10 +1897,8 @@ def index():
                     key=lambda s: s["total"],
                     reverse=True,
                 ),
-                "sufijos_saldo": sorted(
-                    g["sufijos_saldo"].values(),
-                    key=lambda s: s["total"],
-                    reverse=True,
+                "sufijos_saldo": _sort_sufijos_saldo(
+                    list(g["sufijos_saldo"].values())
                 ),
             }
             for g in ventas_por_familia.values()
