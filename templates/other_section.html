@@ -257,12 +257,12 @@
       <form method="post" action="{{ url_for('other_add_registro') }}" class="form-grid">
         <div class="field">
           <label>Bota</label>
-          <input name="bota" list="botaOptions" placeholder="Selecciona o escribe" required>
-          <datalist id="botaOptions">
+          <select name="bota" required>
+            <option value="">Selecciona bota</option>
             {% for b in catalogos.botas %}
-              <option value="{{ b }}"></option>
+              <option value="{{ b }}">{{ b }}</option>
             {% endfor %}
-          </datalist>
+          </select>
         </div>
         <div class="field">
           <label>Etapa *</label>
