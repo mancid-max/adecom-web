@@ -1630,6 +1630,7 @@ def _build_proyeccion_view(monthly_goal: int, rows: list[dict[str, object]]) -> 
                 # para areas extras (ej. ventas) sin peso fijo, repartir una fraccion minima
                 area_target = int(round(goal / max(len(month_areas), 1)))
             area_target_map[area] = area_target
+            area_daily_map = by_month_area_daily.get(month_key, {}).get(area, {})
             area_actual = sum(int(v) for v in area_daily_map.values())
             month_total += area_actual
             ratio = (area_actual / area_target) if area_target > 0 else 0.0
@@ -2349,5 +2350,11 @@ def export_csv():
 
 if __name__ == "__main__":
     init_db(DB_PATH)
-    app.run(debug=True)
+    debug_mode = os.environ.get("ADECOM_DEBUG", "0").strip() == "1"
+    app.run(
+        host="127.0.0.1",
+        port=int(os.environ.get("PORT", "5000")),
+        debug=debug_mode,
+        use_reloader=False,
+    )
 
