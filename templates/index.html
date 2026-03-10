@@ -641,11 +641,12 @@
                 <th class="sortable-th" data-sort-key="familia">Familia</th>
                 <th class="sortable-th" data-sort-key="total">Total familia</th>
                 <th class="sortable-th" data-sort-key="detalle">Detalle por familia</th>
+                <th class="sortable-th" data-sort-key="saldo">Total saldo</th>
               </tr>
             </thead>
             <tbody>
               {% for g in ventas_grouped %}
-              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}">
+              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
                 <td>{{ g.familia }}</td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
@@ -670,10 +671,11 @@
                     {% endfor %}
                   </div>
                 </td>
+                <td class="num">{{ g.saldo_total|miles }}</td>
               </tr>
               {% else %}
               <tr>
-                <td colspan="3" class="empty">Sin pedidos con los filtros actuales.</td>
+                <td colspan="4" class="empty">Sin pedidos con los filtros actuales.</td>
               </tr>
               {% endfor %}
             </tbody>
