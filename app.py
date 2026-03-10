@@ -10,7 +10,7 @@ import re
 import threading
 import time
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from difflib import SequenceMatcher
 from urllib import error as url_error
@@ -72,6 +72,8 @@ AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").str
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
 AUTO_REFRESH_WEB_POLL_SECONDS = max(int(os.environ.get("ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS", "60").strip() or "60"), 0)
 AUTO_REFRESH_WEB_BACKGROUND = os.environ.get("ADECOM_AUTO_REFRESH_WEB_BACKGROUND", "1").strip() == "1"
+AUTO_REFRESH_WEB_DAILY_TIME = os.environ.get("ADECOM_AUTO_REFRESH_WEB_DAILY_TIME", "").strip()
+AUTO_REFRESH_WEB_ONLY_DAILY = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ONLY_DAILY", "0").strip() == "1"
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
 OTHER_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_OTHER_SECTION", "1").strip() == "1"
@@ -108,6 +110,7 @@ PROYECCION_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 _refresh_lock = threading.Lock()
 _refresh_thread_started = False
 _last_sources_signature = ""
+_last_daily_refresh_date = ""
 
 
 def _admin_key() -> str:
@@ -1132,17 +1135,51 @@ def _auto_refresh_web_on_startup() -> None:
         app.logger.exception("Auto refresh web fallo al iniciar: %s", exc, exc_info=exc)
 
 
+def _parse_daily_time(value: str) -> tuple[int, int] | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    m = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", text)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
 def _auto_refresh_web_loop() -> None:
-    if AUTO_REFRESH_WEB_POLL_SECONDS <= 0:
-        app.logger.info("Auto refresh web en loop deshabilitado (ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS=0).")
+    daily_time = _parse_daily_time(AUTO_REFRESH_WEB_DAILY_TIME)
+    if not daily_time and AUTO_REFRESH_WEB_DAILY_TIME:
+        app.logger.warning(
+            "Hora diaria invalida en ADECOM_AUTO_REFRESH_WEB_DAILY_TIME=%s (usar HH:MM).",
+            AUTO_REFRESH_WEB_DAILY_TIME,
+        )
+    if AUTO_REFRESH_WEB_POLL_SECONDS <= 0 and not daily_time:
+        app.logger.info(
+            "Auto refresh web en loop deshabilitado (ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS=0 sin hora diaria)."
+        )
         return
-    app.logger.info("Auto refresh web loop activo cada %ss.", AUTO_REFRESH_WEB_POLL_SECONDS)
+    sleep_seconds = AUTO_REFRESH_WEB_POLL_SECONDS if AUTO_REFRESH_WEB_POLL_SECONDS > 0 else 30
+    app.logger.info(
+        "Auto refresh web loop activo cada %ss. Hora diaria=%s. Solo diario=%s.",
+        sleep_seconds,
+        AUTO_REFRESH_WEB_DAILY_TIME or "-",
+        "1" if AUTO_REFRESH_WEB_ONLY_DAILY else "0",
+    )
+    global _last_daily_refresh_date
     while True:
-        time.sleep(AUTO_REFRESH_WEB_POLL_SECONDS)
+        time.sleep(sleep_seconds)
         try:
-            changed = _refresh_if_sources_changed(force=False)
-            if changed:
-                app.logger.info("Cambio detectado en fuentes. Data web actualizada automaticamente.")
+            if daily_time:
+                now = datetime.now()
+                hh, mm = daily_time
+                today_key = now.date().isoformat()
+                if now.hour == hh and now.minute == mm and _last_daily_refresh_date != today_key:
+                    _refresh_if_sources_changed(force=True)
+                    _last_daily_refresh_date = today_key
+                    app.logger.info("Actualizacion diaria ejecutada (%s).", AUTO_REFRESH_WEB_DAILY_TIME)
+            if AUTO_REFRESH_WEB_POLL_SECONDS > 0 and not AUTO_REFRESH_WEB_ONLY_DAILY:
+                changed = _refresh_if_sources_changed(force=False)
+                if changed:
+                    app.logger.info("Cambio detectado en fuentes. Data web actualizada automaticamente.")
         except Exception as exc:
             app.logger.warning("Auto refresh web loop: %s", exc)
 
