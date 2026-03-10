@@ -1406,12 +1406,22 @@ td.etapas-fecha {
   gap: 4px;
 }
 
-.familia-click-row {
+.familia-open-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: .02em;
   cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
 }
 
-.familia-click-row:hover td {
-  background: rgba(42, 54, 82, 0.16);
+.familia-open-btn:hover {
+  background: rgba(42, 54, 82, 0.2);
+  border-color: rgba(42, 54, 82, 0.45);
 }
 
 .variante-group {
@@ -2037,8 +2047,13 @@ td.etapas-fecha {
   color: #8dd6ba;
 }
 
-.app-shell .familia-click-row:hover td {
+.app-shell .familia-open-btn {
+  color: #dbe2f2;
+}
+
+.app-shell .familia-open-btn:hover {
   background: rgba(89, 106, 145, 0.2);
+  border-color: rgba(119, 136, 178, 0.45);
 }
 
 .app-shell .variante-chip-empty {

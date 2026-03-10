@@ -1832,10 +1832,13 @@ def index():
     comparativo_summary = query_comparativo_clientes(DB_PATH, "")
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
+    search_success = ""
     if filters["articulo_exact"] and not rows:
         search_error = "Articulo no encontrado"
     elif filters["q"] and not rows and pedidos_count == 0:
         search_error = "No se encontraron resultados. Escriba el articulo completo o familia. Ej: 01420100 o 4201."
+    elif (filters["articulo_exact"] or filters["q"]) and (rows or pedidos_count > 0):
+        search_success = "Encontrado"
     ventas_rows = pedidos_sections.get("ventas", [])
     saldo_rows = pedidos_sections.get("saldo", [])
     ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
@@ -2046,6 +2049,7 @@ def index():
         exs_summary=exs_summary,
         comparativo_summary=comparativo_summary,
         search_error=search_error,
+        search_success=search_success,
         filters=filters,
         bodega_rows=bodega_rows,
         bodega_total=bodega_total,

@@ -123,6 +123,15 @@
           </div>
         </div>
       </section>
+    {% elif search_success %}
+      <section class="search-alert-top-wrap">
+        <div class="search-alert search-alert-top search-alert-success" id="searchAlertTop" role="status" aria-live="polite">
+          <div class="search-alert-body">
+            <span>{{ search_success }}</span>
+            <button type="button" class="search-alert-close" aria-label="Cerrar alerta">X</button>
+          </div>
+        </div>
+      </section>
     {% endif %}
 
     {% if upload_debug %}
@@ -646,8 +655,17 @@
             </thead>
             <tbody>
               {% for g in ventas_grouped %}
-              <tr class="familia-click-row" data-open-familia="{{ g.familia }}" data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
-                <td>{{ g.familia }}</td>
+              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
+                <td>
+                  <button
+                    type="button"
+                    class="familia-open-btn"
+                    data-open-familia="{{ g.familia }}"
+                    aria-label="Ver detalle familia {{ g.familia }}"
+                  >
+                    {{ g.familia }}
+                  </button>
+                </td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
                   <div class="variante-pair-grid">
@@ -2203,9 +2221,9 @@
         modal.showModal();
       };
 
-      document.querySelectorAll("tr[data-open-familia]").forEach((row) => {
-        row.addEventListener("click", () => {
-          openFamilia(row.getAttribute("data-open-familia") || "");
+      document.querySelectorAll("[data-open-familia]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openFamilia(btn.getAttribute("data-open-familia") || "");
         });
       });
 
