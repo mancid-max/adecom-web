@@ -703,6 +703,20 @@
             </tbody>
           </table>
         </section>
+        <section class="table-wrap">
+          <h4 class="metas-subtitle">Vendido por talla</h4>
+          <table class="bodega-table" id="familiaTallasTable">
+            <thead>
+              <tr>
+                <th>Talla</th>
+                <th>Cantidad vendida</th>
+              </tr>
+            </thead>
+            <tbody id="familiaTallasBody">
+              <tr><td colspan="2" class="empty">Sin datos por talla.</td></tr>
+            </tbody>
+          </table>
+        </section>
       </dialog>
 
       <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
@@ -2114,8 +2128,9 @@
       const closeBtn = document.getElementById("closeFamiliaDetalleModal");
       const title = document.getElementById("familiaDetalleTitle");
       const body = document.getElementById("familiaDetalleGridBody");
+      const tallasBody = document.getElementById("familiaTallasBody");
       const dataNode = document.getElementById("ventasFamiliasData");
-      if (!modal || !closeBtn || !title || !body || !dataNode) return;
+      if (!modal || !closeBtn || !title || !body || !tallasBody || !dataNode) return;
 
       let familias = [];
       try {
@@ -2135,6 +2150,7 @@
         const item = byFamilia.get(String(familia || ""));
         if (!item) return;
         const comp = Array.isArray(item.sufijos_comp) ? item.sufijos_comp : [];
+        const tallas = Array.isArray(item.tallas) ? item.tallas : [];
 
         title.textContent = `Detalle familia ${item.familia}`;
 
@@ -2172,6 +2188,17 @@
               <td class="num">${fmt(item.saldo_total || 0)}</td>
             </tr>
           `;
+        }
+        if (!tallas.length) {
+          tallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin datos por talla.</td></tr>';
+        } else {
+          tallasBody.innerHTML = tallas
+            .map((t) => {
+              const talla = Number(t.talla || 0);
+              const total = fmt(t.total || 0);
+              return `<tr><td>${talla}</td><td class="num">${total}</td></tr>`;
+            })
+            .join("");
         }
         modal.showModal();
       };
