@@ -646,17 +646,8 @@
             </thead>
             <tbody>
               {% for g in ventas_grouped %}
-              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
-                <td>
-                  <button
-                    type="button"
-                    class="familia-open-btn"
-                    data-open-familia="{{ g.familia }}"
-                    aria-label="Ver detalle familia {{ g.familia }}"
-                  >
-                    {{ g.familia }}
-                  </button>
-                </td>
+              <tr class="familia-click-row" data-open-familia="{{ g.familia }}" data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
+                <td>{{ g.familia }}</td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
                   <div class="variante-pair-grid">
@@ -697,31 +688,18 @@
           <h3 id="familiaDetalleTitle">Detalle familia</h3>
           <button type="button" id="closeFamiliaDetalleModal" class="modal-close">Cerrar</button>
         </div>
-        <div class="modal-kpis">
-          <article>
-            <h4>Total cortado</h4>
-            <p id="familiaDetalleTotalCortado">0</p>
-          </article>
-          <article>
-            <h4>Total saldo</h4>
-            <p id="familiaDetalleTotalSaldo">0</p>
-          </article>
-          <article>
-            <h4>Codigos</h4>
-            <p id="familiaDetalleTotalCodigos">0</p>
-          </article>
-        </div>
         <section class="table-wrap">
-          <table class="bodega-table" id="familiaDetalleTable">
+          <table class="bodega-table" id="familiaDetalleGridTable">
             <thead>
               <tr>
-                <th>Codigo</th>
-                <th>Cantidad cortada</th>
-                <th>Saldo</th>
+                <th>Familia</th>
+                <th>Total familia</th>
+                <th>Detalle por familia</th>
+                <th>Total saldo</th>
               </tr>
             </thead>
-            <tbody id="familiaDetalleBody">
-              <tr><td colspan="3" class="empty">Sin datos.</td></tr>
+            <tbody id="familiaDetalleGridBody">
+              <tr><td colspan="4" class="empty">Sin datos.</td></tr>
             </tbody>
           </table>
         </section>
@@ -2135,12 +2113,9 @@
       const modal = document.getElementById("familiaDetalleModal");
       const closeBtn = document.getElementById("closeFamiliaDetalleModal");
       const title = document.getElementById("familiaDetalleTitle");
-      const totalCortado = document.getElementById("familiaDetalleTotalCortado");
-      const totalSaldo = document.getElementById("familiaDetalleTotalSaldo");
-      const totalCodigos = document.getElementById("familiaDetalleTotalCodigos");
-      const body = document.getElementById("familiaDetalleBody");
+      const body = document.getElementById("familiaDetalleGridBody");
       const dataNode = document.getElementById("ventasFamiliasData");
-      if (!modal || !closeBtn || !title || !totalCortado || !totalSaldo || !totalCodigos || !body || !dataNode) return;
+      if (!modal || !closeBtn || !title || !body || !dataNode) return;
 
       let familias = [];
       try {
@@ -2162,28 +2137,48 @@
         const comp = Array.isArray(item.sufijos_comp) ? item.sufijos_comp : [];
 
         title.textContent = `Detalle familia ${item.familia}`;
-        totalCortado.textContent = fmt(item.total || 0);
-        totalSaldo.textContent = fmt(item.saldo_total || 0);
-        totalCodigos.textContent = fmt(comp.length);
 
         if (!comp.length) {
-          body.innerHTML = '<tr><td colspan="3" class="empty">Sin datos.</td></tr>';
+          body.innerHTML = '<tr><td colspan="4" class="empty">Sin datos.</td></tr>';
         } else {
-          body.innerHTML = comp
+          const detalle = comp
             .map((s) => {
               const sufijo = String(s.sufijo || "-");
               const pedidos = fmt(s.pedidos_total || 0);
               const saldo = fmt(s.saldo_total || 0);
-              return `<tr><td>${sufijo}</td><td class="num">${pedidos}</td><td class="num">${saldo}</td></tr>`;
+              return `
+                <div class="variante-pair">
+                  <span class="variante-chip">
+                    <span class="variante-chip-prefix">Pedidos</span>
+                    <span class="variante-chip-code">${sufijo}</span>
+                    <span class="variante-chip-sep"> : </span>
+                    <span class="variante-chip-total">${pedidos}</span>
+                  </span>
+                  <span class="variante-chip variante-chip-saldo">
+                    <span class="variante-chip-prefix">Saldo</span>
+                    <span class="variante-chip-code">${sufijo}</span>
+                    <span class="variante-chip-sep"> : </span>
+                    <span class="variante-chip-total">${saldo}</span>
+                  </span>
+                </div>
+              `;
             })
             .join("");
+          body.innerHTML = `
+            <tr>
+              <td>${item.familia}</td>
+              <td class="num">${fmt(item.total || 0)}</td>
+              <td><div class="variante-pair-grid">${detalle}</div></td>
+              <td class="num">${fmt(item.saldo_total || 0)}</td>
+            </tr>
+          `;
         }
         modal.showModal();
       };
 
-      document.querySelectorAll("[data-open-familia]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          openFamilia(btn.getAttribute("data-open-familia") || "");
+      document.querySelectorAll("tr[data-open-familia]").forEach((row) => {
+        row.addEventListener("click", () => {
+          openFamilia(row.getAttribute("data-open-familia") || "");
         });
       });
 
