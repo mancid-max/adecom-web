@@ -1406,6 +1406,24 @@ td.etapas-fecha {
   gap: 4px;
 }
 
+.familia-open-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.familia-open-btn:hover {
+  background: rgba(42, 54, 82, 0.2);
+  border-color: rgba(42, 54, 82, 0.45);
+}
+
 .variante-group {
   margin-top: 4px;
 }
@@ -2027,6 +2045,15 @@ td.etapas-fecha {
 
 .app-shell .variante-chip-saldo .variante-chip-prefix {
   color: #8dd6ba;
+}
+
+.app-shell .familia-open-btn {
+  color: #dbe2f2;
+}
+
+.app-shell .familia-open-btn:hover {
+  background: rgba(89, 106, 145, 0.2);
+  border-color: rgba(119, 136, 178, 0.45);
 }
 
 .app-shell .variante-chip-empty {

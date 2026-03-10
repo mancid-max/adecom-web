@@ -647,7 +647,16 @@
             <tbody>
               {% for g in ventas_grouped %}
               <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
-                <td>{{ g.familia }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="familia-open-btn"
+                    data-open-familia="{{ g.familia }}"
+                    aria-label="Ver detalle familia {{ g.familia }}"
+                  >
+                    {{ g.familia }}
+                  </button>
+                </td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
                   <div class="variante-pair-grid">
@@ -682,6 +691,43 @@
           </table>
         </section>
       </dialog>
+
+      <dialog id="familiaDetalleModal" class="modal modal-familia-detalle">
+        <div class="modal-head">
+          <h3 id="familiaDetalleTitle">Detalle familia</h3>
+          <button type="button" id="closeFamiliaDetalleModal" class="modal-close">Cerrar</button>
+        </div>
+        <div class="modal-kpis">
+          <article>
+            <h4>Total cortado</h4>
+            <p id="familiaDetalleTotalCortado">0</p>
+          </article>
+          <article>
+            <h4>Total saldo</h4>
+            <p id="familiaDetalleTotalSaldo">0</p>
+          </article>
+          <article>
+            <h4>Codigos</h4>
+            <p id="familiaDetalleTotalCodigos">0</p>
+          </article>
+        </div>
+        <section class="table-wrap">
+          <table class="bodega-table" id="familiaDetalleTable">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Cantidad cortada</th>
+                <th>Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="familiaDetalleBody">
+              <tr><td colspan="3" class="empty">Sin datos.</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </dialog>
+
+      <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
 
       <dialog id="ventasDetalleModal" class="modal modal-ventas-dashboard">
         <div class="modal-head">
@@ -2083,6 +2129,68 @@
       setupHeaderSort("topArticulosTable");
       setupHeaderSort("exsTable");
       setupHeaderSort("comparativoClientesTable");
+    })();
+
+    (function () {
+      const modal = document.getElementById("familiaDetalleModal");
+      const closeBtn = document.getElementById("closeFamiliaDetalleModal");
+      const title = document.getElementById("familiaDetalleTitle");
+      const totalCortado = document.getElementById("familiaDetalleTotalCortado");
+      const totalSaldo = document.getElementById("familiaDetalleTotalSaldo");
+      const totalCodigos = document.getElementById("familiaDetalleTotalCodigos");
+      const body = document.getElementById("familiaDetalleBody");
+      const dataNode = document.getElementById("ventasFamiliasData");
+      if (!modal || !closeBtn || !title || !totalCortado || !totalSaldo || !totalCodigos || !body || !dataNode) return;
+
+      let familias = [];
+      try {
+        familias = JSON.parse(dataNode.textContent || "[]");
+      } catch (e) {
+        familias = [];
+      }
+      const byFamilia = new Map(familias.map((item) => [String(item.familia || ""), item]));
+
+      const fmt = (n) => {
+        const num = Number(n || 0);
+        if (Number.isNaN(num)) return "0";
+        return num.toLocaleString("es-CL");
+      };
+
+      const openFamilia = (familia) => {
+        const item = byFamilia.get(String(familia || ""));
+        if (!item) return;
+        const comp = Array.isArray(item.sufijos_comp) ? item.sufijos_comp : [];
+
+        title.textContent = `Detalle familia ${item.familia}`;
+        totalCortado.textContent = fmt(item.total || 0);
+        totalSaldo.textContent = fmt(item.saldo_total || 0);
+        totalCodigos.textContent = fmt(comp.length);
+
+        if (!comp.length) {
+          body.innerHTML = '<tr><td colspan="3" class="empty">Sin datos.</td></tr>';
+        } else {
+          body.innerHTML = comp
+            .map((s) => {
+              const sufijo = String(s.sufijo || "-");
+              const pedidos = fmt(s.pedidos_total || 0);
+              const saldo = fmt(s.saldo_total || 0);
+              return `<tr><td>${sufijo}</td><td class="num">${pedidos}</td><td class="num">${saldo}</td></tr>`;
+            })
+            .join("");
+        }
+        modal.showModal();
+      };
+
+      document.querySelectorAll("[data-open-familia]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openFamilia(btn.getAttribute("data-open-familia") || "");
+        });
+      });
+
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) modal.close();
+      });
     })();
 
     (function () {
