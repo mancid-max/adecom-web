@@ -1864,6 +1864,13 @@ def index():
                 "sufijos_saldo": {},
                 "tallas": {},
                 "tallas_corte": {},
+                "articulos_tallas": {},
+            }
+        if articulo not in ventas_por_familia[familia]["articulos_tallas"]:
+            ventas_por_familia[familia]["articulos_tallas"][articulo] = {
+                "articulo": articulo,
+                "vendida": {},
+                "cortada": {},
             }
         for item in r.get("tallas_items") or []:
             talla = int(item.get("talla") or 0)
@@ -1872,6 +1879,10 @@ def index():
                 ventas_por_talla[talla] = ventas_por_talla.get(talla, 0) + cantidad
                 ventas_por_familia[familia]["tallas"][talla] = (
                     int(ventas_por_familia[familia]["tallas"].get(talla) or 0) + cantidad
+                )
+                ventas_por_familia[familia]["articulos_tallas"][articulo]["vendida"][talla] = (
+                    int(ventas_por_familia[familia]["articulos_tallas"][articulo]["vendida"].get(talla) or 0)
+                    + cantidad
                 )
         ventas_por_familia[familia]["total"] += total
         if articulo not in ventas_por_familia[familia]["articulos"]:
@@ -1907,6 +1918,7 @@ def index():
                 "sufijos_saldo": {},
                 "tallas": {},
                 "tallas_corte": {},
+                "articulos_tallas": {},
             }
         ventas_por_familia[familia]["saldo_total"] += total
         prefijo = articulo[:2] if len(articulo) >= 2 else ""
@@ -1935,6 +1947,13 @@ def index():
                 "sufijos_saldo": {},
                 "tallas": {},
                 "tallas_corte": {},
+                "articulos_tallas": {},
+            }
+        if articulo not in ventas_por_familia[familia]["articulos_tallas"]:
+            ventas_por_familia[familia]["articulos_tallas"][articulo] = {
+                "articulo": articulo,
+                "vendida": {},
+                "cortada": {},
             }
         for item in r.get("tallas_items") or []:
             talla = int(item.get("talla") or 0)
@@ -1942,6 +1961,10 @@ def index():
             if talla > 0:
                 ventas_por_familia[familia]["tallas_corte"][talla] = (
                     int(ventas_por_familia[familia]["tallas_corte"].get(talla) or 0) + cantidad
+                )
+                ventas_por_familia[familia]["articulos_tallas"][articulo]["cortada"][talla] = (
+                    int(ventas_por_familia[familia]["articulos_tallas"][articulo]["cortada"].get(talla) or 0)
+                    + cantidad
                 )
 
     def _sort_sufijo_keys(keys):
@@ -2000,6 +2023,7 @@ def index():
                 "familia": g["familia"],
                 "total": g["total"],
                 "saldo_total": g["saldo_total"],
+                "cortado_total": sum(int(v) for v in (g.get("tallas_corte") or {}).values()),
                 "articulos": sorted(
                     g["articulos"].values(),
                     key=lambda v: v["total"],
@@ -2026,6 +2050,25 @@ def index():
                         )
                     ],
                     key=lambda x: x["talla"],
+                ),
+                "articulos_tallas": sorted(
+                    [
+                        {
+                            "articulo": a.get("articulo"),
+                            "tallas": [
+                                {
+                                    "talla": talla,
+                                    "vendida": int((a.get("vendida") or {}).get(talla) or 0),
+                                    "cortada": int((a.get("cortada") or {}).get(talla) or 0),
+                                }
+                                for talla in sorted(
+                                    set((a.get("vendida") or {}).keys()) | set((a.get("cortada") or {}).keys())
+                                )
+                            ],
+                        }
+                        for a in (g.get("articulos_tallas") or {}).values()
+                    ],
+                    key=lambda x: str(x.get("articulo") or ""),
                 ),
             }
             for g in ventas_por_familia.values()

@@ -714,10 +714,11 @@
                 <th>Total familia</th>
                 <th>Detalle por familia</th>
                 <th>Total saldo</th>
+                <th>Total cortado</th>
               </tr>
             </thead>
             <tbody id="familiaDetalleGridBody">
-              <tr><td colspan="4" class="empty">Sin datos.</td></tr>
+              <tr><td colspan="5" class="empty">Sin datos.</td></tr>
             </tbody>
           </table>
         </section>
@@ -733,6 +734,20 @@
             </thead>
             <tbody id="familiaTallasBody">
               <tr><td colspan="3" class="empty">Sin datos por talla.</td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section class="table-wrap">
+          <h4 class="metas-subtitle">Tallas por articulo de la familia</h4>
+          <table class="bodega-table" id="familiaArticulosTallasTable">
+            <thead>
+              <tr>
+                <th>Articulo</th>
+                <th>Detalle tallas (V/C)</th>
+              </tr>
+            </thead>
+            <tbody id="familiaArticulosTallasBody">
+              <tr><td colspan="2" class="empty">Sin detalle por articulo.</td></tr>
             </tbody>
           </table>
         </section>
@@ -2148,8 +2163,9 @@
       const title = document.getElementById("familiaDetalleTitle");
       const body = document.getElementById("familiaDetalleGridBody");
       const tallasBody = document.getElementById("familiaTallasBody");
+      const articulosTallasBody = document.getElementById("familiaArticulosTallasBody");
       const dataNode = document.getElementById("ventasFamiliasData");
-      if (!modal || !closeBtn || !title || !body || !tallasBody || !dataNode) return;
+      if (!modal || !closeBtn || !title || !body || !tallasBody || !articulosTallasBody || !dataNode) return;
 
       let familias = [];
       try {
@@ -2170,11 +2186,12 @@
         if (!item) return;
         const comp = Array.isArray(item.sufijos_comp) ? item.sufijos_comp : [];
         const tallas = Array.isArray(item.tallas) ? item.tallas : [];
+        const articulosTallas = Array.isArray(item.articulos_tallas) ? item.articulos_tallas : [];
 
         title.textContent = `Detalle familia ${item.familia}`;
 
         if (!comp.length) {
-          body.innerHTML = '<tr><td colspan="4" class="empty">Sin datos.</td></tr>';
+          body.innerHTML = '<tr><td colspan="5" class="empty">Sin datos.</td></tr>';
         } else {
           const detalle = comp
             .map((s) => {
@@ -2205,6 +2222,7 @@
               <td class="num">${fmt(item.total || 0)}</td>
               <td><div class="variante-pair-grid">${detalle}</div></td>
               <td class="num">${fmt(item.saldo_total || 0)}</td>
+              <td class="num">${fmt(item.cortado_total || 0)}</td>
             </tr>
           `;
         }
@@ -2217,6 +2235,33 @@
               const vendida = fmt(t.vendida || 0);
               const cortada = fmt(t.cortada || 0);
               return `<tr><td>${talla}</td><td class="num">${vendida}</td><td class="num">${cortada}</td></tr>`;
+            })
+            .join("");
+        }
+        if (!articulosTallas.length) {
+          articulosTallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin detalle por articulo.</td></tr>';
+        } else {
+          articulosTallasBody.innerHTML = articulosTallas
+            .map((a) => {
+              const articuloRaw = String(a.articulo || "").trim();
+              const articulo = articuloRaw ? articuloRaw.slice(-2) : "-";
+              const tallasList = Array.isArray(a.tallas) ? a.tallas : [];
+              const detalle = tallasList.length
+                ? tallasList
+                    .map((t) => {
+                      const talla = Number(t.talla || 0);
+                      const vendida = fmt(t.vendida || 0);
+                      const cortada = fmt(t.cortada || 0);
+                      return `
+                        <span class="talla-chip">
+                          <span class="talla-label">T${talla}</span>
+                          <span class="talla-value">V ${vendida} / C ${cortada}</span>
+                        </span>
+                      `;
+                    })
+                    .join("")
+                : '<span class="talla-empty">Sin tallas</span>';
+              return `<tr><td><span class="codigo-familia-tag">${articulo}</span></td><td class="tallas-cell">${detalle}</td></tr>`;
             })
             .join("");
         }

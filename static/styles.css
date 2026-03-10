@@ -1631,6 +1631,37 @@ td.etapas-fecha {
   color: #6e665c;
 }
 
+.codigo-familia-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #efe3ce;
+  border: 1px solid #d3b486;
+  color: #6f4d22;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+
+.app-shell .talla-label {
+  color: #8fd7b6;
+  background: rgba(70, 163, 128, 0.18);
+  border-color: rgba(70, 163, 128, 0.34);
+}
+
+.app-shell .codigo-familia-tag {
+  background: rgba(209, 151, 78, 0.22);
+  border-color: rgba(209, 151, 78, 0.44);
+  color: #f2d9ac;
+}
+
+.app-shell .talla-value {
+  color: #d9e3f5;
+}
+
+.app-shell .talla-empty {
+  color: #9aa3b8;
+}
+
 .table-hint {
   margin: 2px 0 8px;
   font-size: 12px;
