@@ -2214,8 +2214,8 @@
           tallasBody.innerHTML = tallas
             .map((t) => {
               const talla = Number(t.talla || 0);
-              const vendida = fmt(t.total || 0);
-              const cortada = fmt(t.total || 0);
+              const vendida = fmt(t.vendida || 0);
+              const cortada = fmt(t.cortada || 0);
               return `<tr><td>${talla}</td><td class="num">${vendida}</td><td class="num">${cortada}</td></tr>`;
             })
             .join("");

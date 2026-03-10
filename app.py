@@ -1842,6 +1842,7 @@ def index():
         search_success = "Encontrado"
     ventas_rows = pedidos_sections.get("ventas", [])
     saldo_rows = pedidos_sections.get("saldo", [])
+    corte_rows = pedidos_sections.get("corte", [])
     ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
     ventas_por_articulo: dict[str, int] = {}
     ventas_por_familia: dict[str, dict] = {}
@@ -1862,6 +1863,7 @@ def index():
                 "sufijos": {},
                 "sufijos_saldo": {},
                 "tallas": {},
+                "tallas_corte": {},
             }
         for item in r.get("tallas_items") or []:
             talla = int(item.get("talla") or 0)
@@ -1904,6 +1906,7 @@ def index():
                 "sufijos": {},
                 "sufijos_saldo": {},
                 "tallas": {},
+                "tallas_corte": {},
             }
         ventas_por_familia[familia]["saldo_total"] += total
         prefijo = articulo[:2] if len(articulo) >= 2 else ""
@@ -1916,6 +1919,30 @@ def index():
                 "total": 0,
             }
         ventas_por_familia[familia]["sufijos_saldo"][sufijo_key]["total"] += total
+
+    for r in corte_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        if not articulo:
+            continue
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        if familia not in ventas_por_familia:
+            ventas_por_familia[familia] = {
+                "familia": familia,
+                "total": 0,
+                "saldo_total": 0,
+                "articulos": {},
+                "sufijos": {},
+                "sufijos_saldo": {},
+                "tallas": {},
+                "tallas_corte": {},
+            }
+        for item in r.get("tallas_items") or []:
+            talla = int(item.get("talla") or 0)
+            cantidad = int(item.get("cantidad") or 0)
+            if talla > 0:
+                ventas_por_familia[familia]["tallas_corte"][talla] = (
+                    int(ventas_por_familia[familia]["tallas_corte"].get(talla) or 0) + cantidad
+                )
 
     def _sort_sufijo_keys(keys):
         prioridad = {"00": 0, "01": 1, "60": 2}
@@ -1989,8 +2016,14 @@ def index():
                 "sufijos_comp": _build_sufijos_comp(g),
                 "tallas": sorted(
                     [
-                        {"talla": talla, "total": int(total)}
-                        for talla, total in (g.get("tallas") or {}).items()
+                        {
+                            "talla": talla,
+                            "vendida": int((g.get("tallas") or {}).get(talla) or 0),
+                            "cortada": int((g.get("tallas_corte") or {}).get(talla) or 0),
+                        }
+                        for talla in sorted(
+                            set((g.get("tallas") or {}).keys()) | set((g.get("tallas_corte") or {}).keys())
+                        )
                     ],
                     key=lambda x: x["talla"],
                 ),
