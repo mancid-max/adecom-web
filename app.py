@@ -63,6 +63,8 @@ DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
+SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
+SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 AUTOLOAD_DIR = Path(
     os.environ.get(
         "ADECOM_AUTOLOAD_DIR",
@@ -1816,14 +1818,17 @@ def ensure_seed_data() -> None:
         pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
         if pedidos_rows:
             import_pedidos_talla_rows(DB_PATH, pedidos_rows)
+    if _table_count("comparativo_clientes") == 0 and SEED_COMPARATIVO.exists():
+        comparativo_rows = parse_comparativo_clientes_txt(SEED_COMPARATIVO.read_bytes())
+        if comparativo_rows:
+            import_comparativo_clientes_rows(DB_PATH, comparativo_rows)
+    if _table_count("deuda_clientes") == 0 and SEED_DEUDAS.exists():
+        deuda_rows = parse_deudas_vencidas_csv(SEED_DEUDAS.read_bytes())
+        if deuda_rows:
+            import_deuda_clientes_rows(DB_PATH, deuda_rows)
 
 
-# En despliegues, no sembrar datos automaticamente a menos que se solicite.
-# Esto evita "volver" a los datos del seed cuando el hosting reinicia con disco efimero.
-if os.environ.get("ADECOM_ENABLE_SEED", "0").strip() == "1":
-    ensure_seed_data()
-else:
-    init_db(DB_PATH)
+ensure_seed_data()
 
 _auto_refresh_web_on_startup()
 _start_auto_refresh_web_loop()
