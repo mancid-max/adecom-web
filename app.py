@@ -2125,7 +2125,23 @@ def index():
         key=lambda x: x["total"],
         reverse=True,
     )
-    bodega_rows = [row for row in rows if int(row.get("bodega") or 0) > 0]
+    corte_por_articulo = {
+        str(row.get("articulo") or "").strip(): {
+            "cortado_total": int(row.get("total") or 0),
+            "cortado_tallas_detalle": str(row.get("tallas_detalle") or "-"),
+        }
+        for row in corte_rows
+        if str(row.get("articulo") or "").strip()
+    }
+    bodega_rows = []
+    for row in rows:
+        if int(row.get("bodega") or 0) <= 0:
+            continue
+        articulo = str(row.get("articulo") or "").strip()
+        corte_info = corte_por_articulo.get(articulo) or {}
+        row["cortado_total"] = int(corte_info.get("cortado_total") or 0)
+        row["cortado_tallas_detalle"] = str(corte_info.get("cortado_tallas_detalle") or "-")
+        bodega_rows.append(row)
     bodega_total = sum(int(row.get("proceso") or 0) for row in bodega_rows)
     bodega_en_bodega = sum(int(row.get("bodega") or 0) for row in bodega_rows)
     bodega_restante = sum(int(row.get("pendiente_en_trazabilidad") or 0) for row in bodega_rows)

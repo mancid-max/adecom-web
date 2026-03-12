@@ -310,7 +310,9 @@
               data-corte="{{ row.corte }}"
               data-fecha="{{ row.fecha_iso or '' }}"
               data-total="{{ row.proceso }}"
+              data-cortado="{{ row.cortado_total }}"
               data-bodega="{{ row.bodega }}"
+              data-cortetallas="{{ row.cortado_tallas_detalle }}"
               data-restante="{{ row.pendiente_en_trazabilidad }}"
               data-restantedetalle="{{ row.restante_detalle }}"
               data-procesoactual="{{ row.proceso_actual or '' }}"
@@ -558,6 +560,10 @@
             <p id="dTotal">-</p>
           </article>
           <article>
+            <h4>Cortado</h4>
+            <p id="dCortado">-</p>
+          </article>
+          <article>
             <h4>En bodega</h4>
             <p id="dBodega" class="kpi-green">-</p>
           </article>
@@ -569,6 +575,11 @@
             <h4>Etapa actual</h4>
             <p><span id="dEtapa" class="estado-pill estado-pill-yellow">-</span></p>
           </article>
+        </div>
+
+        <div class="row-detail-timeline-wrap">
+          <h4>Corte por talla</h4>
+          <div id="dCorteTallas" class="row-detail-empty">-</div>
         </div>
 
         <div class="row-detail-timeline-wrap">
@@ -1173,9 +1184,15 @@
       </dialog>
 
       <dialog id="proyeccionModal" class="modal modal-metas">
+        <div class="modal-metas-shell">
         <div class="modal-head">
           <h3>Proyeccion semanal por area</h3>
-          <button type="button" id="closeProyeccionModal" class="modal-close">Cerrar</button>
+          <button
+            type="button"
+            id="closeProyeccionModal"
+            class="modal-close"
+            onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
+          >Cerrar</button>
         </div>
         <div class="metas-toolbar">
           {% if can_upload %}
@@ -1298,6 +1315,7 @@
         {% else %}
           <p class="empty">Aun no hay hoja cargada para proyeccion semanal.</p>
         {% endif %}
+        </div>
       </dialog>
 
       <dialog id="proyeccionDailyModal" class="modal modal-top-familia">
@@ -2160,18 +2178,30 @@
       const modal = document.getElementById("proyeccionModal");
       const openBtn = document.getElementById("openProyeccionModal");
       const closeBtn = document.getElementById("closeProyeccionModal");
-      if (!modal || !openBtn || !closeBtn) return;
+      const shell = modal ? modal.querySelector(".modal-metas-shell") : null;
+      if (!modal || !openBtn || !closeBtn || !shell) return;
+      const closeModal = () => {
+        try {
+          modal.close();
+        } catch (_) {
+          modal.removeAttribute("open");
+        }
+      };
 
       openBtn.addEventListener("click", () => modal.showModal());
-      closeBtn.addEventListener("click", () => modal.close());
+      closeBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeModal();
+      });
+      modal.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        closeModal();
+      });
       modal.addEventListener("click", (event) => {
-        const rect = modal.getBoundingClientRect();
-        const clickedInside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
+        if (event.target instanceof Node && !shell.contains(event.target)) {
+          closeModal();
+        }
       });
 
       const monthSelect = document.getElementById("proyeccionMonthSelect");
@@ -2671,6 +2701,8 @@
 
       const timelineEl = document.getElementById("dTimeline");
       const etapaEl = document.getElementById("dEtapa");
+      const cortadoEl = document.getElementById("dCortado");
+      const corteTallasEl = document.getElementById("dCorteTallas");
       const stageFromRow = (row) => {
         const checks = [
           ["bodega", "BODEGA"],
@@ -2763,8 +2795,10 @@
         document.getElementById("dCorte").textContent = row.dataset.corte || "-";
         document.getElementById("dFecha").textContent = toDisplayDate(row.dataset.fecha || "");
         document.getElementById("dTotal").textContent = row.dataset.total || row.dataset.proceso || "-";
+        if (cortadoEl) cortadoEl.textContent = row.dataset.cortado || "-";
         document.getElementById("dBodega").textContent = row.dataset.bodega || "-";
         document.getElementById("dRestante").textContent = row.dataset.restante || row.dataset.restantedetalle || "-";
+        if (corteTallasEl) corteTallasEl.textContent = row.dataset.cortetallas || "-";
         if (etapaEl) {
           etapaEl.textContent = etapa || "-";
           etapaEl.className = stageClass(etapa);

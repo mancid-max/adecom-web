@@ -3200,6 +3200,10 @@ body {
   width: min(1160px, 98vw);
 }
 
+.modal-metas-shell {
+  width: 100%;
+}
+
 .metas-toolbar {
   display: flex;
   align-items: center;
