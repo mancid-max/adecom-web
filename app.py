@@ -28,6 +28,7 @@ from adecom_db import (
     import_lavanderia_etapas_maestro,
     import_corte_etapas_rows,
     import_comparativo_clientes_rows,
+    import_deuda_clientes_rows,
     import_exs_map_rows,
     import_pedidos_talla_todas_rows,
     init_db,
@@ -42,6 +43,8 @@ from adecom_db import (
     query_rows,
 )
 from parsers import (
+    parse_comparativo_clientes_txt,
+    parse_deudas_vencidas_csv,
     parse_lavanderia_botas_maestros_xlsx,
     parse_lavanderia_etapas_gestion_xlsx,
     parse_lavanderia_productividad_xlsx,
@@ -69,6 +72,7 @@ AUTOLOAD_DIR = Path(
 AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
+AUTOLOAD_COMPARATIVO_SOURCE = os.environ.get("ADECOM_AUTOLOAD_COMPARATIVO_SOURCE", "").strip()
 AUTO_REFRESH_WEB_ON_START = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ON_START", "1").strip() == "1"
 AUTO_REFRESH_WEB_POLL_SECONDS = max(int(os.environ.get("ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS", "60").strip() or "60"), 0)
 AUTO_REFRESH_WEB_BACKGROUND = os.environ.get("ADECOM_AUTO_REFRESH_WEB_BACKGROUND", "1").strip() == "1"
@@ -143,6 +147,17 @@ def _match_any_key(entered: str, keys: list[str]) -> bool:
     return False
 
 
+def _match_any_key_ci(entered: str, keys: list[str]) -> bool:
+    normalized = str(entered or "").strip().casefold()
+    if not normalized:
+        return False
+    for key in keys:
+        candidate = str(key or "").strip().casefold()
+        if candidate and hmac.compare_digest(normalized, candidate):
+            return True
+    return False
+
+
 def _portal_section() -> str:
     return str(session.get("portal_section") or "").strip().lower()
 
@@ -213,7 +228,7 @@ def login_post():
         session.permanent = True
         return redirect(url_for("other_section"))
 
-    if _match_any_key(entered_key, web_keys):
+    if _match_any_key_ci(entered_key, web_keys):
         session["portal_section"] = "web"
         session.permanent = True
         return redirect(url_for("index"))
@@ -1069,10 +1084,16 @@ def _refresh_web_data() -> dict:
     stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
     stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
     stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
+    stats_comparativo = {"read": 0, "inserted": 0, "updated": 0}
+    if AUTOLOAD_COMPARATIVO_SOURCE:
+        comparativo_rows = parse_comparativo_clientes_txt(_read_source_bytes(AUTOLOAD_COMPARATIVO_SOURCE))
+        if comparativo_rows:
+            stats_comparativo = import_comparativo_clientes_rows(DB_PATH, comparativo_rows)
     return {
         "saldos": stats_saldos,
         "pedidos": stats_pedidos,
         "etapas": stats_etapas,
+        "comparativo": stats_comparativo,
     }
 
 
@@ -1085,11 +1106,14 @@ def _sources_configured() -> bool:
 
 def _sources_signature() -> str:
     parts = []
-    for label, source in (
+    sources = [
         ("saldos", AUTOLOAD_SALDOS_SOURCE),
         ("pedidos", AUTOLOAD_PEDIDOS_SOURCE),
         ("etapas", AUTOLOAD_ETAPAS_SOURCE),
-    ):
+    ]
+    if AUTOLOAD_COMPARATIVO_SOURCE:
+        sources.append(("comparativo", AUTOLOAD_COMPARATIVO_SOURCE))
+    for label, source in sources:
         payload = _read_source_bytes(source)
         digest = hashlib.sha256(payload).hexdigest()
         parts.append(f"{label}:{digest}")
@@ -1108,13 +1132,15 @@ def _refresh_if_sources_changed(force: bool = False) -> bool:
         stats = _refresh_web_data()
         _last_sources_signature = signature
     app.logger.info(
-        "Auto refresh web aplicado. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s",
+        "Auto refresh web aplicado. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s | COMPARATIVO I%s/A%s",
         stats["saldos"].get("inserted", 0),
         stats["saldos"].get("updated", 0),
         stats["pedidos"].get("inserted", 0),
         stats["pedidos"].get("updated", 0),
         stats["etapas"].get("inserted", 0),
         stats["etapas"].get("updated", 0),
+        stats["comparativo"].get("inserted", 0),
+        stats["comparativo"].get("updated", 0),
     )
     return True
 
@@ -1834,7 +1860,7 @@ def index():
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
     search_success = ""
-    if filters["articulo_exact"] and not rows:
+    if filters["articulo_exact"] and not rows and pedidos_count == 0:
         search_error = "Articulo no encontrado"
     elif filters["q"] and not rows and pedidos_count == 0:
         search_error = "No se encontraron resultados. Escriba el articulo completo o familia. Ej: 01420100 o 4201."
@@ -2108,7 +2134,7 @@ def index():
     muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
     muestras_restante = max(muestras_total - muestras_bodega, 0)
     muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
-    upload_debug = session.get("upload_debug", "")
+    upload_debug = session.pop("upload_debug", "")
     proyeccion_state = _load_proyeccion_state()
     return render_template(
         "index.html",
@@ -2216,6 +2242,8 @@ def upload():
             stats = import_exs_map_rows(DB_PATH, rows)
         elif kind == "comparativo_clientes":
             stats = import_comparativo_clientes_rows(DB_PATH, rows)
+        elif kind == "deudas_vencidas":
+            stats = import_deuda_clientes_rows(DB_PATH, rows)
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
     except RequestEntityTooLarge:
@@ -2272,15 +2300,21 @@ def upload_refresh_web():
         stats_saldos = stats["saldos"]
         stats_pedidos = stats["pedidos"]
         stats_etapas = stats["etapas"]
+        stats_comparativo = stats["comparativo"]
 
         session.pop("upload_debug", None)
-        flash(
+        success_msg = (
             "Actualizacion web completa. "
             f"SALDOS-SECCI: I {stats_saldos.get('inserted', 0)} / A {stats_saldos.get('updated', 0)}. "
             f"PEDIDOSXTALLA: I {stats_pedidos.get('inserted', 0)} / A {stats_pedidos.get('updated', 0)}. "
-            f"Grande-Adecom: I {stats_etapas.get('inserted', 0)} / A {stats_etapas.get('updated', 0)}.",
-            "success",
+            f"Grande-Adecom: I {stats_etapas.get('inserted', 0)} / A {stats_etapas.get('updated', 0)}."
         )
+        if AUTOLOAD_COMPARATIVO_SOURCE:
+            success_msg += (
+                f" COMPARATIVO: I {stats_comparativo.get('inserted', 0)} / "
+                f"A {stats_comparativo.get('updated', 0)}."
+            )
+        flash(success_msg, "success")
     except url_error.URLError as exc:
         app.logger.exception("Error de red en actualizacion web", exc_info=exc)
         session["upload_debug"] = f"URLError: {exc}"

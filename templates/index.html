@@ -7,7 +7,7 @@
   <title>ADECOM WEB</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -18,11 +18,35 @@
         <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">◀</button>
       </div>
       <nav class="side-menu">
-        <a href="#sectionPrincipal" class="side-link side-link-active">Pagina Principal</a>
-        <a href="#sectionProduccion" class="side-link">Produccion</a>
-        <a href="#sectionPedidos" class="side-link">Pedidos</a>
+        <div class="side-group">
+          <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Opciones</button>
+          <div class="side-group-body" hidden>
+            <button type="button" class="side-link side-action-btn" data-scroll-id="sectionPrincipal">Dashboard</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openMuestrasModal">Muestras</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openExsModal">EXS</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
+          </div>
+        </div>
+        <div class="side-group">
+          <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Acciones</button>
+          <div class="side-group-body" hidden>
+          {% if can_upload %}
+            <form method="post" action="{{ url_for('upload_refresh_web') }}" class="side-link-form">
+              <button type="submit" class="side-link side-action-btn">Actualizar data web</button>
+            </form>
+            <button type="button" class="side-link side-action-btn" id="sideUploadBtn">Subir archivo</button>
+          {% elif admin_key_enabled %}
+            <button type="button" class="side-link side-action-btn" id="sideModeFocusBtn">Modo carga</button>
+          {% endif %}
+          </div>
+        </div>
       </nav>
     </aside>
+    <button type="button" id="sideToggleFloatingBtn" class="side-toggle side-toggle-floating" aria-label="Desplegar menu" aria-expanded="false">></button>
 
   <main class="page" id="sectionPrincipal">
     <header class="top-nav-redesign">
@@ -30,34 +54,6 @@
         <span class="top-brand-square">A</span>
         <span class="top-brand-text">ADECOM</span>
       </div>
-      <nav class="top-nav-groups" aria-label="Atajos dashboard">
-        <details class="top-nav-group">
-          <summary class="top-nav-group-btn">Opciones</summary>
-          <div class="top-nav-menu">
-            <button type="button" class="top-nav-menu-item" data-scroll-id="sectionPrincipal">Dashboard</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openBodegaModal">Bodega</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openMuestrasModal">Muestras</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openFullTableModal">Tabla completa</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openVentasTotalModal">Pedidos</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openComparativoClientesModal">Clientes por año</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openExsModal">EXS</button>
-            <button type="button" class="top-nav-menu-item" data-open-id="openProyeccionModal">Proyeccion semanal</button>
-          </div>
-        </details>
-        <details class="top-nav-group">
-          <summary class="top-nav-group-btn">Acciones</summary>
-          <div class="top-nav-menu">
-            {% if can_upload %}
-              <form method="post" action="{{ url_for('upload_refresh_web') }}" class="top-nav-menu-form">
-                <button type="submit" class="top-nav-menu-item">Actualizar data web</button>
-              </form>
-              <button type="button" class="top-nav-menu-item" id="navUploadBtn">Subir archivo</button>
-            {% elif admin_key_enabled %}
-              <button type="button" class="top-nav-menu-item" id="navModeFocusBtn">Modo carga</button>
-            {% endif %}
-          </div>
-        </details>
-      </nav>
       <div class="top-nav-actions">
         <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
           <button type="submit" class="top-logout-btn">Salir</button>
@@ -135,9 +131,13 @@
     {% endif %}
 
     {% if upload_debug %}
-      <section class="debug-panel" role="note" aria-live="polite">
-        <strong>Diagnostico carga (temporal):</strong>
-        <code>{{ upload_debug }}</code>
+      <section class="search-alert-top-wrap">
+        <div class="search-alert search-alert-top search-alert-error" data-auto-dismiss-ms="10000" role="status" aria-live="polite">
+          <div class="search-alert-body">
+            <span>Error al cargar data: {{ upload_debug }}</span>
+            <button type="button" class="search-alert-close" aria-label="Cerrar alerta">X</button>
+          </div>
+        </div>
       </section>
     {% endif %}
 
@@ -598,9 +598,9 @@
         </article>
         <article class="card-action summary-secondary">
           <button type="button" class="summary-open" id="openComparativoClientesModal">
-            <h2>Comparativo clientes</h2>
-            <p>{{ comparativo_summary.count|miles }}</p>
-            <small>T01:2024 | T02:2025 | T03:2026</small>
+            <h2>Clientes atendidos</h2>
+            <p>{{ comparativo_summary.attended_2026|miles }}</p>
+            <small>Con movimiento en 2026</small>
           </button>
         </article>
       </section>
@@ -935,73 +935,236 @@
 
       <dialog id="comparativoClientesModal" class="modal">
         <div class="modal-head">
-          <h3>Comparativo clientes</h3>
+          <h3>Clientes atendidos</h3>
           <button type="button" id="closeComparativoClientesModal" class="modal-close">Cerrar</button>
         </div>
-        <div class="modal-kpis">
-          <article>
-            <h4>Clientes</h4>
-            <p>{{ comparativo_summary.count|miles }}</p>
-          </article>
-          <article>
-            <h4>Total 2024</h4>
-            <p>{{ comparativo_summary.total_2024|miles }}</p>
-          </article>
-          <article>
-            <h4>Total 2025</h4>
-            <p>{{ comparativo_summary.total_2025|miles }}</p>
-          </article>
-          <article>
-            <h4>Total 2026</h4>
-            <p>{{ comparativo_summary.total_2026|miles }}</p>
-          </article>
-        </div>
-        <section class="table-wrap bodega-wrap">
-          <p class="table-hint">Clic en encabezado para ordenar</p>
-          <table class="bodega-table" id="comparativoClientesTable">
-            <thead>
-              <tr>
-                <th class="sortable-th" data-sort-key="rut">RUT</th>
-                <th class="sortable-th" data-sort-key="razon">Cliente</th>
-                <th class="sortable-th" data-sort-key="ciudad">Ciudad</th>
-                <th class="sortable-th" data-sort-key="cantidad2024">Cant 2024</th>
-                <th class="sortable-th" data-sort-key="valor2024">Fact 2024</th>
-                <th class="sortable-th" data-sort-key="cantidad2025">Cant 2025</th>
-                <th class="sortable-th" data-sort-key="valor2025">Fact 2025</th>
-                <th class="sortable-th" data-sort-key="cantidad2026">Cant 2026</th>
-                <th class="sortable-th" data-sort-key="valor2026">Fact 2026</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in comparativo_summary.rows %}
-              <tr
-                data-rut="{{ row.rut }}"
-                data-razon="{{ row.razon_social }}"
-                data-ciudad="{{ row.ciudad }}"
-                data-cantidad2024="{{ row.cantidad_t01 }}"
-                data-valor2024="{{ row.valor_fact_t01 }}"
-                data-cantidad2025="{{ row.cantidad_t02 }}"
-                data-valor2025="{{ row.valor_fact_t02 }}"
-                data-cantidad2026="{{ row.cantidad_t03 }}"
-                data-valor2026="{{ row.valor_fact_t03 }}"
-              >
-                <td>{{ row.rut }}</td>
-                <td>{{ row.razon_social }}</td>
-                <td>{{ row.ciudad }}</td>
-                <td class="num">{{ row.cantidad_t01|miles }}</td>
-                <td class="num">{{ row.valor_fact_t01|miles }}</td>
-                <td class="num">{{ row.cantidad_t02|miles }}</td>
-                <td class="num">{{ row.valor_fact_t02|miles }}</td>
-                <td class="num">{{ row.cantidad_t03|miles }}</td>
-                <td class="num">{{ row.valor_fact_t03|miles }}</td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="9" class="empty">No hay datos comparativos cargados.</td>
-              </tr>
+        <section class="comparativo-panel" data-comparativo-panel="all">
+          <div class="comparativo-section-head">
+            <h4>Clientes por a&ntilde;o</h4>
+            <small>Resumen general de clientes atendidos y venta por periodo.</small>
+          </div>
+          <div class="comparativo-year-grid">
+            {% for item in comparativo_summary.year_summary %}
+            <article class="comparativo-year-card">
+              <h4>{{ item.year }}</h4>
+              <p>{{ item.attended_count|miles }} clientes</p>
+              <small>Venta: {{ item.sales_total|miles }} | Facturado: {{ item.billed_total|miles }}</small>
+            </article>
+            {% endfor %}
+          </div>
+          <div class="comparativo-toolbar" aria-label="Vista clientes atendidos">
+            <button type="button" class="comparativo-toggle is-active" data-comparativo-view="all">Por a&ntilde;o</button>
+            <button type="button" class="comparativo-toggle" data-comparativo-view="unattended">No atendidos 2026</button>
+          </div>
+          <div class="comparativo-section-head">
+            <h4>Filtro por vendedor</h4>
+            <small>Selecciona una tarjeta para filtrar la tabla por ese vendedor.</small>
+          </div>
+          <div class="comparativo-year-grid comparativo-vendor-grid">
+            <article class="comparativo-year-card comparativo-vendor-card comparativo-vendor-filter-all is-active" data-vendedor-filter-all="">
+              <h4>Todos</h4>
+              <p>{{ comparativo_summary.count|miles }}</p>
+              <small>Base clientes</small>
+            </article>
+            {% for item in comparativo_summary.all_vendor_cards %}
+            <article class="comparativo-year-card comparativo-vendor-card comparativo-vendor-filter-all" data-vendedor-filter-all="{{ item.vendedor }}">
+              <h4>{{ item.vendedor }}</h4>
+              <p>{{ item.count|miles }}</p>
+              <small>Clientes</small>
+            </article>
+            {% endfor %}
+          </div>
+          <section class="table-wrap bodega-wrap">
+            <p class="table-hint">Clic en encabezado para ordenar</p>
+            <table class="bodega-table bodega-table-compact" id="comparativoClientesTable">
+              <thead>
+                <tr>
+                  <th class="sortable-th" data-sort-key="razon">Cliente</th>
+                  <th class="sortable-th" data-sort-key="info">Info cliente</th>
+                  <th class="sortable-th" data-sort-key="valor2024">2024</th>
+                  <th class="sortable-th" data-sort-key="valor2025">2025</th>
+                  <th class="sortable-th" data-sort-key="valor2026">2026</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in comparativo_summary.rows %}
+                <tr
+                  data-razon="{{ row.razon_social }}"
+                  data-vendedor="{{ row.vendedor }}"
+                  data-ciudad="{{ row.ciudad }}"
+                  data-info="{{ row.vendedor }} {{ row.ciudad }}"
+                  data-cantidad2024="{{ row.cantidad_t01 }}"
+                  data-valor2024="{{ row.valor_t01 }}"
+                  data-cantidad2025="{{ row.cantidad_t02 }}"
+                  data-valor2025="{{ row.valor_t02 }}"
+                  data-cantidad2026="{{ row.cantidad_t03 }}"
+                  data-valor2026="{{ row.valor_t03 }}"
+                >
+                  <td>{{ row.razon_social }}</td>
+                  <td>
+                    <div class="client-info-block">
+                      <div class="client-info-line">
+                        <span class="client-info-label">Vend</span>
+                        <span class="client-info-value">{{ row.vendedor }}</span>
+                      </div>
+                      <div class="client-info-line">
+                        <span class="client-info-label">Ciudad</span>
+                        <span class="client-info-value">{{ row.ciudad }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="num">
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">Cant</span>
+                      <span class="compact-metric-value">{{ row.cantidad_t01|miles }}</span>
+                    </div>
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">$</span>
+                      <span class="compact-metric-value">{{ row.valor_t01|miles }}</span>
+                    </div>
+                  </td>
+                  <td class="num">
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">Cant</span>
+                      <span class="compact-metric-value">{{ row.cantidad_t02|miles }}</span>
+                    </div>
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">$</span>
+                      <span class="compact-metric-value">{{ row.valor_t02|miles }}</span>
+                    </div>
+                  </td>
+                  <td class="num">
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">Cant</span>
+                      <span class="compact-metric-value">{{ row.cantidad_t03|miles }}</span>
+                    </div>
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">$</span>
+                      <span class="compact-metric-value">{{ row.valor_t03|miles }}</span>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr class="comparativo-empty-row">
+                  <td colspan="5" class="empty">No hay datos comparativos cargados.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
+        </section>
+        <section class="comparativo-panel" data-comparativo-panel="unattended" hidden>
+          <div class="table-tools comparativo-filter-row">
+            <label for="comparativoNoAtendidosNombreFilter">Cliente</label>
+            <input
+              id="comparativoNoAtendidosNombreFilter"
+              type="text"
+              list="comparativoNoAtendidosNombreList"
+              placeholder="Buscar cliente"
+              autocomplete="off"
+            >
+            <datalist id="comparativoNoAtendidosNombreList">
+              {% for row in comparativo_summary.unattended_2026_rows %}
+              <option value="{{ row.razon_social }}"></option>
               {% endfor %}
-            </tbody>
-          </table>
+            </datalist>
+            <button type="button" class="filter-reset-btn" id="comparativoNoAtendidosResetBtn">Restaurar</button>
+          </div>
+          <section class="table-wrap bodega-wrap">
+            <p class="table-hint">Clientes sin movimiento en 2026 y con venta en 2024.</p>
+            <p class="table-hint">Deuda total negativa significa abono o saldo a favor. Proyeccion 2026 = promedio simple entre 2024 y 2025.</p>
+            <div class="comparativo-year-grid comparativo-vendor-grid">
+              <article class="comparativo-year-card comparativo-vendor-card comparativo-vendor-filter is-active" data-vendedor-filter="">
+                <h4>Todos</h4>
+                <p>{{ comparativo_summary.unattended_2026_count|miles }}</p>
+                <small>No atendidos 2026</small>
+              </article>
+              {% for item in comparativo_summary.unattended_2026_vendor_cards %}
+              <article class="comparativo-year-card comparativo-vendor-card comparativo-vendor-filter" data-vendedor-filter="{{ item.vendedor }}">
+                <h4>{{ item.vendedor }}</h4>
+                <p>{{ item.count|miles }}</p>
+                <small>No atendidos 2026</small>
+              </article>
+              {% endfor %}
+            </div>
+            <table class="bodega-table bodega-table-compact" id="comparativoNoAtendidosTable">
+              <thead>
+                <tr>
+                  <th class="sortable-th" data-sort-key="razon">Cliente</th>
+                  <th class="sortable-th" data-sort-key="vendedor">Vendedor</th>
+                  <th class="sortable-th" data-sort-key="deudatotal">Deuda</th>
+                  <th class="sortable-th" data-sort-key="valor2025">Historial</th>
+                  <th class="sortable-th" data-sort-key="proyeccion2026">Proyeccion 2026</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in comparativo_summary.unattended_2026_rows %}
+                <tr
+                  data-razon="{{ row.razon_social }}"
+                  data-vendedor="{{ row.vendedor }}"
+                  data-estadodeuda="{% if row.deuda_total > 0 %}Con deuda{% elif row.deuda_total < 0 %}Abono{% else %}Sin deuda{% endif %}"
+                  data-deudatotal="{{ row.deuda_total }}"
+                  data-valor2024="{{ row.valor_t01 }}"
+                  data-valor2025="{{ row.valor_t02 }}"
+                  data-proyeccion2026="{{ row.proyeccion_2026_valor }}"
+                  data-cantidadproyeccion2026="{{ row.proyeccion_2026_cantidad }}"
+                  data-tendencia="{{ row.tendencia_valor_pct if row.tendencia_valor_pct is not none else -999999 }}"
+                >
+                  <td>{{ row.razon_social }}</td>
+                  <td>{{ row.vendedor }}</td>
+                  <td class="num">
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">Estado</span>
+                      <span class="compact-metric-value {% if row.deuda_total < 0 %}compact-metric-positive{% endif %}">
+                        {% if row.deuda_total > 0 %}
+                          Con deuda
+                        {% elif row.deuda_total < 0 %}
+                          Abono
+                        {% else %}
+                          Sin deuda
+                        {% endif %}
+                      </span>
+                    </div>
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">$</span>
+                      <span class="compact-metric-value {% if row.deuda_total < 0 %}compact-metric-positive{% endif %}">
+                        {% if row.deuda_total < 0 %}
+                          {{ (row.deuda_total * -1)|miles }}
+                        {% else %}
+                          {{ row.deuda_total|miles }}
+                        {% endif %}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="num">
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">24</span>
+                      <span class="compact-metric-value">{{ row.valor_t01|miles }}</span>
+                    </div>
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">25</span>
+                      <span class="compact-metric-value">{{ row.valor_t02|miles }}</span>
+                    </div>
+                  </td>
+                  <td class="num">
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">$</span>
+                      <span class="compact-metric-value">{{ row.proyeccion_2026_valor|miles }}</span>
+                    </div>
+                    <div class="compact-metric compact-metric-row">
+                      <span class="compact-metric-label">Cant</span>
+                      <span class="compact-metric-value">{{ row.proyeccion_2026_cantidad|miles }}</span>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr class="comparativo-empty-row">
+                  <td colspan="5" class="empty">No hay clientes pendientes para esta regla.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
         </section>
       </dialog>
 
@@ -1207,22 +1370,43 @@
 
     (function () {
       const shell = document.getElementById("appShell");
-      const toggle = document.getElementById("sideToggleBtn");
-      if (shell && toggle) {
+      const toggles = [
+        document.getElementById("sideToggleBtn"),
+        document.getElementById("sideToggleFloatingBtn"),
+      ].filter(Boolean);
+      if (shell && toggles.length) {
         const key = "adecom_side_collapsed";
         const setState = (collapsed) => {
           shell.classList.toggle("side-collapsed", collapsed);
-          toggle.textContent = collapsed ? ">" : "<";
-          toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
-          toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          toggles.forEach((toggle) => {
+            toggle.textContent = collapsed ? ">" : "<";
+            toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
+            toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          });
         };
         setState(localStorage.getItem(key) === "1");
-        toggle.addEventListener("click", () => {
-          const collapsed = !shell.classList.contains("side-collapsed");
-          setState(collapsed);
-          localStorage.setItem(key, collapsed ? "1" : "0");
+        toggles.forEach((toggle) => {
+          toggle.addEventListener("click", () => {
+            const collapsed = !shell.classList.contains("side-collapsed");
+            setState(collapsed);
+            localStorage.setItem(key, collapsed ? "1" : "0");
+          });
         });
       }
+
+      document.querySelectorAll("[data-side-group-toggle]").forEach((toggle, index) => {
+        const body = toggle.nextElementSibling;
+        if (!body) return;
+        const setOpen = (open) => {
+          toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          body.hidden = !open;
+        };
+        setOpen(false);
+        toggle.addEventListener("click", () => {
+          const open = toggle.getAttribute("aria-expanded") !== "true";
+          setOpen(open);
+        });
+      });
 
       document.querySelectorAll(".side-link[href^='#']").forEach((link) => {
         link.addEventListener("click", (event) => {
@@ -1259,14 +1443,25 @@
       });
 
       const navUploadBtn = document.getElementById("navUploadBtn");
+      const sideUploadBtn = document.getElementById("sideUploadBtn");
       const openUploadBtn = document.getElementById("openUploadModal");
       if (navUploadBtn && openUploadBtn) {
         navUploadBtn.addEventListener("click", () => openUploadBtn.click());
       }
+      if (sideUploadBtn && openUploadBtn) {
+        sideUploadBtn.addEventListener("click", () => openUploadBtn.click());
+      }
 
       const navModeFocusBtn = document.getElementById("navModeFocusBtn");
+      const sideModeFocusBtn = document.getElementById("sideModeFocusBtn");
       if (navModeFocusBtn) {
         navModeFocusBtn.addEventListener("click", () => {
+          const adminBox = document.getElementById("adminAccessSection");
+          if (adminBox) adminBox.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
+      if (sideModeFocusBtn) {
+        sideModeFocusBtn.addEventListener("click", () => {
           const adminBox = document.getElementById("adminAccessSection");
           if (adminBox) adminBox.scrollIntoView({ behavior: "smooth", block: "center" });
         });
@@ -1341,7 +1536,7 @@
       Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
         bindExclusiveTrigger(document.getElementById(triggerId), modalId);
       });
-      document.querySelectorAll(".top-nav-menu-item[data-open-id]").forEach((btn) => {
+      document.querySelectorAll(".top-nav-menu-item[data-open-id], .side-action-btn[data-open-id]").forEach((btn) => {
         const openId = String(btn.getAttribute("data-open-id") || "");
         btn.addEventListener("click", () => {
           const modalId = openIdToModalId[openId] || "";
@@ -1825,8 +2020,127 @@
       const openBtn = document.getElementById("openComparativoClientesModal");
       const closeBtn = document.getElementById("closeComparativoClientesModal");
       if (!modal || !openBtn || !closeBtn) return;
+      const toggleButtons = Array.from(modal.querySelectorAll("[data-comparativo-view]"));
+      const panels = Array.from(modal.querySelectorAll("[data-comparativo-panel]"));
+      const nombreFilterAll = document.getElementById("comparativoNombreFilter");
+      const resetAllBtn = document.getElementById("comparativoResetBtn");
+      const nombreFilterUnattended = document.getElementById("comparativoNoAtendidosNombreFilter");
+      const resetUnattendedBtn = document.getElementById("comparativoNoAtendidosResetBtn");
+      const vendorCardsAll = Array.from(modal.querySelectorAll(".comparativo-vendor-filter-all"));
+      const vendorCards = Array.from(modal.querySelectorAll(".comparativo-vendor-filter"));
+      let allVendorSelected = "";
+      let unattendedVendorSelected = "";
+      const setView = (view) => {
+        toggleButtons.forEach((btn) => {
+          const active = btn.getAttribute("data-comparativo-view") === view;
+          btn.classList.toggle("is-active", active);
+        });
+        panels.forEach((panel) => {
+          panel.hidden = panel.getAttribute("data-comparativo-panel") !== view;
+        });
+      };
       openBtn.addEventListener("click", () => modal.showModal());
       closeBtn.addEventListener("click", () => modal.close());
+      toggleButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          setView(btn.getAttribute("data-comparativo-view") || "all");
+        });
+      });
+      const attachTableFilters = (tableId, options = {}) => {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll("tr")).filter((row) => row.querySelectorAll("td").length > 0);
+        const dataRows = rows.filter((row) => !row.classList.contains("comparativo-empty-row"));
+        let emptyRow = tbody.querySelector(".comparativo-empty-row");
+        if (!emptyRow) {
+          emptyRow = document.createElement("tr");
+          emptyRow.className = "comparativo-empty-row";
+          emptyRow.hidden = true;
+          const cell = document.createElement("td");
+          cell.colSpan = tableId === "comparativoNoAtendidosTable" ? 5 : 5;
+          cell.className = "empty";
+          cell.textContent = "No hay clientes para el filtro seleccionado.";
+          emptyRow.appendChild(cell);
+          tbody.appendChild(emptyRow);
+        }
+        const applyFilter = () => {
+          const selectedVendor = (options.getVendorValue ? options.getVendorValue() : (options.vendorEl?.value || "")).trim().toLowerCase();
+          const selectedName = (options.nameEl?.value || "").trim().toLowerCase();
+          let visibleCount = 0;
+          dataRows.forEach((row) => {
+            const vendedor = String(row.dataset.vendedor || "").trim().toLowerCase();
+            const nombre = String(row.dataset.razon || "").trim().toLowerCase();
+            const matchesVendor = !selectedVendor || vendedor === selectedVendor;
+            const matchesName = !selectedName || nombre.includes(selectedName);
+            const visible = matchesVendor && matchesName;
+            row.hidden = !visible;
+            if (visible) visibleCount += 1;
+          });
+          if (emptyRow) {
+            emptyRow.hidden = visibleCount !== 0;
+          }
+        };
+        if (options.vendorEl) {
+          options.vendorEl.addEventListener("change", applyFilter);
+        }
+        if (options.nameEl) {
+          options.nameEl.addEventListener("input", applyFilter);
+          options.nameEl.addEventListener("change", applyFilter);
+        }
+        applyFilter();
+        return applyFilter;
+      };
+      const applyAllFilters = attachTableFilters("comparativoClientesTable", {
+        nameEl: nombreFilterAll,
+        getVendorValue: () => allVendorSelected,
+      });
+      const applyUnattendedFilters = attachTableFilters("comparativoNoAtendidosTable", {
+        nameEl: nombreFilterUnattended,
+        getVendorValue: () => unattendedVendorSelected,
+      });
+      vendorCardsAll.forEach((card) => {
+        card.addEventListener("click", () => {
+          allVendorSelected = card.getAttribute("data-vendedor-filter-all") || "";
+          vendorCardsAll.forEach((item) => item.classList.toggle("is-active", item === card));
+          applyAllFilters?.();
+        });
+      });
+      vendorCards.forEach((card) => {
+        card.addEventListener("click", () => {
+          unattendedVendorSelected = card.getAttribute("data-vendedor-filter") || "";
+          vendorCards.forEach((item) => item.classList.toggle("is-active", item === card));
+          applyUnattendedFilters?.();
+        });
+      });
+      if (resetAllBtn) {
+        resetAllBtn.addEventListener("click", () => {
+          allVendorSelected = "";
+          vendorCardsAll.forEach((item) => {
+            item.classList.toggle("is-active", (item.getAttribute("data-vendedor-filter-all") || "") === "");
+          });
+          if (nombreFilterAll) {
+            nombreFilterAll.value = "";
+            nombreFilterAll.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          applyAllFilters?.();
+        });
+      }
+      if (resetUnattendedBtn) {
+        resetUnattendedBtn.addEventListener("click", () => {
+          unattendedVendorSelected = "";
+          vendorCards.forEach((item) => {
+            item.classList.toggle("is-active", (item.getAttribute("data-vendedor-filter") || "") === "");
+          });
+          if (nombreFilterUnattended) {
+            nombreFilterUnattended.value = "";
+            nombreFilterUnattended.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          applyUnattendedFilters?.();
+        });
+      }
+      setView("all");
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
         const clickedInside =
@@ -2097,12 +2411,72 @@
     })();
 
     (function () {
-      const setupHeaderSort = (tableId) => {
+      const initSyncedTableScrollbars = () => {
+        document.querySelectorAll(".table-wrap").forEach((wrap) => {
+          if (wrap.dataset.syncScrollReady === "1") return;
+          const hasHorizontalOverflow = () => wrap.scrollWidth > wrap.clientWidth + 4;
+          const topBar = document.createElement("div");
+          topBar.className = "table-scroll-top";
+          topBar.hidden = true;
+          const topInner = document.createElement("div");
+          topInner.className = "table-scroll-top-inner";
+          topBar.appendChild(topInner);
+          wrap.parentNode.insertBefore(topBar, wrap);
+
+          let syncing = false;
+          const updateState = () => {
+            const active = hasHorizontalOverflow();
+            topBar.hidden = !active;
+            if (active) {
+              topInner.style.width = `${wrap.scrollWidth}px`;
+              topBar.scrollLeft = wrap.scrollLeft;
+            }
+          };
+
+          topBar.addEventListener("scroll", () => {
+            if (syncing) return;
+            syncing = true;
+            wrap.scrollLeft = topBar.scrollLeft;
+            syncing = false;
+          });
+
+          wrap.addEventListener("scroll", () => {
+            if (syncing) return;
+            syncing = true;
+            topBar.scrollLeft = wrap.scrollLeft;
+            syncing = false;
+          });
+
+          window.addEventListener("resize", updateState);
+          updateState();
+          wrap.dataset.syncScrollReady = "1";
+        });
+      };
+
+      initSyncedTableScrollbars();
+
+      document.querySelectorAll("[data-scroll-controls-for]").forEach((controls) => {
+        const tableId = controls.getAttribute("data-scroll-controls-for");
+        const table = tableId ? document.getElementById(tableId) : null;
+        const wrap = table ? table.closest(".table-wrap") : null;
+        if (!wrap) return;
+        controls.querySelectorAll("[data-scroll-dir]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const dir = Number(btn.getAttribute("data-scroll-dir") || "0");
+            const step = btn.getAttribute("data-scroll-step") || "small";
+            const factor = step === "large" ? 0.45 : 0.22;
+            const amount = Math.max(step === "large" ? 180 : 120, Math.round(wrap.clientWidth * factor));
+            wrap.scrollBy({ left: dir * amount, behavior: "smooth" });
+          });
+        });
+      });
+
+      const setupHeaderSort = (tableId, initialKey = "") => {
         const table = document.getElementById(tableId);
-        if (!table) return;
+        if (!table) return null;
         const tbody = table.querySelector("tbody");
         const headers = table.querySelectorAll("th.sortable-th");
-        if (!tbody || !headers.length) return;
+        if (!tbody || !headers.length) return null;
         let currentKey = "";
         let direction = "desc";
 
@@ -2146,6 +2520,10 @@
             sortRows(key);
           });
         });
+        if (initialKey) {
+          sortRows(initialKey);
+        }
+        return sortRows;
       };
 
       setupHeaderSort("bodegaTable");
@@ -2155,6 +2533,7 @@
       setupHeaderSort("topArticulosTable");
       setupHeaderSort("exsTable");
       setupHeaderSort("comparativoClientesTable");
+      setupHeaderSort("comparativoNoAtendidosTable", "proyeccion2026");
     })();
 
     (function () {

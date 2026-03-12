@@ -40,6 +40,8 @@ def parse_uploaded_file(file_storage) -> dict[str, Any]:
             return {"kind": "pedidos_talla", "rows": parse_pedidos_talla_txt(content)}
         if kind == "comparativo_clientes":
             return {"kind": "comparativo_clientes", "rows": parse_comparativo_clientes_txt(content)}
+        if kind == "deudas_vencidas":
+            return {"kind": "deudas_vencidas", "rows": parse_deudas_vencidas_csv(content)}
         return {"kind": "saldos", "rows": parse_saldos_txt(content)}
     if filename.endswith(".xlsx"):
         kind = detect_xlsx_kind(content, filename)
@@ -97,6 +99,10 @@ def detect_txt_kind(content: bytes, filename: str) -> str:
         return "corte_etapas"
     if normalized_header.startswith("RUT;RAZONSOCIAL;CODVEN;VENDEDOR;CIUDAD;CANTIDADT:01"):
         return "comparativo_clientes"
+    if "INFORMEDEVENCIMIENTOS" in normalized_header or "DEUDAVENCIDA" in normalized_header:
+        return "deudas_vencidas"
+    if "RUT;RAZONSOCIAL;VENDEDOR;XVENCER;VENCIDA;" in normalized_header:
+        return "deudas_vencidas"
     if normalized_header.startswith("ARTICULO;CORTE;FECHA"):
         return "saldos"
     if ";Ventas;" in first_line or ";Despacho;" in first_line or ";saldo;" in first_line:
@@ -185,6 +191,40 @@ def parse_comparativo_clientes_txt(content: bytes) -> list[dict]:
                 "valor_t03": _to_int(cells[idx_v_t03] if idx_v_t03 < len(cells) else "0"),
                 "facturado_t03": _to_int(cells[idx_f_t03] if idx_f_t03 < len(cells) else "0"),
                 "valor_fact_t03": _to_int(cells[idx_vf_t03] if idx_vf_t03 < len(cells) else "0"),
+            }
+        )
+    return parsed
+
+
+def parse_deudas_vencidas_csv(content: bytes) -> list[dict]:
+    text = _decode_bytes(content)
+    lines = text.splitlines()
+    header_idx = None
+    for i, line in enumerate(lines):
+        normalized = line.replace('"', "").replace(" ", "").upper()
+        if normalized.startswith("RUT;RAZONSOCIAL;VENDEDOR;XVENCER;VENCIDA;"):
+            header_idx = i
+            break
+    if header_idx is None:
+        return []
+
+    reader = csv.DictReader(lines[header_idx:], delimiter=";")
+    parsed: list[dict] = []
+    for row in reader:
+        rut = _normalize_rut(row.get("RUT", ""))
+        if not rut:
+            continue
+        parsed.append(
+            {
+                "rut": rut,
+                "razon_social": str(row.get("RAZON SOCIAL") or "").strip(),
+                "vendedor": str(row.get("VENDEDOR") or "").strip(),
+                "x_vencer": _to_int_signed(row.get("X VENCER") or "0"),
+                "vencida": _to_int_signed(row.get("VENCIDA") or "0"),
+                "mayor_30": _to_int_signed(row.get("MAYOR 30") or "0"),
+                "mayor_60": _to_int_signed(row.get("MAYOR 60") or "0"),
+                "mayor_90": _to_int_signed(row.get("MAYOR 90") or "0"),
+                "total": _to_int_signed(row.get("TOTAL") or "0"),
             }
         )
     return parsed
@@ -707,6 +747,10 @@ def _to_int_signed(value: str) -> int:
     sign = -1 if s.startswith("-") else 1
     digits = "".join(ch for ch in s if ch.isdigit())
     return sign * int(digits) if digits else 0
+
+
+def _normalize_rut(value: str) -> str:
+    return "".join(ch for ch in str(value or "").upper() if ch.isalnum())
 
 
 def _parse_date(value: str) -> str | None:

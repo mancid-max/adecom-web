@@ -55,6 +55,14 @@ DEFAULT_ASSISTANT_RULES = [
     ),
 ]
 
+EXCLUDED_VENDOR_CARDS = {
+    "JORGE CUEVAS",
+    "ANGELICA MELLA",
+    "MAGIC KENNEDY",
+    "MULTICENTRO",
+    "VENDEDORES",
+}
+
 
 def _is_postgres(db_path: str | Path) -> bool:
     value = str(db_path)
@@ -281,6 +289,25 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS deuda_clientes (
+                    id BIGSERIAL PRIMARY KEY,
+                    rut TEXT NOT NULL,
+                    razon_social TEXT NOT NULL DEFAULT '',
+                    vendedor TEXT NOT NULL DEFAULT '',
+                    x_vencer BIGINT NOT NULL DEFAULT 0,
+                    vencida BIGINT NOT NULL DEFAULT 0,
+                    mayor_30 BIGINT NOT NULL DEFAULT 0,
+                    mayor_60 BIGINT NOT NULL DEFAULT 0,
+                    mayor_90 BIGINT NOT NULL DEFAULT 0,
+                    total BIGINT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(rut)
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -414,6 +441,24 @@ def init_db(db_path: str | Path) -> None:
                     valor_t03 INTEGER NOT NULL DEFAULT 0,
                     facturado_t03 INTEGER NOT NULL DEFAULT 0,
                     valor_fact_t03 INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS deuda_clientes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rut TEXT NOT NULL UNIQUE,
+                    razon_social TEXT NOT NULL DEFAULT '',
+                    vendedor TEXT NOT NULL DEFAULT '',
+                    x_vencer INTEGER NOT NULL DEFAULT 0,
+                    vencida INTEGER NOT NULL DEFAULT 0,
+                    mayor_30 INTEGER NOT NULL DEFAULT 0,
+                    mayor_60 INTEGER NOT NULL DEFAULT 0,
+                    mayor_90 INTEGER NOT NULL DEFAULT 0,
+                    total INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
@@ -796,8 +841,14 @@ def _build_where(filters: dict) -> tuple[str, list]:
 
     if filters.get("articulo_exact"):
         articulo_exact = str(filters["articulo_exact"]).strip()
-        clauses.append("articulo = ?")
-        params.append(articulo_exact)
+        articulo_digits = "".join(ch for ch in articulo_exact if ch.isdigit())
+        if len(articulo_digits) == 4:
+            # Si ingresan familia (ej. 4201), buscar por familia en articulo.
+            clauses.append("substr(articulo, 3, 4) = ?")
+            params.append(articulo_digits)
+        else:
+            clauses.append("articulo = ?")
+            params.append(articulo_exact)
 
     if filters.get("q"):
         q_raw = str(filters["q"]).strip()
@@ -1402,6 +1453,51 @@ def import_comparativo_clientes_rows(db_path: Path, rows: Iterable[dict]) -> dic
     return {"read": read, "inserted": len(values), "updated": 0}
 
 
+def import_deuda_clientes_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    rows_list = list(rows)
+    read = len(rows_list)
+    if read == 0:
+        conn.close()
+        return {"read": 0, "inserted": 0, "updated": 0}
+
+    with conn:
+        _execute(conn, "DELETE FROM deuda_clientes")
+        values = []
+        for row in rows_list:
+            rut = str(row.get("rut") or "").strip()
+            if not rut:
+                continue
+            values.append(
+                (
+                    rut,
+                    str(row.get("razon_social") or "").strip(),
+                    str(row.get("vendedor") or "").strip(),
+                    int(row.get("x_vencer") or 0),
+                    int(row.get("vencida") or 0),
+                    int(row.get("mayor_30") or 0),
+                    int(row.get("mayor_60") or 0),
+                    int(row.get("mayor_90") or 0),
+                    int(row.get("total") or 0),
+                )
+            )
+        if values:
+            _executemany(
+                conn,
+                """
+                INSERT INTO deuda_clientes (
+                    rut, razon_social, vendedor, x_vencer, vencida, mayor_30, mayor_60, mayor_90, total
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            if not isinstance(conn, sqlite3.Connection):
+                _execute(conn, "UPDATE deuda_clientes SET updated_at = CURRENT_TIMESTAMP")
+    conn.close()
+    return {"read": read, "inserted": len(values), "updated": 0}
+
+
 def query_comparativo_clientes(db_path: Path, q: str = "") -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
@@ -1422,19 +1518,162 @@ def query_comparativo_clientes(db_path: Path, q: str = "") -> dict:
         """,
         params,
     ).fetchall()
+    debt_rows = _execute(
+        conn,
+        """
+        SELECT rut, razon_social, vendedor, x_vencer, vencida, mayor_30, mayor_60, mayor_90, total
+        FROM deuda_clientes
+        """
+    ).fetchall()
     conn.close()
 
     out_rows = [dict(r) for r in rows]
-    total_2024 = sum(int(r.get("valor_fact_t01") or 0) for r in out_rows)
-    total_2025 = sum(int(r.get("valor_fact_t02") or 0) for r in out_rows)
-    total_2026 = sum(int(r.get("valor_fact_t03") or 0) for r in out_rows)
+    debt_map = {_normalize_rut(r["rut"]): dict(r) for r in debt_rows}
+    sales_totals = {2024: 0, 2025: 0, 2026: 0}
+    billed_totals = {2024: 0, 2025: 0, 2026: 0}
+    attended_counts = {2024: 0, 2025: 0, 2026: 0}
+    unattended_2026_rows: list[dict[str, Any]] = []
+
+    for row in out_rows:
+        cantidad_2024 = int(row.get("cantidad_t01") or 0)
+        cantidad_2025 = int(row.get("cantidad_t02") or 0)
+        cantidad_2026 = int(row.get("cantidad_t03") or 0)
+        venta_2024 = int(row.get("valor_t01") or 0)
+        venta_2025 = int(row.get("valor_t02") or 0)
+        venta_2026 = int(row.get("valor_t03") or 0)
+        fact_2024 = int(row.get("valor_fact_t01") or 0)
+        fact_2025 = int(row.get("valor_fact_t02") or 0)
+        fact_2026 = int(row.get("valor_fact_t03") or 0)
+
+        row["atendido_2024"] = cantidad_2024 > 0
+        row["atendido_2025"] = cantidad_2025 > 0
+        row["atendido_2026"] = cantidad_2026 > 0
+
+        sales_totals[2024] += venta_2024
+        sales_totals[2025] += venta_2025
+        sales_totals[2026] += venta_2026
+        billed_totals[2024] += fact_2024
+        billed_totals[2025] += fact_2025
+        billed_totals[2026] += fact_2026
+
+        if cantidad_2024 > 0:
+            attended_counts[2024] += 1
+        if cantidad_2025 > 0:
+            attended_counts[2025] += 1
+        if cantidad_2026 > 0:
+            attended_counts[2026] += 1
+
+        if cantidad_2026 == 0 and cantidad_2024 > 0:
+            projected_qty = int(round((cantidad_2024 + cantidad_2025) / 2))
+            projected_sales = int(round((venta_2024 + venta_2025) / 2))
+            projected_billed = int(round((fact_2024 + fact_2025) / 2))
+            trend_pct = None
+            if venta_2024 > 0:
+                trend_pct = round(((venta_2025 - venta_2024) / venta_2024) * 100, 1)
+            debt = debt_map.get(_normalize_rut(row.get("rut")), {})
+            unattended_2026_rows.append(
+                {
+                    **row,
+                    "deuda_total": int(debt.get("total") or 0),
+                    "deuda_vencida": int(debt.get("vencida") or 0),
+                    "deuda_x_vencer": int(debt.get("x_vencer") or 0),
+                    "deuda_mayor_30": int(debt.get("mayor_30") or 0),
+                    "deuda_mayor_60": int(debt.get("mayor_60") or 0),
+                    "deuda_mayor_90": int(debt.get("mayor_90") or 0),
+                    "tiene_deuda": int(debt.get("total") or 0) > 0,
+                    "tiene_vencida": int(debt.get("vencida") or 0) > 0,
+                    "proyeccion_2026_cantidad": projected_qty,
+                    "proyeccion_2026_valor": projected_sales,
+                    "proyeccion_2026_facturado": projected_billed,
+                    "faltante_2026_cantidad": max(projected_qty - cantidad_2026, 0),
+                    "faltante_2026_valor": max(projected_sales - venta_2026, 0),
+                    "tendencia_valor_pct": trend_pct,
+                }
+            )
+
+    unattended_2026_rows.sort(
+        key=lambda item: (
+            str(item.get("vendedor") or ""),
+            -int(item.get("deuda_vencida") or 0),
+            -int(item.get("deuda_total") or 0),
+            -int(item.get("proyeccion_2026_valor") or 0),
+            str(item.get("razon_social") or ""),
+        )
+    )
+    vendor_unattended_counter: dict[str, int] = {}
+    for row in unattended_2026_rows:
+        vendor = str(row.get("vendedor") or "").strip()
+        vendor_unattended_counter[vendor] = vendor_unattended_counter.get(vendor, 0) + 1
+    unattended_2026_vendor_cards = [
+        {"vendedor": vendor, "count": count}
+        for vendor, count in sorted(
+            vendor_unattended_counter.items(),
+            key=lambda item: (-item[1], item[0].casefold()),
+        )
+        if vendor.upper() not in EXCLUDED_VENDOR_CARDS
+    ]
+    year_summary = [
+        {
+            "year": year,
+            "attended_count": attended_counts[year],
+            "sales_total": sales_totals[year],
+            "billed_total": billed_totals[year],
+        }
+        for year in (2024, 2025, 2026)
+    ]
+    vendedores = sorted(
+        {
+            str(row.get("vendedor") or "").strip()
+            for row in out_rows
+            if str(row.get("vendedor") or "").strip()
+        },
+        key=lambda value: value.casefold(),
+    )
+    vendor_all_counter: dict[str, int] = {}
+    for row in out_rows:
+        vendor = str(row.get("vendedor") or "").strip()
+        if not vendor:
+            continue
+        vendor_all_counter[vendor] = vendor_all_counter.get(vendor, 0) + 1
+    all_vendor_cards = [
+        {"vendedor": vendor, "count": count}
+        for vendor, count in sorted(
+            vendor_all_counter.items(),
+            key=lambda item: (-item[1], item[0].casefold()),
+        )
+        if vendor.upper() not in EXCLUDED_VENDOR_CARDS
+    ]
 
     return {
         "rows": out_rows,
         "count": len(out_rows),
-        "total_2024": total_2024,
-        "total_2025": total_2025,
-        "total_2026": total_2026,
+        "vendedores": vendedores,
+        "all_vendor_cards": all_vendor_cards,
+        "year_summary": year_summary,
+        "attended_2024": attended_counts[2024],
+        "attended_2025": attended_counts[2025],
+        "attended_2026": attended_counts[2026],
+        "sales_total_2024": sales_totals[2024],
+        "sales_total_2025": sales_totals[2025],
+        "sales_total_2026": sales_totals[2026],
+        "billed_total_2024": billed_totals[2024],
+        "billed_total_2025": billed_totals[2025],
+        "billed_total_2026": billed_totals[2026],
+        "unattended_2026_rows": unattended_2026_rows,
+        "unattended_2026_count": len(unattended_2026_rows),
+        "unattended_2026_vendor_cards": unattended_2026_vendor_cards,
+        "unattended_2026_with_debt_count": sum(
+            1 for r in unattended_2026_rows if int(r.get("deuda_total") or 0) > 0
+        ),
+        "unattended_2026_with_overdue_count": sum(
+            1 for r in unattended_2026_rows if int(r.get("deuda_vencida") or 0) > 0
+        ),
+        "unattended_2026_projection_qty_total": sum(
+            int(r.get("proyeccion_2026_cantidad") or 0) for r in unattended_2026_rows
+        ),
+        "unattended_2026_projection_total": sum(
+            int(r.get("proyeccion_2026_valor") or 0) for r in unattended_2026_rows
+        ),
     }
 
 
@@ -1445,6 +1684,10 @@ def _format_date(fecha_iso: str | None) -> str:
     if len(parts) != 3:
         return fecha_iso
     return f"{parts[2]}/{parts[1]}/{parts[0]}"
+
+
+def _normalize_rut(value: str | None) -> str:
+    return "".join(ch for ch in str(value or "").upper() if ch.isalnum())
 
 
 def _proceso_actual(row: dict) -> str:
