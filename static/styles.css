@@ -1219,6 +1219,34 @@ td.etapas-fecha {
   font-size: 18px;
 }
 
+.top-articulo-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(101, 126, 179, 0.35);
+  background: rgba(31, 43, 71, 0.68);
+  color: #d9e6ff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.top-articulo-meta-chip-secondary {
+  border-color: rgba(215, 179, 98, 0.35);
+  background: rgba(74, 52, 23, 0.42);
+  color: #ffe3a6;
+}
+
+.top-articulo-meta-sep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  color: #5f708f;
+  font-weight: 700;
+}
+
 .row-detail-dot {
   margin: 0 8px;
   color: #6e7c98;
@@ -1351,6 +1379,142 @@ td.etapas-fecha {
   color: #8ea1c8;
   font-size: 14px;
   padding: 4px 2px;
+}
+
+.top-articulo-detalle-shell {
+  max-height: min(88vh, 900px);
+  overflow-y: auto;
+}
+
+.top-articulo-detalle-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.top-articulo-detalle-card {
+  border: 1px solid #263149;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #151b29 0%, #121723 100%);
+  padding: 16px;
+}
+
+.top-articulo-detalle-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.top-articulo-detalle-head h4 {
+  margin: 0;
+  color: #f4f7ff;
+  font-family: "Syne", sans-serif;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.top-articulo-detalle-head p {
+  margin: 6px 0 0;
+  color: #8fa0c2;
+  font-size: 17px;
+}
+
+.top-articulo-detalle-kpis {
+  margin-bottom: 18px;
+}
+
+.top-articulo-detalle-text {
+  color: #dbe2f1;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.top-articulo-timeline-content strong {
+  font-size: 20px;
+}
+
+.top-articulo-timeline-content small {
+  font-size: 16px;
+}
+
+.top-articulo-trace {
+  margin-top: 18px;
+  border-top: 1px solid #d8cdbd;
+  padding-top: 16px;
+}
+
+.top-articulo-trace-empty {
+  color: #6c6259;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.top-articulo-trace-card {
+  border: 1px solid #d8cdbd;
+  border-radius: 12px;
+  background: #fffaf2;
+  padding: 14px;
+}
+
+.top-articulo-trace-card + .top-articulo-trace-card {
+  margin-top: 12px;
+}
+
+.top-articulo-trace-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.top-articulo-trace-head strong {
+  font-size: 18px;
+  color: #2d241d;
+}
+
+.top-articulo-trace-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.top-articulo-trace-grid div {
+  border: 1px solid #e7dccb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.top-articulo-trace-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #8a7664;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.top-articulo-trace-grid strong {
+  color: #2d241d;
+  font-size: 18px;
+}
+
+.top-articulo-trace-stage + .top-articulo-trace-stage {
+  margin-top: 10px;
+}
+
+.top-articulo-trace-stage p {
+  margin: 0;
+  color: #4f4337;
+}
+
+#topArticulosTable tbody tr.is-selected td {
+  background: #fff0d6 !important;
 }
 
 .ventas-block {
@@ -1615,11 +1779,26 @@ td.etapas-fecha {
   white-space: normal;
 }
 
+.familia-tallas-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  gap: 8px 10px;
+  align-items: start;
+}
+
 .talla-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin: 2px 6px 2px 0;
+}
+
+.talla-chip-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 0;
 }
 
 .talla-label {
@@ -1653,6 +1832,38 @@ td.etapas-fecha {
   color: #6f4d22;
   font-weight: 800;
   letter-spacing: .03em;
+}
+
+.codigo-familia-btn {
+  background: rgba(209, 151, 78, 0.22);
+  border: 1px solid rgba(209, 151, 78, 0.44);
+  cursor: pointer;
+}
+
+.codigo-familia-btn:hover {
+  border-color: #f0c98e;
+  color: #fff2d4;
+}
+
+.familia-articulo-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.familia-articulo-code {
+  color: #f3f1eb;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.familia-articulo-total {
+  color: #b9b7b1;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
 }
 
 .app-shell .talla-label {
@@ -3433,6 +3644,12 @@ body {
   .dashboard-grid-bottom {
     grid-template-columns: 1fr;
   }
+  .familia-tallas-grid {
+    grid-template-columns: repeat(3, minmax(110px, 1fr));
+  }
+  .top-articulo-trace-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 700px) {
@@ -3491,6 +3708,9 @@ body {
     gap: 12px;
     margin-top: 12px;
   }
+  .familia-tallas-grid {
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+  }
   .dash-block-head {
     padding: 12px 12px;
     align-items: flex-start;
@@ -3543,6 +3763,9 @@ body {
   #ventasTotalModal th,
   #ventasTotalModal td {
     white-space: normal;
+  }
+  .top-articulo-trace-grid {
+    grid-template-columns: 1fr;
   }
   .metas-kpis {
     grid-template-columns: 1fr 1fr;

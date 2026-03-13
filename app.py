@@ -2086,6 +2086,14 @@ def index():
                     [
                         {
                             "articulo": a.get("articulo"),
+                            "total": int(
+                                (
+                                    (
+                                        g.get("articulos") or {}
+                                    ).get(a.get("articulo")) or {}
+                                ).get("total")
+                                or 0
+                            ),
                             "tallas": [
                                 {
                                     "talla": talla,
@@ -2142,6 +2150,52 @@ def index():
         row["cortado_total"] = int(corte_info.get("cortado_total") or 0)
         row["cortado_tallas_detalle"] = str(corte_info.get("cortado_tallas_detalle") or "-")
         bodega_rows.append(row)
+    trazabilidad_labels = [
+        ("bodega", "Bodega"),
+        ("corte_1", "Corte"),
+        ("taller", "Taller"),
+        ("t_externo", "T. Externo"),
+        ("limpiado", "Limpiado"),
+        ("lavanderia", "Lavanderia"),
+        ("terminacion", "Terminacion"),
+        ("muestra", "Muestra"),
+        ("segunda", "Segunda"),
+    ]
+    trazabilidad_por_articulo: dict[str, list[dict]] = {}
+    for row in rows:
+        articulo = str(row.get("articulo") or "").strip()
+        if not articulo:
+            continue
+        partidas = [
+            {
+                "etapa": label,
+                "cantidad": int(row.get(key) or 0),
+            }
+            for key, label in trazabilidad_labels
+            if int(row.get(key) or 0) > 0
+        ]
+        trazabilidad_por_articulo.setdefault(articulo, []).append(
+            {
+                "articulo": articulo,
+                "corte": str(row.get("corte") or "").strip(),
+                "fecha": str(row.get("fecha_display") or "-"),
+                "proceso_actual": str(row.get("proceso_actual") or "Sin movimiento"),
+                "cantidad_total": int(row.get("proceso") or 0),
+                "cantidad_bodega": int(row.get("bodega") or 0),
+                "cantidad_pendiente": int(row.get("pendiente_en_trazabilidad") or 0),
+                "restante_detalle": str(row.get("restante_detalle") or "Sin restante"),
+                "partidas": partidas,
+            }
+        )
+    for articulo, partidas in trazabilidad_por_articulo.items():
+        trazabilidad_por_articulo[articulo] = sorted(
+            partidas,
+            key=lambda item: (
+                0 if item["proceso_actual"] == "BODEGA" else 1,
+                -int(item["cantidad_total"] or 0),
+                str(item["corte"] or ""),
+            ),
+        )
     bodega_total = sum(int(row.get("proceso") or 0) for row in bodega_rows)
     bodega_en_bodega = sum(int(row.get("bodega") or 0) for row in bodega_rows)
     bodega_restante = sum(int(row.get("pendiente_en_trazabilidad") or 0) for row in bodega_rows)
@@ -2170,6 +2224,7 @@ def index():
         ventas_top_talla=ventas_top_talla,
         ventas_top_articulo=ventas_top_articulo,
         ventas_top_articulos=ventas_top_articulos,
+        ventas_trazabilidad_por_articulo=trazabilidad_por_articulo,
         exs_summary=exs_summary,
         comparativo_summary=comparativo_summary,
         search_error=search_error,

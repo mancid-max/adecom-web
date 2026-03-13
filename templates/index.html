@@ -31,19 +31,6 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
           </div>
         </div>
-        <div class="side-group">
-          <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Acciones</button>
-          <div class="side-group-body" hidden>
-          {% if can_upload %}
-            <form method="post" action="{{ url_for('upload_refresh_web') }}" class="side-link-form">
-              <button type="submit" class="side-link side-action-btn">Actualizar data web</button>
-            </form>
-            <button type="button" class="side-link side-action-btn" id="sideUploadBtn">Subir archivo</button>
-          {% elif admin_key_enabled %}
-            <button type="button" class="side-link side-action-btn" id="sideModeFocusBtn">Modo carga</button>
-          {% endif %}
-          </div>
-        </div>
       </nav>
     </aside>
     <button type="button" id="sideToggleFloatingBtn" class="side-toggle side-toggle-floating" aria-label="Desplegar menu" aria-expanded="false">></button>
@@ -65,30 +52,8 @@
       <div>
         <h1>ADECOM WEB</h1>
       </div>
-      <div class="upload-cta">
-      {% if can_upload %}
-          <form method="post" action="{{ url_for('upload_refresh_web') }}" class="upload-quick-form">
-            <button type="submit" class="btn-ghost">Actualizar data web</button>
-          </form>
-          <button type="button" id="openUploadModal">Subir archivo</button>
-      {% endif %}
-      </div>
+      <div class="upload-cta"></div>
     </header>
-
-    {% if admin_key_enabled %}
-      <section class="admin-access" id="adminAccessSection">
-        {% if can_upload %}
-          <form method="post" action="{{ url_for('admin_logout') }}">
-            <button type="submit" class="btn-ghost">Salir modo carga</button>
-          </form>
-        {% else %}
-          <form method="post" action="{{ url_for('admin_login') }}" class="admin-login-form">
-            <input type="password" name="admin_key" placeholder="Clave admin" required>
-            <button type="submit">Entrar modo carga</button>
-          </form>
-        {% endif %}
-      </section>
-    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -765,6 +730,7 @@
       </dialog>
 
       <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
+      <script id="ventasTrazabilidadData" type="application/json">{{ ventas_trazabilidad_por_articulo|tojson }}</script>
 
       <dialog id="ventasDetalleModal" class="modal modal-ventas-dashboard">
         <div class="modal-head">
@@ -942,6 +908,21 @@
             </tbody>
           </table>
         </section>
+      </dialog>
+
+      <dialog id="topArticuloDetalleModal" class="modal modal-row-detail">
+        <div id="topArticuloDetalleBox" class="row-detail-box row-detail-shell top-articulo-detalle-shell">
+          <div class="row-detail-top">
+            <div>
+              <h3 id="topArticuloDetalleCodigo">-</h3>
+              <p class="row-detail-subline" id="topArticuloDetalleMeta">Selecciona un articulo</p>
+            </div>
+            <button type="button" id="closeTopArticuloDetalleModal" class="row-detail-close" aria-label="Cerrar">×</button>
+          </div>
+          <div id="topArticuloDetalleBody" class="top-articulo-detalle-body">
+            <div class="row-detail-empty">Sin articulo seleccionado.</div>
+          </div>
+        </div>
       </dialog>
 
       <dialog id="comparativoClientesModal" class="modal">
@@ -2005,9 +1986,138 @@
       const modal = document.getElementById("topArticulosModal");
       const openBtn = document.getElementById("openTopArticulosModal");
       const closeBtn = document.getElementById("closeTopArticulosModal");
-      if (!modal || !openBtn || !closeBtn) return;
+      const detailModal = document.getElementById("topArticuloDetalleModal");
+      const detailCloseBtn = document.getElementById("closeTopArticuloDetalleModal");
+      const detailCodigo = document.getElementById("topArticuloDetalleCodigo");
+      const detailMeta = document.getElementById("topArticuloDetalleMeta");
+      const detailBody = document.getElementById("topArticuloDetalleBody");
+      const traceDataNode = document.getElementById("ventasTrazabilidadData");
+      const table = document.getElementById("topArticulosTable");
+      if (!modal || !openBtn || !closeBtn || !detailModal || !detailCloseBtn || !detailCodigo || !detailMeta || !detailBody || !traceDataNode || !table) return;
+      let trazabilidadPorArticulo = {};
+      try {
+        trazabilidadPorArticulo = JSON.parse(traceDataNode.textContent || "{}");
+      } catch (e) {
+        trazabilidadPorArticulo = {};
+      }
+
+      const fmt = (n) => {
+        const num = Number(n || 0);
+        if (Number.isNaN(num)) return "0";
+        return num.toLocaleString("es-CL");
+      };
+
+      const stageOrder = ["Corte", "Taller", "T. Externo", "Limpiado", "Lavanderia", "Terminacion", "Muestra", "Segunda", "Bodega"];
+
+      const stageClass = (name) => {
+        const value = String(name || "").toUpperCase();
+        if (value.includes("BODEGA")) return "estado-pill estado-pill-green";
+        if (value.includes("LAVANDERIA")) return "estado-pill estado-pill-blue";
+        return "estado-pill estado-pill-yellow";
+      };
+
+      const normalizeStage = (name) => String(name || "").replace(/\s+/g, " ").trim().toUpperCase();
+
+      const renderTrace = (articulo, totalPedidos = "") => {
+        const articleKey = String(articulo || "").trim();
+        const items = Array.isArray(trazabilidadPorArticulo[articleKey]) ? trazabilidadPorArticulo[articleKey] : [];
+        detailCodigo.textContent = articleKey || "-";
+        if (!articleKey) {
+          detailMeta.innerHTML = "Selecciona un articulo";
+          detailBody.innerHTML = '<div class="row-detail-empty">Sin articulo seleccionado.</div>';
+          return;
+        }
+        detailMeta.textContent = totalPedidos
+          ? `Pedidos ${fmt(totalPedidos)} · ${items.length} partida${items.length === 1 ? "" : "s"} activa${items.length === 1 ? "" : "s"}`
+          : `${items.length} partida${items.length === 1 ? "" : "s"} activa${items.length === 1 ? "" : "s"}`;
+        const metaText = `${items.length} orden${items.length === 1 ? "" : "es"} de corte`;
+        detailMeta.innerHTML = totalPedidos
+          ? `<span class="top-articulo-meta-chip">Pedidos ${fmt(totalPedidos)}</span><span class="top-articulo-meta-sep">|</span><span class="top-articulo-meta-chip top-articulo-meta-chip-secondary">${metaText}</span>`
+          : `<span class="top-articulo-meta-chip top-articulo-meta-chip-secondary">${metaText}</span>`;
+        if (!items.length) {
+          detailBody.innerHTML = '<div class="row-detail-empty">Sin registros activos en trazabilidad.</div>';
+          return;
+        }
+        detailBody.innerHTML = items
+          .map((item) => {
+            const partidas = Array.isArray(item.partidas) ? item.partidas : [];
+            const sortedPartidas = partidas
+              .slice()
+              .sort((a, b) => stageOrder.indexOf(a.etapa) - stageOrder.indexOf(b.etapa));
+            const timeline = sortedPartidas.length
+              ? sortedPartidas
+                  .map((partida) => `
+                    <div class="timeline-item ${normalizeStage(partida.etapa) === normalizeStage(item.proceso_actual) ? "is-active" : ""}">
+                      <span class="timeline-dot"></span>
+                      <div class="timeline-content top-articulo-timeline-content">
+                        <strong>${partida.etapa}</strong>
+                        <small>${fmt(partida.cantidad)} unidades</small>
+                      </div>
+                    </div>
+                  `)
+                  .join("")
+              : '<div class="row-detail-empty">Sin movimiento</div>';
+            return `
+              <article class="top-articulo-detalle-card">
+                <div class="top-articulo-detalle-head">
+                  <div>
+                    <h4>Corte ${item.corte || "-"}</h4>
+                    <p>${item.fecha || "-"}</p>
+                  </div>
+                  <span class="${stageClass(item.proceso_actual)}">${item.proceso_actual || "-"}</span>
+                </div>
+                <div class="row-detail-kpis top-articulo-detalle-kpis">
+                  <article>
+                    <h4>Total unidades</h4>
+                    <p>${fmt(item.cantidad_total)}</p>
+                  </article>
+                  <article>
+                    <h4>En bodega</h4>
+                    <p class="kpi-green">${fmt(item.cantidad_bodega)}</p>
+                  </article>
+                  <article>
+                    <h4>Restante</h4>
+                    <p class="kpi-yellow">${fmt(item.cantidad_pendiente)}</p>
+                  </article>
+                  <article>
+                    <h4>Etapa actual</h4>
+                    <p><span class="${stageClass(item.proceso_actual)}">${item.proceso_actual || "-"}</span></p>
+                  </article>
+                </div>
+                <div class="row-detail-timeline-wrap">
+                  <h4>Distribucion en trazabilidad</h4>
+                  <div class="top-articulo-detalle-text">${item.restante_detalle || "Sin restante"}</div>
+                </div>
+                <div class="row-detail-timeline-wrap">
+                  <h4>Linea de etapas</h4>
+                  <div class="row-detail-timeline">${timeline}</div>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+      };
+
+      table.querySelectorAll("tbody tr[data-articulo]").forEach((row) => {
+        row.addEventListener("click", () => {
+          table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
+          row.classList.add("is-selected");
+          renderTrace(row.dataset.articulo || "", row.dataset.total || "");
+          detailModal.showModal();
+        });
+      });
+
+      window.openTopArticuloTrace = (articulo, totalPedidos = "") => {
+        renderTrace(articulo, totalPedidos);
+        detailModal.showModal();
+      };
+
       openBtn.addEventListener("click", () => modal.showModal());
-      closeBtn.addEventListener("click", () => modal.close());
+      closeBtn.addEventListener("click", () => {
+        table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
+        modal.close();
+      });
+      detailCloseBtn.addEventListener("click", () => detailModal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
         const clickedInside =
@@ -2015,7 +2125,19 @@
           event.clientX <= rect.right &&
           event.clientY >= rect.top &&
           event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
+        if (!clickedInside) {
+          table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
+          modal.close();
+        }
+      });
+      detailModal.addEventListener("click", (event) => {
+        const rect = detailModal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) detailModal.close();
       });
     })();
 
@@ -2658,6 +2780,7 @@
             .map((a) => {
               const articuloRaw = String(a.articulo || "").trim();
               const articulo = articuloRaw ? articuloRaw.slice(-2) : "-";
+              const total = fmt(a.total || 0);
               const tallasList = Array.isArray(a.tallas) ? a.tallas : [];
               const detalle = tallasList.length
                 ? tallasList
@@ -2666,7 +2789,7 @@
                       const vendida = fmt(t.vendida || 0);
                       const cortada = fmt(t.cortada || 0);
                       return `
-                        <span class="talla-chip">
+                        <span class="talla-chip talla-chip-grid">
                           <span class="talla-label">T${talla}</span>
                           <span class="talla-value">V ${vendida} / C ${cortada}</span>
                         </span>
@@ -2674,7 +2797,27 @@
                     })
                     .join("")
                 : '<span class="talla-empty">Sin tallas</span>';
-              return `<tr><td><span class="codigo-familia-tag">${articulo}</span></td><td class="tallas-cell">${detalle}</td></tr>`;
+              return `
+                <tr>
+                  <td>
+                    <button
+                      type="button"
+                      class="codigo-familia-tag codigo-familia-btn"
+                      data-open-articulo-traza="${articuloRaw}"
+                      data-total-pedidos="${a.total || 0}"
+                      aria-label="Ver trazabilidad del articulo ${articuloRaw}"
+                      title="Ver trazabilidad"
+                    >${articulo}</button>
+                  </td>
+                  <td class="tallas-cell">
+                    <div class="familia-articulo-cell-head">
+                      <span class="familia-articulo-code">${articuloRaw || "-"}</span>
+                      <span class="familia-articulo-total">${total} pedidos</span>
+                    </div>
+                    <div class="familia-tallas-grid">${detalle}</div>
+                  </td>
+                </tr>
+              `;
             })
             .join("");
         }
@@ -2685,6 +2828,15 @@
         btn.addEventListener("click", () => {
           openFamilia(btn.getAttribute("data-open-familia") || "");
         });
+      });
+
+      articulosTallasBody.addEventListener("click", (event) => {
+        const trigger = event.target.closest("[data-open-articulo-traza]");
+        if (!trigger || typeof window.openTopArticuloTrace !== "function") return;
+        window.openTopArticuloTrace(
+          trigger.getAttribute("data-open-articulo-traza") || "",
+          trigger.getAttribute("data-total-pedidos") || "",
+        );
       });
 
       closeBtn.addEventListener("click", () => modal.close());
