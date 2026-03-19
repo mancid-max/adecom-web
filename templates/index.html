@@ -626,12 +626,11 @@
                 <th class="sortable-th" data-sort-key="familia">Familia</th>
                 <th class="sortable-th" data-sort-key="total">Total familia</th>
                 <th class="sortable-th" data-sort-key="detalle">Detalle por familia</th>
-                <th class="sortable-th" data-sort-key="saldo">Total saldo</th>
               </tr>
             </thead>
             <tbody>
               {% for g in ventas_grouped %}
-              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ (g.sufijos|length) + (g.sufijos_saldo|length) }}" data-saldo="{{ g.saldo_total }}">
+              <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ g.sufijos|length }}">
                 <td>
                   <button
                     type="button"
@@ -646,30 +645,21 @@
                 <td>
                   <div class="variante-pair-grid">
                     {% for s in g.sufijos_comp %}
-                      <div class="variante-pair">
-                        <span class="variante-chip">
-                          <span class="variante-chip-prefix">Pedidos</span>
-                          <span class="variante-chip-code">{{ s.sufijo }}</span>
-                          <span class="variante-chip-sep"> : </span>
-                          <span class="variante-chip-total">{{ s.pedidos_total|miles }}</span>
-                        </span>
-                        <span class="variante-chip variante-chip-saldo">
-                          <span class="variante-chip-prefix">Saldo</span>
-                          <span class="variante-chip-code">{{ s.sufijo }}</span>
-                          <span class="variante-chip-sep"> : </span>
-                          <span class="variante-chip-total">{{ s.saldo_total|miles }}</span>
-                        </span>
-                      </div>
+                      <span class="variante-chip">
+                        <span class="variante-chip-prefix">Pedidos</span>
+                        <span class="variante-chip-code">{{ s.sufijo }}</span>
+                        <span class="variante-chip-sep"> : </span>
+                        <span class="variante-chip-total">{{ s.pedidos_total|miles }}</span>
+                      </span>
                     {% else %}
                       <span class="variante-chip variante-chip-empty">-</span>
                     {% endfor %}
                   </div>
                 </td>
-                <td class="num">{{ g.saldo_total|miles }}</td>
               </tr>
               {% else %}
               <tr>
-                <td colspan="4" class="empty">Sin pedidos con los filtros actuales.</td>
+                <td colspan="3" class="empty">Sin pedidos con los filtros actuales.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -689,12 +679,11 @@
                 <th>Familia</th>
                 <th>Total familia</th>
                 <th>Detalle por familia</th>
-                <th>Total saldo</th>
                 <th>Total cortado</th>
               </tr>
             </thead>
             <tbody id="familiaDetalleGridBody">
-              <tr><td colspan="5" class="empty">Sin datos.</td></tr>
+              <tr><td colspan="4" class="empty">Sin datos.</td></tr>
             </tbody>
           </table>
         </section>
@@ -2726,28 +2715,19 @@
         title.textContent = `Detalle familia ${item.familia}`;
 
         if (!comp.length) {
-          body.innerHTML = '<tr><td colspan="5" class="empty">Sin datos.</td></tr>';
+          body.innerHTML = '<tr><td colspan="4" class="empty">Sin datos.</td></tr>';
         } else {
           const detalle = comp
             .map((s) => {
               const sufijo = String(s.sufijo || "-");
               const pedidos = fmt(s.pedidos_total || 0);
-              const saldo = fmt(s.saldo_total || 0);
               return `
-                <div class="variante-pair">
-                  <span class="variante-chip">
-                    <span class="variante-chip-prefix">Pedidos</span>
-                    <span class="variante-chip-code">${sufijo}</span>
-                    <span class="variante-chip-sep"> : </span>
-                    <span class="variante-chip-total">${pedidos}</span>
-                  </span>
-                  <span class="variante-chip variante-chip-saldo">
-                    <span class="variante-chip-prefix">Saldo</span>
-                    <span class="variante-chip-code">${sufijo}</span>
-                    <span class="variante-chip-sep"> : </span>
-                    <span class="variante-chip-total">${saldo}</span>
-                  </span>
-                </div>
+                <span class="variante-chip">
+                  <span class="variante-chip-prefix">Pedidos</span>
+                  <span class="variante-chip-code">${sufijo}</span>
+                  <span class="variante-chip-sep"> : </span>
+                  <span class="variante-chip-total">${pedidos}</span>
+                </span>
               `;
             })
             .join("");
@@ -2756,7 +2736,6 @@
               <td>${item.familia}</td>
               <td class="num">${fmt(item.total || 0)}</td>
               <td><div class="variante-pair-grid">${detalle}</div></td>
-              <td class="num">${fmt(item.saldo_total || 0)}</td>
               <td class="num">${fmt(item.cortado_total || 0)}</td>
             </tr>
           `;

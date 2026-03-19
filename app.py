@@ -71,6 +71,7 @@ AUTOLOAD_DIR = Path(
         r"C:\Users\manuh\Desktop\APIS\Documentos a cargar ADECOM WEB",
     )
 )
+AUTOLOAD_DIR_FALLBACK = Path(os.environ.get("ADECOM_AUTOLOAD_DIR_FALLBACK", r"Z:\\"))
 AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
@@ -117,6 +118,7 @@ _refresh_lock = threading.Lock()
 _refresh_thread_started = False
 _last_sources_signature = ""
 _last_daily_refresh_date = ""
+_last_refresh_mode = ""
 
 
 def _admin_key() -> str:
@@ -1099,11 +1101,123 @@ def _refresh_web_data() -> dict:
     }
 
 
+def _autoload_watch_dirs() -> list[Path]:
+    dirs: list[Path] = []
+    seen: set[str] = set()
+    for candidate in (AUTOLOAD_DIR, AUTOLOAD_DIR_FALLBACK):
+        key = str(candidate).strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        if candidate.exists() and candidate.is_dir():
+            dirs.append(candidate)
+    return dirs
+
+
+def _find_latest_autoload_file(*patterns: str, exclude_terms: tuple[str, ...] = ()) -> Path | None:
+    candidates: list[Path] = []
+    excludes = tuple(term.lower() for term in exclude_terms)
+    for base_dir in _autoload_watch_dirs():
+        for pattern in patterns:
+            try:
+                candidates.extend(base_dir.glob(pattern))
+            except OSError:
+                continue
+    files = [
+        path
+        for path in candidates
+        if path.is_file() and not any(term in path.name.lower() for term in excludes)
+    ]
+    if not files:
+        return None
+    return max(files, key=lambda p: p.stat().st_mtime)
+
+
+def _directory_autoload_sources() -> dict[str, Path]:
+    sources: dict[str, Path] = {}
+    latest_saldos = _find_latest_autoload_file("*SALDOS-SECCI*.TXT", "*SALDOS-SECCI*.txt")
+    latest_pedidos = _find_latest_autoload_file(
+        "*PEDIDOSXTALLA*.TXT",
+        "*PEDIDOSXTALLA*.txt",
+        exclude_terms=("todas",),
+    )
+    latest_etapas = _find_latest_autoload_file("*Grande-Adecom*.TXT", "*Grande-Adecom*.txt")
+    latest_comparativo = _find_latest_autoload_file("*COMPARATIVO*.TXT", "*COMPARATIVO*.txt")
+    latest_deudas = _find_latest_autoload_file("*Deudas_Vencidas*.CSV", "*Deudas_Vencidas*.csv")
+    if latest_saldos:
+        sources["saldos"] = latest_saldos
+    if latest_pedidos:
+        sources["pedidos"] = latest_pedidos
+    if latest_etapas:
+        sources["etapas"] = latest_etapas
+    if latest_comparativo:
+        sources["comparativo"] = latest_comparativo
+    if latest_deudas:
+        sources["deudas"] = latest_deudas
+    return sources
+
+
+def _refresh_directory_data() -> dict:
+    sources = _directory_autoload_sources()
+    saldos_path = sources.get("saldos")
+    pedidos_path = sources.get("pedidos")
+    etapas_path = sources.get("etapas")
+    if not saldos_path or not pedidos_path or not etapas_path:
+        raise FileNotFoundError("Faltan archivos requeridos en carpeta autoload.")
+
+    saldos_rows = parse_saldos_txt(saldos_path.read_bytes())
+    pedidos_rows = parse_pedidos_talla_txt(pedidos_path.read_bytes())
+    etapas_rows = parse_corte_etapas_txt(etapas_path.read_bytes())
+    if not saldos_rows or not pedidos_rows or not etapas_rows:
+        raise ValueError(
+            f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, etapas={len(etapas_rows)}"
+        )
+
+    stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
+    stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
+    stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
+    stats_comparativo = {"read": 0, "inserted": 0, "updated": 0}
+    stats_deudas = {"read": 0, "inserted": 0, "updated": 0}
+
+    comparativo_path = sources.get("comparativo")
+    if comparativo_path:
+        comparativo_rows = parse_comparativo_clientes_txt(comparativo_path.read_bytes())
+        if comparativo_rows:
+            stats_comparativo = import_comparativo_clientes_rows(DB_PATH, comparativo_rows)
+
+    deudas_path = sources.get("deudas")
+    if deudas_path:
+        deuda_rows = parse_deudas_vencidas_csv(deudas_path.read_bytes())
+        if deuda_rows:
+            stats_deudas = import_deuda_clientes_rows(DB_PATH, deuda_rows)
+
+    return {
+        "saldos": stats_saldos,
+        "pedidos": stats_pedidos,
+        "etapas": stats_etapas,
+        "comparativo": stats_comparativo,
+        "deudas": stats_deudas,
+    }
+
+
 def _sources_configured() -> bool:
     return all(
         str(src or "").strip()
         for src in (AUTOLOAD_SALDOS_SOURCE, AUTOLOAD_PEDIDOS_SOURCE, AUTOLOAD_ETAPAS_SOURCE)
     )
+
+
+def _directory_sources_configured() -> bool:
+    sources = _directory_autoload_sources()
+    return all(sources.get(key) for key in ("saldos", "pedidos", "etapas"))
+
+
+def _current_refresh_mode() -> str:
+    if _sources_configured():
+        return "explicit"
+    if _directory_sources_configured():
+        return "directory"
+    return ""
 
 
 def _sources_signature() -> str:
@@ -1123,18 +1237,35 @@ def _sources_signature() -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def _directory_sources_signature() -> str:
+    sources = _directory_autoload_sources()
+    parts = []
+    for label in ("saldos", "pedidos", "etapas", "comparativo", "deudas"):
+        path = sources.get(label)
+        if not path:
+            continue
+        payload = path.read_bytes()
+        digest = hashlib.sha256(payload).hexdigest()
+        parts.append(f"{label}:{path.name}:{digest}")
+    raw = "|".join(parts).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def _refresh_if_sources_changed(force: bool = False) -> bool:
-    global _last_sources_signature
-    if not _sources_configured():
+    global _last_sources_signature, _last_refresh_mode
+    mode = _current_refresh_mode()
+    if not mode:
         return False
     with _refresh_lock:
-        signature = _sources_signature()
-        if not force and signature == _last_sources_signature:
+        signature = _sources_signature() if mode == "explicit" else _directory_sources_signature()
+        if not force and signature == _last_sources_signature and mode == _last_refresh_mode:
             return False
-        stats = _refresh_web_data()
+        stats = _refresh_web_data() if mode == "explicit" else _refresh_directory_data()
         _last_sources_signature = signature
+        _last_refresh_mode = mode
     app.logger.info(
-        "Auto refresh web aplicado. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s | COMPARATIVO I%s/A%s",
+        "Auto refresh %s aplicado. SALDOS I%s/A%s | PEDIDOS I%s/A%s | ETAPAS I%s/A%s | COMPARATIVO I%s/A%s | DEUDAS I%s/A%s",
+        mode,
         stats["saldos"].get("inserted", 0),
         stats["saldos"].get("updated", 0),
         stats["pedidos"].get("inserted", 0),
@@ -1143,6 +1274,8 @@ def _refresh_if_sources_changed(force: bool = False) -> bool:
         stats["etapas"].get("updated", 0),
         stats["comparativo"].get("inserted", 0),
         stats["comparativo"].get("updated", 0),
+        stats.get("deudas", {}).get("inserted", 0),
+        stats.get("deudas", {}).get("updated", 0),
     )
     return True
 
@@ -1151,16 +1284,18 @@ def _auto_refresh_web_on_startup() -> None:
     if not AUTO_REFRESH_WEB_ON_START:
         app.logger.info("Auto refresh web al iniciar deshabilitado (ADECOM_AUTO_REFRESH_WEB_ON_START=0).")
         return
-    if not _sources_configured():
+    if not _current_refresh_mode():
         app.logger.warning(
-            "Auto refresh web omitido: faltan variables ADECOM_AUTOLOAD_SALDOS_SOURCE/ADECOM_AUTOLOAD_PEDIDOS_SOURCE/ADECOM_AUTOLOAD_ETAPAS_SOURCE."
+            "Auto refresh omitido: sin fuentes explicitas ni archivos validos en carpetas vigiladas (%s, %s).",
+            AUTOLOAD_DIR,
+            AUTOLOAD_DIR_FALLBACK,
         )
         return
     try:
         _refresh_if_sources_changed(force=True)
-        app.logger.info("Auto refresh web OK al iniciar.")
+        app.logger.info("Auto refresh OK al iniciar.")
     except Exception as exc:
-        app.logger.exception("Auto refresh web fallo al iniciar: %s", exc, exc_info=exc)
+        app.logger.exception("Auto refresh fallo al iniciar: %s", exc, exc_info=exc)
 
 
 def _parse_daily_time(value: str) -> tuple[int, int] | None:
@@ -1218,8 +1353,6 @@ def _start_auto_refresh_web_loop() -> None:
         return
     if not AUTO_REFRESH_WEB_BACKGROUND:
         app.logger.info("Auto refresh web en segundo plano deshabilitado (ADECOM_AUTO_REFRESH_WEB_BACKGROUND=0).")
-        return
-    if not _sources_configured():
         return
     thread = threading.Thread(target=_auto_refresh_web_loop, name="adecom-auto-refresh", daemon=True)
     thread.start()
@@ -2404,7 +2537,21 @@ def upload_refresh_web():
 
 @app.post("/upload/refresh-local")
 def upload_refresh_local():
-    return upload_refresh_web()
+    if not _can_upload():
+        flash("Acceso denegado para cargar archivos.", "error")
+        return redirect(url_for("index"))
+    try:
+        changed = _refresh_if_sources_changed(force=True)
+        if not changed:
+            flash("No se encontraron fuentes locales validas para actualizar.", "error")
+            return redirect(url_for("index"))
+        session.pop("upload_debug", None)
+        flash("Actualizacion local completa desde carpeta vigilada.", "success")
+    except Exception as exc:
+        app.logger.exception("Fallo en actualizacion local", exc_info=exc)
+        session["upload_debug"] = f"{exc.__class__.__name__}: {exc}"
+        flash("No se pudo actualizar la data local.", "error")
+    return redirect(url_for("index"))
 
 
 @app.post("/admin/login")
