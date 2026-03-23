@@ -65,6 +65,7 @@ SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
+SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
 AUTOLOAD_DIR = Path(
     os.environ.get(
         "ADECOM_AUTOLOAD_DIR",
@@ -1991,12 +1992,17 @@ def miles(value):
 
 
 def _ventas_docs_file() -> Path | None:
-    return _find_latest_autoload_file(
+    latest = _find_latest_autoload_file(
         "*VENTAS-TOD-*.CSV",
         "*VENTAS-TOD-*.csv",
         "*VENTAS*.CSV",
         "*VENTAS*.csv",
     )
+    if latest and latest.exists():
+        return latest
+    if SEED_VENTAS_DOCS.exists():
+        return SEED_VENTAS_DOCS
+    return None
 
 
 def _to_int(value: object) -> int:
