@@ -1990,6 +1990,131 @@ def miles(value):
     return f"{number:,}".replace(",", ".")
 
 
+def _ventas_docs_file() -> Path | None:
+    return _find_latest_autoload_file(
+        "*VENTAS-TOD-*.CSV",
+        "*VENTAS-TOD-*.csv",
+        "*VENTAS*.CSV",
+        "*VENTAS*.csv",
+    )
+
+
+def _to_int(value: object) -> int:
+    raw = str(value or "").strip().replace(".", "").replace(" ", "")
+    if not raw:
+        return 0
+    try:
+        return int(raw)
+    except ValueError:
+        return 0
+
+
+def _load_ventas_docs_summary() -> dict:
+    base = {
+        "available": False,
+        "file_name": "",
+        "latest_date": "",
+        "latest_date_label": "",
+        "dates": [],
+        "by_date": {},
+    }
+    path = _ventas_docs_file()
+    if not path or not path.exists():
+        return base
+
+    rows: list[dict[str, str]] | None = None
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as fh:
+                rows = [
+                    {str(k or "").strip(): str(v or "").strip() for k, v in row.items()}
+                    for row in csv.DictReader(fh, delimiter=";")
+                ]
+            break
+        except Exception:
+            rows = None
+            continue
+    if not rows:
+        return base
+
+    grouped: dict[str, dict] = {}
+    for idx, row in enumerate(rows, start=1):
+        raw_date = str(row.get("fecha") or "").strip()
+        if not raw_date:
+            continue
+        try:
+            date_obj = datetime.strptime(raw_date, "%d-%m-%Y").date()
+        except ValueError:
+            continue
+        date_iso = date_obj.isoformat()
+        bucket = grouped.setdefault(
+            date_iso,
+            {
+                "date": date_iso,
+                "label": date_obj.strftime("%d/%m/%Y"),
+                "total_docs": set(),
+                "f_elec_docs": set(),
+                "boletas_docs": set(),
+                "n_credito_docs": set(),
+                "n_debito_docs": set(),
+                "sin_tipo_docs": set(),
+                "sales_net": 0,
+                "units_net": 0,
+                "n_credito_amount": 0,
+            },
+        )
+        doc_number = str(row.get("Numero") or "").strip()
+        doc_key = doc_number or f"row-{idx}"
+        doc_type = str(row.get("Tipo") or "").strip().lower()
+        if doc_type == "f/elec":
+            bucket["f_elec_docs"].add(doc_key)
+        elif doc_type == "bole":
+            bucket["boletas_docs"].add(doc_key)
+        elif doc_type == "n/cre":
+            bucket["n_credito_docs"].add(doc_key)
+        elif doc_type == "ndeb":
+            bucket["n_debito_docs"].add(doc_key)
+        else:
+            bucket["sin_tipo_docs"].add(doc_key)
+        bucket["total_docs"].add(doc_key)
+        total_value = _to_int(row.get("Total"))
+        units_value = _to_int(row.get("Cant"))
+        bucket["sales_net"] += total_value
+        bucket["units_net"] += units_value
+        if doc_type == "n/cre":
+            bucket["n_credito_amount"] += total_value
+
+    if not grouped:
+        return base
+
+    by_date: dict[str, dict] = {}
+    for date_iso, item in grouped.items():
+        by_date[date_iso] = {
+            "date": date_iso,
+            "label": item["label"],
+            "total_docs": len(item["total_docs"]),
+            "f_elec_docs": len(item["f_elec_docs"]),
+            "boletas_docs": len(item["boletas_docs"]),
+            "n_credito_docs": len(item["n_credito_docs"]),
+            "n_debito_docs": len(item["n_debito_docs"]),
+            "sin_tipo_docs": len(item["sin_tipo_docs"]),
+            "sales_net": item["sales_net"],
+            "units_net": item["units_net"],
+            "n_credito_amount": item["n_credito_amount"],
+        }
+
+    dates = sorted(by_date.keys())
+    latest = dates[-1]
+    return {
+        "available": True,
+        "file_name": path.name,
+        "latest_date": latest,
+        "latest_date_label": by_date[latest]["label"],
+        "dates": [{"value": key, "label": by_date[key]["label"]} for key in reversed(dates)],
+        "by_date": by_date,
+    }
+
+
 @app.get("/")
 def index():
     assistant_provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
@@ -2358,6 +2483,7 @@ def index():
     muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
     upload_debug = session.pop("upload_debug", "")
     proyeccion_state = _load_proyeccion_state()
+    ventas_docs_summary = _load_ventas_docs_summary()
     return render_template(
         "index.html",
         rows=rows,
@@ -2393,6 +2519,7 @@ def index():
         admin_key_enabled=bool(_admin_key()),
         assistant_enabled=ASSISTANT_ENABLED,
         assistant_provider=assistant_provider,
+        ventas_docs_summary=ventas_docs_summary,
     )
 
 

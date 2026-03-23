@@ -163,6 +163,60 @@
       </article>
     </section>
 
+    {% if ventas_docs_summary.available %}
+      <section class="ventas-docs-block" id="sectionVentasDocumentos">
+        <div class="ventas-docs-head">
+          <div>
+            <h2>Documentos de venta por fecha</h2>
+            <p class="ventas-docs-note">
+              Archivo detectado: {{ ventas_docs_summary.file_name }}. Selecciona una fecha para ver facturas, boletas y notas.
+            </p>
+          </div>
+          <label class="ventas-docs-filter" for="ventasDocsDateSelect">
+            <span>Fecha</span>
+            <select id="ventasDocsDateSelect">
+              {% for item in ventas_docs_summary.dates %}
+                <option value="{{ item.value }}" {% if item.value == ventas_docs_summary.latest_date %}selected{% endif %}>{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <div class="ventas-docs-grid" id="ventasDocsCards">
+          <article class="ventas-doc-card ventas-doc-card-total">
+            <small>Total documentos</small>
+            <strong data-doc-field="total_docs">0</strong>
+            <span data-doc-field="label">-</span>
+          </article>
+          <article class="ventas-doc-card">
+            <small>Facturas electrónicas</small>
+            <strong data-doc-field="f_elec_docs">0</strong>
+            <span>F/Elec</span>
+          </article>
+          <article class="ventas-doc-card">
+            <small>Boletas</small>
+            <strong data-doc-field="boletas_docs">0</strong>
+            <span>Bole</span>
+          </article>
+          <article class="ventas-doc-card ventas-doc-card-credit">
+            <small>Notas de crédito</small>
+            <strong data-doc-field="n_credito_docs">0</strong>
+            <span data-doc-field="n_credito_amount_label">Monto NC: 0</span>
+          </article>
+          <article class="ventas-doc-card">
+            <small>Notas de débito</small>
+            <strong data-doc-field="n_debito_docs">0</strong>
+            <span>Ndeb</span>
+          </article>
+          <article class="ventas-doc-card ventas-doc-card-net">
+            <small>Venta neta del día</small>
+            <strong data-doc-field="sales_net_label">0</strong>
+            <span data-doc-field="units_net_label">0 unidades netas</span>
+          </article>
+        </div>
+      </section>
+    {% endif %}
+
     <section class="dashboard-grid">
       <article class="dash-block">
         <header class="dash-block-head">
@@ -720,6 +774,9 @@
 
       <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
       <script id="ventasTrazabilidadData" type="application/json">{{ ventas_trazabilidad_por_articulo|tojson }}</script>
+      {% if ventas_docs_summary.available %}
+        <script id="ventasDocsSummaryData" type="application/json">{{ ventas_docs_summary|tojson }}</script>
+      {% endif %}
 
       <dialog id="ventasDetalleModal" class="modal modal-ventas-dashboard">
         <div class="modal-head">
@@ -2822,6 +2879,56 @@
       modal.addEventListener("click", (event) => {
         if (event.target === modal) modal.close();
       });
+    })();
+
+    (function () {
+      const dataNode = document.getElementById("ventasDocsSummaryData");
+      const select = document.getElementById("ventasDocsDateSelect");
+      const cards = document.getElementById("ventasDocsCards");
+      if (!dataNode || !select || !cards) return;
+
+      let payload = null;
+      try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+      } catch (_) {
+        payload = null;
+      }
+      if (!payload || !payload.by_date) return;
+
+      const fields = {
+        total_docs: cards.querySelector('[data-doc-field="total_docs"]'),
+        label: cards.querySelector('[data-doc-field="label"]'),
+        f_elec_docs: cards.querySelector('[data-doc-field="f_elec_docs"]'),
+        boletas_docs: cards.querySelector('[data-doc-field="boletas_docs"]'),
+        n_credito_docs: cards.querySelector('[data-doc-field="n_credito_docs"]'),
+        n_credito_amount_label: cards.querySelector('[data-doc-field="n_credito_amount_label"]'),
+        n_debito_docs: cards.querySelector('[data-doc-field="n_debito_docs"]'),
+        sales_net_label: cards.querySelector('[data-doc-field="sales_net_label"]'),
+        units_net_label: cards.querySelector('[data-doc-field="units_net_label"]'),
+      };
+
+      const fmt = (n) => {
+        const num = Number(n || 0);
+        if (Number.isNaN(num)) return "0";
+        return num.toLocaleString("es-CL");
+      };
+
+      const render = (dateKey) => {
+        const item = payload.by_date[String(dateKey || "")];
+        if (!item) return;
+        if (fields.total_docs) fields.total_docs.textContent = fmt(item.total_docs || 0);
+        if (fields.label) fields.label.textContent = item.label || "-";
+        if (fields.f_elec_docs) fields.f_elec_docs.textContent = fmt(item.f_elec_docs || 0);
+        if (fields.boletas_docs) fields.boletas_docs.textContent = fmt(item.boletas_docs || 0);
+        if (fields.n_credito_docs) fields.n_credito_docs.textContent = fmt(item.n_credito_docs || 0);
+        if (fields.n_credito_amount_label) fields.n_credito_amount_label.textContent = `Monto NC: ${fmt(item.n_credito_amount || 0)}`;
+        if (fields.n_debito_docs) fields.n_debito_docs.textContent = fmt(item.n_debito_docs || 0);
+        if (fields.sales_net_label) fields.sales_net_label.textContent = fmt(item.sales_net || 0);
+        if (fields.units_net_label) fields.units_net_label.textContent = `${fmt(item.units_net || 0)} unidades netas`;
+      };
+
+      select.addEventListener("change", () => render(select.value));
+      render(select.value || payload.latest_date || "");
     })();
 
     (function () {
