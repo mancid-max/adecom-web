@@ -15,7 +15,7 @@
     <aside class="side-nav" id="sideNav" aria-label="Panel lateral">
       <div class="side-head">
         <span class="side-brand">Adecom</span>
-        <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">◀</button>
+        <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">&lt;</button>
       </div>
       <nav class="side-menu">
         <div class="side-group">
@@ -516,7 +516,7 @@
               <span id="dFecha">-</span>
             </p>
           </div>
-          <button type="button" id="closeRowDetailModal" class="row-detail-close" aria-label="Cerrar">×</button>
+          <button type="button" id="closeRowDetailModal" class="row-detail-close" aria-label="Cerrar">X</button>
         </div>
 
         <div class="row-detail-kpis">
@@ -906,7 +906,7 @@
               <h3 id="topArticuloDetalleCodigo">-</h3>
               <p class="row-detail-subline" id="topArticuloDetalleMeta">Selecciona un articulo</p>
             </div>
-            <button type="button" id="closeTopArticuloDetalleModal" class="row-detail-close" aria-label="Cerrar">×</button>
+            <button type="button" id="closeTopArticuloDetalleModal" class="row-detail-close" aria-label="Cerrar">X</button>
           </div>
           <div id="topArticuloDetalleBody" class="top-articulo-detalle-body">
             <div class="row-detail-empty">Sin articulo seleccionado.</div>
@@ -2017,7 +2017,7 @@
           return;
         }
         detailMeta.textContent = totalPedidos
-          ? `Pedidos ${fmt(totalPedidos)} · ${items.length} partida${items.length === 1 ? "" : "s"} activa${items.length === 1 ? "" : "s"}`
+          ? `Pedidos ${fmt(totalPedidos)} - ${items.length} partida${items.length === 1 ? "" : "s"} activa${items.length === 1 ? "" : "s"}`
           : `${items.length} partida${items.length === 1 ? "" : "s"} activa${items.length === 1 ? "" : "s"}`;
         const metaText = `${items.length} orden${items.length === 1 ? "" : "es"} de corte`;
         detailMeta.innerHTML = totalPedidos
@@ -2959,5 +2959,6 @@
   </script>
 </body>
 </html>
+
 
 

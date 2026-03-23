@@ -121,6 +121,20 @@ _last_daily_refresh_date = ""
 _last_refresh_mode = ""
 
 
+@app.after_request
+def ensure_utf8_charset(response):
+    mimetype = (response.mimetype or "").lower()
+    if mimetype in {
+        "text/html",
+        "text/plain",
+        "text/css",
+        "application/javascript",
+        "application/json",
+    }:
+        response.headers["Content-Type"] = f"{mimetype}; charset=utf-8"
+    return response
+
+
 def _admin_key() -> str:
     return os.environ.get("ADECOM_ADMIN_KEY", "").strip()
 
