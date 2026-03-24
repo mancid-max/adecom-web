@@ -1548,11 +1548,6 @@ td.etapas-fecha {
   flex-wrap: wrap;
 }
 
-.ventas-docs-filter-hint {
-  color: #7a6e61;
-  font-size: 12px;
-}
-
 .ventas-docs-head h2 {
   margin: 0;
 }

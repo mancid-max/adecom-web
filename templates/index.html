@@ -181,7 +181,6 @@
                 <input id="ventasDocsDateInput" type="date" value="{{ ventas_docs_summary.latest_date }}">
                 <button type="button" id="ventasDocsNextBtn" class="ventas-docs-date-btn" aria-label="Fecha siguiente">&gt;</button>
               </div>
-              <small id="ventasDocsDateHint" class="ventas-docs-filter-hint">Ultima fecha disponible</small>
             </label>
             <button type="button" id="closeVentasDocsModal" class="modal-close">Cerrar</button>
           </div>
@@ -2909,7 +2908,6 @@
       const dateInput = document.getElementById("ventasDocsDateInput");
       const prevBtn = document.getElementById("ventasDocsPrevBtn");
       const nextBtn = document.getElementById("ventasDocsNextBtn");
-      const dateHint = document.getElementById("ventasDocsDateHint");
       const cards = document.getElementById("ventasDocsCards");
       if (!dataNode || !dateInput || !prevBtn || !nextBtn || !cards) return;
 
@@ -2977,7 +2975,6 @@
         if (fields.n_debito_docs) fields.n_debito_docs.textContent = fmt(item.n_debito_docs || 0);
         if (fields.sales_net_label) fields.sales_net_label.textContent = fmt(item.sales_net || 0);
         if (fields.units_net_label) fields.units_net_label.textContent = `${fmt(item.units_net || 0)} unidades netas`;
-        if (dateHint) dateHint.textContent = `Mostrando ${item.label || resolvedKey}`;
       };
 
       dateInput.addEventListener("change", () => render(dateInput.value));
