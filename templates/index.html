@@ -26,7 +26,7 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openMuestrasModal">Muestras</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
-            <button type="button" class="side-link side-action-btn" data-scroll-id="sectionVentasDocumentos">Documentos venta</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openExsModal">EXS</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
@@ -165,7 +165,7 @@
     </section>
 
     {% if ventas_docs_summary.available %}
-      <section class="ventas-docs-block" id="sectionVentasDocumentos">
+      <dialog id="ventasDocsModal" class="modal ventas-docs-block">
         <div class="ventas-docs-head">
           <div>
             <h2>Documentos de venta por fecha</h2>
@@ -173,14 +173,17 @@
               Archivo detectado: {{ ventas_docs_summary.file_name }}. Selecciona una fecha para ver facturas, boletas y notas.
             </p>
           </div>
-          <label class="ventas-docs-filter" for="ventasDocsDateSelect">
-            <span>Fecha</span>
-            <select id="ventasDocsDateSelect">
-              {% for item in ventas_docs_summary.dates %}
-                <option value="{{ item.value }}" {% if item.value == ventas_docs_summary.latest_date %}selected{% endif %}>{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </label>
+          <div class="ventas-docs-actions">
+            <label class="ventas-docs-filter" for="ventasDocsDateSelect">
+              <span>Fecha</span>
+              <select id="ventasDocsDateSelect">
+                {% for item in ventas_docs_summary.dates %}
+                  <option value="{{ item.value }}" {% if item.value == ventas_docs_summary.latest_date %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="button" id="closeVentasDocsModal" class="modal-close">Cerrar</button>
+          </div>
         </div>
 
         <div class="ventas-docs-grid" id="ventasDocsCards">
@@ -215,7 +218,7 @@
             <span data-doc-field="units_net_label">0 unidades netas</span>
           </article>
         </div>
-      </section>
+      </dialog>
     {% endif %}
 
     <section class="dashboard-grid">
@@ -1541,6 +1544,7 @@
         openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
         openVentasTotalModal: "ventasTotalModal",
+        openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openExsModal: "exsModal",
         openProyeccionModal: "proyeccionModal",
@@ -1550,6 +1554,7 @@
         openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
         openVentasTotalModal: "ventasTotalModal",
+        openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
         openExsModal: "exsModal",
@@ -1977,6 +1982,22 @@
       const closeBtn = document.getElementById("closeVentasTotalModal");
       if (!modal || !openBtn || !closeBtn) return;
       openBtn.addEventListener("click", () => modal.showModal());
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("ventasDocsModal");
+      const closeBtn = document.getElementById("closeVentasDocsModal");
+      if (!modal || !closeBtn) return;
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();

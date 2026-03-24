@@ -1541,6 +1541,13 @@ td.etapas-fecha {
   margin-bottom: 14px;
 }
 
+.ventas-docs-actions {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
 .ventas-docs-head h2 {
   margin: 0;
 }
@@ -1579,6 +1586,10 @@ td.etapas-fecha {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
+}
+
+#ventasDocsModal {
+  width: min(1180px, calc(100vw - 40px));
 }
 
 .ventas-doc-card {
