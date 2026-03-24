@@ -1429,6 +1429,7 @@
       ].filter(Boolean);
       if (shell && toggles.length) {
         const key = "adecom_side_collapsed";
+        const storedState = localStorage.getItem(key);
         const setState = (collapsed) => {
           shell.classList.toggle("side-collapsed", collapsed);
           toggles.forEach((toggle) => {
@@ -1437,7 +1438,7 @@
             toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
           });
         };
-        setState(localStorage.getItem(key) === "1");
+        setState(storedState === null ? true : storedState === "1");
         toggles.forEach((toggle) => {
           toggle.addEventListener("click", () => {
             const collapsed = !shell.classList.contains("side-collapsed");
