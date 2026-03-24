@@ -174,13 +174,14 @@
             </p>
           </div>
           <div class="ventas-docs-actions">
-            <label class="ventas-docs-filter" for="ventasDocsDateSelect">
+            <label class="ventas-docs-filter" for="ventasDocsDateInput">
               <span>Fecha</span>
-              <select id="ventasDocsDateSelect">
-                {% for item in ventas_docs_summary.dates %}
-                  <option value="{{ item.value }}" {% if item.value == ventas_docs_summary.latest_date %}selected{% endif %}>{{ item.label }}</option>
-                {% endfor %}
-              </select>
+              <div class="ventas-docs-date-nav">
+                <button type="button" id="ventasDocsPrevBtn" class="ventas-docs-date-btn" aria-label="Fecha anterior">&lt;</button>
+                <input id="ventasDocsDateInput" type="date" value="{{ ventas_docs_summary.latest_date }}">
+                <button type="button" id="ventasDocsNextBtn" class="ventas-docs-date-btn" aria-label="Fecha siguiente">&gt;</button>
+              </div>
+              <small id="ventasDocsDateHint" class="ventas-docs-filter-hint">Ultima fecha disponible</small>
             </label>
             <button type="button" id="closeVentasDocsModal" class="modal-close">Cerrar</button>
           </div>
@@ -2905,9 +2906,12 @@
 
     (function () {
       const dataNode = document.getElementById("ventasDocsSummaryData");
-      const select = document.getElementById("ventasDocsDateSelect");
+      const dateInput = document.getElementById("ventasDocsDateInput");
+      const prevBtn = document.getElementById("ventasDocsPrevBtn");
+      const nextBtn = document.getElementById("ventasDocsNextBtn");
+      const dateHint = document.getElementById("ventasDocsDateHint");
       const cards = document.getElementById("ventasDocsCards");
-      if (!dataNode || !select || !cards) return;
+      if (!dataNode || !dateInput || !prevBtn || !nextBtn || !cards) return;
 
       let payload = null;
       try {
@@ -2916,6 +2920,11 @@
         payload = null;
       }
       if (!payload || !payload.by_date) return;
+      const dateKeys = Object.keys(payload.by_date).sort();
+      if (!dateKeys.length) return;
+
+      dateInput.min = dateKeys[0];
+      dateInput.max = dateKeys[dateKeys.length - 1];
 
       const fields = {
         total_docs: cards.querySelector('[data-doc-field="total_docs"]'),
@@ -2935,9 +2944,30 @@
         return num.toLocaleString("es-CL");
       };
 
+      const resolveDateKey = (value) => {
+        const probe = String(value || "").trim();
+        if (payload.by_date[probe]) return probe;
+        if (!probe) return dateKeys[dateKeys.length - 1];
+        let fallback = dateKeys[0];
+        for (const key of dateKeys) {
+          if (key <= probe) fallback = key;
+          if (key >= probe) return key === probe ? key : fallback;
+        }
+        return fallback;
+      };
+
+      const syncNav = (dateKey) => {
+        const idx = dateKeys.indexOf(dateKey);
+        prevBtn.disabled = idx <= 0;
+        nextBtn.disabled = idx >= dateKeys.length - 1;
+      };
+
       const render = (dateKey) => {
-        const item = payload.by_date[String(dateKey || "")];
+        const resolvedKey = resolveDateKey(dateKey);
+        const item = payload.by_date[String(resolvedKey || "")];
         if (!item) return;
+        dateInput.value = resolvedKey;
+        syncNav(resolvedKey);
         if (fields.total_docs) fields.total_docs.textContent = fmt(item.total_docs || 0);
         if (fields.label) fields.label.textContent = item.label || "-";
         if (fields.f_elec_docs) fields.f_elec_docs.textContent = fmt(item.f_elec_docs || 0);
@@ -2947,10 +2977,19 @@
         if (fields.n_debito_docs) fields.n_debito_docs.textContent = fmt(item.n_debito_docs || 0);
         if (fields.sales_net_label) fields.sales_net_label.textContent = fmt(item.sales_net || 0);
         if (fields.units_net_label) fields.units_net_label.textContent = `${fmt(item.units_net || 0)} unidades netas`;
+        if (dateHint) dateHint.textContent = `Mostrando ${item.label || resolvedKey}`;
       };
 
-      select.addEventListener("change", () => render(select.value));
-      render(select.value || payload.latest_date || "");
+      dateInput.addEventListener("change", () => render(dateInput.value));
+      prevBtn.addEventListener("click", () => {
+        const idx = dateKeys.indexOf(resolveDateKey(dateInput.value));
+        if (idx > 0) render(dateKeys[idx - 1]);
+      });
+      nextBtn.addEventListener("click", () => {
+        const idx = dateKeys.indexOf(resolveDateKey(dateInput.value));
+        if (idx >= 0 && idx < dateKeys.length - 1) render(dateKeys[idx + 1]);
+      });
+      render(dateInput.value || payload.latest_date || "");
     })();
 
     (function () {
