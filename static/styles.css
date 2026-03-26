@@ -1366,6 +1366,7 @@ button.full-table-stage-card:hover,
   border-radius: 16px !important;
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%) !important;
   box-shadow: 0 8px 18px rgba(17, 46, 91, 0.06) !important;
+  padding: 14px 16px !important;
 }
 
 #ventasTotalModal .kpi-open-btn,
@@ -1376,6 +1377,13 @@ button.full-table-stage-card:hover,
   box-shadow: none !important;
   padding: 0 !important;
   text-align: left !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  min-height: 100px !important;
 }
 
 #ventasTotalModal .kpi-open-btn h4,
@@ -1383,16 +1391,22 @@ button.full-table-stage-card:hover,
   color: #4f6782 !important;
   font-size: 11px !important;
   letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding-top: 2px !important;
 }
 
 #ventasTotalModal .kpi-open-btn p,
 .app-shell #ventasTotalModal .kpi-open-btn p {
   color: #143965 !important;
-  font-size: clamp(1.55rem, 2.4vw, 2.15rem) !important;
-  line-height: 1.08 !important;
+  font-size: clamp(1.35rem, 2vw, 1.95rem) !important;
+  line-height: 1.04 !important;
   letter-spacing: -0.03em !important;
   overflow-wrap: anywhere;
   word-break: break-word;
+  margin: 0 !important;
+  max-width: 100% !important;
+  padding-right: 4px !important;
 }
 
 #ventasTotalModal .kpi-open-btn .kpi-hint,
@@ -1402,6 +1416,7 @@ button.full-table-stage-card:hover,
   border: 1px solid rgba(21, 101, 192, 0.12) !important;
   border-radius: 999px !important;
   padding: 4px 10px !important;
+  align-self: flex-start !important;
 }
 
 #ventasTotalModal .table-wrap {
@@ -1461,6 +1476,7 @@ button.full-table-stage-card:hover,
 .app-shell #ventasTotalModal .modal-kpis article {
   color: #1b3556 !important;
   min-width: 0 !important;
+  overflow: hidden !important;
 }
 
 #ventasTotalModal .modal-kpis article h4,
@@ -5659,6 +5675,10 @@ td {
   border: 1px solid rgba(21, 101, 192, 0.16) !important;
   background: linear-gradient(180deg, #f3f7fc 0%, #e6eef8 100%) !important;
   color: var(--reskin-text) !important;
+}
+
+.row-detail-shell {
+  background: linear-gradient(180deg, #e4edf8 0%, #d4e0f0 100%) !important;
 }
 
 .row-detail-top h3,

@@ -21,7 +21,6 @@
         <div class="side-group">
           <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Opciones</button>
           <div class="side-group-body" hidden>
-            <button type="button" class="side-link side-action-btn" data-scroll-id="sectionPrincipal">Dashboard</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
@@ -479,16 +478,6 @@
             <p><span id="dEtapa" class="estado-pill estado-pill-yellow">-</span></p>
           </article>
         </div>
-
-        <div class="row-detail-timeline-wrap">
-          <h4>Corte por talla</h4>
-          <div id="dCorteTallas" class="row-detail-empty">-</div>
-        </div>
-
-        <div class="row-detail-timeline-wrap">
-          <h4>Linea de etapas</h4>
-          <div id="dTimeline" class="row-detail-timeline"></div>
-        </div>
       </div>
     </dialog>
 
@@ -538,7 +527,7 @@
           </article>
           <article class="kpi-clickable">
             <button type="button" id="openTopArticulosModal" class="kpi-open-btn" {% if not ventas_top_articulos %}disabled{% endif %}>
-              <h4>Top articulos</h4>
+              <h4>Total modelos</h4>
               {% if ventas_top_articulo %}
               <p>{{ ventas_top_articulos|length|miles }} modelos</p>
               <small class="kpi-hint">Ver detalle</small>
