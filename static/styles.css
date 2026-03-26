@@ -6066,3 +6066,1166 @@ td {
   color: #ffffff !important;
 }
 
+/* AdminLTE-inspired local reskin */
+:root {
+  --bg: #f4f6f9 !important;
+  --bg-2: #edf1f5 !important;
+  --surface: #ffffff !important;
+  --surface-soft: #f7f9fc !important;
+  --text: #343a40 !important;
+  --muted: #6c757d !important;
+  --line: #d8dee6 !important;
+  --accent: #3c8dbc !important;
+  --accent-soft: #367fa9 !important;
+}
+
+body,
+.app-shell {
+  font-family: "Source Sans 3", "Segoe UI", Tahoma, sans-serif !important;
+  background: #f4f6f9 !important;
+  color: #343a40 !important;
+}
+
+body {
+  background-image: none !important;
+}
+
+.app-shell {
+  grid-template-columns: 260px 1fr !important;
+}
+
+.page {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 20px 22px 28px !important;
+  background: #f4f6f9 !important;
+}
+
+.side-nav,
+.app-shell .side-nav {
+  background: linear-gradient(180deg, #2c3b41 0%, #233038 100%) !important;
+  border-right: 0 !important;
+  padding: 14px 12px !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.side-head {
+  padding: 8px 10px 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.side-brand {
+  font-family: "Source Sans 3", "Segoe UI", Tahoma, sans-serif !important;
+  font-size: 34px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+.side-menu {
+  margin-top: 14px !important;
+  gap: 10px !important;
+}
+
+.side-group-toggle,
+.side-nav .side-group-toggle,
+.app-shell .side-nav .side-group-toggle {
+  min-height: 42px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #d9e3ea !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  box-shadow: none !important;
+}
+
+.side-group-body {
+  display: grid !important;
+  gap: 8px !important;
+  padding-top: 10px !important;
+}
+
+.side-link,
+.app-shell .side-link {
+  min-height: 44px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #cfd8df !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.side-link:hover,
+.app-shell .side-link:hover,
+.side-link-active {
+  background: #3c8dbc !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+.top-nav-redesign,
+.app-shell .top-nav-redesign {
+  position: relative !important;
+  top: auto !important;
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  min-height: 58px !important;
+  padding: 12px 18px !important;
+  margin-bottom: 16px !important;
+}
+
+.top-nav-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.top-brand-square {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  background: #3c8dbc !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+.top-brand-text {
+  color: #2c3e50 !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+
+.top-logout-btn {
+  border-radius: 6px !important;
+  border: 1px solid #d2d6de !important;
+  background: #f8f9fa !important;
+  color: #444 !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.hero,
+.app-shell .hero {
+  grid-template-columns: 1fr auto !important;
+  gap: 12px !important;
+  padding: 8px 4px 14px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin-bottom: 8px !important;
+}
+
+.hero::after {
+  display: none !important;
+}
+
+.hero h1,
+.app-shell .hero h1 {
+  margin: 0 !important;
+  font-size: 34px !important;
+  line-height: 1.1 !important;
+  font-family: "Source Sans 3", "Segoe UI", Tahoma, sans-serif !important;
+  font-weight: 700 !important;
+  color: #343a40 !important;
+}
+
+.hero p,
+.app-shell .hero p {
+  margin: 6px 0 0 !important;
+  color: #6c757d !important;
+  font-size: 16px !important;
+}
+
+.filters,
+.app-shell .filters {
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  padding: 18px 18px 16px !important;
+  margin-bottom: 18px !important;
+}
+
+.filters form {
+  align-items: end !important;
+  gap: 12px !important;
+}
+
+.search-field label {
+  color: #495057 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.search-field input,
+input[type="text"],
+input[type="date"] {
+  border-radius: 6px !important;
+  border: 1px solid #ced4da !important;
+  background: #ffffff !important;
+  color: #495057 !important;
+  min-height: 42px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.search-submit-btn,
+.btn-ghost,
+button {
+  border-radius: 6px !important;
+}
+
+.search-submit-btn {
+  background: #3c8dbc !important;
+  border-color: #367fa9 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.search-reset-btn {
+  border-color: #ced4da !important;
+  background: #ffffff !important;
+  color: #495057 !important;
+  box-shadow: none !important;
+}
+
+.dashboard-kpi-row {
+  gap: 16px !important;
+  margin-bottom: 18px !important;
+}
+
+.dashboard-kpi-row article,
+.dashboard-kpi-row .card-action,
+.app-shell .dashboard-kpi-row .card-action {
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 8px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  min-height: 124px !important;
+}
+
+.dashboard-kpi-row article::before,
+.dashboard-kpi-row .card-action::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: auto 0 0 0 !important;
+  height: 3px !important;
+  background: #3c8dbc !important;
+  opacity: 1 !important;
+}
+
+.dashboard-kpi-row article:nth-child(2)::before { background: #00a65a !important; }
+.dashboard-kpi-row article:nth-child(3)::before { background: #f39c12 !important; }
+
+.summary-open,
+.dashboard-kpi-row .summary-open {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 18px 18px 16px !important;
+  min-height: 124px !important;
+  border: 1px solid #dee2e6 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  text-align: left !important;
+}
+
+.summary-open h2,
+.dashboard-kpi-row .summary-open h2 {
+  margin: 0 !important;
+  color: #6c757d !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-weight: 700 !important;
+}
+
+.summary-open p,
+.dashboard-kpi-row .summary-open p {
+  margin: 0 !important;
+  color: #343a40 !important;
+  font-size: clamp(2rem, 2.7vw, 2.5rem) !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+}
+
+.summary-open small,
+.dashboard-kpi-row .summary-open small {
+  margin: 0 !important;
+  color: #6c757d !important;
+  font-size: 14px !important;
+}
+
+.dashboard-grid,
+.dashboard-grid-bottom {
+  gap: 18px !important;
+  margin-bottom: 18px !important;
+}
+
+.dash-block,
+.app-shell .dash-block {
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.dash-block-head,
+.app-shell .dash-block-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 54px !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid #f0f2f5 !important;
+  background: #ffffff !important;
+}
+
+.dash-block-head h3,
+.app-shell .dash-block-head h3 {
+  margin: 0 !important;
+  font-size: 20px !important;
+  color: #444 !important;
+  font-weight: 700 !important;
+}
+
+.dash-block-head small,
+.app-shell .dash-block-head small {
+  color: #3c8dbc !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+.dash-bars {
+  padding: 16px 18px 18px !important;
+}
+
+.dash-bar-row {
+  gap: 12px !important;
+  margin-bottom: 14px !important;
+}
+
+.dash-bar-label {
+  color: #495057 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.dash-bar-track {
+  border-radius: 999px !important;
+  background: #e9ecef !important;
+  height: 20px !important;
+}
+
+.dash-bar-fill {
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, #3c8dbc 0%, #00c0ef 100%) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+.dash-note {
+  padding: 0 18px 18px !important;
+  color: #6c757d !important;
+  font-size: 14px !important;
+}
+
+.table-wrap,
+.app-shell .table-wrap,
+.full-table-stage-panel,
+#ventasTotalModal .table-wrap,
+#familiaDetalleModal .table-wrap,
+#fullTableModal .table-wrap {
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.table-hint {
+  color: #6c757d !important;
+  font-size: 14px !important;
+}
+
+.bodega-table,
+.full-table {
+  border-collapse: collapse !important;
+}
+
+.bodega-table thead th,
+.full-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 4 !important;
+  background: linear-gradient(180deg, #3f6791 0%, #36597d 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 0 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  padding: 12px 12px !important;
+}
+
+.bodega-table tbody td,
+.full-table tbody td {
+  background: #ffffff !important;
+  color: #495057 !important;
+  border-bottom: 1px solid #f1f3f5 !important;
+  padding: 12px !important;
+  font-size: 14px !important;
+}
+
+.bodega-table tbody tr:nth-child(even) td,
+.full-table tbody tr:nth-child(even) td {
+  background: #f8f9fa !important;
+}
+
+.bodega-table tbody tr:hover td,
+.full-table tbody tr:hover td {
+  background: #eef5fb !important;
+}
+
+.modal,
+#fullTableModal,
+#ventasTotalModal,
+#familiaDetalleModal,
+#rowDetailModal,
+#bodegaModal {
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #f4f6f9 !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18) !important;
+}
+
+.modal-head,
+.app-shell .modal-head {
+  border-bottom: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  padding: 18px 22px !important;
+}
+
+.modal-head h3,
+.app-shell .modal-head h3 {
+  color: #343a40 !important;
+  font-size: 30px !important;
+  font-family: "Source Sans 3", "Segoe UI", Tahoma, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+.modal-close,
+.row-detail-close {
+  border-radius: 6px !important;
+  border: 1px solid #ced4da !important;
+  background: #ffffff !important;
+  color: #495057 !important;
+  box-shadow: none !important;
+}
+
+.modal-kpis,
+#ventasTotalModal .modal-kpis {
+  gap: 16px !important;
+}
+
+.modal-kpis article,
+#ventasTotalModal .modal-kpis article,
+#familiaDetalleModal .table-wrap,
+.row-detail-kpis article {
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.modal-kpis h4,
+#ventasTotalModal .kpi-open-btn h4,
+.row-detail-kpis h4 {
+  color: #6c757d !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-weight: 700 !important;
+}
+
+.modal-kpis p,
+#ventasTotalModal .kpi-open-btn p,
+.row-detail-kpis p {
+  color: #343a40 !important;
+  font-weight: 700 !important;
+}
+
+.full-table-stage-panel {
+  padding: 18px !important;
+  margin-bottom: 16px !important;
+}
+
+.full-table-stage-head h4 {
+  color: #444 !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+}
+
+.full-table-stage-head p,
+.full-table-stage-total {
+  color: #6c757d !important;
+}
+
+.full-table-stage-card {
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.full-table-stage-card .estado-pill {
+  background: #eaf3fb !important;
+  color: #3c8dbc !important;
+  border-color: #b8d7ea !important;
+}
+
+.row-detail-shell {
+  border-radius: 8px !important;
+  border: 1px solid #dee2e6 !important;
+  background: #f4f6f9 !important;
+  box-shadow: none !important;
+}
+
+.row-detail-top h3,
+.row-detail-subline,
+.row-detail-kpis p,
+.row-detail-kpis h4 {
+  font-family: "Source Sans 3", "Segoe UI", Tahoma, sans-serif !important;
+}
+
+.estado-pill,
+.variante-chip,
+.kpi-hint {
+  border-radius: 999px !important;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  .side-nav {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    width: 250px !important;
+    z-index: 50 !important;
+  }
+
+  .page {
+    padding: 16px !important;
+  }
+
+  .hero,
+  .app-shell .hero {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Gentelella-style redesign */
+body.theme-gentelella,
+.theme-gentelella .app-shell {
+  font-family: "Source Sans 3", Arial, sans-serif !important;
+  background: #f7f7f7 !important;
+  color: #2a3f54 !important;
+  overflow-x: hidden !important;
+}
+
+.theme-gentelella .app-shell {
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.theme-gentelella .side-nav {
+  background: #2a3f54 !important;
+  box-shadow: none !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 250px !important;
+  min-height: 100vh !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  z-index: 40 !important;
+}
+
+.theme-gentelella .side-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-gentelella .side-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  color: #ecf0f1;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.theme-gentelella .side-brand-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-gentelella .side-brand {
+  font-size: 26px !important;
+  line-height: 1;
+}
+
+.theme-gentelella .side-brand-sub {
+  color: rgba(236, 240, 241, 0.65);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.theme-gentelella .side-toggle,
+.theme-gentelella .side-toggle-floating {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #c4cfda !important;
+  box-shadow: none !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease !important;
+}
+
+.theme-gentelella .side-toggle:hover,
+.theme-gentelella .side-toggle:focus-visible {
+  background: #1abb9c !important;
+  border-color: #169f85 !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+.theme-gentelella .side-group-toggle,
+.theme-gentelella .side-nav .side-group-toggle,
+.theme-gentelella .app-shell .side-nav .side-group-toggle {
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 3px solid #1abb9c !important;
+  border-radius: 0 !important;
+  color: #e7ecef !important;
+  min-height: 36px !important;
+  padding: 0 10px 0 12px !important;
+}
+
+.theme-gentelella .side-group-body {
+  padding-top: 6px !important;
+}
+
+.theme-gentelella .side-link,
+.theme-gentelella .app-shell .side-link {
+  min-height: 38px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #c4cfda !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  padding: 8px 14px !important;
+  border-left: 3px solid transparent !important;
+}
+
+.theme-gentelella .side-link:hover,
+.theme-gentelella .app-shell .side-link:hover,
+.theme-gentelella .side-link-active {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #ffffff !important;
+  border-left-color: #1abb9c !important;
+}
+
+.theme-gentelella .page {
+  background: #f7f7f7 !important;
+  padding: 0 16px 24px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  margin-left: 250px !important;
+  min-height: 100vh !important;
+}
+
+.theme-gentelella .top-nav-redesign,
+.theme-gentelella .app-shell .top-nav-redesign {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px !important;
+  margin: 0 0 16px !important;
+  padding: 10px 22px !important;
+  border: 0 !important;
+  border-bottom: 1px solid #d9dee4 !important;
+  border-radius: 0 !important;
+  background: #ededed !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.theme-gentelella .top-nav-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-gentelella .top-nav-title strong {
+  color: #2a3f54;
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.theme-gentelella .top-nav-title small {
+  color: #73879c;
+  font-size: 13px;
+}
+
+.theme-gentelella .top-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.theme-gentelella .top-nav-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  color: #5a738e;
+}
+
+.theme-gentelella .top-nav-user-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.theme-gentelella .top-nav-user strong {
+  color: #2a3f54;
+  font-size: 15px;
+}
+
+.theme-gentelella .top-logout-btn {
+  background: #ffffff !important;
+  border: 1px solid #cfd6de !important;
+  color: #5a738e !important;
+}
+
+.theme-gentelella .hero,
+.theme-gentelella .app-shell .hero {
+  margin: 0 0 16px !important;
+  padding: 0 !important;
+}
+
+.theme-gentelella .hero-kicker {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: #1abb9c;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.theme-gentelella .hero h1,
+.theme-gentelella .app-shell .hero h1 {
+  color: #2a3f54 !important;
+  font-size: 32px !important;
+}
+
+.theme-gentelella .hero p,
+.theme-gentelella .app-shell .hero p {
+  color: #73879c !important;
+  max-width: 900px;
+}
+
+.theme-gentelella .filters,
+.theme-gentelella .app-shell .filters,
+.theme-gentelella .dashboard-kpi-row article,
+.theme-gentelella .dashboard-kpi-row .card-action,
+.theme-gentelella .dash-block,
+.theme-gentelella .table-wrap,
+.theme-gentelella .full-table-stage-panel,
+.theme-gentelella .modal-kpis article,
+.theme-gentelella .row-detail-kpis article,
+.theme-gentelella #ventasTotalModal .table-wrap,
+.theme-gentelella #familiaDetalleModal .table-wrap,
+.theme-gentelella #fullTableModal .table-wrap {
+  border: 1px solid #e6e9ed !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+.theme-gentelella .filters {
+  padding: 14px 16px !important;
+}
+
+.theme-gentelella .search-field label {
+  color: #2a3f54 !important;
+  font-size: 13px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.theme-gentelella .search-field input,
+.theme-gentelella input[type="text"],
+.theme-gentelella input[type="date"] {
+  min-height: 38px !important;
+  border-radius: 3px !important;
+  border: 1px solid #ccd0d7 !important;
+  box-shadow: none !important;
+}
+
+.theme-gentelella .search-submit-btn {
+  background: #26b99a !important;
+  border-color: #169f85 !important;
+}
+
+.theme-gentelella .search-reset-btn {
+  border-color: #ccd0d7 !important;
+}
+
+.theme-gentelella .dashboard-kpi-row {
+  gap: 18px !important;
+  width: 100% !important;
+}
+
+.theme-gentelella .dashboard-kpi-row article::before,
+.theme-gentelella .dashboard-kpi-row .card-action::before {
+  height: 4px !important;
+  background: #1abb9c !important;
+}
+
+.theme-gentelella .dashboard-kpi-row article:nth-child(2)::before { background: #3498db !important; }
+.theme-gentelella .dashboard-kpi-row article:nth-child(3)::before { background: #9b59b6 !important; }
+
+.theme-gentelella .summary-open,
+.theme-gentelella .dashboard-kpi-row .summary-open {
+  min-height: 132px !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.theme-gentelella .summary-open h2,
+.theme-gentelella .dashboard-kpi-row .summary-open h2 {
+  color: #73879c !important;
+  font-size: 14px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+.theme-gentelella .summary-open p,
+.theme-gentelella .dashboard-kpi-row .summary-open p {
+  color: #2a3f54 !important;
+  font-size: clamp(2.1rem, 2.8vw, 2.8rem) !important;
+}
+
+.theme-gentelella .summary-open small,
+.theme-gentelella .dashboard-kpi-row .summary-open small {
+  color: #73879c !important;
+  font-size: 14px !important;
+}
+
+.theme-gentelella .dash-block-head,
+.theme-gentelella .app-shell .dash-block-head {
+  min-height: 46px !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid #e6e9ed !important;
+  background: #ffffff !important;
+}
+
+.theme-gentelella .dash-block-head h3,
+.theme-gentelella .app-shell .dash-block-head h3 {
+  color: #2a3f54 !important;
+  font-size: 21px !important;
+  font-weight: 600 !important;
+}
+
+.theme-gentelella .hero,
+.theme-gentelella .dashboard-grid,
+.theme-gentelella .dashboard-grid-bottom,
+.theme-gentelella .filters {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.theme-gentelella .dash-block-head small,
+.theme-gentelella .app-shell .dash-block-head small {
+  color: #73879c !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.theme-gentelella .dash-bars {
+  padding: 16px !important;
+}
+
+.theme-gentelella .dash-bar-track {
+  background: #e9ecef !important;
+}
+
+.theme-gentelella .dash-bar-fill {
+  background: linear-gradient(90deg, #26b99a 0%, #1abb9c 100%) !important;
+}
+
+.dash-bar-row-clickable {
+  cursor: pointer;
+}
+
+.dash-bar-row-clickable:hover .dash-bar-label {
+  color: #1abb9c !important;
+}
+
+.dash-note-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #1abb9c;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+}
+
+.dash-note-link:hover {
+  text-decoration: underline;
+  box-shadow: none;
+  transform: none;
+}
+
+.theme-gentelella .table-hint {
+  color: #73879c !important;
+}
+
+.theme-gentelella .bodega-table thead th,
+.theme-gentelella .full-table thead th {
+  background: #2a3f54 !important;
+  color: #ecf0f1 !important;
+  font-size: 13px !important;
+}
+
+.theme-gentelella .bodega-table tbody td,
+.theme-gentelella .full-table tbody td {
+  color: #5a738e !important;
+  font-size: 14px !important;
+}
+
+.theme-gentelella .bodega-table tbody tr:nth-child(even) td,
+.theme-gentelella .full-table tbody tr:nth-child(even) td {
+  background: #fbfcfd !important;
+}
+
+.theme-gentelella .bodega-table tbody tr:hover td,
+.theme-gentelella .full-table tbody tr:hover td {
+  background: #f0f7f6 !important;
+}
+
+.theme-gentelella .modal,
+.theme-gentelella #fullTableModal,
+.theme-gentelella #ventasTotalModal,
+.theme-gentelella #familiaDetalleModal,
+.theme-gentelella #rowDetailModal,
+.theme-gentelella #bodegaModal {
+  background: #f7f7f7 !important;
+  border-radius: 6px !important;
+}
+
+.theme-gentelella .modal-head,
+.theme-gentelella .app-shell .modal-head {
+  border-bottom: 1px solid #e6e9ed !important;
+  padding: 16px 20px !important;
+}
+
+.theme-gentelella .modal-head h3,
+.theme-gentelella .app-shell .modal-head h3 {
+  font-size: 30px !important;
+  font-weight: 600 !important;
+  color: #2a3f54 !important;
+}
+
+.theme-gentelella .modal-close,
+.theme-gentelella .row-detail-close {
+  border-radius: 3px !important;
+  color: #73879c !important;
+}
+
+.theme-gentelella .modal-kpis h4,
+.theme-gentelella #ventasTotalModal .kpi-open-btn h4,
+.theme-gentelella .row-detail-kpis h4 {
+  color: #73879c !important;
+}
+
+.theme-gentelella .modal-kpis p,
+.theme-gentelella #ventasTotalModal .kpi-open-btn p,
+.theme-gentelella .row-detail-kpis p,
+.theme-gentelella .row-detail-top h3 {
+  color: #2a3f54 !important;
+}
+
+.theme-gentelella .full-table-stage-card .estado-pill,
+.theme-gentelella .estado-pill {
+  background: #e8f7f3 !important;
+  color: #169f85 !important;
+  border-color: #b7e8db !important;
+}
+
+@media (max-width: 960px) {
+  .theme-gentelella .app-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  .theme-gentelella .top-nav-redesign,
+  .theme-gentelella .app-shell .top-nav-redesign {
+    margin-left: -16px !important;
+    margin-right: -16px !important;
+  }
+}
+
+/* Stable collapsed behavior for Gentelella sidebar */
+.theme-gentelella .app-shell.side-collapsed {
+  grid-template-columns: 1fr !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-nav {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 70px !important;
+  height: 100vh !important;
+  transform: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  padding: 12px 8px !important;
+  overflow: hidden !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-head {
+  position: static !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 14px !important;
+  padding: 4px 0 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-brand-wrap {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-brand-copy {
+  display: none !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-brand-mark {
+  width: 40px !important;
+  height: 40px !important;
+  margin: 0 !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-menu,
+.theme-gentelella .app-shell.side-collapsed .side-group-body {
+  display: none !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-group,
+.theme-gentelella .app-shell.side-collapsed .side-group-toggle {
+  display: none !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .side-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  border-radius: 3px !important;
+  margin-top: 2px !important;
+}
+
+.theme-gentelella .side-toggle-floating {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.theme-gentelella .app-shell:not(.side-collapsed) .side-toggle-floating {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.theme-gentelella #sideToggleFloatingBtn {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.theme-gentelella .app-shell.side-collapsed .page {
+  margin-left: 70px !important;
+  padding-left: 16px !important;
+}
+
+@media (max-width: 960px) {
+  .theme-gentelella .app-shell.side-collapsed {
+    grid-template-columns: 1fr !important;
+  }
+
+  .theme-gentelella .page {
+    margin-left: 0 !important;
+  }
+
+  .theme-gentelella .app-shell.side-collapsed .page {
+    margin-left: 0 !important;
+    padding-left: 16px !important;
+  }
+}
+

@@ -2121,6 +2121,118 @@ def _load_ventas_docs_summary() -> dict:
     }
 
 
+def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
+    base = {
+        "available": False,
+        "file_name": "",
+        "rows": [],
+        "familias_con_stock": 0,
+        "total_disponible": 0,
+    }
+    path = AUTOLOAD_DIR / "Cortes 4200 .xlsx"
+    if not path.exists():
+        return base
+    try:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(path, data_only=True, read_only=True)
+        if "Ranking 42" not in wb.sheetnames:
+            return base
+        ws = wb["Ranking 42"]
+    except Exception:
+        return base
+
+    def _family_key(raw: object) -> str:
+        text = str(raw or "").strip().upper()
+        if not text:
+            return ""
+        digits = "".join(ch for ch in text if ch.isdigit())
+        if len(digits) >= 6 and digits.startswith("42"):
+            return digits[:4]
+        if len(digits) >= 4 and digits.startswith("42"):
+            return digits[:4]
+        match = re.search(r"(42\d{2})", text)
+        return match.group(1) if match else ""
+
+    def _value_to_int(raw: object) -> int:
+        if raw is None:
+            return 0
+        if isinstance(raw, (int, float)):
+            return int(raw)
+        text = str(raw).strip().replace(".", "").replace(",", "")
+        if not text:
+            return 0
+        try:
+            return int(float(text))
+        except ValueError:
+            return 0
+
+    ranking_by_family: dict[str, dict] = {}
+    for row in ws.iter_rows(min_row=4, values_only=True):
+        family = _family_key(row[0] if len(row) > 0 else "")
+        if not family:
+            continue
+        descripcion = str(row[5] or "").strip() if len(row) > 5 else ""
+        measures = [_value_to_int(value) for value in row[6:]] if len(row) > 6 else []
+        disponible = sum(value for value in measures if value > 0)
+        bucket = ranking_by_family.setdefault(
+            family,
+            {
+                "familia": family,
+                "disponible_total": 0,
+                "variantes": [],
+            },
+        )
+        bucket["disponible_total"] += disponible
+        bucket["variantes"].append(
+            {
+                "codigo": str(row[0] or "").strip(),
+                "descripcion": descripcion or "-",
+                "disponible": disponible,
+            }
+        )
+
+    ventas_por_familia: dict[str, int] = {}
+    articulo_por_familia: dict[str, str] = {}
+    for item in ventas_top_articulos:
+        articulo = str(item.get("articulo") or "").strip()
+        family = _family_key(articulo)
+        if not family:
+            continue
+        ventas_por_familia[family] = ventas_por_familia.get(family, 0) + int(item.get("total") or 0)
+        articulo_por_familia.setdefault(family, articulo)
+
+    rows = []
+    for family, total_pedidos in ventas_por_familia.items():
+        ranking = ranking_by_family.get(family) or {"disponible_total": 0, "variantes": []}
+        variantes = sorted(
+            ranking.get("variantes") or [],
+            key=lambda item: (-int(item.get("disponible") or 0), str(item.get("codigo") or "")),
+        )
+        top_variantes = [item for item in variantes if int(item.get("disponible") or 0) > 0][:3]
+        rows.append(
+            {
+                "familia": family,
+                "articulo": articulo_por_familia.get(family, family),
+                "pedidos_total": int(total_pedidos or 0),
+                "disponible_total": int(ranking.get("disponible_total") or 0),
+                "variantes_label": " | ".join(
+                    f"{item['codigo']}: {item['disponible']}" for item in top_variantes
+                )
+                or "Sin disponible",
+            }
+        )
+
+    rows.sort(key=lambda item: (-int(item["pedidos_total"]), -int(item["disponible_total"]), item["familia"]))
+    return {
+        "available": True,
+        "file_name": path.name,
+        "rows": rows,
+        "familias_con_stock": sum(1 for item in rows if int(item.get("disponible_total") or 0) > 0),
+        "total_disponible": sum(int(item.get("disponible_total") or 0) for item in rows),
+    }
+
+
 @app.get("/")
 def index():
     assistant_provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
@@ -2489,6 +2601,7 @@ def index():
     upload_debug = session.pop("upload_debug", "")
     proyeccion_state = _load_proyeccion_state()
     ventas_docs_summary = _load_ventas_docs_summary()
+    disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     return render_template(
         "index.html",
         rows=rows,
@@ -2502,6 +2615,7 @@ def index():
         ventas_top_talla=ventas_top_talla,
         ventas_top_articulo=ventas_top_articulo,
         ventas_top_articulos=ventas_top_articulos,
+        disponibles_summary=disponibles_summary,
         ventas_trazabilidad_por_articulo=trazabilidad_por_articulo,
         exs_summary=exs_summary,
         comparativo_summary=comparativo_summary,

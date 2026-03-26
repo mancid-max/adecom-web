@@ -7,14 +7,20 @@
   <title>ADECOM WEB</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body>
+<body class="theme-gentelella">
   <div class="app-shell" id="appShell">
     <aside class="side-nav" id="sideNav" aria-label="Panel lateral">
       <div class="side-head">
-        <span class="side-brand">Adecom</span>
+        <div class="side-brand-wrap">
+          <span class="side-brand-mark">A</span>
+          <div class="side-brand-copy">
+            <span class="side-brand">ADECOM</span>
+            <small class="side-brand-sub">Panel de control</small>
+          </div>
+        </div>
         <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">&lt;</button>
       </div>
       <nav class="side-menu">
@@ -23,6 +29,7 @@
           <div class="side-group-body" hidden>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
@@ -36,10 +43,16 @@
   <main class="page" id="sectionPrincipal">
     <header class="top-nav-redesign">
       <div class="top-nav-brand">
-        <span class="top-brand-square">A</span>
-        <span class="top-brand-text">ADECOM</span>
+        <div class="top-nav-title">
+          <strong>Dashboard ejecutivo</strong>
+          <small>Operacion, pedidos y seguimiento</small>
+        </div>
       </div>
       <div class="top-nav-actions">
+        <div class="top-nav-user">
+          <span class="top-nav-user-label">Equipo</span>
+          <strong>ADECOM</strong>
+        </div>
         <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
           <button type="submit" class="top-logout-btn">Salir</button>
         </form>
@@ -48,7 +61,9 @@
 
     <header class="hero">
       <div>
-        <h1>ADECOM WEB</h1>
+        <span class="hero-kicker">Resumen general</span>
+        <h1>Operacion en tiempo real</h1>
+        <p>Control centralizado de produccion, pedidos, documentos y trazabilidad para la toma de decisiones.</p>
       </div>
       <div class="upload-cta"></div>
     </header>
@@ -316,9 +331,7 @@
               data-corte="{{ row.corte }}"
               data-fecha="{{ row.fecha_iso or '' }}"
               data-total="{{ row.proceso }}"
-              data-cortado="{{ row.cortado_total }}"
               data-bodega="{{ row.bodega }}"
-              data-cortetallas="{{ row.cortado_tallas_detalle }}"
               data-restante="{{ row.pendiente_en_trazabilidad }}"
               data-restantedetalle="{{ row.restante_detalle }}"
               data-procesoactual="{{ row.proceso_actual or '' }}"
@@ -462,10 +475,6 @@
             <p id="dTotal">-</p>
           </article>
           <article>
-            <h4>Cortado</h4>
-            <p id="dCortado">-</p>
-          </article>
-          <article>
             <h4>En bodega</h4>
             <p id="dBodega" class="kpi-green">-</p>
           </article>
@@ -599,11 +608,10 @@
                 <th>Familia</th>
                 <th>Total familia</th>
                 <th>Detalle por familia</th>
-                <th>Total cortado</th>
               </tr>
             </thead>
             <tbody id="familiaDetalleGridBody">
-              <tr><td colspan="4" class="empty">Sin datos.</td></tr>
+              <tr><td colspan="3" class="empty">Sin datos.</td></tr>
             </tbody>
           </table>
         </section>
@@ -614,11 +622,10 @@
               <tr>
                 <th>Talla</th>
                 <th>Cantidad vendida</th>
-                <th>Cantidad cortada</th>
               </tr>
             </thead>
             <tbody id="familiaTallasBody">
-              <tr><td colspan="3" class="empty">Sin datos por talla.</td></tr>
+              <tr><td colspan="2" class="empty">Sin datos por talla.</td></tr>
             </tbody>
           </table>
         </section>
@@ -771,6 +778,70 @@
             <div class="row-detail-empty">Sin articulo seleccionado.</div>
           </div>
         </div>
+      </dialog>
+
+      <dialog id="disponiblesModal" class="modal modal-top-familia">
+        <div class="modal-head">
+          <h3>Disponibles por top de venta</h3>
+          <button type="button" id="closeDisponiblesModal" class="modal-close">Cerrar</button>
+        </div>
+        <div class="modal-kpis">
+          <article>
+            <h4>Familias con stock</h4>
+            <p>{{ disponibles_summary.familias_con_stock|miles }}</p>
+          </article>
+          <article>
+            <h4>Total disponible</h4>
+            <p>{{ disponibles_summary.total_disponible|miles }}</p>
+          </article>
+        </div>
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Ordenado por ventas de mayor a menor.</p>
+          <table class="bodega-table" id="disponiblesTable">
+            <thead>
+              <tr>
+                <th class="sortable-th" data-sort-key="rank">#</th>
+                <th class="sortable-th" data-sort-key="familia">Familia</th>
+                <th class="sortable-th" data-sort-key="articulo">Articulo top</th>
+                <th class="sortable-th" data-sort-key="pedidos">Pedidos</th>
+                <th class="sortable-th" data-sort-key="disponible">Disponible</th>
+                <th>Detalle disponible</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in disponibles_summary.rows %}
+              <tr
+                data-rank="{{ loop.index }}"
+                data-familia="{{ item.familia }}"
+                data-articulo="{{ item.articulo }}"
+                data-pedidos="{{ item.pedidos_total }}"
+                data-disponible="{{ item.disponible_total }}"
+              >
+                <td class="num">{{ loop.index }}</td>
+                <td>{{ item.familia }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="familia-open-btn"
+                    data-open-articulo-traza="{{ item.articulo }}"
+                    data-total-pedidos="{{ item.pedidos_total }}"
+                    aria-label="Ver detalle articulo {{ item.articulo }}"
+                  >
+                    {{ item.articulo }}
+                  </button>
+                </td>
+                <td class="num">{{ item.pedidos_total|miles }}</td>
+                <td class="num">{{ item.disponible_total|miles }}</td>
+                <td>{{ item.variantes_label }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="empty">Sin datos de disponibles para mostrar.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
       </dialog>
 
       <dialog id="comparativoClientesModal" class="modal">
@@ -1230,6 +1301,14 @@
         const storedState = localStorage.getItem(key);
         const setState = (collapsed) => {
           shell.classList.toggle("side-collapsed", collapsed);
+          document.querySelectorAll("[data-side-group-toggle]").forEach((groupToggle) => {
+            const body = groupToggle.nextElementSibling;
+            if (!body) return;
+            if (collapsed) {
+              groupToggle.setAttribute("aria-expanded", "false");
+              body.hidden = true;
+            }
+          });
           toggles.forEach((toggle) => {
             toggle.textContent = collapsed ? ">" : "<";
             toggle.setAttribute("aria-label", collapsed ? "Desplegar menu" : "Contraer menu");
@@ -1336,6 +1415,7 @@
       const openIdToModalId = {
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
+        openDisponiblesModal: "disponiblesModal",
         openVentasTotalModal: "ventasTotalModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
@@ -1344,6 +1424,7 @@
       const triggerToModal = {
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
+        openDisponiblesModal: "disponiblesModal",
         openVentasTotalModal: "ventasTotalModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
@@ -1754,6 +1835,46 @@
       if (!modal || !openBtn || !closeBtn) return;
       openBtn.addEventListener("click", () => modal.showModal());
       closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+    })();
+
+    (function () {
+      const modal = document.getElementById("disponiblesModal");
+      const openBtn = document.getElementById("openDisponiblesModal");
+      const closeBtn = document.getElementById("closeDisponiblesModal");
+      const dashboardRows = document.querySelectorAll(".dash-bar-row-clickable[data-open-articulo-traza]");
+      if (!modal || !closeBtn) return;
+      if (openBtn) {
+        openBtn.addEventListener("click", () => modal.showModal());
+      }
+      closeBtn.addEventListener("click", () => modal.close());
+      dashboardRows.forEach((row) => {
+        row.addEventListener("click", () => {
+          const articulo = row.getAttribute("data-open-articulo-traza") || "";
+          const totalPedidos = row.getAttribute("data-total-pedidos") || "";
+          if (typeof window.openTopArticuloTrace === "function") {
+            window.openTopArticuloTrace(articulo, totalPedidos);
+          }
+        });
+      });
+      modal.querySelectorAll("[data-open-articulo-traza]").forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const articulo = btn.getAttribute("data-open-articulo-traza") || "";
+          const totalPedidos = btn.getAttribute("data-total-pedidos") || "";
+          if (typeof window.openTopArticuloTrace === "function") {
+            window.openTopArticuloTrace(articulo, totalPedidos);
+          }
+        });
+      });
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
         const clickedInside =
@@ -2395,6 +2516,7 @@
         const stageMap = new Map();
         let totalOrdenes = 0;
         let totalSaldo = 0;
+        let totalPrendas = 0;
 
         visibleRows.forEach((row) => {
           const stage = row.dataset.etapaactual || "Sin movimiento";
@@ -2407,10 +2529,11 @@
           stageMap.set(stage, current);
           totalOrdenes += 1;
           totalSaldo += saldo;
+          totalPrendas += proceso;
         });
 
         if (visibleTotals) {
-          visibleTotals.textContent = `${format(totalOrdenes)} ordenes | ${format(totalSaldo)} saldo`;
+          visibleTotals.textContent = `${format(totalOrdenes)} ${totalOrdenes === 1 ? "orden" : "ordenes"} | ${format(totalPrendas)} prendas`;
         }
 
         const cards = Array.from(stageMap.values()).sort((a, b) => {
@@ -2426,8 +2549,8 @@
         stageGrid.innerHTML = cards.map((item) => `
           <button type="button" class="full-table-stage-card" data-stage-filter="${item.stage}">
             <span class="${stageMeta[item.stage] || "estado-pill estado-pill-yellow"}">${item.stage}</span>
-            <strong>${format(item.count)} ordenes</strong>
-            <small>Saldo: ${format(item.saldo)} | Proceso: ${format(item.proceso)}</small>
+            <strong>${format(item.count)} ${item.count === 1 ? "orden" : "ordenes"}</strong>
+            <small>Total unidades: ${format(item.proceso)}</small>
           </button>
         `).join("");
 
@@ -2629,7 +2752,7 @@
         title.textContent = `Detalle familia ${item.familia}`;
 
         if (!comp.length) {
-          body.innerHTML = '<tr><td colspan="4" class="empty">Sin datos.</td></tr>';
+          body.innerHTML = '<tr><td colspan="3" class="empty">Sin datos.</td></tr>';
         } else {
           const detalle = comp
             .map((s) => {
@@ -2650,19 +2773,17 @@
               <td>${item.familia}</td>
               <td class="num">${fmt(item.total || 0)}</td>
               <td><div class="variante-pair-grid">${detalle}</div></td>
-              <td class="num">${fmt(item.cortado_total || 0)}</td>
             </tr>
           `;
         }
         if (!tallas.length) {
-          tallasBody.innerHTML = '<tr><td colspan="3" class="empty">Sin datos por talla.</td></tr>';
+          tallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin datos por talla.</td></tr>';
         } else {
           tallasBody.innerHTML = tallas
             .map((t) => {
               const talla = Number(t.talla || 0);
               const vendida = fmt(t.vendida || 0);
-              const cortada = fmt(t.cortada || 0);
-              return `<tr><td>${talla}</td><td class="num">${vendida}</td><td class="num">${cortada}</td></tr>`;
+              return `<tr><td>${talla}</td><td class="num">${vendida}</td></tr>`;
             })
             .join("");
         }
@@ -2681,11 +2802,10 @@
                       .map((t) => {
                         const talla = Number(t.talla || 0);
                         const vendida = fmt(t.vendida || 0);
-                        const cortada = fmt(t.cortada || 0);
                         return `
                           <span class="talla-chip talla-chip-grid">
                             <span class="talla-label">T${talla}</span>
-                            <span class="talla-value">V ${vendida} / C ${cortada}</span>
+                            <span class="talla-value">V ${vendida}</span>
                           </span>
                         `;
                       })
@@ -2836,7 +2956,6 @@
 
       const timelineEl = document.getElementById("dTimeline");
       const etapaEl = document.getElementById("dEtapa");
-      const cortadoEl = document.getElementById("dCortado");
       const corteTallasEl = document.getElementById("dCorteTallas");
       const stageFromRow = (row) => {
         const checks = [
@@ -2928,7 +3047,6 @@
         document.getElementById("dCorte").textContent = row.dataset.corte || "-";
         document.getElementById("dFecha").textContent = toDisplayDate(row.dataset.fecha || "");
         document.getElementById("dTotal").textContent = row.dataset.total || row.dataset.proceso || "-";
-        if (cortadoEl) cortadoEl.textContent = row.dataset.cortado || "-";
         document.getElementById("dBodega").textContent = row.dataset.bodega || "-";
         document.getElementById("dRestante").textContent = row.dataset.restante || row.dataset.restantedetalle || "-";
         if (corteTallasEl) corteTallasEl.textContent = row.dataset.cortetallas || "-";
