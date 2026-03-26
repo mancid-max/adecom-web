@@ -5446,3 +5446,42 @@ td {
   border-color: rgba(21, 101, 192, 0.16) !important;
 }
 
+/* Stronger final contrast pass for KPI cards */
+.dashboard-kpi-row article,
+.summary article,
+.dashboard-kpi-row .card-action,
+.summary .card-action {
+  border: 1px solid rgba(21, 101, 192, 0.16) !important;
+  box-shadow: 0 16px 34px rgba(18, 66, 130, 0.12) !important;
+  backdrop-filter: none !important;
+}
+
+.dashboard-kpi-row .summary-open,
+.summary .summary-open {
+  background:
+    radial-gradient(220px 110px at 100% 0%, rgba(21, 101, 192, 0.1) 0%, rgba(21, 101, 192, 0) 70%),
+    linear-gradient(180deg, #ffffff 0%, #eef5ff 100%) !important;
+  color: #13345f !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.dashboard-kpi-row .summary-open h2,
+.summary .summary-open h2 {
+  color: #24528c !important;
+  font-weight: 800 !important;
+}
+
+.dashboard-kpi-row .summary-open p,
+.summary .summary-open p {
+  color: #102e57 !important;
+  font-weight: 800 !important;
+}
+
+.dashboard-kpi-row .summary-open small,
+.summary .summary-open small {
+  color: #36516d !important;
+  background: #f1f6fd !important;
+  border: 1px solid rgba(21, 101, 192, 0.18) !important;
+}
+
