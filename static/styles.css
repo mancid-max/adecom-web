@@ -1177,11 +1177,29 @@ td.etapas-fecha {
   background: #f8f2e8;
 }
 
+#fullTableModal tbody tr.row-bodega td {
+  background: #e6f5ea !important;
+  color: #1f5135 !important;
+  font-weight: 600;
+}
+
 #fullTableModal tbody tr.row-bodega td:nth-child(1),
 #fullTableModal tbody tr.row-bodega td:nth-child(2) {
   background: #2f6b4c !important;
   color: #f6fff8 !important;
   font-weight: 600;
+}
+
+#fullTableModal tbody tr.row-lavanderia td {
+  background: #fff7d6 !important;
+  color: #755400 !important;
+  font-weight: 600;
+}
+
+#fullTableModal tbody tr.row-lavanderia td:nth-child(1),
+#fullTableModal tbody tr.row-lavanderia td:nth-child(2) {
+  background: #e1b800 !important;
+  color: #3e2d00 !important;
 }
 
 .modal-row-detail {

@@ -513,7 +513,7 @@
           <tbody>
             {% for row in rows %}
             <tr
-              class="{% if row.bodega|int > 0 %}row-bodega{% endif %}"
+              class="{% if row.bodega|int > 0 %}row-bodega{% elif row.lavanderia|int > 0 %}row-lavanderia{% endif %}"
               data-clickable="1"
               data-articulo="{{ row.articulo }}"
               data-corte="{{ row.corte }}"
