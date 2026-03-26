@@ -679,13 +679,13 @@ def _answer_assistant(question: str) -> str:
     ):
         return (
             "Si. Trabajo con la data que cargaste en ADECOM WEB (TXT/Excel) una vez importada a la base de datos. "
-            "Puedo responder por articulo, familia, tallas, bodega, pedidos, EXS y cruces entre esas tablas."
+            "Puedo responder por articulo, familia, tallas, bodega, pedidos y cruces entre esas tablas."
         )
 
     if _has_keyword(qn, ["ayuda", "que puedes", "que sabes", "como funcionas"]):
         return (
-            "Puedo responder sobre: ordenes en bodega, total muestras, tabla completa, "
-            "pedidos totales, familia con mas pedidos, top articulos, EXS y ubicacion por articulo/familia "
+            "Puedo responder sobre: ordenes en bodega, tabla completa, "
+            "pedidos totales, familia con mas pedidos, top articulos y ubicacion por articulo/familia "
             "(ej: 4210 o 01420100)."
         )
 
@@ -850,8 +850,8 @@ def _answer_assistant(question: str) -> str:
         )
 
     return (
-        "Puedo ayudarte con bodega, muestras, pedidos, EXS o por codigo de articulo/familia. "
-        "Ejemplos: 'Ordenes en bodega', 'Familia con mas pedidos', 'EXS total', 'En que parte se encuentra 4210'."
+        "Puedo ayudarte con bodega, pedidos o por codigo de articulo/familia. "
+        "Ejemplos: 'Ordenes en bodega', 'Familia con mas pedidos', 'En que parte se encuentra 4210'."
     )
 
 
@@ -2436,7 +2436,6 @@ def index():
         ("limpiado", "Limpiado"),
         ("lavanderia", "Lavanderia"),
         ("terminacion", "Terminacion"),
-        ("muestra", "Muestra"),
         ("segunda", "Segunda"),
     ]
     trazabilidad_por_articulo: dict[str, list[dict]] = {}

@@ -1137,22 +1137,115 @@ td.etapas-fecha {
 
 .modal-full-table {
   width: min(1520px, 99vw);
+  padding: 18px 18px 20px !important;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f3f7fc 100%) !important;
+}
+
+.full-table-stage-panel {
+  margin: 10px 0 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(18, 30, 48, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #eef4fb 0%, #e8f0fa 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.full-table-stage-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.full-table-stage-head h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: #123c72;
+}
+
+.full-table-stage-head p {
+  margin: 0;
+  color: #5a6f8d;
+  font-size: 13px;
+}
+
+.full-table-stage-total {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #edf4ff;
+  border: 1px solid rgba(21, 101, 192, 0.14);
+  color: #123c72;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.full-table-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+button.full-table-stage-card,
+.full-table-stage-card {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(21, 101, 192, 0.12) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%) !important;
+  color: #1b3556 !important;
+  box-shadow: 0 8px 18px rgba(17, 46, 91, 0.06);
+}
+
+button.full-table-stage-card:hover,
+.full-table-stage-card:hover {
+  transform: translateY(-2px);
+  color: #1b3556 !important;
+  box-shadow: 0 12px 22px rgba(17, 46, 91, 0.08);
+}
+
+.full-table-stage-card strong {
+  font-size: 20px;
+  color: #103561;
+}
+
+.full-table-stage-card small {
+  color: #5d728f;
+  font-size: 12px;
+}
+
+.full-table-stage-card.is-empty {
+  display: block;
+}
+
+.full-table-stage-card .estado-pill {
+  background: #eef4fb !important;
+  border: 1px solid rgba(21, 101, 192, 0.12) !important;
+  color: #214b7d !important;
 }
 
 .full-table {
-  min-width: 1280px;
+  min-width: 860px;
+  font-family: "Consolas", "Courier New", monospace !important;
+  font-variant-numeric: tabular-nums lining-nums;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .full-table th,
 .full-table td {
-  padding: 7px 8px;
-  font-size: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.2;
 }
 
 .full-table td.saldo-dist {
   white-space: normal;
-  min-width: 220px;
-  color: #3e372f;
+  min-width: 320px;
+  color: #38506b;
 }
 
 .full-table th:last-child,
@@ -1161,10 +1254,10 @@ td.etapas-fecha {
 }
 
 #fullTableModal .full-table tfoot td {
-  background: #3a352f;
-  color: #f2ece3;
+  background: #18212d !important;
+  color: #f5f9ff !important;
   font-weight: 700;
-  border-top: 1px solid #2d2924;
+  border-top: 1px solid #2e3a49;
   border-bottom: 0;
 }
 
@@ -1174,32 +1267,311 @@ td.etapas-fecha {
 }
 
 #fullTableModal tbody tr[data-clickable="1"]:hover td {
-  background: #f8f2e8;
+  background: #e7f0fb !important;
 }
 
-#fullTableModal tbody tr.row-bodega td {
-  background: #e6f5ea !important;
-  color: #1f5135 !important;
-  font-weight: 600;
+.full-table-stage-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108px;
+  border-radius: 999px;
+  background: #eef4fb !important;
+  border: 1px solid rgba(21, 101, 192, 0.12) !important;
+  color: #23466f !important;
 }
 
-#fullTableModal tbody tr.row-bodega td:nth-child(1),
-#fullTableModal tbody tr.row-bodega td:nth-child(2) {
-  background: #2f6b4c !important;
-  color: #f6fff8 !important;
-  font-weight: 600;
+#fullTableModal .full-table td {
+  vertical-align: top;
+  color: #243d59 !important;
+  border-bottom: 1px solid #e6edf5 !important;
+  background: #ffffff !important;
 }
 
-#fullTableModal tbody tr.row-lavanderia td {
-  background: #fff7d6 !important;
-  color: #755400 !important;
-  font-weight: 600;
+#fullTableModal .full-table tbody tr:nth-child(even) td {
+  background: #f4f8fd !important;
 }
 
-#fullTableModal tbody tr.row-lavanderia td:nth-child(1),
-#fullTableModal tbody tr.row-lavanderia td:nth-child(2) {
-  background: #e1b800 !important;
-  color: #3e2d00 !important;
+#fullTableModal .full-table tbody tr:hover td {
+  background: #e7f0fb !important;
+}
+
+#fullTableModal .full-table thead th {
+  font-family: "Consolas", "Courier New", monospace !important;
+  font-size: 12px !important;
+  letter-spacing: 0.04em !important;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: linear-gradient(180deg, #2f75c8 0%, #1f5faa 100%) !important;
+  color: #f7fbff !important;
+  background-clip: padding-box;
+  box-shadow:
+    inset 0 -1px 0 rgba(13, 55, 107, 0.35),
+    0 2px 0 rgba(20, 57, 101, 0.16);
+}
+
+.full-table-wrap {
+  max-height: min(68vh, 720px);
+  overflow: auto;
+  scrollbar-gutter: stable both-edges;
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgba(18, 30, 48, 0.22);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(17, 46, 91, 0.05);
+}
+
+#fullTableModal .full-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 19;
+}
+
+#fullTableModal .full-table thead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 4px;
+  background: #1f5faa;
+  z-index: 21;
+  pointer-events: none;
+}
+
+.full-table-wrap .table-scroll-top {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+#ventasTotalModal {
+  padding: 18px 18px 20px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f7fc 100%) !important;
+}
+
+#ventasTotalModal .modal-kpis {
+  margin: 10px 0 16px !important;
+  padding: 14px !important;
+  border: 1px solid rgba(18, 30, 48, 0.22) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, #eef4fb 0%, #e8f0fa 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+#ventasTotalModal .modal-kpis article {
+  border: 1px solid rgba(21, 101, 192, 0.12) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%) !important;
+  box-shadow: 0 8px 18px rgba(17, 46, 91, 0.06) !important;
+}
+
+#ventasTotalModal .kpi-open-btn,
+.app-shell #ventasTotalModal .kpi-open-btn {
+  background: transparent !important;
+  border: 0 !important;
+  color: #1b3556 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  text-align: left !important;
+}
+
+#ventasTotalModal .kpi-open-btn h4,
+.app-shell #ventasTotalModal .kpi-open-btn h4 {
+  color: #4f6782 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+}
+
+#ventasTotalModal .kpi-open-btn p,
+.app-shell #ventasTotalModal .kpi-open-btn p {
+  color: #143965 !important;
+  font-size: clamp(1.55rem, 2.4vw, 2.15rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.03em !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#ventasTotalModal .kpi-open-btn .kpi-hint,
+.app-shell #ventasTotalModal .kpi-open-btn .kpi-hint {
+  color: #5d728f !important;
+  background: #eef4fb !important;
+  border: 1px solid rgba(21, 101, 192, 0.12) !important;
+  border-radius: 999px !important;
+  padding: 4px 10px !important;
+}
+
+#ventasTotalModal .table-wrap {
+  border: 1px solid rgba(18, 30, 48, 0.22) !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(17, 46, 91, 0.05) !important;
+}
+
+#ventasTotalModal .bodega-table thead th {
+  background: linear-gradient(180deg, #2f75c8 0%, #1f5faa 100%) !important;
+  color: #f7fbff !important;
+}
+
+#ventasTotalModal .bodega-table tbody td {
+  background: #ffffff !important;
+  color: #243d59 !important;
+  border-bottom: 1px solid #e6edf5 !important;
+}
+
+#ventasTotalModal .bodega-table tbody tr:nth-child(even) td {
+  background: #f4f8fd !important;
+}
+
+#ventasTotalModal .bodega-table tbody tr:hover td {
+  background: #e7f0fb !important;
+}
+
+#ventasTotalModal .familia-open-btn {
+  background: #2d2a25 !important;
+  color: #fff7ea !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  padding: 6px 10px !important;
+  box-shadow: none !important;
+}
+
+#ventasTotalModal .variante-chip,
+.app-shell #ventasTotalModal .variante-chip {
+  border: 1px solid rgba(21, 101, 192, 0.14) !important;
+  background: #eef4fb !important;
+  color: #21456f !important;
+}
+
+#ventasTotalModal .variante-chip-prefix,
+#ventasTotalModal .variante-chip-sep {
+  color: #60758f !important;
+}
+
+#ventasTotalModal .variante-chip-code,
+#ventasTotalModal .variante-chip-total {
+  color: #143965 !important;
+}
+
+/* Final contrast fix for Total pedidos KPI cards */
+#ventasTotalModal .modal-kpis article,
+.app-shell #ventasTotalModal .modal-kpis article {
+  color: #1b3556 !important;
+  min-width: 0 !important;
+}
+
+#ventasTotalModal .modal-kpis article h4,
+#ventasTotalModal .kpi-open-btn h4,
+.app-shell #ventasTotalModal .modal-kpis article h4,
+.app-shell #ventasTotalModal .kpi-open-btn h4 {
+  color: #5f728b !important;
+  opacity: 1 !important;
+}
+
+#ventasTotalModal .modal-kpis article p,
+#ventasTotalModal .kpi-open-btn p,
+.app-shell #ventasTotalModal .modal-kpis article p,
+.app-shell #ventasTotalModal .kpi-open-btn p {
+  color: #153a73 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+#ventasTotalModal .modal-kpis article small,
+#ventasTotalModal .kpi-open-btn .kpi-hint,
+.app-shell #ventasTotalModal .modal-kpis article small,
+.app-shell #ventasTotalModal .kpi-open-btn .kpi-hint {
+  color: #4f6682 !important;
+  opacity: 1 !important;
+}
+
+/* Detalle familia aligned with the lighter report style */
+#familiaDetalleModal {
+  padding: 18px 18px 20px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f7fc 100%) !important;
+}
+
+#familiaDetalleModal .table-wrap {
+  margin-top: 12px !important;
+  border: 1px solid rgba(18, 30, 48, 0.22) !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(17, 46, 91, 0.05) !important;
+}
+
+#familiaDetalleModal .metas-subtitle {
+  margin: 0 0 10px !important;
+  color: #c8d4e7 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+#familiaDetalleModal .bodega-table thead th {
+  background: linear-gradient(180deg, #2f75c8 0%, #1f5faa 100%) !important;
+  color: #f7fbff !important;
+}
+
+#familiaDetalleModal .bodega-table tbody td {
+  background: #ffffff !important;
+  color: #243d59 !important;
+  border-bottom: 1px solid #e6edf5 !important;
+}
+
+#familiaDetalleModal .bodega-table tbody tr:nth-child(even) td {
+  background: #f4f8fd !important;
+}
+
+#familiaDetalleModal .bodega-table tbody tr:hover td {
+  background: #e7f0fb !important;
+}
+
+#familiaDetalleModal .variante-chip,
+.app-shell #familiaDetalleModal .variante-chip {
+  border: 1px solid rgba(21, 101, 192, 0.14) !important;
+  background: #eef4fb !important;
+  color: #21456f !important;
+}
+
+#familiaDetalleModal .variante-chip-prefix,
+#familiaDetalleModal .variante-chip-sep {
+  color: #60758f !important;
+}
+
+#familiaDetalleModal .variante-chip-code,
+#familiaDetalleModal .variante-chip-total {
+  color: #143965 !important;
+}
+
+#fullTableModal .full-table tbody td:first-child,
+#fullTableModal .full-table thead th:first-child {
+  padding-left: 16px;
+}
+
+#fullTableModal .full-table tbody td:last-child,
+#fullTableModal .full-table thead th:last-child,
+#fullTableModal .full-table tfoot td:last-child {
+  padding-right: 16px;
+}
+
+#fullTableModal .full-table .full-table-stage-chip {
+  background: #eef5ff !important;
+  border: 1px solid rgba(47, 117, 200, 0.24) !important;
+  color: #205a9e !important;
+}
+
+@media (max-width: 900px) {
+  .full-table-stage-head {
+    flex-direction: column;
+  }
+
+  .full-table-stage-total {
+    white-space: normal;
+  }
 }
 
 .modal-row-detail {
@@ -5285,14 +5657,14 @@ td {
 .row-detail-shell,
 .top-articulo-detalle-card {
   border: 1px solid rgba(21, 101, 192, 0.16) !important;
-  background: linear-gradient(180deg, #ffffff 0%, #f4f8fd 100%) !important;
+  background: linear-gradient(180deg, #f3f7fc 0%, #e6eef8 100%) !important;
   color: var(--reskin-text) !important;
 }
 
 .row-detail-top h3,
 .top-articulo-detalle-head h4,
 .timeline-content strong {
-  color: var(--reskin-blue-deep) !important;
+  color: #10386e !important;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif !important;
 }
 
@@ -5304,16 +5676,40 @@ td {
 }
 
 .row-detail-kpis article {
-  border: 1px solid var(--reskin-line) !important;
-  background: #ffffff !important;
+  border: 1px solid rgba(21, 101, 192, 0.3) !important;
+  background: linear-gradient(180deg, #edf4fc 0%, #dde9f7 100%) !important;
+  box-shadow: 0 10px 22px rgba(20, 41, 77, 0.08) !important;
 }
 
 .row-detail-kpis h4 {
-  color: var(--reskin-blue-deep) !important;
+  color: #10386e !important;
+  font-weight: 800 !important;
 }
 
 .row-detail-kpis p {
-  color: #173c74 !important;
+  color: #123b74 !important;
+}
+
+.row-detail-timeline-wrap {
+  border: 1px solid rgba(21, 101, 192, 0.26) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, #edf4fc 0%, #dfeaf7 100%) !important;
+  padding: 18px 20px !important;
+  margin-top: 14px !important;
+  box-shadow: 0 10px 22px rgba(20, 41, 77, 0.08) !important;
+}
+
+.row-detail-timeline-wrap h4 {
+  margin: 0 0 12px !important;
+  color: #10386e !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 800 !important;
+}
+
+.row-detail-timeline,
+#dCorteTallas {
+  border-top: 1px solid rgba(21, 101, 192, 0.18) !important;
+  padding-top: 12px !important;
 }
 
 .timeline-dot {
@@ -5565,6 +5961,88 @@ td {
 
 .dash-bar-fill,
 .app-shell .dash-bar-fill {
+  color: #ffffff !important;
+}
+
+/* Ultra-specific final override against older dark-theme descendants */
+.page .dashboard-kpi-row .summary-open,
+.page .dashboard-kpi-row .summary-open *:not(.dash-bar-fill),
+.page .summary .summary-open,
+.page .summary .summary-open *:not(.dash-bar-fill),
+.page .dashboard-grid .dash-block,
+.page .dashboard-grid .dash-block *,
+.page .dashboard-grid-bottom .dash-block,
+.page .dashboard-grid-bottom .dash-block *,
+.page .hero,
+.page .hero *,
+.page .filters,
+.page .filters * {
+  text-shadow: none !important;
+}
+
+.page .dashboard-kpi-row .summary-open,
+.page .summary .summary-open,
+.page .dashboard-grid .dash-block,
+.page .dashboard-grid-bottom .dash-block,
+.page .hero,
+.page .filters {
+  color: #183454 !important;
+}
+
+.page .dashboard-kpi-row .summary-open h2,
+.page .summary .summary-open h2,
+.page .dashboard-grid .dash-block h3,
+.page .dashboard-grid-bottom .dash-block h3,
+.page .hero h1,
+.page .filters label {
+  color: #143965 !important;
+}
+
+.page .dashboard-kpi-row .summary-open p,
+.page .summary .summary-open p {
+  color: #0d2f57 !important;
+}
+
+.page .dashboard-kpi-row .summary-open small,
+.page .summary .summary-open small,
+.page .dashboard-grid .dash-block small,
+.page .dashboard-grid .dash-block .dash-note,
+.page .dashboard-grid .dash-block .dash-bar-label,
+.page .dashboard-grid-bottom .dash-block small,
+.page .dashboard-grid-bottom .dash-block .dash-note,
+.page .dashboard-grid-bottom .dash-block .dash-bar-label,
+.page .hero p,
+.page .filters .search-help {
+  color: #4a6584 !important;
+  opacity: 1 !important;
+}
+
+.page .dashboard-grid .dash-block .dash-bar-fill,
+.page .dashboard-grid-bottom .dash-block .dash-bar-fill {
+  color: #ffffff !important;
+}
+
+/* Make sidebar arrow controls visible on light backgrounds */
+.side-toggle,
+.app-shell .side-toggle,
+.side-toggle-floating,
+.app-shell .side-toggle-floating,
+#sideToggleBtn,
+#sideToggleFloatingBtn {
+  background: linear-gradient(180deg, #184f97 0%, #113e7a 100%) !important;
+  border: 1px solid rgba(9, 36, 74, 0.48) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(17, 62, 122, 0.28) !important;
+}
+
+.side-toggle:hover,
+.app-shell .side-toggle:hover,
+.side-toggle-floating:hover,
+.app-shell .side-toggle-floating:hover,
+#sideToggleBtn:hover,
+#sideToggleFloatingBtn:hover {
+  background: linear-gradient(180deg, #215fb1 0%, #15498d 100%) !important;
+  border-color: rgba(9, 36, 74, 0.6) !important;
   color: #ffffff !important;
 }
 

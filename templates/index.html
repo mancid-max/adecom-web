@@ -23,12 +23,10 @@
           <div class="side-group-body" hidden>
             <button type="button" class="side-link side-action-btn" data-scroll-id="sectionPrincipal">Dashboard</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openMuestrasModal">Muestras</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openExsModal">EXS</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
           </div>
         </div>
@@ -142,24 +140,10 @@
         </button>
       </article>
       <article class="card-action summary-secondary">
-        <button type="button" class="summary-open" id="openMuestrasModal">
-          <h2>Muestras</h2>
-          <p>{{ muestras_rows|length|miles }}</p>
-          <small>{{ muestras_total|miles }} unidades total</small>
-        </button>
-      </article>
-      <article class="card-action summary-secondary">
         <button type="button" class="summary-open" id="openFullTableModal">
           <h2>Tabla completa</h2>
           <p>{{ rows|length|miles }}</p>
           <small>Registros activos</small>
-        </button>
-      </article>
-      <article class="card-action summary-secondary">
-        <button type="button" class="summary-open" id="openExsModalTop">
-          <h2>EXS vinculados</h2>
-          <p>{{ exs_summary.count|miles }}</p>
-          <small>Saldo ex: {{ exs_summary.total_ex|miles }}</small>
         </button>
       </article>
     </section>
@@ -359,117 +343,6 @@
       </section>
     </dialog>
 
-    <dialog id="muestrasModal" class="modal">
-      <div class="modal-head">
-        <h3>Total muestras</h3>
-        <button type="button" id="closeMuestrasModal" class="modal-close">Cerrar</button>
-      </div>
-
-      <div class="modal-kpis">
-        <article class="sortable-kpi" data-sort-key="ordenes">
-          <h4>Ordenes</h4>
-          <p>{{ muestras_rows|length|miles }}</p>
-        </article>
-        <article class="sortable-kpi" data-sort-key="total">
-          <h4>Total</h4>
-          <p>{{ muestras_total|miles }}</p>
-        </article>
-        <article class="sortable-kpi" data-sort-key="bodega">
-          <h4>En bodega</h4>
-          <p>{{ muestras_bodega|miles }}</p>
-        </article>
-        <article class="sortable-kpi" data-sort-key="restante">
-          <h4>Restante</h4>
-          <p>{{ muestras_restante|miles }}</p>
-        </article>
-      </div>
-
-      <section class="table-wrap bodega-wrap">
-        <p class="table-hint">Clic en encabezado para ordenar</p>
-        <p class="table-hint">Etapas vinculadas: {{ muestras_con_etapas|miles }} / {{ muestras_rows|length|miles }}</p>
-        <table class="bodega-table bodega-table-etapas" id="muestrasTable">
-          <thead>
-            <tr>
-              <th class="sortable-th" data-sort-key="articulo">Articulo</th>
-              <th class="sortable-th" data-sort-key="corte">Orden corte</th>
-              <th class="sortable-th" data-sort-key="total">Total</th>
-              <th class="sortable-th" data-sort-key="bodega">Bodega</th>
-              <th class="sortable-th" data-sort-key="restante">Restante</th>
-              <th>Ingreso por etapa</th>
-              <th class="sortable-th total-dias-col" data-sort-key="totaldias">Total dias</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in muestras_rows %}
-            <tr
-              data-articulo="{{ row.articulo }}"
-              data-corte="{{ row.corte }}"
-              data-total="{{ row.proceso }}"
-              data-bodega="{{ row.bodega }}"
-              data-restante="{{ row.pendiente_en_trazabilidad }}"
-              data-totaldias="{{ row.etapas_total_dias }}"
-            >
-              <td>{{ row.articulo }}</td>
-              <td>{{ row.corte }}</td>
-              <td class="num">{{ row.proceso|miles }}</td>
-              <td class="num">{{ row.bodega|miles }}</td>
-              <td>{{ row.restante_detalle }}</td>
-              <td class="etapas-fecha">
-                {% set labels = [
-                  ("corte", "Corte"),
-                  ("taller", "Taller"),
-                  ("t_externo", "T. Externo"),
-                  ("limpiado", "Limpiado"),
-                  ("lavanderia", "Lavanderia"),
-                  ("terminacion", "Terminacion"),
-                  ("muestra", "Muestra"),
-                ] %}
-                {% set rangos_map = row.etapas_rangos or {} %}
-                {% set dias_map = row.etapas_dias or {} %}
-                {% set ns = namespace(has_data=false) %}
-                <div class="etapas-head" aria-hidden="true">
-                  <span>Etapa</span>
-                  <span>Inicio</span>
-                  <span>Termino</span>
-                  <span>Dias</span>
-                </div>
-                <div class="etapas-list etapas-list-col">
-                  {% for key, label in labels %}
-                    {% set rango = rangos_map.get(key) or {} %}
-                    {% set fecha_ini = (rango.get('inicio') or '') %}
-                    {% set fecha_fin = (rango.get('fin') or '') %}
-                    {% if fecha_ini %}
-                      {% set ns.has_data = true %}
-                      <span class="etapa-line">
-                        <span class="etapa-chip etapa-chip-label">{{ label }}</span>
-                        <span class="etapa-chip etapa-chip-start">{{ fecha_ini }}</span>
-                        <span class="etapa-chip etapa-chip-end">{{ fecha_fin if fecha_fin else '-' }}</span>
-                        {% set dias_val = (dias_map.get(key) or 0)|int %}
-                        {% if dias_val > 0 %}
-                          <span class="etapa-chip etapa-chip-days">{{ dias_val }}d</span>
-                        {% else %}
-                          <span class="etapa-chip etapa-chip-days">-</span>
-                        {% endif %}
-                      </span>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-                {% if not ns.has_data %}
-                  <span class="etapa-empty">-</span>
-                {% endif %}
-              </td>
-              <td class="num total-dias-col">{{ row.etapas_total_dias|miles }}</td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="7" class="empty">No hay muestras con los filtros actuales.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
-    </dialog>
-
     <dialog id="uploadModal" class="modal modal-upload">
       <div class="modal-head">
         <h3>Subir archivo</h3>
@@ -488,26 +361,40 @@
         <button type="button" id="closeFullTableModal" class="modal-close">Cerrar</button>
       </div>
       <div class="table-tools">
-        <label for="tipoFiltro">Mostrar:</label>
+        <label for="tipoFiltro">Vista:</label>
         <select id="tipoFiltro">
           <option value="todo">Todo</option>
-          <option value="muestras">Solo muestras</option>
           <option value="produccion">Solo produccion</option>
+          <option value="Bodega">Bodega</option>
+          <option value="Lavanderia">Lavanderia</option>
+          <option value="Terminacion">Terminacion</option>
+          <option value="Limpiado">Limpiado</option>
+          <option value="T. Externo">T. Externo</option>
+          <option value="Taller">Taller</option>
+          <option value="Corte">Corte</option>
+          <option value="Segunda">Segunda</option>
+          <option value="Sin movimiento">Sin movimiento</option>
         </select>
       </div>
-      <section class="table-wrap bodega-wrap">
+      <section class="full-table-stage-panel">
+        <div class="full-table-stage-head">
+          <div>
+            <h4>Resumen por etapa</h4>
+            <p>Ordenado de mayor a menor para priorizar decisiones.</p>
+          </div>
+          <div class="full-table-stage-total" id="fullTableVisibleTotals">-</div>
+        </div>
+        <div class="full-table-stage-grid" id="fullTableStageGrid"></div>
+      </section>
+      <section class="table-wrap bodega-wrap full-table-wrap">
         <p class="table-hint">Clic en encabezado para ordenar</p>
-        <table class="bodega-table full-table">
+        <table class="bodega-table full-table" id="fullTableMain">
           <thead>
             <tr>
               <th class="sortable-th" data-sort-key="articulo">Articulo</th>
               <th class="sortable-th" data-sort-key="corte">Corte</th>
               <th class="sortable-th" data-sort-key="fecha">Fecha</th>
-              <th class="sortable-th" data-sort-key="programa">Programa</th>
-              <th class="sortable-th" data-sort-key="proceso">Proceso</th>
-              <th class="sortable-th" data-sort-key="bodega">Bodega</th>
-              <th class="sortable-th" data-sort-key="saldo">Saldo</th>
-              <th class="sortable-th" data-sort-key="restantedetalle">Distribucion saldo</th>
+              <th class="sortable-th" data-sort-key="etapaactual">Proceso actual</th>
             </tr>
           </thead>
           <tbody>
@@ -531,32 +418,25 @@
               data-muestra="{{ row.muestra }}"
               data-segunda="{{ row.segunda }}"
               data-procesoactual="{{ row.proceso_actual }}"
+              data-etapaactual="{{ row.proceso_actual }}"
+              data-ubicacionactual="{{ row.restante_detalle }}"
               data-restantedetalle="{{ row.restante_detalle }}"
               data-esmuestra="{% if row.corte and row.corte.lstrip('0').startswith('96') %}1{% else %}0{% endif %}"
             >
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
               <td>{{ row.fecha_display }}</td>
-              <td class="num">{{ row.programa|miles }}</td>
-              <td class="num">{{ row.proceso|miles }}</td>
-              <td class="num">{{ row.bodega|miles }}</td>
-              <td class="num">{{ row.saldo|miles }}</td>
-              <td class="saldo-dist">{{ row.restante_detalle }}</td>
+              <td><span class="estado-pill estado-pill-yellow full-table-stage-chip">{{ row.proceso_actual or 'Sin movimiento' }}</span></td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="8" class="empty">No hay datos cargados.</td>
+              <td colspan="4" class="empty">No hay datos cargados.</td>
             </tr>
             {% endfor %}
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="3">Totales</td>
-              <td class="num">{{ totals.programa|miles }}</td>
-              <td class="num">{{ totals.proceso|miles }}</td>
-              <td class="num">{{ totals.bodega|miles }}</td>
-              <td class="num">{{ totals.saldo|miles }}</td>
-              <td>-</td>
+              <td colspan="4">Totales</td>
             </tr>
           </tfoot>
         </table>
@@ -620,13 +500,6 @@
           <button type="button" class="summary-open" id="openVentasTotalModal">
             <h2>Total pedidos</h2>
             <p>{{ ventas_total|miles }}</p>
-            <small>Abrir detalle</small>
-          </button>
-        </article>
-        <article class="card-action summary-secondary">
-          <button type="button" class="summary-open" id="openExsModal">
-            <h2>EXS</h2>
-            <p>{{ exs_summary.count|miles }}</p>
             <small>Abrir detalle</small>
           </button>
         </article>
@@ -760,20 +633,6 @@
             </tbody>
           </table>
         </section>
-        <section class="table-wrap">
-          <h4 class="metas-subtitle">Tallas por articulo de la familia</h4>
-          <table class="bodega-table" id="familiaArticulosTallasTable">
-            <thead>
-              <tr>
-                <th>Articulo</th>
-                <th>Detalle tallas (V/C)</th>
-              </tr>
-            </thead>
-            <tbody id="familiaArticulosTallasBody">
-              <tr><td colspan="2" class="empty">Sin detalle por articulo.</td></tr>
-            </tbody>
-          </table>
-        </section>
       </dialog>
 
       <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
@@ -874,60 +733,6 @@
         </section>
       </dialog>
 
-      <dialog id="exsModal" class="modal">
-        <div class="modal-head">
-          <h3>EXS vinculados</h3>
-          <button type="button" id="closeExsModal" class="modal-close">Cerrar</button>
-        </div>
-        <div class="modal-kpis">
-          <article>
-            <h4>Total saldo actual</h4>
-            <p>{{ exs_summary.total_actual|miles }}</p>
-          </article>
-          <article>
-            <h4>Total saldo ex</h4>
-            <p>{{ exs_summary.total_ex|miles }}</p>
-          </article>
-        </div>
-        <section class="table-wrap bodega-wrap">
-          <p class="table-hint">Clic en encabezado para ordenar</p>
-          <table class="bodega-table" id="exsTable">
-            <thead>
-              <tr>
-                <th class="sortable-th" data-sort-key="actual">Familia actual</th>
-                <th class="sortable-th" data-sort-key="saldo_actual">Saldo actual</th>
-                <th class="sortable-th" data-sort-key="ex">Familia ex</th>
-                <th class="sortable-th" data-sort-key="saldo_ex">Quedo en ex</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in exs_summary.rows %}
-              <tr
-                data-actual="{{ item.actual }}"
-                data-saldo_actual="{{ item.saldo_actual }}"
-                data-ex="{{ item.ex }}"
-                data-saldo_ex="{{ item.saldo_ex }}"
-              >
-                <td>{{ item.actual }}</td>
-                <td class="num">{{ item.saldo_actual|miles }}</td>
-                <td>{{ item.ex }}</td>
-                <td class="num">{{ item.saldo_ex|miles }}</td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="4" class="empty">Sin datos EXS con los filtros actuales.</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </section>
-        {% if can_upload %}
-          <div class="exs-upload-cta">
-            <button type="button" id="openExsUploadBtn">Cargar data EXS</button>
-          </div>
-        {% endif %}
-      </dialog>
-
       <dialog id="topArticulosModal" class="modal modal-top-familia">
         <div class="modal-head">
           <h3>Top articulos con mas pedidos</h3>
@@ -957,6 +762,10 @@
               {% endfor %}
             </tbody>
           </table>
+        </section>
+        <section class="table-wrap">
+          <h4 class="metas-subtitle">Tallas por articulo de la familia</h4>
+          <p class="table-hint">Detalle oculto en esta vista.</p>
         </section>
       </dialog>
 
@@ -1398,7 +1207,7 @@
           <input
             type="text"
             id="assistantQuestion"
-            placeholder="Pregunta por 4210, bodega, pedidos, EXS..."
+            placeholder="Pregunta por 4210, bodega o pedidos..."
             autocomplete="off"
           >
           <button type="button" id="assistantMicBtn" class="assistant-mic-btn" aria-label="Dictar pregunta por voz">Voz</button>
@@ -1487,11 +1296,6 @@
       if (ventasTopBtn) {
         ventasTopBtn.addEventListener("click", () => openById("openVentasTotalModal"));
       }
-      const exsTopBtn = document.getElementById("openExsModalTop");
-      if (exsTopBtn) {
-        exsTopBtn.addEventListener("click", () => openById("openExsModal"));
-      }
-
       document.querySelectorAll(".dash-bodega-row[data-open-bodega-modal='1']").forEach((row) => {
         row.addEventListener("click", () => openById("openBodegaModal"));
       });
@@ -1542,24 +1346,19 @@
 
       const openIdToModalId = {
         openBodegaModal: "bodegaModal",
-        openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
         openVentasTotalModal: "ventasTotalModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
-        openExsModal: "exsModal",
         openProyeccionModal: "proyeccionModal",
       };
       const triggerToModal = {
         openBodegaModal: "bodegaModal",
-        openMuestrasModal: "muestrasModal",
         openFullTableModal: "fullTableModal",
         openVentasTotalModal: "ventasTotalModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
-        openExsModal: "exsModal",
-        openExsModalTop: "exsModal",
         openProyeccionModal: "proyeccionModal",
       };
       const exclusiveModalIds = Array.from(new Set(Object.values(triggerToModal)));
@@ -1960,24 +1759,6 @@
     })();
 
     (function () {
-      const modal = document.getElementById("muestrasModal");
-      const openBtn = document.getElementById("openMuestrasModal");
-      const closeBtn = document.getElementById("closeMuestrasModal");
-      if (!modal || !openBtn || !closeBtn) return;
-      openBtn.addEventListener("click", () => modal.showModal());
-      closeBtn.addEventListener("click", () => modal.close());
-      modal.addEventListener("click", (event) => {
-        const rect = modal.getBoundingClientRect();
-        const clickedInside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
-      });
-    })();
-
-    (function () {
       const modal = document.getElementById("ventasTotalModal");
       const openBtn = document.getElementById("openVentasTotalModal");
       const closeBtn = document.getElementById("closeVentasTotalModal");
@@ -2076,7 +1857,7 @@
         return num.toLocaleString("es-CL");
       };
 
-      const stageOrder = ["Corte", "Taller", "T. Externo", "Limpiado", "Lavanderia", "Terminacion", "Muestra", "Segunda", "Bodega"];
+      const stageOrder = ["Corte", "Taller", "T. Externo", "Limpiado", "Lavanderia", "Terminacion", "Segunda", "Bodega"];
 
       const stageClass = (name) => {
         const value = String(name || "").toUpperCase();
@@ -2207,24 +1988,6 @@
           event.clientY >= rect.top &&
           event.clientY <= rect.bottom;
         if (!clickedInside) detailModal.close();
-      });
-    })();
-
-    (function () {
-      const modal = document.getElementById("exsModal");
-      const openBtn = document.getElementById("openExsModal");
-      const closeBtn = document.getElementById("closeExsModal");
-      if (!modal || !openBtn || !closeBtn) return;
-      openBtn.addEventListener("click", () => modal.showModal());
-      closeBtn.addEventListener("click", () => modal.close());
-      modal.addEventListener("click", (event) => {
-        const rect = modal.getBoundingClientRect();
-        const clickedInside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
       });
     })();
 
@@ -2496,7 +2259,6 @@
       const modal = document.getElementById("uploadModal");
       const openBtn = document.getElementById("openUploadModal");
       const closeBtn = document.getElementById("closeUploadModal");
-      const exsBtn = document.getElementById("openExsUploadBtn");
       const fileInput = document.getElementById("file");
       if (!modal || !openBtn || !closeBtn) return;
       const openUpload = (acceptValue) => {
@@ -2504,13 +2266,6 @@
         modal.showModal();
       };
       openBtn.addEventListener("click", () => modal.showModal());
-      if (exsBtn) {
-        exsBtn.addEventListener("click", () => {
-          const exsModal = document.getElementById("exsModal");
-          if (exsModal && exsModal.open) exsModal.close();
-          openUpload(".xlsx");
-        });
-      }
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
@@ -2602,20 +2357,111 @@
     (function () {
       const filtro = document.getElementById("tipoFiltro");
       const table = document.querySelector("#fullTableModal .full-table");
+      const stageGrid = document.getElementById("fullTableStageGrid");
+      const visibleTotals = document.getElementById("fullTableVisibleTotals");
       if (!filtro || !table) return;
       const tbody = table.querySelector("tbody");
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr[data-clickable="1"]'));
 
+      const stageMeta = {
+        Bodega: "estado-pill estado-pill-green",
+        Lavanderia: "estado-pill estado-pill-yellow",
+        Terminacion: "estado-pill estado-pill-blue",
+        Limpiado: "estado-pill estado-pill-blue",
+        "T. Externo": "estado-pill estado-pill-blue",
+        Taller: "estado-pill estado-pill-blue",
+        Corte: "estado-pill estado-pill-yellow",
+        Segunda: "estado-pill estado-pill-yellow",
+        "Sin movimiento": "estado-pill estado-pill-yellow",
+      };
+
+      const format = (n) => Number(n || 0).toLocaleString("es-CL");
+
+      const detectStage = (row) => {
+        if (Number(row.dataset.bodega || 0) > 0) return "Bodega";
+        if (Number(row.dataset.lavanderia || 0) > 0) return "Lavanderia";
+        if (Number(row.dataset.terminacion || 0) > 0) return "Terminacion";
+        if (Number(row.dataset.limpiado || 0) > 0) return "Limpiado";
+        if (Number(row.dataset.texterno || 0) > 0) return "T. Externo";
+        if (Number(row.dataset.taller || 0) > 0) return "Taller";
+        if (Number(row.dataset.corte1 || 0) > 0) return "Corte";
+        if (Number(row.dataset.segunda || 0) > 0) return "Segunda";
+        return (row.dataset.procesoactual || "").trim() || "Sin movimiento";
+      };
+
+      rows.forEach((row) => {
+        const stage = detectStage(row);
+        row.dataset.etapaactual = stage;
+        const chip = row.querySelector(".full-table-stage-chip");
+        if (chip) {
+          chip.textContent = stage;
+          chip.className = `${stageMeta[stage] || "estado-pill estado-pill-yellow"} full-table-stage-chip`;
+        }
+      });
+
+      const renderStageSummary = () => {
+        if (!stageGrid) return;
+        const visibleRows = rows.filter((row) => row.style.display !== "none");
+        const stageMap = new Map();
+        let totalOrdenes = 0;
+        let totalSaldo = 0;
+
+        visibleRows.forEach((row) => {
+          const stage = row.dataset.etapaactual || "Sin movimiento";
+          const saldo = Number(row.dataset.saldo || 0);
+          const proceso = Number(row.dataset.proceso || 0);
+          const current = stageMap.get(stage) || { stage, count: 0, saldo: 0, proceso: 0 };
+          current.count += 1;
+          current.saldo += saldo;
+          current.proceso += proceso;
+          stageMap.set(stage, current);
+          totalOrdenes += 1;
+          totalSaldo += saldo;
+        });
+
+        if (visibleTotals) {
+          visibleTotals.textContent = `${format(totalOrdenes)} ordenes | ${format(totalSaldo)} saldo`;
+        }
+
+        const cards = Array.from(stageMap.values()).sort((a, b) => {
+          if (b.count !== a.count) return b.count - a.count;
+          return b.saldo - a.saldo;
+        });
+
+        if (!cards.length) {
+          stageGrid.innerHTML = '<article class="full-table-stage-card is-empty"><strong>Sin datos</strong><span>No hay registros para ese filtro.</span></article>';
+          return;
+        }
+
+        stageGrid.innerHTML = cards.map((item) => `
+          <button type="button" class="full-table-stage-card" data-stage-filter="${item.stage}">
+            <span class="${stageMeta[item.stage] || "estado-pill estado-pill-yellow"}">${item.stage}</span>
+            <strong>${format(item.count)} ordenes</strong>
+            <small>Saldo: ${format(item.saldo)} | Proceso: ${format(item.proceso)}</small>
+          </button>
+        `).join("");
+
+        stageGrid.querySelectorAll("[data-stage-filter]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const stage = btn.getAttribute("data-stage-filter") || "todo";
+            filtro.value = stage;
+            applyFilter();
+          });
+        });
+      };
+
       const applyFilter = () => {
         const value = filtro.value;
         rows.forEach((row) => {
           const esMuestra = row.dataset.esmuestra === "1";
+          const stage = row.dataset.etapaactual || "";
           let visible = true;
-          if (value === "muestras") visible = esMuestra;
           if (value === "produccion") visible = !esMuestra;
+          else if (value !== "todo") visible = stage === value;
           row.style.display = visible ? "" : "none";
         });
+        renderStageSummary();
       };
 
       filtro.addEventListener("change", applyFilter);
@@ -2752,11 +2598,10 @@
       };
 
       setupHeaderSort("bodegaTable");
-      setupHeaderSort("muestrasTable");
+      setupHeaderSort("fullTableMain", "saldo");
       setupHeaderSort("ventasFamiliasTable");
       setupHeaderSort("ventasTallasTable");
       setupHeaderSort("topArticulosTable");
-      setupHeaderSort("exsTable");
       setupHeaderSort("comparativoClientesTable");
       setupHeaderSort("comparativoNoAtendidosTable", "proyeccion2026");
     })();
@@ -2769,7 +2614,7 @@
       const tallasBody = document.getElementById("familiaTallasBody");
       const articulosTallasBody = document.getElementById("familiaArticulosTallasBody");
       const dataNode = document.getElementById("ventasFamiliasData");
-      if (!modal || !closeBtn || !title || !body || !tallasBody || !articulosTallasBody || !dataNode) return;
+      if (!modal || !closeBtn || !title || !body || !tallasBody || !dataNode) return;
 
       let familias = [];
       try {
@@ -2832,53 +2677,55 @@
             })
             .join("");
         }
-        if (!articulosTallas.length) {
-          articulosTallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin detalle por articulo.</td></tr>';
-        } else {
-          articulosTallasBody.innerHTML = articulosTallas
-            .map((a) => {
-              const articuloRaw = String(a.articulo || "").trim();
-              const articulo = articuloRaw ? articuloRaw.slice(-2) : "-";
-              const total = fmt(a.total || 0);
-              const tallasList = Array.isArray(a.tallas) ? a.tallas : [];
-              const detalle = tallasList.length
-                ? tallasList
-                    .map((t) => {
-                      const talla = Number(t.talla || 0);
-                      const vendida = fmt(t.vendida || 0);
-                      const cortada = fmt(t.cortada || 0);
-                      return `
-                        <span class="talla-chip talla-chip-grid">
-                          <span class="talla-label">T${talla}</span>
-                          <span class="talla-value">V ${vendida} / C ${cortada}</span>
-                        </span>
-                      `;
-                    })
-                    .join("")
-                : '<span class="talla-empty">Sin tallas</span>';
-              return `
-                <tr>
-                  <td>
-                    <button
-                      type="button"
-                      class="codigo-familia-tag codigo-familia-btn"
-                      data-open-articulo-traza="${articuloRaw}"
-                      data-total-pedidos="${a.total || 0}"
-                      aria-label="Ver trazabilidad del articulo ${articuloRaw}"
-                      title="Ver trazabilidad"
-                    >${articulo}</button>
-                  </td>
-                  <td class="tallas-cell">
-                    <div class="familia-articulo-cell-head">
-                      <span class="familia-articulo-code">${articuloRaw || "-"}</span>
-                      <span class="familia-articulo-total">${total} pedidos</span>
-                    </div>
-                    <div class="familia-tallas-grid">${detalle}</div>
-                  </td>
-                </tr>
-              `;
-            })
-            .join("");
+        if (articulosTallasBody) {
+          if (!articulosTallas.length) {
+            articulosTallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin detalle por articulo.</td></tr>';
+          } else {
+            articulosTallasBody.innerHTML = articulosTallas
+              .map((a) => {
+                const articuloRaw = String(a.articulo || "").trim();
+                const articulo = articuloRaw ? articuloRaw.slice(-2) : "-";
+                const total = fmt(a.total || 0);
+                const tallasList = Array.isArray(a.tallas) ? a.tallas : [];
+                const detalle = tallasList.length
+                  ? tallasList
+                      .map((t) => {
+                        const talla = Number(t.talla || 0);
+                        const vendida = fmt(t.vendida || 0);
+                        const cortada = fmt(t.cortada || 0);
+                        return `
+                          <span class="talla-chip talla-chip-grid">
+                            <span class="talla-label">T${talla}</span>
+                            <span class="talla-value">V ${vendida} / C ${cortada}</span>
+                          </span>
+                        `;
+                      })
+                      .join("")
+                  : '<span class="talla-empty">Sin tallas</span>';
+                return `
+                  <tr>
+                    <td>
+                      <button
+                        type="button"
+                        class="codigo-familia-tag codigo-familia-btn"
+                        data-open-articulo-traza="${articuloRaw}"
+                        data-total-pedidos="${a.total || 0}"
+                        aria-label="Ver trazabilidad del articulo ${articuloRaw}"
+                        title="Ver trazabilidad"
+                      >${articulo}</button>
+                    </td>
+                    <td class="tallas-cell">
+                      <div class="familia-articulo-cell-head">
+                        <span class="familia-articulo-code">${articuloRaw || "-"}</span>
+                        <span class="familia-articulo-total">${total} pedidos</span>
+                      </div>
+                      <div class="familia-tallas-grid">${detalle}</div>
+                    </td>
+                  </tr>
+                `;
+              })
+              .join("");
+          }
         }
         modal.showModal();
       };
@@ -2889,14 +2736,16 @@
         });
       });
 
-      articulosTallasBody.addEventListener("click", (event) => {
-        const trigger = event.target.closest("[data-open-articulo-traza]");
-        if (!trigger || typeof window.openTopArticuloTrace !== "function") return;
-        window.openTopArticuloTrace(
-          trigger.getAttribute("data-open-articulo-traza") || "",
-          trigger.getAttribute("data-total-pedidos") || "",
-        );
-      });
+      if (articulosTallasBody) {
+        articulosTallasBody.addEventListener("click", (event) => {
+          const trigger = event.target.closest("[data-open-articulo-traza]");
+          if (!trigger || typeof window.openTopArticuloTrace !== "function") return;
+          window.openTopArticuloTrace(
+            trigger.getAttribute("data-open-articulo-traza") || "",
+            trigger.getAttribute("data-total-pedidos") || "",
+          );
+        });
+      }
 
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
@@ -3009,7 +2858,6 @@
           ["limpiado", "LIMPIADO"],
           ["lavanderia", "LAVANDERIA"],
           ["terminacion", "TERMINACION"],
-          ["muestra", "MUESTRA"],
           ["segunda", "SEGUNDA"],
         ];
         for (const [key, label] of checks) {
@@ -3025,7 +2873,6 @@
         ["limpiado", "Limpiado"],
         ["lavanderia", "Lavanderia"],
         ["terminacion", "Terminacion"],
-        ["muestra", "Muestra"],
       ];
 
       const stageClass = (name) => {
