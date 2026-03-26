@@ -5503,3 +5503,68 @@ td {
   border: 1px solid rgba(21, 101, 192, 0.18) !important;
 }
 
+/* Final high-contrast pass for homepage and dashboard */
+.top-nav-redesign,
+.app-shell .top-nav-redesign,
+.hero,
+.app-shell .hero,
+.filters,
+.app-shell .filters,
+.dashboard-kpi-row article,
+.summary article,
+.dashboard-kpi-row .card-action,
+.summary .card-action,
+.dash-block,
+.app-shell .dash-block {
+  color: #1b3556 !important;
+}
+
+.top-brand-text,
+.app-shell .top-brand-text,
+.hero h1,
+.app-shell .hero h1,
+.search-field label,
+.dashboard-kpi-row .summary-open h2,
+.summary .summary-open h2,
+.dash-block-head h3,
+.app-shell .dash-block-head h3 {
+  color: #163a68 !important;
+}
+
+.top-logout-btn,
+.app-shell .top-logout-btn,
+.search-help,
+.empty,
+.dash-block-head small,
+.app-shell .dash-block-head small,
+.dash-note,
+.app-shell .dash-note,
+.dash-bar-label,
+.app-shell .dash-bar-label,
+.hero p,
+.app-shell .hero p {
+  color: #425d7c !important;
+  opacity: 1 !important;
+}
+
+.dashboard-kpi-row .summary-open p,
+.summary .summary-open p {
+  color: #0f2d52 !important;
+  text-shadow: none !important;
+}
+
+.dash-block,
+.app-shell .dash-block {
+  background: linear-gradient(180deg, #ffffff 0%, #eef4fb 100%) !important;
+}
+
+.dash-bar-track,
+.app-shell .dash-bar-track {
+  background: #dce7f4 !important;
+}
+
+.dash-bar-fill,
+.app-shell .dash-bar-fill {
+  color: #ffffff !important;
+}
+
