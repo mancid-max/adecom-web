@@ -2129,8 +2129,13 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
         "familias_con_stock": 0,
         "total_disponible": 0,
     }
-    path = AUTOLOAD_DIR / "Cortes 4200 .xlsx"
-    if not path.exists():
+    candidates = sorted(
+        list(AUTOLOAD_DIR.glob("Cortes 4200*.xlsx")) + list(AUTOLOAD_DIR.glob("Cortes 4200*.xls")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    path = candidates[0] if candidates else None
+    if not path or not path.exists():
         return base
     try:
         from openpyxl import load_workbook
@@ -2167,14 +2172,32 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
         except ValueError:
             return 0
 
+    def _variant_suffix(raw: object) -> str:
+        text = str(raw or "").strip().upper()
+        digits = "".join(ch for ch in text if ch.isdigit())
+        if len(digits) >= 6:
+            return digits[-2:]
+        if "-" in text:
+            tail = text.split("-")[-1].strip()
+            tail_digits = "".join(ch for ch in tail if ch.isdigit())
+            if tail_digits:
+                return tail_digits[-2:].zfill(2)
+        return "00"
+
     ranking_by_family: dict[str, dict] = {}
-    for row in ws.iter_rows(min_row=4, values_only=True):
-        family = _family_key(row[0] if len(row) > 0 else "")
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row:
+            continue
+        row_type = str(row[18] or "").strip().lower() if len(row) > 18 else ""
+        articulo_raw = str(row[19] or "").strip() if len(row) > 19 else ""
+        if row_type != "stock" or not articulo_raw:
+            continue
+        family = _family_key(articulo_raw)
         if not family:
             continue
-        descripcion = str(row[5] or "").strip() if len(row) > 5 else ""
-        measures = [_value_to_int(value) for value in row[6:]] if len(row) > 6 else []
-        disponible = sum(value for value in measures if value > 0)
+        descripcion = str(row[24] or "").strip() if len(row) > 24 else ""
+        total_raw = _value_to_int(row[33] if len(row) > 33 else 0)
+        disponible = abs(total_raw) if total_raw < 0 else 0
         bucket = ranking_by_family.setdefault(
             family,
             {
@@ -2186,7 +2209,8 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
         bucket["disponible_total"] += disponible
         bucket["variantes"].append(
             {
-                "codigo": str(row[0] or "").strip(),
+                "codigo": articulo_raw,
+                "sufijo": _variant_suffix(articulo_raw),
                 "descripcion": descripcion or "-",
                 "disponible": disponible,
             }
@@ -2205,6 +2229,13 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
     rows = []
     for family, total_pedidos in ventas_por_familia.items():
         ranking = ranking_by_family.get(family) or {"disponible_total": 0, "variantes": []}
+        vendidos_por_sufijo: dict[str, int] = {}
+        for articulo_item in ventas_top_articulos:
+            articulo_codigo = str(articulo_item.get("articulo") or "").strip()
+            if _family_key(articulo_codigo) != family:
+                continue
+            sufijo = _variant_suffix(articulo_codigo)
+            vendidos_por_sufijo[sufijo] = vendidos_por_sufijo.get(sufijo, 0) + int(articulo_item.get("total") or 0)
         variantes = sorted(
             ranking.get("variantes") or [],
             key=lambda item: (-int(item.get("disponible") or 0), str(item.get("codigo") or "")),
@@ -2216,6 +2247,18 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
                 "articulo": articulo_por_familia.get(family, family),
                 "pedidos_total": int(total_pedidos or 0),
                 "disponible_total": int(ranking.get("disponible_total") or 0),
+                "status": "Disponible" if int(ranking.get("disponible_total") or 0) > 0 else "No disponible",
+                "status_class": "estado-pill estado-pill-green" if int(ranking.get("disponible_total") or 0) > 0 else "estado-pill estado-pill-red",
+                "variantes": [
+                    {
+                        "codigo": str(item.get("codigo") or ""),
+                        "sufijo": str(item.get("sufijo") or "00"),
+                        "descripcion": str(item.get("descripcion") or "-"),
+                        "vendido": int(vendidos_por_sufijo.get(str(item.get("sufijo") or "00"), 0)),
+                        "disponible": int(item.get("disponible") or 0),
+                    }
+                    for item in variantes
+                ],
                 "variantes_label": " | ".join(
                     f"{item['codigo']}: {item['disponible']}" for item in top_variantes
                 )

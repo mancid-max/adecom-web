@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" translate="no">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
+  <meta name="google" content="notranslate">
   <title>ADECOM WEB</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -375,7 +376,7 @@
       <div class="table-tools">
         <label for="tipoFiltro">Vista:</label>
         <select id="tipoFiltro">
-          <option value="todo">Todo</option>
+          <option value="todo">Todos</option>
           <option value="produccion">Solo produccion</option>
           <option value="Bodega">Bodega</option>
           <option value="Lavanderia">Lavanderia</option>
@@ -438,7 +439,7 @@
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
               <td>{{ row.fecha_display }}</td>
-              <td><span class="estado-pill estado-pill-yellow full-table-stage-chip">{{ row.proceso_actual or 'Sin movimiento' }}</span></td>
+              <td><span class="estado-pill estado-pill-yellow full-table-stage-chip" translate="no">{{ row.proceso_actual or 'Sin movimiento' }}</span></td>
             </tr>
             {% else %}
             <tr>
@@ -805,7 +806,7 @@
                 <th class="sortable-th" data-sort-key="articulo">Articulo top</th>
                 <th class="sortable-th" data-sort-key="pedidos">Pedidos</th>
                 <th class="sortable-th" data-sort-key="disponible">Disponible</th>
-                <th>Detalle disponible</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -816,23 +817,24 @@
                 data-articulo="{{ item.articulo }}"
                 data-pedidos="{{ item.pedidos_total }}"
                 data-disponible="{{ item.disponible_total }}"
+                data-variantes='{{ item.variantes|tojson|forceescape }}'
               >
                 <td class="num">{{ loop.index }}</td>
-                <td>{{ item.familia }}</td>
                 <td>
                   <button
                     type="button"
                     class="familia-open-btn"
-                    data-open-articulo-traza="{{ item.articulo }}"
-                    data-total-pedidos="{{ item.pedidos_total }}"
-                    aria-label="Ver detalle articulo {{ item.articulo }}"
+                    data-disponible-family="{{ item.familia }}"
+                    data-variantes='{{ item.variantes|tojson|forceescape }}'
+                    aria-label="Ver disponibles familia {{ item.familia }}"
                   >
-                    {{ item.articulo }}
+                    {{ item.familia }}
                   </button>
                 </td>
+                <td>{{ item.articulo }}</td>
                 <td class="num">{{ item.pedidos_total|miles }}</td>
                 <td class="num">{{ item.disponible_total|miles }}</td>
-                <td>{{ item.variantes_label }}</td>
+                <td><span class="{{ item.status_class }}">{{ item.status }}</span></td>
               </tr>
               {% else %}
               <tr>
@@ -841,6 +843,19 @@
               {% endfor %}
             </tbody>
           </table>
+        </section>
+      </dialog>
+
+      <dialog id="disponiblesFamilyModal" class="modal modal-top-familia">
+        <div class="modal-head">
+          <h3 id="disponiblesFamilyTitle">Detalle por color</h3>
+          <button type="button" id="closeDisponiblesFamilyModal" class="modal-close">Cerrar</button>
+        </div>
+        <section class="table-wrap">
+          <h4 class="metas-subtitle">Vendido y disponible por color</h4>
+          <div id="disponiblesFamilyDetail" class="variante-pair-grid">
+            <span class="variante-chip variante-chip-empty">Selecciona una familia para ver colores disponibles.</span>
+          </div>
         </section>
       </dialog>
 
@@ -1850,8 +1865,39 @@
       const modal = document.getElementById("disponiblesModal");
       const openBtn = document.getElementById("openDisponiblesModal");
       const closeBtn = document.getElementById("closeDisponiblesModal");
+      const familyModal = document.getElementById("disponiblesFamilyModal");
+      const familyModalClose = document.getElementById("closeDisponiblesFamilyModal");
+      const familyTitle = document.getElementById("disponiblesFamilyTitle");
+      const familyDetail = document.getElementById("disponiblesFamilyDetail");
       const dashboardRows = document.querySelectorAll(".dash-bar-row-clickable[data-open-articulo-traza]");
       if (!modal || !closeBtn) return;
+      const renderFamilyDetail = (family, rawVariants) => {
+        if (!familyDetail) return;
+        let variants = [];
+        try {
+          variants = JSON.parse(rawVariants || "[]");
+        } catch (_) {
+          variants = [];
+        }
+        const sorted = variants.slice().sort((a, b) => {
+          const av = String(a.sufijo || "");
+          const bv = String(b.sufijo || "");
+          return av.localeCompare(bv, "es", { numeric: true, sensitivity: "base" });
+        });
+        if (!sorted.length) {
+          familyDetail.innerHTML = '<span class="variante-chip variante-chip-empty">Sin detalle por color.</span>';
+          return;
+        }
+        familyDetail.innerHTML = sorted.map((item) => `
+          <span class="variante-chip ${Number(item.disponible || 0) > 0 ? "" : "variante-chip-no-stock"}">
+            <span class="variante-chip-prefix">${family}-${item.sufijo || "00"}</span>
+            <span class="variante-chip-sep"> | </span>
+            <span class="variante-chip-code">Vendido ${Number(item.vendido || 0).toLocaleString("es-CL")}</span>
+            <span class="variante-chip-sep"> | </span>
+            <span class="variante-chip-total">Disponible ${Number(item.disponible || 0).toLocaleString("es-CL")}</span>
+          </span>
+        `).join("");
+      };
       if (openBtn) {
         openBtn.addEventListener("click", () => modal.showModal());
       }
@@ -1865,16 +1911,33 @@
           }
         });
       });
-      modal.querySelectorAll("[data-open-articulo-traza]").forEach((btn) => {
+      modal.querySelectorAll("[data-disponible-family]").forEach((btn) => {
         btn.addEventListener("click", (event) => {
           event.stopPropagation();
-          const articulo = btn.getAttribute("data-open-articulo-traza") || "";
-          const totalPedidos = btn.getAttribute("data-total-pedidos") || "";
-          if (typeof window.openTopArticuloTrace === "function") {
-            window.openTopArticuloTrace(articulo, totalPedidos);
+          const family = btn.getAttribute("data-disponible-family") || "";
+          const variants = btn.getAttribute("data-variantes") || "[]";
+          if (familyTitle) {
+            familyTitle.textContent = `Detalle ${family}`;
           }
+          renderFamilyDetail(family, variants);
+          if (familyModal && !familyModal.open) familyModal.showModal();
         });
       });
+      if (familyDetail) {
+        familyDetail.innerHTML = '<span class="variante-chip variante-chip-empty">Selecciona una familia para ver colores disponibles.</span>';
+      }
+      if (familyModal && familyModalClose) {
+        familyModalClose.addEventListener("click", () => familyModal.close());
+        familyModal.addEventListener("click", (event) => {
+          const rect = familyModal.getBoundingClientRect();
+          const clickedInside =
+            event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom;
+          if (!clickedInside) familyModal.close();
+        });
+      }
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
         const clickedInside =
@@ -2483,8 +2546,9 @@
         Taller: "estado-pill estado-pill-blue",
         Corte: "estado-pill estado-pill-yellow",
         Segunda: "estado-pill estado-pill-yellow",
-        "Sin movimiento": "estado-pill estado-pill-yellow",
       };
+
+      const validStages = new Set(Object.keys(stageMeta));
 
       const format = (n) => Number(n || 0).toLocaleString("es-CL");
 
@@ -2497,7 +2561,8 @@
         if (Number(row.dataset.taller || 0) > 0) return "Taller";
         if (Number(row.dataset.corte1 || 0) > 0) return "Corte";
         if (Number(row.dataset.segunda || 0) > 0) return "Segunda";
-        return (row.dataset.procesoactual || "").trim() || "Sin movimiento";
+        const rawStage = (row.dataset.procesoactual || "").trim();
+        return validStages.has(rawStage) ? rawStage : "";
       };
 
       rows.forEach((row) => {
@@ -2505,7 +2570,7 @@
         row.dataset.etapaactual = stage;
         const chip = row.querySelector(".full-table-stage-chip");
         if (chip) {
-          chip.textContent = stage;
+          chip.textContent = stage || "-";
           chip.className = `${stageMeta[stage] || "estado-pill estado-pill-yellow"} full-table-stage-chip`;
         }
       });
@@ -2519,7 +2584,8 @@
         let totalPrendas = 0;
 
         visibleRows.forEach((row) => {
-          const stage = row.dataset.etapaactual || "Sin movimiento";
+          const stage = row.dataset.etapaactual || "";
+          if (!stage || !validStages.has(stage)) return;
           const saldo = Number(row.dataset.saldo || 0);
           const proceso = Number(row.dataset.proceso || 0);
           const current = stageMap.get(stage) || { stage, count: 0, saldo: 0, proceso: 0 };
@@ -2548,7 +2614,7 @@
 
         stageGrid.innerHTML = cards.map((item) => `
           <button type="button" class="full-table-stage-card" data-stage-filter="${item.stage}">
-            <span class="${stageMeta[item.stage] || "estado-pill estado-pill-yellow"}">${item.stage}</span>
+            <span class="${stageMeta[item.stage] || "estado-pill estado-pill-yellow"}" translate="no">${item.stage}</span>
             <strong>${format(item.count)} ${item.count === 1 ? "orden" : "ordenes"}</strong>
             <small>Total unidades: ${format(item.proceso)}</small>
           </button>

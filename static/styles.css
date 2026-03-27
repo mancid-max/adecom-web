@@ -6461,6 +6461,8 @@ button {
   border: 1px solid #dee2e6 !important;
   background: #ffffff !important;
   box-shadow: none !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
 }
 
 .table-hint {
@@ -6486,6 +6488,19 @@ button {
   text-transform: uppercase !important;
   letter-spacing: 0.04em !important;
   padding: 12px 12px !important;
+}
+
+.dash-table thead th,
+.bodega-table-compact thead th,
+thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 4 !important;
+}
+
+.modal .table-wrap,
+.app-shell .modal .table-wrap {
+  max-height: min(56vh, 520px) !important;
 }
 
 .bodega-table tbody td,
@@ -6781,11 +6796,12 @@ body.theme-gentelella,
 .theme-gentelella .page {
   background: #f7f7f7 !important;
   padding: 0 16px 24px !important;
-  width: 100% !important;
-  max-width: 100% !important;
+  width: calc(100% - 250px) !important;
+  max-width: calc(100% - 250px) !important;
   overflow-x: hidden !important;
   margin-left: 250px !important;
   min-height: 100vh !important;
+  box-sizing: border-box !important;
 }
 
 .theme-gentelella .top-nav-redesign,
@@ -6802,6 +6818,7 @@ body.theme-gentelella,
   background: #ededed !important;
   width: 100% !important;
   max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .theme-gentelella .top-nav-title {
@@ -6988,6 +7005,7 @@ body.theme-gentelella,
 .theme-gentelella .filters {
   width: 100% !important;
   max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .theme-gentelella .dash-block-head small,
@@ -7033,6 +7051,90 @@ body.theme-gentelella,
   transform: none;
 }
 
+.familia-open-btn.is-active {
+  background: #1abb9c !important;
+  color: #ffffff !important;
+}
+
+.estado-pill-red {
+  background: #fde7e7 !important;
+  border: 1px solid #ee9a9a !important;
+  color: #b42318 !important;
+  font-weight: 700 !important;
+}
+
+#disponiblesTable .estado-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 172px !important;
+  max-width: 100% !important;
+  padding: 7px 16px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+#disponiblesTable td:last-child {
+  text-align: center !important;
+  min-width: 210px !important;
+}
+
+#disponiblesTable .estado-pill-red,
+.theme-gentelella #disponiblesTable .estado-pill-red {
+  background: #ffdddd !important;
+  border-color: #e54848 !important;
+  color: #b00020 !important;
+}
+
+#disponiblesModal .table-wrap:first-of-type {
+  max-height: 380px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+#disponiblesModal,
+.theme-gentelella #disponiblesModal {
+  width: min(1180px, calc(100vw - 36px)) !important;
+}
+
+#disponiblesModal #disponiblesTable thead th,
+.theme-gentelella #disponiblesModal #disponiblesTable thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 5 !important;
+}
+
+#disponiblesModal #disponiblesTable thead,
+.theme-gentelella #disponiblesModal #disponiblesTable thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 6 !important;
+}
+
+#disponiblesModal #disponiblesTable thead::after,
+.theme-gentelella #disponiblesModal #disponiblesTable thead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: #2a3f54;
+}
+
+
+.variante-chip-no-stock {
+  background: #fde7e7 !important;
+  border-color: #ee9a9a !important;
+}
+
+.variante-chip-no-stock .variante-chip-prefix,
+.variante-chip-no-stock .variante-chip-code,
+.variante-chip-no-stock .variante-chip-total,
+.variante-chip-no-stock .variante-chip-sep {
+  color: #b42318 !important;
+}
+
 .theme-gentelella .table-hint {
   color: #73879c !important;
 }
@@ -7042,6 +7144,9 @@ body.theme-gentelella,
   background: #2a3f54 !important;
   color: #ecf0f1 !important;
   font-size: 13px !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 6 !important;
 }
 
 .theme-gentelella .bodega-table tbody td,
@@ -7087,6 +7192,44 @@ body.theme-gentelella,
 .theme-gentelella .row-detail-close {
   border-radius: 3px !important;
   color: #73879c !important;
+}
+
+.modal-close,
+.theme-gentelella .modal-close {
+  min-width: 92px !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.row-detail-close,
+.theme-gentelella .row-detail-close {
+  position: relative !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  font-size: 0 !important;
+  overflow: hidden !important;
+}
+
+.row-detail-close::before,
+.theme-gentelella .row-detail-close::before {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  line-height: 1;
+  color: currentColor;
 }
 
 .theme-gentelella .modal-kpis h4,
@@ -7210,6 +7353,8 @@ body.theme-gentelella,
 }
 
 .theme-gentelella .app-shell.side-collapsed .page {
+  width: calc(100% - 70px) !important;
+  max-width: calc(100% - 70px) !important;
   margin-left: 70px !important;
   padding-left: 16px !important;
 }
@@ -7220,10 +7365,14 @@ body.theme-gentelella,
   }
 
   .theme-gentelella .page {
+    width: 100% !important;
+    max-width: 100% !important;
     margin-left: 0 !important;
   }
 
   .theme-gentelella .app-shell.side-collapsed .page {
+    width: 100% !important;
+    max-width: 100% !important;
     margin-left: 0 !important;
     padding-left: 16px !important;
   }
