@@ -66,6 +66,7 @@ SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
+SEED_CORTES_4200_XLSX = SEED_DIR / "Cortes 4200.xlsx"
 AUTOLOAD_DIR = Path(
     os.environ.get(
         "ADECOM_AUTOLOAD_DIR",
@@ -2134,7 +2135,7 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    path = candidates[0] if candidates else None
+    path = candidates[0] if candidates else (SEED_CORTES_4200_XLSX if SEED_CORTES_4200_XLSX.exists() else None)
     if not path or not path.exists():
         return base
     try:
