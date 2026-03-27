@@ -1959,19 +1959,19 @@ def _autoload_proyeccion_rows() -> list[dict[str, object]]:
 
 def ensure_seed_data() -> None:
     init_db(DB_PATH)
-    if _table_count("saldos_seccion") == 0 and SEED_SALDOS.exists():
+    if SEED_SALDOS.exists():
         saldos_rows = parse_saldos_txt(SEED_SALDOS.read_bytes())
         if saldos_rows:
-            import_rows(DB_PATH, saldos_rows)
-    if _table_count("pedidos_talla") == 0 and SEED_PEDIDOS.exists():
+            import_rows(DB_PATH, saldos_rows, replace_all=True)
+    if SEED_PEDIDOS.exists():
         pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
         if pedidos_rows:
             import_pedidos_talla_rows(DB_PATH, pedidos_rows)
-    if _table_count("comparativo_clientes") == 0 and SEED_COMPARATIVO.exists():
+    if SEED_COMPARATIVO.exists():
         comparativo_rows = parse_comparativo_clientes_txt(SEED_COMPARATIVO.read_bytes())
         if comparativo_rows:
             import_comparativo_clientes_rows(DB_PATH, comparativo_rows)
-    if _table_count("deuda_clientes") == 0 and SEED_DEUDAS.exists():
+    if SEED_DEUDAS.exists():
         deuda_rows = parse_deudas_vencidas_csv(SEED_DEUDAS.read_bytes())
         if deuda_rows:
             import_deuda_clientes_rows(DB_PATH, deuda_rows)
