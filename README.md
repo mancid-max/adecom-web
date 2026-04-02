@@ -27,6 +27,37 @@ python app.py
 
 Luego abrir `http://127.0.0.1:5000`
 
+## Publicar como GitHub Pages
+
+Si ya no vas a usar Render ni Railway, el proyecto incluye una salida estatica en `docs/` para publicar desde GitHub Pages.
+
+### Generar la version web estatica
+
+```powershell
+python .\scripts\build_static_site.py
+```
+
+Eso genera:
+
+- `docs/index.html`
+- `docs/404.html`
+- `docs/styles.css`
+
+### Publicarla en GitHub Pages
+
+1. Sube el repo a GitHub.
+2. En `Settings > Pages`, elige:
+
+```text
+Deploy from a branch
+Branch: main
+Folder: /docs
+```
+
+3. Guarda los cambios.
+
+Con eso, GitHub Pages publicara la version estatica del dashboard usando los datos actuales de `seed/`.
+
 ## Trabajar con PostgreSQL (Railway)
 
 La app ya soporta Postgres por `DATABASE_URL`.
