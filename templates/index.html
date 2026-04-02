@@ -194,12 +194,12 @@
           <article class="ventas-doc-card">
             <small>Facturas electrónicas</small>
             <strong data-doc-field="f_elec_docs">0</strong>
-            <span>F/Elec</span>
+            <span data-doc-field="f_elec_amount_label">Monto F/Elec: 0</span>
           </article>
           <article class="ventas-doc-card">
             <small>Boletas</small>
             <strong data-doc-field="boletas_docs">0</strong>
-            <span>Bole</span>
+            <span data-doc-field="boletas_amount_label">Monto Bole: 0</span>
           </article>
           <article class="ventas-doc-card ventas-doc-card-credit">
             <small>Notas de crédito</small>
@@ -400,7 +400,6 @@
         <div class="full-table-stage-grid" id="fullTableStageGrid"></div>
       </section>
       <section class="table-wrap bodega-wrap full-table-wrap">
-        <p class="table-hint">Clic en encabezado para ordenar</p>
         <table class="bodega-table full-table" id="fullTableMain">
           <thead>
             <tr>
@@ -1314,6 +1313,7 @@
       if (shell && toggles.length) {
         const key = "adecom_side_collapsed";
         const storedState = localStorage.getItem(key);
+        const isMobileViewport = () => window.matchMedia("(max-width: 960px)").matches;
         const setState = (collapsed) => {
           shell.classList.toggle("side-collapsed", collapsed);
           document.querySelectorAll("[data-side-group-toggle]").forEach((groupToggle) => {
@@ -1338,6 +1338,24 @@
             localStorage.setItem(key, collapsed ? "1" : "0");
           });
         });
+        document.addEventListener("click", (event) => {
+          if (!isMobileViewport() || shell.classList.contains("side-collapsed")) return;
+          const sideNav = document.getElementById("sideNav");
+          const clickedInsideNav = sideNav && sideNav.contains(event.target);
+          const clickedToggle = toggles.some((toggle) => toggle.contains(event.target));
+          if (!clickedInsideNav && !clickedToggle) {
+            setState(true);
+            localStorage.setItem(key, "1");
+          }
+        });
+        window.addEventListener("resize", () => {
+          if (isMobileViewport()) {
+            setState(true);
+          } else {
+            const nextCollapsed = localStorage.getItem(key) === "1";
+            setState(nextCollapsed);
+          }
+        });
       }
 
       document.querySelectorAll("[data-side-group-toggle]").forEach((toggle, index) => {
@@ -1361,6 +1379,19 @@
           if (!target) return;
           event.preventDefault();
           target.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (window.matchMedia("(max-width: 960px)").matches && shell) {
+            shell.classList.add("side-collapsed");
+            localStorage.setItem("adecom_side_collapsed", "1");
+          }
+        });
+      });
+
+      document.querySelectorAll(".side-action-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          if (window.matchMedia("(max-width: 960px)").matches && shell) {
+            shell.classList.add("side-collapsed");
+            localStorage.setItem("adecom_side_collapsed", "1");
+          }
         });
       });
 
@@ -2994,7 +3025,9 @@
         if (fields.total_docs) fields.total_docs.textContent = fmt(item.total_docs || 0);
         if (fields.label) fields.label.textContent = item.label || "-";
         if (fields.f_elec_docs) fields.f_elec_docs.textContent = fmt(item.f_elec_docs || 0);
+        if (fields.f_elec_amount_label) fields.f_elec_amount_label.textContent = `Monto F/Elec: ${fmt(item.f_elec_amount || 0)}`;
         if (fields.boletas_docs) fields.boletas_docs.textContent = fmt(item.boletas_docs || 0);
+        if (fields.boletas_amount_label) fields.boletas_amount_label.textContent = `Monto Bole: ${fmt(item.boletas_amount || 0)}`;
         if (fields.n_credito_docs) fields.n_credito_docs.textContent = fmt(item.n_credito_docs || 0);
         if (fields.n_credito_amount_label) fields.n_credito_amount_label.textContent = `Monto NC: ${fmt(item.n_credito_amount || 0)}`;
         if (fields.n_debito_docs) fields.n_debito_docs.textContent = fmt(item.n_debito_docs || 0);

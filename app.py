@@ -2067,6 +2067,8 @@ def _load_ventas_docs_summary() -> dict:
                 "sin_tipo_docs": set(),
                 "sales_net": 0,
                 "units_net": 0,
+                "f_elec_amount": 0,
+                "boletas_amount": 0,
                 "n_credito_amount": 0,
             },
         )
@@ -2088,7 +2090,11 @@ def _load_ventas_docs_summary() -> dict:
         units_value = _to_int(row.get("Cant"))
         bucket["sales_net"] += total_value
         bucket["units_net"] += units_value
-        if doc_type == "n/cre":
+        if doc_type == "f/elec":
+            bucket["f_elec_amount"] += total_value
+        elif doc_type == "bole":
+            bucket["boletas_amount"] += total_value
+        elif doc_type == "n/cre":
             bucket["n_credito_amount"] += total_value
 
     if not grouped:
@@ -2107,6 +2113,8 @@ def _load_ventas_docs_summary() -> dict:
             "sin_tipo_docs": len(item["sin_tipo_docs"]),
             "sales_net": item["sales_net"],
             "units_net": item["units_net"],
+            "f_elec_amount": item["f_elec_amount"],
+            "boletas_amount": item["boletas_amount"],
             "n_credito_amount": item["n_credito_amount"],
         }
 

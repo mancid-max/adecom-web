@@ -7364,17 +7364,82 @@ body.theme-gentelella,
     grid-template-columns: 1fr !important;
   }
 
+  .theme-gentelella .app-shell {
+    position: relative !important;
+    overflow-x: hidden !important;
+  }
+
+  .theme-gentelella .app-shell::after {
+    content: "" !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(17, 24, 39, 0.4) !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: opacity 0.2s ease, visibility 0.2s ease !important;
+    z-index: 39 !important;
+  }
+
+  .theme-gentelella .side-nav {
+    width: min(86vw, 320px) !important;
+    max-width: calc(100vw - 28px) !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.22s ease !important;
+    box-shadow: 18px 0 40px rgba(15, 23, 42, 0.28) !important;
+    z-index: 40 !important;
+  }
+
+  .theme-gentelella .app-shell:not(.side-collapsed)::after {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .theme-gentelella .app-shell:not(.side-collapsed) .side-nav {
+    transform: translateX(0) !important;
+  }
+
+  .theme-gentelella .app-shell.side-collapsed .side-nav {
+    width: min(86vw, 320px) !important;
+    max-width: calc(100vw - 28px) !important;
+    transform: translateX(-100%) !important;
+    padding: 18px 14px !important;
+    overflow-y: auto !important;
+    box-shadow: none !important;
+  }
+
+  .theme-gentelella .app-shell.side-collapsed .side-toggle-floating,
+  .theme-gentelella .app-shell.side-collapsed #sideToggleFloatingBtn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    top: 14px !important;
+    left: 14px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    border-radius: 6px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    z-index: 45 !important;
+  }
+
   .theme-gentelella .page {
     width: 100% !important;
     max-width: 100% !important;
     margin-left: 0 !important;
+    padding: 12px !important;
   }
 
   .theme-gentelella .app-shell.side-collapsed .page {
     width: 100% !important;
     max-width: 100% !important;
     margin-left: 0 !important;
-    padding-left: 16px !important;
+    padding-left: 12px !important;
   }
 }
 
