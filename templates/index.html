@@ -130,14 +130,34 @@
       </form>
     </section>
 
+    <section class="dashboard-section-block dashboard-section-block-pedidos">
+      <header class="dashboard-section-title">
+        <h2>PEDIDOS</h2>
+      </header>
     <section class="summary dashboard-kpi-row" id="sectionProduccion">
       <article class="card-action summary-focus">
-        <button type="button" class="summary-open" id="openVentasTotalModalTop">
-          <h2>Total pedidos</h2>
-          <p>{{ ventas_total|miles }}</p>
-          <small>Unidades pedidas</small>
+        <button type="button" class="summary-open summary-open-centered" id="openVentasTotalModalTop">
+          <h2>Detalle pedido color</h2>
         </button>
       </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openVentasDetalleDashboardCard">
+          <h2>Detalle por talla</h2>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openTopArticulosDashboardCard">
+          <h2>TOP 10 Pedidos</h2>
+        </button>
+      </article>
+    </section>
+    </section>
+
+    <section class="dashboard-section-block dashboard-section-block-produccion">
+      <header class="dashboard-section-title">
+        <h2>PRODUCCION</h2>
+      </header>
+    <section class="summary dashboard-kpi-row dashboard-ops-row">
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open" id="openBodegaModal">
           <h2>Ordenes en bodega</h2>
@@ -152,6 +172,7 @@
           <small>Registros activos</small>
         </button>
       </article>
+    </section>
     </section>
 
     {% if ventas_docs_summary.available %}
@@ -210,14 +231,6 @@
         </div>
       </dialog>
     {% endif %}
-
-    <section class="summary dashboard-kpi-row dashboard-insights-row">
-      <article class="card-action summary-secondary">
-        <button type="button" class="summary-open summary-open-centered" id="openVentasDetalleDashboardCard">
-          <h2>Detalle por talla</h2>
-        </button>
-      </article>
-    </section>
 
     <dialog id="bodegaModal" class="modal">
       <div class="modal-head">
@@ -677,7 +690,7 @@
               </tr>
             </thead>
             <tbody>
-              {% for item in ventas_top_articulos %}
+              {% for item in ventas_top_articulos[:10] %}
               <tr data-rank="{{ loop.index }}" data-articulo="{{ item.articulo }}" data-total="{{ item.total }}">
                 <td class="num">{{ loop.index }}</td>
                 <td>{{ item.articulo }}</td>
@@ -690,10 +703,6 @@
               {% endfor %}
             </tbody>
           </table>
-        </section>
-        <section class="table-wrap">
-          <h4 class="metas-subtitle">Tallas por articulo de la familia</h4>
-          <p class="table-hint">Detalle oculto en esta vista.</p>
         </section>
       </dialog>
 
