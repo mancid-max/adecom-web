@@ -7053,6 +7053,55 @@ body.theme-gentelella,
   line-height: 1;
 }
 
+.page .dash-block-head,
+.page .dashboard-grid .dash-block-head,
+.page .dashboard-grid-bottom .dash-block-head {
+  background: #f8fbff !important;
+}
+
+.page .dash-mobile-toggle,
+.page .dashboard-grid .dash-mobile-toggle,
+.page .dashboard-grid-bottom .dash-mobile-toggle {
+  background: transparent !important;
+  border: 0 !important;
+  color: #173c68 !important;
+  box-shadow: none !important;
+}
+
+.page .dash-mobile-toggle:hover,
+.page .dashboard-grid .dash-mobile-toggle:hover,
+.page .dashboard-grid-bottom .dash-mobile-toggle:hover,
+.page .dash-mobile-toggle:focus,
+.page .dashboard-grid .dash-mobile-toggle:focus,
+.page .dashboard-grid-bottom .dash-mobile-toggle:focus,
+.page .dash-mobile-toggle:focus-visible,
+.page .dashboard-grid .dash-mobile-toggle:focus-visible,
+.page .dashboard-grid-bottom .dash-mobile-toggle:focus-visible {
+  background: transparent !important;
+  color: #173c68 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.page .dash-mobile-toggle h3,
+.page .dashboard-grid .dash-mobile-toggle h3,
+.page .dashboard-grid-bottom .dash-mobile-toggle h3 {
+  color: #214d86 !important;
+}
+
+.page .dash-mobile-toggle small,
+.page .dashboard-grid .dash-mobile-toggle small,
+.page .dashboard-grid-bottom .dash-mobile-toggle small {
+  color: #6c84a0 !important;
+}
+
+.page .dash-mobile-icon,
+.page .dashboard-grid .dash-mobile-icon,
+.page .dashboard-grid-bottom .dash-mobile-icon {
+  background: #dbe8f7 !important;
+  color: #214d86 !important;
+}
+
 @media (max-width: 640px) {
   body,
   .theme-gentelella body {
@@ -7246,6 +7295,13 @@ body.theme-gentelella,
 
   .dashboard-grid .dash-block:nth-child(2) .dash-block-head {
     background: linear-gradient(180deg, #dff4e3 0%, #cdf0d5 100%) !important;
+  }
+
+  .dashboard-grid .dash-block:nth-child(1) .dash-mobile-toggle,
+  .dashboard-grid-bottom .dash-block:nth-child(1) .dash-mobile-toggle,
+  .dashboard-grid .dash-block:nth-child(2) .dash-mobile-toggle {
+    background: transparent !important;
+    color: #173c68 !important;
   }
 
   .dash-block-head,

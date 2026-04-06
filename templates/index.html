@@ -211,62 +211,42 @@
       </dialog>
     {% endif %}
 
-    <section class="dashboard-grid">
-      <article class="dash-block" data-mobile-panel>
-        <header class="dash-block-head">
-          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
-            <span class="dash-mobile-headline">
-              <h3>Top articulos pedidos</h3>
-              <small>Por pedidos</small>
-            </span>
-            <span class="dash-mobile-icon" aria-hidden="true">+</span>
-          </button>
-        </header>
-        <div class="dash-mobile-body" data-mobile-body>
-        <div class="dash-bars">
-          {% set art_max = (ventas_top_articulos[0].total if ventas_top_articulos else 1) %}
-          {% for item in ventas_top_articulos[:9] %}
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">{{ item.articulo }}</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: {{ ((item.total * 100) / art_max)|round(1) }}%">{{ item.total|miles }}</span>
-              </div>
-            </div>
+    <section class="summary dashboard-kpi-row dashboard-insights-row">
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open" id="openVentasDetalleDashboardCard">
+          <h2>Detalle pedidos</h2>
+          {% if ventas_top_talla %}
+          <p>{{ ventas_top_talla.talla }}</p>
+          <small>Talla top: {{ ventas_top_talla.total|miles }}</small>
           {% else %}
-            <p class="empty">Sin datos.</p>
-          {% endfor %}
-        </div>
-        </div>
+          <p>-</p>
+          <small>Ver graficos</small>
+          {% endif %}
+        </button>
       </article>
-
-    </section>
-
-    <section class="dashboard-grid dashboard-grid-bottom">
-      <article class="dash-block dash-block-full" data-mobile-panel>
-        <header class="dash-block-head">
-          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
-            <span class="dash-mobile-headline">
-              <h3>Top familias</h3>
-              <small>Por pedidos</small>
-            </span>
-            <span class="dash-mobile-icon" aria-hidden="true">+</span>
-          </button>
-        </header>
-        <div class="dash-mobile-body" data-mobile-body>
-        <div class="dash-bars">
-          {% set fam_max = (ventas_top_familia.total if ventas_top_familia else 1) %}
-          {% for g in ventas_grouped[:10] %}
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">{{ g.familia }}</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: {{ ((g.total * 100) / fam_max)|round(1) }}%">{{ g.total|miles }}</span>
-              </div>
-            </div>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open" id="openTopArticulosDashboardCard">
+          <h2>Top articulos</h2>
+          {% if ventas_top_articulo %}
+          <p>{{ ventas_top_articulo.articulo }}</p>
+          <small>{{ ventas_top_articulo.total|miles }} pedidos</small>
           {% else %}
-            <p class="empty">Sin datos.</p>
-          {% endfor %}
-        </div>
-        </div>
+          <p>-</p>
+          <small>Ver detalle</small>
+          {% endif %}
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open" id="openTopFamiliaDashboardCard">
+          <h2>Top familias</h2>
+          {% if ventas_top_familia %}
+          <p>{{ ventas_top_familia.familia }}</p>
+          <small>{{ ventas_top_familia.total|miles }} pedidos</small>
+          {% else %}
+          <p>-</p>
+          <small>Ver detalle</small>
+          {% endif %}
+        </button>
       </article>
     </section>
 
@@ -1458,6 +1438,9 @@
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
+        openVentasDetalleDashboardCard: "ventasDetalleModal",
+        openTopArticulosDashboardCard: "topArticulosModal",
+        openTopFamiliaDashboardCard: "topFamiliaModal",
         openProyeccionModal: "proyeccionModal",
       };
       const exclusiveModalIds = Array.from(new Set(Object.values(triggerToModal)));
