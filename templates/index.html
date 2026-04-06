@@ -224,30 +224,6 @@
           {% endif %}
         </button>
       </article>
-      <article class="card-action summary-secondary">
-        <button type="button" class="summary-open" id="openTopArticulosDashboardCard">
-          <h2>Top articulos</h2>
-          {% if ventas_top_articulo %}
-          <p>{{ ventas_top_articulo.articulo }}</p>
-          <small>{{ ventas_top_articulo.total|miles }} pedidos</small>
-          {% else %}
-          <p>-</p>
-          <small>Ver detalle</small>
-          {% endif %}
-        </button>
-      </article>
-      <article class="card-action summary-secondary">
-        <button type="button" class="summary-open" id="openTopFamiliaDashboardCard">
-          <h2>Top familias</h2>
-          {% if ventas_top_familia %}
-          <p>{{ ventas_top_familia.familia }}</p>
-          <small>{{ ventas_top_familia.total|miles }} pedidos</small>
-          {% else %}
-          <p>-</p>
-          <small>Ver detalle</small>
-          {% endif %}
-        </button>
-      </article>
     </section>
 
     <dialog id="bodegaModal" class="modal">
