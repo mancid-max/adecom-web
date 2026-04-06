@@ -7102,6 +7102,21 @@ body.theme-gentelella,
   color: #214d86 !important;
 }
 
+.summary-open-centered,
+.dashboard-kpi-row .summary-open-centered,
+.summary .summary-open-centered {
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 18px !important;
+}
+
+.summary-open-centered h2,
+.dashboard-kpi-row .summary-open-centered h2,
+.summary .summary-open-centered h2 {
+  margin: 0 !important;
+}
+
 @media (max-width: 640px) {
   body,
   .theme-gentelella body {
@@ -7252,6 +7267,11 @@ body.theme-gentelella,
     padding: 14px 14px 12px !important;
     border-radius: 18px !important;
     background: transparent !important;
+  }
+
+  .dashboard-kpi-row .summary-open-centered {
+    min-height: 104px !important;
+    padding: 14px !important;
   }
 
   .dashboard-kpi-row .summary-open h2 {
