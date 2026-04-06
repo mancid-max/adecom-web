@@ -45,18 +45,18 @@ Eso genera:
 
 ### Publicarla en GitHub Pages
 
+El repo incluye workflow para desplegar GitHub Pages automaticamente en cada `push` a `main`.
+
 1. Sube el repo a GitHub.
 2. En `Settings > Pages`, elige:
 
 ```text
-Deploy from a branch
-Branch: main
-Folder: /docs
+Source: GitHub Actions
 ```
 
 3. Guarda los cambios.
 
-Con eso, GitHub Pages publicara la version estatica del dashboard usando los datos actuales de `seed/`.
+Con eso, GitHub Pages construira y publicara la version estatica del dashboard usando los datos actuales de `seed/`.
 
 ## Trabajar con PostgreSQL (Railway)
 
