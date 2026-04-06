@@ -159,17 +159,13 @@
       </header>
     <section class="summary dashboard-kpi-row dashboard-ops-row">
       <article class="card-action summary-secondary">
-        <button type="button" class="summary-open" id="openBodegaModal">
+        <button type="button" class="summary-open summary-open-centered" id="openBodegaModal">
           <h2>Ordenes en bodega</h2>
-          <p>{{ summary.ordenes_en_bodega|miles }}</p>
-          <small>En proceso</small>
         </button>
       </article>
       <article class="card-action summary-secondary">
-        <button type="button" class="summary-open" id="openFullTableModal">
+        <button type="button" class="summary-open summary-open-centered" id="openFullTableModal">
           <h2>Tabla completa</h2>
-          <p>{{ rows|length|miles }}</p>
-          <small>Registros activos</small>
         </button>
       </article>
     </section>
