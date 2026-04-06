@@ -7015,6 +7015,44 @@ body.theme-gentelella,
   letter-spacing: 0 !important;
 }
 
+.dash-mobile-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  box-shadow: none;
+}
+
+.dash-mobile-toggle:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.dash-mobile-headline {
+  display: grid;
+  gap: 4px;
+}
+
+.dash-mobile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(20, 57, 101, 0.08);
+  color: #143965;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 @media (max-width: 640px) {
   body,
   .theme-gentelella body {
@@ -7227,6 +7265,29 @@ body.theme-gentelella,
   .app-shell .dash-block-head small {
     font-size: 10px !important;
     letter-spacing: 0.04em !important;
+  }
+
+  .dash-mobile-toggle {
+    min-height: 52px !important;
+  }
+
+  .dash-mobile-icon {
+    width: 30px !important;
+    height: 30px !important;
+    background: rgba(255, 255, 255, 0.72) !important;
+  }
+
+  .dash-mobile-body {
+    display: none;
+  }
+
+  .dash-block.is-open .dash-mobile-body {
+    display: block;
+  }
+
+  .dash-block.is-open .dash-mobile-icon {
+    background: #143965 !important;
+    color: #ffffff !important;
   }
 
   .dash-bars {

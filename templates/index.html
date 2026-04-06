@@ -212,11 +212,17 @@
     {% endif %}
 
     <section class="dashboard-grid">
-      <article class="dash-block">
+      <article class="dash-block" data-mobile-panel>
         <header class="dash-block-head">
-          <h3>Top articulos pedidos</h3>
-          <small>Por pedidos</small>
+          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
+            <span class="dash-mobile-headline">
+              <h3>Top articulos pedidos</h3>
+              <small>Por pedidos</small>
+            </span>
+            <span class="dash-mobile-icon" aria-hidden="true">+</span>
+          </button>
         </header>
+        <div class="dash-mobile-body" data-mobile-body>
         <div class="dash-bars">
           {% set art_max = (ventas_top_articulos[0].total if ventas_top_articulos else 1) %}
           {% for item in ventas_top_articulos[:9] %}
@@ -230,13 +236,20 @@
             <p class="empty">Sin datos.</p>
           {% endfor %}
         </div>
+        </div>
       </article>
 
-      <article class="dash-block">
+      <article class="dash-block" data-mobile-panel>
         <header class="dash-block-head">
-          <h3>Curva de pedidos por talla</h3>
-          <small>Distribucion total</small>
+          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
+            <span class="dash-mobile-headline">
+              <h3>Curva de pedidos por talla</h3>
+              <small>Distribucion total</small>
+            </span>
+            <span class="dash-mobile-icon" aria-hidden="true">+</span>
+          </button>
         </header>
+        <div class="dash-mobile-body" data-mobile-body>
         <div class="dash-bars">
           {% set talla_max = (ventas_top_talla.total if ventas_top_talla else 1) %}
           {% for t in ventas_tallas %}
@@ -253,15 +266,22 @@
         {% if ventas_top_talla %}
           <p class="dash-note">Talla mas pedida: <strong>{{ ventas_top_talla.talla }}</strong> - {{ ventas_top_talla.total|miles }} unidades</p>
         {% endif %}
+        </div>
       </article>
     </section>
 
     <section class="dashboard-grid dashboard-grid-bottom">
-      <article class="dash-block dash-block-full">
+      <article class="dash-block dash-block-full" data-mobile-panel>
         <header class="dash-block-head">
-          <h3>Top familias</h3>
-          <small>Por pedidos</small>
+          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
+            <span class="dash-mobile-headline">
+              <h3>Top familias</h3>
+              <small>Por pedidos</small>
+            </span>
+            <span class="dash-mobile-icon" aria-hidden="true">+</span>
+          </button>
         </header>
+        <div class="dash-mobile-body" data-mobile-body>
         <div class="dash-bars">
           {% set fam_max = (ventas_top_familia.total if ventas_top_familia else 1) %}
           {% for g in ventas_grouped[:10] %}
@@ -274,6 +294,7 @@
           {% else %}
             <p class="empty">Sin datos.</p>
           {% endfor %}
+        </div>
         </div>
       </article>
     </section>
@@ -2948,6 +2969,46 @@
       modal.addEventListener("click", (event) => {
         if (event.target === modal) modal.close();
       });
+    })();
+
+    (function () {
+      const isMobileDashboard = () => window.matchMedia("(max-width: 640px)").matches;
+      const panels = Array.from(document.querySelectorAll("[data-mobile-panel]"));
+      if (!panels.length) return;
+
+      const setOpen = (panel, open) => {
+        panel.classList.toggle("is-open", open);
+        const toggle = panel.querySelector("[data-mobile-toggle]");
+        const body = panel.querySelector("[data-mobile-body]");
+        const icon = panel.querySelector(".dash-mobile-icon");
+        if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (body) body.hidden = !open && !isMobileDashboard();
+        if (body && isMobileDashboard()) body.hidden = !open;
+        if (icon) icon.textContent = open ? "−" : "+";
+      };
+
+      const syncPanels = () => {
+        if (isMobileDashboard()) {
+          const hasOpen = panels.some((panel) => panel.classList.contains("is-open"));
+          panels.forEach((panel, index) => setOpen(panel, hasOpen ? panel.classList.contains("is-open") : index === 0));
+          return;
+        }
+        panels.forEach((panel) => setOpen(panel, true));
+      };
+
+      panels.forEach((panel) => {
+        const toggle = panel.querySelector("[data-mobile-toggle]");
+        if (!toggle) return;
+        toggle.addEventListener("click", () => {
+          if (!isMobileDashboard()) return;
+          const willOpen = !panel.classList.contains("is-open");
+          panels.forEach((item) => setOpen(item, false));
+          setOpen(panel, willOpen);
+        });
+      });
+
+      syncPanels();
+      window.addEventListener("resize", syncPanels);
     })();
 
     (function () {
