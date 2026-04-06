@@ -7209,7 +7209,9 @@ body.theme-gentelella,
   .side-nav,
   .app-shell .side-nav,
   .side-toggle-floating,
-  .app-shell .side-toggle-floating {
+  .app-shell .side-toggle-floating,
+  #sideToggleFloatingBtn,
+  .app-shell #sideToggleFloatingBtn {
     display: none !important;
   }
 
@@ -7268,6 +7270,11 @@ body.theme-gentelella,
     background: rgba(255, 255, 255, 0.14) !important;
     color: #ffffff !important;
     box-shadow: none !important;
+  }
+
+  .top-nav-actions .upload-quick-form,
+  .app-shell .top-nav-actions .upload-quick-form {
+    display: none !important;
   }
 
   .filters,
@@ -7906,11 +7913,11 @@ body.theme-gentelella,
     box-shadow: none !important;
   }
 
-  .theme-gentelella .app-shell.side-collapsed .side-toggle-floating,
-  .theme-gentelella .app-shell.side-collapsed #sideToggleFloatingBtn {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+.theme-gentelella .app-shell.side-collapsed .side-toggle-floating,
+.theme-gentelella .app-shell.side-collapsed #sideToggleFloatingBtn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
     position: fixed !important;
     top: 14px !important;
     left: 14px !important;
@@ -7918,12 +7925,30 @@ body.theme-gentelella,
     height: 40px !important;
     min-width: 40px !important;
     min-height: 40px !important;
-    border-radius: 6px !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    z-index: 45 !important;
+  border-radius: 6px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 45 !important;
+}
+
+@media (max-width: 640px) {
+  .side-toggle-floating,
+  .app-shell .side-toggle-floating,
+  #sideToggleFloatingBtn,
+  .app-shell #sideToggleFloatingBtn,
+  .theme-gentelella .side-toggle-floating,
+  .theme-gentelella .app-shell .side-toggle-floating,
+  .theme-gentelella #sideToggleFloatingBtn,
+  .theme-gentelella .app-shell #sideToggleFloatingBtn,
+  .theme-gentelella .app-shell.side-collapsed .side-toggle-floating,
+  .theme-gentelella .app-shell.side-collapsed #sideToggleFloatingBtn {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
+}
 
   .theme-gentelella .page {
     width: 100% !important;
