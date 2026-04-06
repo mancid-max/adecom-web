@@ -66,7 +66,7 @@ STATIC_BRIDGE_SCRIPT = """
 """
 
 
-def _render_html() -> str:
+def _render_main_html() -> str:
     app_module.ASSISTANT_ENABLED = False
     app_module.ensure_seed_data()
     with app_module.app.test_request_context("/"):
@@ -78,12 +78,25 @@ def _render_html() -> str:
         return str(rendered)
 
 
-def _postprocess_html(html: str) -> str:
+def _render_other_html() -> str:
+    app_module.ASSISTANT_ENABLED = False
+    app_module.ensure_seed_data()
+    with app_module.app.test_request_context("/otra-landing"):
+        session["portal_section"] = "other"
+        session["can_upload"] = False
+        rendered = app_module.other_section()
+        if hasattr(rendered, "get_data"):
+            return rendered.get_data(as_text=True)
+        return str(rendered)
+
+
+def _postprocess_main_html(html: str) -> str:
     html = html.replace('href="/static/styles.css"', 'href="styles.css"')
     html = html.replace('<body class="theme-gentelella">', '<body class="theme-gentelella static-export">')
     html = html.replace('action="/logout"', 'action="#"')
     html = html.replace('action="/"', 'action="#"')
     html = html.replace('href="/" class="btn-ghost search-reset-btn"', 'href="#" class="btn-ghost search-reset-btn"')
+    html = html.replace('href="/otra-landing"', 'href="otra-landing/"')
     html = re.sub(
         r'<button type="submit" class="top-logout-btn">Salir</button>',
         f'<a class="top-logout-btn" href="{REPO_URL}" target="_blank" rel="noreferrer">GitHub</a>',
@@ -94,17 +107,31 @@ def _postprocess_html(html: str) -> str:
     return html
 
 
-def _write_docs(html: str) -> None:
+def _postprocess_other_html(html: str) -> str:
+    html = html.replace('action="/logout"', 'action="#"')
+    html = html.replace('action="/otra-landing"', 'action="#"')
+    html = html.replace('action="/otra-landing/import-excel"', 'action="#"')
+    html = html.replace('action="/otra-landing/add"', 'action="#"')
+    html = re.sub(r'action="/otra-landing/delete/\d+"', 'action="#"', html)
+    html = html.replace("</body>", "\n</body>")
+    return html
+
+
+def _write_docs(main_html: str, other_html: str) -> None:
     DOCS_DIR.mkdir(exist_ok=True)
+    (DOCS_DIR / "otra-landing").mkdir(exist_ok=True)
     shutil.copy2(STATIC_DIR / "styles.css", DOCS_DIR / "styles.css")
-    (DOCS_DIR / "index.html").write_text(html, encoding="utf-8")
-    (DOCS_DIR / "404.html").write_text(html, encoding="utf-8")
+    (DOCS_DIR / "index.html").write_text(main_html, encoding="utf-8")
+    (DOCS_DIR / "404.html").write_text(main_html, encoding="utf-8")
+    (DOCS_DIR / "otra-landing" / "index.html").write_text(other_html, encoding="utf-8")
+    (DOCS_DIR / "otra-landing.html").write_text(other_html, encoding="utf-8")
     (DOCS_DIR / ".nojekyll").write_text("", encoding="utf-8")
 
 
 def main() -> None:
-    html = _postprocess_html(_render_html())
-    _write_docs(html)
+    main_html = _postprocess_main_html(_render_main_html())
+    other_html = _postprocess_other_html(_render_other_html())
+    _write_docs(main_html, other_html)
     print(f"Static site generated in {DOCS_DIR}")
 
 

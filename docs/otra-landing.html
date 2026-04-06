@@ -205,42 +205,38 @@
     <header class="top">
       <h1 class="title">Gestion y Productividad Lavanderia</h1>
       <div class="top-actions">
-        <form method="post" action="{{ url_for('logout') }}">
+        <form method="post" action="#">
           <button class="btn" type="submit">Cerrar sesion</button>
         </form>
       </div>
     </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, msg in messages %}
-          <div class="alert {% if category == 'success' %}alert-success{% else %}alert-error{% endif %}">{{ msg }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    
+      
+    
 
     <section class="grid">
       <article class="card">
-        <p class="kpi-number">{{ data.kpi.registros }}</p>
+        <p class="kpi-number">0</p>
         <p class="kpi-label">Registros</p>
       </article>
       <article class="card">
-        <p class="kpi-number">{{ data.kpi.prendas|int }}</p>
+        <p class="kpi-number">0</p>
         <p class="kpi-label">Prendas procesadas</p>
       </article>
       <article class="card">
-        <p class="kpi-number">{{ data.kpi.horas }}</p>
+        <p class="kpi-number">0.0</p>
         <p class="kpi-label">Horas registradas</p>
       </article>
       <article class="card">
-        <p class="kpi-number">{{ data.kpi.prendas_hora }}</p>
+        <p class="kpi-number">0.0</p>
         <p class="kpi-label">Prendas por hora</p>
       </article>
     </section>
 
     <section class="panel">
       <h2>Cargar Excel inicial (una vez)</h2>
-      <form method="post" action="{{ url_for('other_import_excel') }}" enctype="multipart/form-data" class="form-grid">
+      <form method="post" action="#" enctype="multipart/form-data" class="form-grid">
         <div class="field">
           <label for="file">Archivo XLSX</label>
           <input id="file" name="file" type="file" accept=".xlsx" required>
@@ -254,32 +250,46 @@
 
     <section class="panel">
       <h2>Ingreso manual por web</h2>
-      <form method="post" action="{{ url_for('other_add_registro') }}" class="form-grid">
+      <form method="post" action="#" class="form-grid">
         <div class="field">
           <label>Bota</label>
           <input name="bota" list="botasList" placeholder="Selecciona o escribe bota" required>
           <datalist id="botasList">
-            {% for b in catalogos.botas %}
-              <option value="{{ b }}"></option>
-            {% endfor %}
+            
+              <option value="Oxford"></option>
+            
+              <option value="Flared"></option>
+            
+              <option value="Pitillo"></option>
+            
+              <option value="Recto"></option>
+            
+              <option value="Tobillero"></option>
+            
+              <option value="Cargo"></option>
+            
+              <option value="Palazzo"></option>
+            
+              <option value="Wide Legs"></option>
+            
+              <option value="Falda"></option>
+            
+              <option value="Falda/Short"></option>
+            
           </datalist>
         </div>
         <div class="field">
           <label>Etapa *</label>
           <input name="etapa" id="etapaField" list="etapasList" placeholder="Selecciona o escribe etapa" required>
           <datalist id="etapasList">
-            {% for e in catalogos.etapas %}
-              <option value="{{ e }}"></option>
-            {% endfor %}
+            
           </datalist>
         </div>
         <div class="field">
           <label>Empleado *</label>
           <input name="empleado" list="empleadosList" placeholder="Selecciona o escribe empleado" required>
           <datalist id="empleadosList">
-            {% for e in catalogos.empleados %}
-              <option value="{{ e }}"></option>
-            {% endfor %}
+            
           </datalist>
         </div>
         <div class="field">
@@ -292,7 +302,7 @@
         </div>
         <div class="field">
           <label>Fecha termino</label>
-          <input name="fecha_fin_iso" type="date" value="{{ today_iso }}">
+          <input name="fecha_fin_iso" type="date" value="2026-04-06">
         </div>
         <div class="field">
           <label>&nbsp;</label>
@@ -311,7 +321,7 @@
             </div>
             <div class="field">
               <label>Fecha inicio</label>
-              <input name="fecha_inicio_iso" type="date" value="{{ today_iso }}">
+              <input name="fecha_inicio_iso" type="date" value="2026-04-06">
             </div>
             <div class="field">
               <label>Hora inicio</label>
@@ -328,14 +338,14 @@
 
     <section class="panel">
       <h2>Filtros</h2>
-      <form method="get" action="{{ url_for('other_section') }}" class="form-grid">
+      <form method="get" action="#" class="form-grid">
         <div class="field">
           <label>Fecha (inicio o termino)</label>
-          <input type="date" name="fecha" value="{{ filters.fecha }}">
+          <input type="date" name="fecha" value="">
         </div>
         <div class="field">
           <label>Empleado</label>
-          <input type="text" name="empleado" value="{{ filters.empleado }}" placeholder="Victor">
+          <input type="text" name="empleado" value="" placeholder="Victor">
         </div>
         <div class="field">
           <label>&nbsp;</label>
@@ -359,17 +369,9 @@
               </tr>
             </thead>
             <tbody>
-              {% for r in data.top_empleados %}
-              <tr>
-                <td>{{ r.empleado }}</td>
-                <td class="num">{{ r.cantidad }}</td>
-                <td class="num">{{ r.horas }}</td>
-                <td class="num">{{ r.prendas_hora }}</td>
-                <td class="num">{{ r.min_por_prenda }}</td>
-              </tr>
-              {% else %}
+              
               <tr><td colspan="5">Sin datos.</td></tr>
-              {% endfor %}
+              
             </tbody>
           </table>
         </div>
@@ -388,17 +390,9 @@
               </tr>
             </thead>
             <tbody>
-              {% for r in data.top_etapas %}
-              <tr>
-                <td>{{ r.etapa }}</td>
-                <td class="num">{{ r.cantidad }}</td>
-                <td class="num">{{ r.horas }}</td>
-                <td class="num">{{ r.prendas_hora }}</td>
-                <td class="num">{{ r.min_por_prenda }}</td>
-              </tr>
-              {% else %}
+              
               <tr><td colspan="5">Sin datos.</td></tr>
-              {% endfor %}
+              
             </tbody>
           </table>
         </div>
@@ -426,28 +420,9 @@
             </tr>
           </thead>
           <tbody>
-            {% for r in data.rows %}
-            <tr>
-              <td>{{ r.id }}</td>
-              <td>{{ r.articulo }}</td>
-              <td>{{ r.corte }}</td>
-              <td>{{ r.bota }}</td>
-              <td>{{ r.etapa }}</td>
-              <td>{{ r.empleado }}</td>
-              <td class="num">{{ r.cantidad }}</td>
-              <td class="num">{{ r.minutos }}</td>
-              <td>{{ r.fecha_inicio_iso or '' }} {{ r.hora_inicio or '' }}</td>
-              <td>{{ r.fecha_fin_iso or '' }} {{ r.hora_fin or '' }}</td>
-              <td>{{ r.source }}</td>
-              <td>
-                <form method="post" action="{{ url_for('other_delete_registro', row_id=r.id) }}">
-                  <button type="submit">Eliminar</button>
-                </form>
-              </td>
-            </tr>
-            {% else %}
+            
             <tr><td colspan="12">Sin registros.</td></tr>
-            {% endfor %}
+            
           </tbody>
         </table>
       </div>
@@ -455,7 +430,7 @@
   </div>
   <script>
     (function () {
-      const etapaDefaults = {{ etapa_defaults|tojson }};
+      const etapaDefaults = {};
       const etapaField = document.getElementById("etapaField");
       const cantidadField = document.getElementById("cantidadField");
       const minutosField = document.getElementById("minutosField");
@@ -471,5 +446,6 @@
       cantidadField.addEventListener("input", recalc);
     })();
   </script>
+
 </body>
 </html>
