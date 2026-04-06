@@ -239,35 +239,6 @@
         </div>
       </article>
 
-      <article class="dash-block" data-mobile-panel>
-        <header class="dash-block-head">
-          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
-            <span class="dash-mobile-headline">
-              <h3>Curva de pedidos por talla</h3>
-              <small>Distribucion total</small>
-            </span>
-            <span class="dash-mobile-icon" aria-hidden="true">+</span>
-          </button>
-        </header>
-        <div class="dash-mobile-body" data-mobile-body>
-        <div class="dash-bars">
-          {% set talla_max = (ventas_top_talla.total if ventas_top_talla else 1) %}
-          {% for t in ventas_tallas %}
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">{{ t.talla }}</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: {{ ((t.total * 100) / talla_max)|round(1) }}%">{{ t.total|miles }}</span>
-              </div>
-            </div>
-          {% else %}
-            <p class="empty">Sin datos.</p>
-          {% endfor %}
-        </div>
-        {% if ventas_top_talla %}
-          <p class="dash-note">Talla mas pedida: <strong>{{ ventas_top_talla.talla }}</strong> - {{ ventas_top_talla.total|miles }} unidades</p>
-        {% endif %}
-        </div>
-      </article>
     </section>
 
     <section class="dashboard-grid dashboard-grid-bottom">

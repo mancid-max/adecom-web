@@ -169,11 +169,17 @@
     
 
     <section class="dashboard-grid">
-      <article class="dash-block">
+      <article class="dash-block" data-mobile-panel>
         <header class="dash-block-head">
-          <h3>Top articulos pedidos</h3>
-          <small>Por pedidos</small>
+          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
+            <span class="dash-mobile-headline">
+              <h3>Top articulos pedidos</h3>
+              <small>Por pedidos</small>
+            </span>
+            <span class="dash-mobile-icon" aria-hidden="true">+</span>
+          </button>
         </header>
+        <div class="dash-mobile-body" data-mobile-body>
         <div class="dash-bars">
           
           
@@ -241,71 +247,23 @@
             </div>
           
         </div>
+        </div>
       </article>
 
-      <article class="dash-block">
-        <header class="dash-block-head">
-          <h3>Curva de pedidos por talla</h3>
-          <small>Distribucion total</small>
-        </header>
-        <div class="dash-bars">
-          
-          
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">36</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: 46.1%">2.250</span>
-              </div>
-            </div>
-          
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">38</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: 93.5%">4.560</span>
-              </div>
-            </div>
-          
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">40</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: 100.0%">4.877</span>
-              </div>
-            </div>
-          
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">42</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: 94.6%">4.616</span>
-              </div>
-            </div>
-          
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">44</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: 64.5%">3.145</span>
-              </div>
-            </div>
-          
-            <div class="dash-bar-row">
-              <span class="dash-bar-label">46</span>
-              <div class="dash-bar-track">
-                <span class="dash-bar-fill" style="width: 49.0%">2.392</span>
-              </div>
-            </div>
-          
-        </div>
-        
-          <p class="dash-note">Talla mas pedida: <strong>40</strong> - 4.877 unidades</p>
-        
-      </article>
     </section>
 
     <section class="dashboard-grid dashboard-grid-bottom">
-      <article class="dash-block dash-block-full">
+      <article class="dash-block dash-block-full" data-mobile-panel>
         <header class="dash-block-head">
-          <h3>Top familias</h3>
-          <small>Por pedidos</small>
+          <button type="button" class="dash-mobile-toggle" data-mobile-toggle aria-expanded="false">
+            <span class="dash-mobile-headline">
+              <h3>Top familias</h3>
+              <small>Por pedidos</small>
+            </span>
+            <span class="dash-mobile-icon" aria-hidden="true">+</span>
+          </button>
         </header>
+        <div class="dash-mobile-body" data-mobile-body>
         <div class="dash-bars">
           
           
@@ -379,6 +337,7 @@
               </div>
             </div>
           
+        </div>
         </div>
       </article>
     </section>
@@ -20924,6 +20883,46 @@
       modal.addEventListener("click", (event) => {
         if (event.target === modal) modal.close();
       });
+    })();
+
+    (function () {
+      const isMobileDashboard = () => window.matchMedia("(max-width: 640px)").matches;
+      const panels = Array.from(document.querySelectorAll("[data-mobile-panel]"));
+      if (!panels.length) return;
+
+      const setOpen = (panel, open) => {
+        panel.classList.toggle("is-open", open);
+        const toggle = panel.querySelector("[data-mobile-toggle]");
+        const body = panel.querySelector("[data-mobile-body]");
+        const icon = panel.querySelector(".dash-mobile-icon");
+        if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (body) body.hidden = !open && !isMobileDashboard();
+        if (body && isMobileDashboard()) body.hidden = !open;
+        if (icon) icon.textContent = open ? "−" : "+";
+      };
+
+      const syncPanels = () => {
+        if (isMobileDashboard()) {
+          const hasOpen = panels.some((panel) => panel.classList.contains("is-open"));
+          panels.forEach((panel, index) => setOpen(panel, hasOpen ? panel.classList.contains("is-open") : index === 0));
+          return;
+        }
+        panels.forEach((panel) => setOpen(panel, true));
+      };
+
+      panels.forEach((panel) => {
+        const toggle = panel.querySelector("[data-mobile-toggle]");
+        if (!toggle) return;
+        toggle.addEventListener("click", () => {
+          if (!isMobileDashboard()) return;
+          const willOpen = !panel.classList.contains("is-open");
+          panels.forEach((item) => setOpen(item, false));
+          setOpen(panel, willOpen);
+        });
+      });
+
+      syncPanels();
+      window.addEventListener("resize", syncPanels);
     })();
 
     (function () {
