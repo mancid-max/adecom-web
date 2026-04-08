@@ -347,7 +347,18 @@
               <th class="sortable-th" data-sort-key="articulo">Articulo</th>
               <th class="sortable-th" data-sort-key="corte">Corte</th>
               <th class="sortable-th" data-sort-key="fecha">Fecha</th>
-              <th class="sortable-th" data-sort-key="etapaactual">Proceso actual</th>
+              <th class="sortable-th full-table-num" data-sort-key="programa">Programa</th>
+              <th class="sortable-th full-table-num" data-sort-key="proceso">Proceso</th>
+              <th class="sortable-th full-table-num" data-sort-key="bodega">Bodega</th>
+              <th class="sortable-th full-table-num" data-sort-key="saldo">Saldo</th>
+              <th class="sortable-th full-table-num" data-sort-key="corte1">Corte</th>
+              <th class="sortable-th full-table-num" data-sort-key="taller">Costur</th>
+              <th class="sortable-th full-table-num" data-sort-key="texterno">T. Exet</th>
+              <th class="sortable-th full-table-num" data-sort-key="limpiado">Limp.</th>
+              <th class="sortable-th full-table-num" data-sort-key="lavanderia">Lavand</th>
+              <th class="sortable-th full-table-num" data-sort-key="terminacion">Term.</th>
+              <th class="sortable-th full-table-num" data-sort-key="muestra">Mues.</th>
+              <th class="sortable-th full-table-num" data-sort-key="segunda">Seg.</th>
             </tr>
           </thead>
           <tbody>
@@ -379,17 +390,42 @@
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
               <td>{{ row.fecha_display }}</td>
-              <td><span class="estado-pill estado-pill-yellow full-table-stage-chip" translate="no">{{ row.proceso_actual or 'Sin movimiento' }}</span></td>
+              <td class="full-table-num">{{ row.programa }}</td>
+              <td class="full-table-num">{{ row.proceso }}</td>
+              <td class="full-table-num">{{ row.bodega }}</td>
+              <td class="full-table-num">{{ row.saldo }}</td>
+              <td class="full-table-num">{{ row.corte_1 }}</td>
+              <td class="full-table-num">{{ row.taller }}</td>
+              <td class="full-table-num">{{ row.t_externo }}</td>
+              <td class="full-table-num">{{ row.limpiado }}</td>
+              <td class="full-table-num">{{ row.lavanderia }}</td>
+              <td class="full-table-num">{{ row.terminacion }}</td>
+              <td class="full-table-num">{{ row.muestra }}</td>
+              <td class="full-table-num">{{ row.segunda }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="4" class="empty">No hay datos cargados.</td>
+              <td colspan="15" class="empty">No hay datos cargados.</td>
             </tr>
             {% endfor %}
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="4">Totales</td>
+              <td>Totales</td>
+              <td>-</td>
+              <td>-</td>
+              <td class="full-table-num">{{ totals.programa }}</td>
+              <td class="full-table-num">{{ totals.proceso }}</td>
+              <td class="full-table-num">{{ totals.bodega }}</td>
+              <td class="full-table-num">{{ totals.saldo }}</td>
+              <td class="full-table-num">{{ totals.corte_1 }}</td>
+              <td class="full-table-num">{{ totals.taller }}</td>
+              <td class="full-table-num">{{ totals.t_externo }}</td>
+              <td class="full-table-num">{{ totals.limpiado }}</td>
+              <td class="full-table-num">{{ totals.lavanderia }}</td>
+              <td class="full-table-num">{{ totals.terminacion }}</td>
+              <td class="full-table-num">{{ totals.muestra }}</td>
+              <td class="full-table-num">{{ totals.segunda }}</td>
             </tr>
           </tfoot>
         </table>
