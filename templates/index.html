@@ -326,22 +326,36 @@
           <option value="T. Externo">T. Externo</option>
           <option value="Taller">Taller</option>
           <option value="Corte">Corte</option>
-          <option value="Segunda">Segunda</option>
           <option value="Sin movimiento">Sin movimiento</option>
         </select>
       </div>
       <section class="full-table-stage-panel">
         <div class="full-table-stage-head">
           <div>
-            <h4>Resumen por etapa</h4>
-            <p>Ordenado de mayor a menor para priorizar decisiones.</p>
+            <h4>Resumen por columna</h4>
+            <p>Tarjetas alineadas con los nombres de la tabla.</p>
           </div>
           <div class="full-table-stage-total" id="fullTableVisibleTotals">-</div>
         </div>
         <div class="full-table-stage-grid" id="fullTableStageGrid"></div>
       </section>
-      <section class="table-wrap bodega-wrap full-table-wrap">
+      <section class="table-wrap bodega-wrap full-table-wrap" id="fullTableBodyWrap">
         <table class="bodega-table full-table" id="fullTableMain">
+          <colgroup>
+            <col class="full-col-articulo">
+            <col class="full-col-corte">
+            <col class="full-col-fecha">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+            <col class="full-col-num">
+          </colgroup>
           <thead>
             <tr>
               <th class="sortable-th" data-sort-key="articulo">Articulo</th>
@@ -357,8 +371,6 @@
               <th class="sortable-th full-table-num" data-sort-key="limpiado">Limp.</th>
               <th class="sortable-th full-table-num" data-sort-key="lavanderia">Lavand</th>
               <th class="sortable-th full-table-num" data-sort-key="terminacion">Term.</th>
-              <th class="sortable-th full-table-num" data-sort-key="muestra">Mues.</th>
-              <th class="sortable-th full-table-num" data-sort-key="segunda">Seg.</th>
             </tr>
           </thead>
           <tbody>
@@ -400,12 +412,10 @@
               <td class="full-table-num">{{ row.limpiado }}</td>
               <td class="full-table-num">{{ row.lavanderia }}</td>
               <td class="full-table-num">{{ row.terminacion }}</td>
-              <td class="full-table-num">{{ row.muestra }}</td>
-              <td class="full-table-num">{{ row.segunda }}</td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="15" class="empty">No hay datos cargados.</td>
+              <td colspan="13" class="empty">No hay datos cargados.</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -424,8 +434,6 @@
               <td class="full-table-num">{{ totals.limpiado }}</td>
               <td class="full-table-num">{{ totals.lavanderia }}</td>
               <td class="full-table-num">{{ totals.terminacion }}</td>
-              <td class="full-table-num">{{ totals.muestra }}</td>
-              <td class="full-table-num">{{ totals.segunda }}</td>
             </tr>
           </tfoot>
         </table>
@@ -2477,8 +2485,9 @@
     })();
 
     (function () {
-      const table = document.querySelector("#fullTableModal .full-table");
-      if (!table) return;
+      const table = document.getElementById("fullTableMain");
+      const bodyWrap = document.getElementById("fullTableBodyWrap");
+      if (!table || !bodyWrap) return;
       const tbody = table.querySelector("tbody");
       const headers = table.querySelectorAll("th.sortable-th");
       let currentKey = "";
@@ -2536,7 +2545,7 @@
 
     (function () {
       const filtro = document.getElementById("tipoFiltro");
-      const table = document.querySelector("#fullTableModal .full-table");
+      const table = document.getElementById("fullTableMain");
       const stageGrid = document.getElementById("fullTableStageGrid");
       const visibleTotals = document.getElementById("fullTableVisibleTotals");
       if (!filtro || !table) return;
@@ -2552,10 +2561,21 @@
         "T. Externo": "estado-pill estado-pill-blue",
         Taller: "estado-pill estado-pill-blue",
         Corte: "estado-pill estado-pill-yellow",
-        Segunda: "estado-pill estado-pill-yellow",
       };
 
       const validStages = new Set(Object.keys(stageMeta));
+      const summaryColumns = [
+        { key: "programa", label: "Programa" },
+        { key: "proceso", label: "Proceso" },
+        { key: "bodega", label: "Bodega", filterValue: "Bodega" },
+        { key: "saldo", label: "Saldo" },
+        { key: "corte1", label: "Corte", filterValue: "Corte" },
+        { key: "taller", label: "Costur", filterValue: "Taller" },
+        { key: "texterno", label: "T. Exet", filterValue: "T. Externo" },
+        { key: "limpiado", label: "Limp.", filterValue: "Limpiado" },
+        { key: "lavanderia", label: "Lavand", filterValue: "Lavanderia" },
+        { key: "terminacion", label: "Term.", filterValue: "Terminacion" },
+      ];
 
       const format = (n) => Number(n || 0).toLocaleString("es-CL");
 
@@ -2567,7 +2587,6 @@
         if (Number(row.dataset.texterno || 0) > 0) return "T. Externo";
         if (Number(row.dataset.taller || 0) > 0) return "Taller";
         if (Number(row.dataset.corte1 || 0) > 0) return "Corte";
-        if (Number(row.dataset.segunda || 0) > 0) return "Segunda";
         const rawStage = (row.dataset.procesoactual || "").trim();
         return validStages.has(rawStage) ? rawStage : "";
       };
@@ -2585,23 +2604,12 @@
       const renderStageSummary = () => {
         if (!stageGrid) return;
         const visibleRows = rows.filter((row) => row.style.display !== "none");
-        const stageMap = new Map();
         let totalOrdenes = 0;
-        let totalSaldo = 0;
         let totalPrendas = 0;
 
         visibleRows.forEach((row) => {
-          const stage = row.dataset.etapaactual || "";
-          if (!stage || !validStages.has(stage)) return;
-          const saldo = Number(row.dataset.saldo || 0);
           const proceso = Number(row.dataset.proceso || 0);
-          const current = stageMap.get(stage) || { stage, count: 0, saldo: 0, proceso: 0 };
-          current.count += 1;
-          current.saldo += saldo;
-          current.proceso += proceso;
-          stageMap.set(stage, current);
           totalOrdenes += 1;
-          totalSaldo += saldo;
           totalPrendas += proceso;
         });
 
@@ -2609,9 +2617,19 @@
           visibleTotals.textContent = `${format(totalOrdenes)} ${totalOrdenes === 1 ? "orden" : "ordenes"} | ${format(totalPrendas)} prendas`;
         }
 
-        const cards = Array.from(stageMap.values()).sort((a, b) => {
-          if (b.count !== a.count) return b.count - a.count;
-          return b.saldo - a.saldo;
+        const cards = summaryColumns.map((column) => {
+          let total = 0;
+          let activeRows = 0;
+          visibleRows.forEach((row) => {
+            const value = Number(row.dataset[column.key] || 0);
+            total += value;
+            if (value > 0) activeRows += 1;
+          });
+          return {
+            ...column,
+            total,
+            activeRows,
+          };
         });
 
         if (!cards.length) {
@@ -2620,10 +2638,14 @@
         }
 
         stageGrid.innerHTML = cards.map((item) => `
-          <button type="button" class="full-table-stage-card" data-stage-filter="${item.stage}">
-            <span class="${stageMeta[item.stage] || "estado-pill estado-pill-yellow"}" translate="no">${item.stage}</span>
-            <strong>${format(item.count)} ${item.count === 1 ? "orden" : "ordenes"}</strong>
-            <small>Total unidades: ${format(item.proceso)}</small>
+          <button
+            type="button"
+            class="full-table-stage-card"
+            ${item.filterValue ? `data-stage-filter="${item.filterValue}"` : ""}
+          >
+            <span class="${stageMeta[item.filterValue] || "estado-pill estado-pill-blue"}" translate="no">${item.label}</span>
+            <strong>${format(item.total)}</strong>
+            <small>${format(item.activeRows)} ${item.activeRows === 1 ? "orden" : "ordenes"} con valor</small>
           </button>
         `).join("");
 
@@ -2670,6 +2692,10 @@
       const initSyncedTableScrollbars = () => {
         document.querySelectorAll(".table-wrap").forEach((wrap) => {
           if (wrap.dataset.syncScrollReady === "1") return;
+          if (wrap.classList.contains("full-table-wrap")) {
+            wrap.dataset.syncScrollReady = "1";
+            return;
+          }
           const hasHorizontalOverflow = () => wrap.scrollWidth > wrap.clientWidth + 4;
           const topBar = document.createElement("div");
           topBar.className = "table-scroll-top";

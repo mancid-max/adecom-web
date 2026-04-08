@@ -86,6 +86,7 @@ AUTO_REFRESH_WEB_ONLY_DAILY = os.environ.get("ADECOM_AUTO_REFRESH_WEB_ONLY_DAILY
 ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "1"
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
 OTHER_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_OTHER_SECTION", "1").strip() == "1"
+ENABLE_SEED = os.environ.get("ADECOM_ENABLE_SEED", "1").strip() == "1"
 PROYECCION_STATE_PATH = BASE_DIR / "data" / "proyeccion_personas.json"
 AREA_WEIGHTS = {
     "CORTE": 600,
@@ -1958,20 +1959,23 @@ def _autoload_proyeccion_rows() -> list[dict[str, object]]:
 
 
 def ensure_seed_data() -> None:
+    if not ENABLE_SEED:
+        init_db(DB_PATH)
+        return
     init_db(DB_PATH)
-    if SEED_SALDOS.exists():
+    if SEED_SALDOS.exists() and _table_count("saldos_seccion") == 0:
         saldos_rows = parse_saldos_txt(SEED_SALDOS.read_bytes())
         if saldos_rows:
             import_rows(DB_PATH, saldos_rows, replace_all=True)
-    if SEED_PEDIDOS.exists():
+    if SEED_PEDIDOS.exists() and _table_count("pedidos_talla") == 0:
         pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
         if pedidos_rows:
             import_pedidos_talla_rows(DB_PATH, pedidos_rows)
-    if SEED_COMPARATIVO.exists():
+    if SEED_COMPARATIVO.exists() and _table_count("comparativo_clientes") == 0:
         comparativo_rows = parse_comparativo_clientes_txt(SEED_COMPARATIVO.read_bytes())
         if comparativo_rows:
             import_comparativo_clientes_rows(DB_PATH, comparativo_rows)
-    if SEED_DEUDAS.exists():
+    if SEED_DEUDAS.exists() and _table_count("deuda_clientes") == 0:
         deuda_rows = parse_deudas_vencidas_csv(SEED_DEUDAS.read_bytes())
         if deuda_rows:
             import_deuda_clientes_rows(DB_PATH, deuda_rows)
