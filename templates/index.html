@@ -157,6 +157,93 @@
       <header class="dashboard-section-title">
         <h2>PRODUCCION</h2>
       </header>
+    <section class="production-goals-panel">
+      <div class="production-goals-hero">
+        <div>
+          <p class="production-goals-kicker">{{ production_goals.month_label }}</p>
+          <h3>Metas de produccion por seccion</h3>
+          <p class="production-goals-copy">
+            Meta acumulada {{ production_goals.total_actual|miles }} de {{ production_goals.total_goal|miles }}
+            con corte al dia habil {{ production_goals.projected_day }}.
+          </p>
+        </div>
+        <div class="production-goals-overall">
+          <span class="status-chip status-{{ production_goals.status }}">{{ production_goals.status_label }}</span>
+          <strong>{{ production_goals.total_ratio_pct }}%</strong>
+          <small>{{ production_goals.work_days }} dias habiles en el mes</small>
+        </div>
+      </div>
+
+      <div class="production-goals-kpis">
+        <article>
+          <small>Meta mensual</small>
+          <strong>{{ production_goals.total_goal|miles }}</strong>
+          <span>Total planificado</span>
+        </article>
+        <article>
+          <small>Acumulado real</small>
+          <strong>{{ production_goals.total_actual|miles }}</strong>
+          <span>Avance cargado</span>
+        </article>
+        <article>
+          <small>Contra proyectado</small>
+          <strong>{{ production_goals.projected_total_ratio_pct }}%</strong>
+          <span>Sobre {{ production_goals.projected_total|miles }}</span>
+        </article>
+        <article>
+          <small>Secciones en verde</small>
+          <strong>{{ production_goals.green_count }}</strong>
+          <span>{{ production_goals.delayed_count }} en rojo</span>
+        </article>
+      </div>
+
+      <div class="production-goals-grid">
+        {% for area in production_goals.sections %}
+          {% set pct = area.ratio_pct|float %}
+          <article class="production-goal-card production-goal-card-{{ area.status }}">
+            <div class="production-goal-head">
+              <div>
+                <h4>{{ area.name }}</h4>
+                <small>Meta {{ area.goal|miles }}</small>
+              </div>
+              <span class="status-chip status-{{ area.status }}">{{ area.status_label }}</span>
+            </div>
+            <div class="production-goal-numbers">
+              <strong>{{ area.actual|miles }}</strong>
+              <span>{{ area.ratio_pct }}% de la meta</span>
+            </div>
+            <div class="production-goal-progress" aria-hidden="true">
+              <span class="production-goal-progress-fill production-goal-progress-fill-{{ area.status }}" style="width: {{ [pct, 100]|min }}%"></span>
+            </div>
+            <dl class="production-goal-meta">
+              <div>
+                <dt>Proyectado</dt>
+                <dd>{{ area.projected|miles }}</dd>
+              </div>
+              <div>
+                <dt>Ritmo</dt>
+                <dd>{{ area.projected_ratio_pct }}%</dd>
+              </div>
+              <div>
+                <dt>Promedio dia</dt>
+                <dd>{{ area.daily_avg }}</dd>
+              </div>
+            </dl>
+            {% if area.comment %}
+              <p class="production-goal-comment">{{ area.comment }}</p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+
+      {% if production_goals.comments %}
+        <div class="production-goals-comments">
+          {% for comment in production_goals.comments %}
+            <p>{{ comment }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
     <section class="summary dashboard-kpi-row dashboard-ops-row">
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openBodegaModal">

@@ -1419,6 +1419,118 @@ def _status_from_ratio(ratio: float) -> str:
     return "red"
 
 
+def _production_goal_status(ratio: float) -> str:
+    if ratio >= 1:
+        return "green"
+    if ratio >= 0.5:
+        return "yellow"
+    return "red"
+
+
+def _build_production_goals_summary() -> dict[str, object]:
+    sections_seed = [
+        {
+            "name": "Corte",
+            "goal": 10000,
+            "actual": 2154,
+            "projected": 1904.76,
+            "daily_avg": 538.5,
+            "comment": "Supera el ritmo proyectado del corte revisado.",
+        },
+        {
+            "name": "Urrutia",
+            "goal": 6000,
+            "actual": 686,
+            "projected": 1142.86,
+            "daily_avg": 171.5,
+            "comment": "Va bajo el ritmo esperado y conviene revisarlo cuanto antes.",
+        },
+        {
+            "name": "Tierra del Fuego",
+            "goal": 4000,
+            "actual": 0,
+            "projected": 761.9,
+            "daily_avg": 0,
+            "comment": "No hay avance registrado en la hoja revisada.",
+        },
+        {
+            "name": "Lavandería",
+            "goal": 10000,
+            "actual": 1984,
+            "projected": 1904.76,
+            "daily_avg": 496,
+            "comment": "Va levemente sobre lo proyectado y mantiene buen ritmo.",
+        },
+        {
+            "name": "Terminación",
+            "goal": 10000,
+            "actual": 1803,
+            "projected": 1904.76,
+            "daily_avg": 450.75,
+            "comment": "Muy cerca del proyectado; le falta un pequeño empuje para quedar en verde.",
+        },
+    ]
+
+    sections: list[dict[str, object]] = []
+    total_goal = 0
+    total_actual = 0
+    total_projected = 0.0
+    green_count = 0
+    delayed_count = 0
+    for item in sections_seed:
+        goal = int(item["goal"])
+        actual = int(item["actual"])
+        projected = float(item["projected"])
+        ratio = (actual / goal) if goal > 0 else 0.0
+        projected_ratio = (actual / projected) if projected > 0 else 0.0
+        status = _production_goal_status(ratio)
+        if status == "green":
+            green_count += 1
+        if status == "red":
+            delayed_count += 1
+        total_goal += goal
+        total_actual += actual
+        total_projected += projected
+        sections.append(
+            {
+                "name": item["name"],
+                "goal": goal,
+                "actual": actual,
+                "projected": int(round(projected)),
+                "ratio_pct": round(ratio * 100, 1),
+                "projected_ratio_pct": round(projected_ratio * 100, 1),
+                "status": status,
+                "status_label": "Cumplida" if status == "green" else ("En marcha" if status == "yellow" else "Baja"),
+                "daily_avg": float(item["daily_avg"]),
+                "comment": item["comment"],
+            }
+        )
+
+    total_ratio = (total_actual / total_goal) if total_goal > 0 else 0.0
+    projected_total_ratio = (total_actual / total_projected) if total_projected > 0 else 0.0
+    overall_status = _production_goal_status(total_ratio)
+    return {
+        "month_label": "Abril 2026",
+        "work_days": 21,
+        "projected_day": 4,
+        "total_goal": total_goal,
+        "total_actual": total_actual,
+        "total_ratio_pct": round(total_ratio * 100, 1),
+        "projected_total": int(round(total_projected)),
+        "projected_total_ratio_pct": round(projected_total_ratio * 100, 1),
+        "status": overall_status,
+        "status_label": "Cumplido" if overall_status == "green" else ("A media meta" if overall_status == "yellow" else "Bajo media meta"),
+        "green_count": green_count,
+        "delayed_count": delayed_count,
+        "sections": sections,
+        "comments": [
+            "La carga visible se concentra en los primeros días del mes.",
+            "Corte y Lavandería lideran el avance del periodo revisado.",
+            "Urrutia y Tierra del Fuego necesitan seguimiento más cercano.",
+        ],
+    }
+
+
 def _month_from_text(value: object) -> tuple[str, str]:
     raw = str(value or "").strip()
     if not raw:
@@ -2656,6 +2768,7 @@ def index():
     muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
     upload_debug = session.pop("upload_debug", "")
     proyeccion_state = _load_proyeccion_state()
+    production_goals = _build_production_goals_summary()
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     return render_template(
@@ -2690,6 +2803,7 @@ def index():
         muestras_con_etapas=muestras_con_etapas,
         upload_debug=upload_debug,
         proyeccion_state=proyeccion_state,
+        production_goals=production_goals,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
         assistant_enabled=ASSISTANT_ENABLED,
