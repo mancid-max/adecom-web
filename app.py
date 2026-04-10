@@ -67,6 +67,12 @@ SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
 SEED_CORTES_4200_XLSX = SEED_DIR / "Cortes 4200.xlsx"
+PROGRAMAS_MHC_PATH = Path(
+    os.environ.get(
+        "ADECOM_PROGRAMAS_MHC_XLSX",
+        str(SEED_DIR / "1_PROGRAMAS DE PRODUCCION MHC .xlsx"),
+    )
+)
 INVENTORY_BOOK_PATH = Path(
     os.environ.get(
         "ADECOM_INVENTARIO_XLSX",
@@ -1469,7 +1475,197 @@ def _production_goal_status(ratio: float) -> str:
     return "red"
 
 
+def _load_programas_mhc_snapshot() -> dict[str, object] | None:
+    if not PROGRAMAS_MHC_PATH.exists():
+        return None
+    try:
+        from openpyxl import load_workbook
+    except Exception:
+        return None
+    try:
+        wb = load_workbook(PROGRAMAS_MHC_PATH, data_only=True, read_only=True)
+    except Exception:
+        return None
+
+    month_aliases = {
+        1: "enero",
+        2: "febrero",
+        3: "marzo",
+        4: "abril",
+        5: "mayo",
+        6: "junio",
+        7: "julio",
+        8: "agosto",
+        9: "septiembre",
+        10: "octubre",
+        11: "noviembre",
+        12: "diciembre",
+    }
+    current_label = f"{month_aliases.get(date.today().month, '')} {date.today().year}".strip()
+    sheet_name = None
+    for name in wb.sheetnames:
+        if _norm_text(name) == _norm_text(current_label):
+            sheet_name = name
+            break
+    if not sheet_name:
+        candidates = []
+        for name in wb.sheetnames:
+            norm = _norm_text(name)
+            if any(m in norm for m in month_aliases.values()):
+                y = re.search(r"(20\d{2})", norm)
+                year = int(y.group(1)) if y else 0
+                m_idx = next((k for k, v in month_aliases.items() if v in norm), 0)
+                candidates.append((year, m_idx, name))
+        if candidates:
+            candidates.sort()
+            sheet_name = candidates[-1][2]
+    if not sheet_name:
+        return None
+
+    ws = wb[sheet_name]
+    row2 = next(ws.iter_rows(min_row=2, max_row=2, values_only=True), ())
+    days_month = int(_to_float(row2[13] if len(row2) > 13 else 0) or 0)
+    days_elapsed = int(_to_float(row2[16] if len(row2) > 16 else 0) or 0)
+    days_remaining = max(days_month - days_elapsed, 0)
+
+    section_key_map = {
+        "corte": "corte",
+        "urrutia": "urrutia",
+        "tierra del fuego": "tierra_fuego",
+        "lavanderia": "lavanderia",
+        "terminacion": "terminacion",
+    }
+    sections: dict[str, dict[str, float]] = {}
+    for r in range(5, 10):
+        row = next(ws.iter_rows(min_row=r, max_row=r, values_only=True), ())
+        raw_name = str(row[15] or "").strip() if len(row) > 15 else ""
+        key = section_key_map.get(_norm_text(raw_name), "")
+        if not key:
+            continue
+        sections[key] = {
+            "name": raw_name,
+            "meta_day": float(_to_float(row[13] if len(row) > 13 else 0)),
+            "meta_month": float(_to_float(row[14] if len(row) > 14 else 0)),
+            "projected": float(_to_float(row[16] if len(row) > 16 else 0)),
+            "actual": float(_to_float(row[17] if len(row) > 17 else 0)),
+            "daily_avg": float(_to_float(row[20] if len(row) > 20 else 0)),
+        }
+
+    week_starts = [4, 22, 40, 58, 76]
+    week_area_rows = [
+        ("corte", 0, "Corte"),
+        ("urrutia", 3, "Urrutia"),
+        ("sur", 6, "Sur"),
+        ("lavanderia", 9, "Lavanderia"),
+        ("terminacion", 12, "Terminacion"),
+    ]
+    weeks: list[dict[str, object]] = []
+    for idx, start in enumerate(week_starts, start=1):
+        hab_row = next(ws.iter_rows(min_row=max(start - 3, 1), max_row=max(start - 3, 1), values_only=True), ())
+        day_row = next(ws.iter_rows(min_row=max(start - 2, 1), max_row=max(start - 2, 1), values_only=True), ())
+        habiles = [int(_to_float(v)) if _to_float(v) > 0 else None for v in list(hab_row[5:12])]
+        fechas = [int(_to_float(v)) if _to_float(v) > 0 else None for v in list(day_row[5:12])]
+        week_rows = []
+        for area_key, offset, label in week_area_rows:
+            row = next(ws.iter_rows(min_row=start + offset, max_row=start + offset, values_only=True), ())
+            values = [int(_to_float(v)) if _to_float(v) > 0 else None for v in list(row[5:12])]
+            total = int(_to_float(row[10] if len(row) > 10 else 0) or 0)
+            week_rows.append({"key": area_key, "name": label, "values": values, "total": total})
+        weeks.append(
+            {
+                "label": f"Semana {idx}",
+                "habiles": habiles,
+                "fechas": fechas,
+                "rows": week_rows,
+            }
+        )
+
+    return {
+        "sheet_name": sheet_name,
+        "days_month": days_month,
+        "days_elapsed": days_elapsed,
+        "days_remaining": days_remaining,
+        "sections": sections,
+        "weeks": weeks,
+    }
+
+
 def _build_production_goals_summary() -> dict[str, object]:
+    snapshot = _load_programas_mhc_snapshot()
+    if snapshot and snapshot.get("sections"):
+        sections_seed = []
+        ordered = ["corte", "urrutia", "tierra_fuego", "lavanderia", "terminacion"]
+        for key in ordered:
+            src = (snapshot.get("sections") or {}).get(key) or {}
+            if not src:
+                continue
+            sections_seed.append(
+                {
+                    "name": str(src.get("name") or key.title()),
+                    "goal": int(src.get("meta_month") or 0),
+                    "actual": int(src.get("actual") or 0),
+                    "projected": float(src.get("projected") or 0),
+                    "daily_avg": float(src.get("daily_avg") or 0),
+                    "comment": "Actualizado desde planilla PROGRAMAS MHC.",
+                }
+            )
+        if sections_seed:
+            sections: list[dict[str, object]] = []
+            total_goal = 0
+            total_actual = 0
+            total_projected = 0.0
+            green_count = 0
+            delayed_count = 0
+            for item in sections_seed:
+                goal = int(item["goal"])
+                actual = int(item["actual"])
+                projected = float(item["projected"])
+                ratio = (actual / goal) if goal > 0 else 0.0
+                projected_ratio = (actual / projected) if projected > 0 else 0.0
+                status = _production_goal_status(ratio)
+                if status == "green":
+                    green_count += 1
+                if status == "red":
+                    delayed_count += 1
+                total_goal += goal
+                total_actual += actual
+                total_projected += projected
+                sections.append(
+                    {
+                        "name": item["name"],
+                        "goal": goal,
+                        "actual": actual,
+                        "projected": int(round(projected)),
+                        "ratio_pct": round(ratio * 100, 1),
+                        "projected_ratio_pct": round(projected_ratio * 100, 1),
+                        "status": status,
+                        "status_label": "Cumplida" if status == "green" else ("En marcha" if status == "yellow" else "Baja"),
+                        "daily_avg": float(item["daily_avg"]),
+                        "comment": item["comment"],
+                    }
+                )
+            total_ratio = (total_actual / total_goal) if total_goal > 0 else 0.0
+            projected_total_ratio = (total_actual / total_projected) if total_projected > 0 else 0.0
+            overall_status = _production_goal_status(total_ratio)
+            return {
+                "month_label": str(snapshot.get("sheet_name") or "Metas produccion"),
+                "work_days": int(snapshot.get("days_month") or 0),
+                "projected_day": int(snapshot.get("days_elapsed") or 0),
+                "total_goal": total_goal,
+                "total_actual": total_actual,
+                "total_ratio_pct": round(total_ratio * 100, 1),
+                "projected_total": int(round(total_projected)),
+                "projected_total_ratio_pct": round(projected_total_ratio * 100, 1),
+                "status": overall_status,
+                "status_label": "Cumplido" if overall_status == "green" else ("A media meta" if overall_status == "yellow" else "Bajo media meta"),
+                "green_count": green_count,
+                "delayed_count": delayed_count,
+                "sections": sections,
+                "comments": [
+                    "Datos cargados automaticamente desde 1_PROGRAMAS DE PRODUCCION MHC .xlsx",
+                ],
+            }
+
     sections_seed = [
         {
             "name": "Corte",
@@ -1574,6 +1770,117 @@ def _build_production_goals_summary() -> dict[str, object]:
 
 
 def _build_new_section_dashboard() -> dict[str, object]:
+    snapshot = _load_programas_mhc_snapshot()
+    if snapshot and snapshot.get("sections") and snapshot.get("weeks"):
+        sheet_name = str(snapshot.get("sheet_name") or "Metas produccion")
+        m = re.search(r"(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(20\d{2})", _norm_text(sheet_name))
+        month_num = 4
+        year_num = date.today().year
+        if m:
+            month_word = m.group(1)
+            year_num = int(m.group(2))
+            month_to_num = {
+                "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+                "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+            }
+            month_num = month_to_num.get(month_word, month_num)
+        weekday_names = {0: "Lun", 1: "Mar", 2: "Mie", 3: "Jue", 4: "Vie", 5: "Sab", 6: "Dom"}
+        def _day_label(day: int | None) -> str | None:
+            if not day:
+                return None
+            try:
+                dt = date(year_num, month_num, int(day))
+            except Exception:
+                return str(day)
+            return f"{weekday_names.get(dt.weekday(), '')} {day}"
+
+        sections_seed = []
+        section_order = [("corte", "Corte"), ("urrutia", "Urrutia"), ("tierra_fuego", "Tierra del Fuego"), ("lavanderia", "Lavanderia"), ("terminacion", "Terminacion")]
+        for key, label in section_order:
+            src = (snapshot.get("sections") or {}).get(key) or {}
+            if not src:
+                continue
+            actual = int(src.get("actual") or 0)
+            goal = int(src.get("meta_month") or 0)
+            proj = int(round(float(src.get("projected") or 0)))
+            sections_seed.append(
+                {
+                    "name": str(src.get("name") or label),
+                    "meta_day": int(round(float(src.get("meta_day") or 0))),
+                    "meta_month": goal,
+                    "actual": actual,
+                    "projection": proj,
+                    "remaining": max(goal - actual, 0),
+                    "focus": "Actualizado desde planilla PROGRAMAS MHC.",
+                }
+            )
+
+        weeks = snapshot.get("weeks") or []
+        weekly_rows = []
+        daily_weeks = []
+        for i, week in enumerate(weeks, start=1):
+            week_map = {str(r.get("key") or ""): int(r.get("total") or 0) for r in (week.get("rows") or [])}
+            weekly_rows.append(
+                {
+                    "label": f"Sem {i}",
+                    "corte": week_map.get("corte", 0),
+                    "urrutia": week_map.get("urrutia", 0),
+                    "sur": week_map.get("sur", 0),
+                    "lavanderia": week_map.get("lavanderia", 0),
+                    "terminacion": week_map.get("terminacion", 0),
+                }
+            )
+            fechas = week.get("fechas") or []
+            daily_weeks.append(
+                {
+                    "label": str(week.get("label") or f"Semana {i}"),
+                    "habiles": week.get("habiles") or [],
+                    "fechas": fechas,
+                    "fecha_labels": [_day_label(int(d)) if d else None for d in fechas],
+                    "rows": [{"name": r.get("name"), "values": r.get("values") or [], "total": int(r.get("total") or 0)} for r in (week.get("rows") or [])],
+                }
+            )
+
+        days_month = int(snapshot.get("days_month") or 0)
+        days_elapsed = int(snapshot.get("days_elapsed") or 0)
+        days_remaining = int(snapshot.get("days_remaining") or max(days_month - days_elapsed, 0))
+        expected_pct = round((days_elapsed / days_month) * 100, 1) if days_month else 0.0
+
+        sections: list[dict[str, object]] = []
+        for item in sections_seed:
+            ratio = (int(item["actual"]) / int(item["meta_month"])) if int(item["meta_month"]) > 0 else 0.0
+            avg_day = round(int(item["actual"]) / max(days_elapsed, 1), 2) if days_elapsed > 0 else 0.0
+            avg_ratio = (avg_day / int(item["meta_day"])) if int(item["meta_day"]) > 0 else 0.0
+            avg_status = _production_goal_status(avg_ratio)
+            status = _production_goal_status(ratio)
+            sections.append(
+                {
+                    **item,
+                    "ratio_pct": round(ratio * 100, 1),
+                    "status": status,
+                    "status_label": "En meta" if status == "green" else ("A media meta" if status == "yellow" else "Bajo objetivo"),
+                    "avg_day": avg_day,
+                    "avg_ratio_pct": round(avg_ratio * 100, 1),
+                    "avg_status": avg_status,
+                    "avg_status_label": "En meta diaria" if avg_status == "green" else ("Media meta diaria" if avg_status == "yellow" else "Bajo meta diaria"),
+                }
+            )
+
+        return {
+            "month_title": sheet_name,
+            "sheet_reference": "Formato base: 1_PROGRAMAS DE PRODUCCION MHC",
+            "days_month": days_month,
+            "days_remaining": days_remaining,
+            "days_elapsed": days_elapsed,
+            "expected_pct": expected_pct,
+            "areas": sections,
+            "weekly_rows": weekly_rows,
+            "daily_weeks": daily_weeks,
+            "comments": [
+                "Datos diarios y acumulados cargados desde planilla PROGRAMAS MHC.",
+            ],
+        }
+
     weekday_names = {
         0: "Lun",
         1: "Mar",
@@ -1718,6 +2025,104 @@ def _build_new_section_dashboard() -> dict[str, object]:
 
 
 def _build_excel_preview_dashboard() -> dict[str, object]:
+    snapshot = _load_programas_mhc_snapshot()
+    if snapshot and snapshot.get("sections") and snapshot.get("weeks"):
+        sheet_name = str(snapshot.get("sheet_name") or "Metas produccion")
+        m = re.search(r"(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(20\d{2})", _norm_text(sheet_name))
+        month_num = 4
+        year_num = date.today().year
+        if m:
+            month_word = m.group(1)
+            year_num = int(m.group(2))
+            month_to_num = {
+                "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+                "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+            }
+            month_num = month_to_num.get(month_word, month_num)
+
+        weekday_names = {0: "L", 1: "M", 2: "M", 3: "J", 4: "V", 5: "S", 6: "D"}
+        def _wd(day: int) -> str:
+            try:
+                return weekday_names[date(year_num, month_num, day).weekday()]
+            except Exception:
+                return "-"
+
+        area_meta = [
+            {"name": "CORTE", "meta": int(round(float(((snapshot.get("sections") or {}).get("corte") or {}).get("meta_day") or 0))), "month": int(round(float(((snapshot.get("sections") or {}).get("corte") or {}).get("meta_month") or 0)))},
+            {"name": "URRUTIA", "meta": int(round(float(((snapshot.get("sections") or {}).get("urrutia") or {}).get("meta_day") or 0))), "month": int(round(float(((snapshot.get("sections") or {}).get("urrutia") or {}).get("meta_month") or 0)))},
+            {"name": "TIERRA FUEGO", "meta": int(round(float(((snapshot.get("sections") or {}).get("tierra_fuego") or {}).get("meta_day") or 0))), "month": int(round(float(((snapshot.get("sections") or {}).get("tierra_fuego") or {}).get("meta_month") or 0)))},
+            {"name": "SUR", "meta": 0, "month": 0},
+            {"name": "LAVANDERIA", "meta": int(round(float(((snapshot.get("sections") or {}).get("lavanderia") or {}).get("meta_day") or 0))), "month": int(round(float(((snapshot.get("sections") or {}).get("lavanderia") or {}).get("meta_month") or 0)))},
+            {"name": "TERMINACION", "meta": int(round(float(((snapshot.get("sections") or {}).get("terminacion") or {}).get("meta_day") or 0))), "month": int(round(float(((snapshot.get("sections") or {}).get("terminacion") or {}).get("meta_month") or 0)))},
+        ]
+
+        week_defs = []
+        for i, week in enumerate((snapshot.get("weeks") or []), start=1):
+            day_list = [int(d) for d in (week.get("fechas") or []) if d]
+            row_map = {str(r.get("key") or ""): (r.get("values") or []) for r in (week.get("rows") or [])}
+            week_data = {
+                "label": f"TOTAL SEM {i}",
+                "days": day_list,
+                "areas": {
+                    "CORTE": row_map.get("corte", []),
+                    "URRUTIA": row_map.get("urrutia", []),
+                    "TIERRA FUEGO": [None for _ in day_list],
+                    "SUR": row_map.get("sur", []),
+                    "LAVANDERIA": row_map.get("lavanderia", []),
+                    "TERMINACION": row_map.get("terminacion", []),
+                },
+            }
+            week_data["rows"] = []
+            for idx_day, day in enumerate(day_list):
+                row = {"day": day, "weekday": _wd(day), "cells": []}
+                for area in area_meta:
+                    vals = week_data["areas"].get(area["name"], [])
+                    prod = vals[idx_day] if idx_day < len(vals) else None
+                    row["cells"].append({"prod": prod, "mues": None})
+                week_data["rows"].append(row)
+            totals = []
+            for area in area_meta:
+                vals = week_data["areas"].get(area["name"], [])
+                totals.append(sum(int(v or 0) for v in vals))
+            week_data["totals"] = totals
+            week_defs.append(week_data)
+
+        accum_lookup = {
+            "CORTE": (snapshot.get("sections") or {}).get("corte") or {},
+            "URRUTIA": (snapshot.get("sections") or {}).get("urrutia") or {},
+            "TIERRA FUEGO": (snapshot.get("sections") or {}).get("tierra_fuego") or {},
+            "SUR": {},
+            "LAVANDERIA": (snapshot.get("sections") or {}).get("lavanderia") or {},
+            "TERMINACION": (snapshot.get("sections") or {}).get("terminacion") or {},
+        }
+        summary_rows = []
+        for area in area_meta:
+            extra = accum_lookup.get(area["name"], {})
+            actual = int(round(float(extra.get("actual") or 0)))
+            proj = int(round(float(extra.get("projected") or 0)))
+            avg = float(extra.get("daily_avg") or 0)
+            pct = round((actual / proj) * 100, 2) if proj else 0.0
+            summary_rows.append(
+                {
+                    "name": area["name"],
+                    "meta_day": area["meta"],
+                    "meta_month": area["month"],
+                    "actual": actual,
+                    "proj": proj,
+                    "avg": avg,
+                    "pct": pct,
+                    "advance_vs_projection_pct": pct,
+                    "diff": area["month"] - actual if area["month"] else 0,
+                }
+            )
+        return {
+            "title": f"MES DE PROCESO {str(sheet_name).upper()}",
+            "days_note": f"Dias habiles del mes: {int(snapshot.get('days_month') or 0)}",
+            "columns": area_meta,
+            "weeks": week_defs,
+            "summary_rows": summary_rows,
+        }
+
     weekday_names = {
         0: "L",
         1: "M",
