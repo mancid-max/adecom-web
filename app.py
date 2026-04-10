@@ -1150,6 +1150,29 @@ def _find_latest_autoload_file(*patterns: str, exclude_terms: tuple[str, ...] = 
     return max(files, key=lambda p: p.stat().st_mtime)
 
 
+def _find_all_autoload_files(*patterns: str, exclude_terms: tuple[str, ...] = ()) -> list[Path]:
+    candidates: list[Path] = []
+    excludes = tuple(term.lower() for term in exclude_terms)
+    seen: set[str] = set()
+    for base_dir in _autoload_watch_dirs():
+        for pattern in patterns:
+            try:
+                matches = sorted(base_dir.glob(pattern), key=lambda p: p.stat().st_mtime)
+            except OSError:
+                continue
+            for path in matches:
+                if not path.is_file():
+                    continue
+                if any(term in path.name.lower() for term in excludes):
+                    continue
+                key = str(path.resolve()).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidates.append(path)
+    return candidates
+
+
 def _directory_autoload_sources() -> dict[str, Path]:
     sources: dict[str, Path] = {}
     latest_saldos = _find_latest_autoload_file("*SALDOS-SECCI*.TXT", "*SALDOS-SECCI*.txt")
@@ -1176,13 +1199,15 @@ def _directory_autoload_sources() -> dict[str, Path]:
 
 def _refresh_directory_data() -> dict:
     sources = _directory_autoload_sources()
-    saldos_path = sources.get("saldos")
+    saldos_files = _find_all_autoload_files("*SALDOS-SECCI*.TXT", "*SALDOS-SECCI*.txt")
     pedidos_path = sources.get("pedidos")
     etapas_path = sources.get("etapas")
-    if not saldos_path or not pedidos_path or not etapas_path:
+    if not saldos_files or not pedidos_path or not etapas_path:
         raise FileNotFoundError("Faltan archivos requeridos en carpeta autoload.")
 
-    saldos_rows = parse_saldos_txt(saldos_path.read_bytes())
+    saldos_rows: list[dict] = []
+    for saldos_path in saldos_files:
+        saldos_rows.extend(parse_saldos_txt(saldos_path.read_bytes()))
     pedidos_rows = parse_pedidos_talla_txt(pedidos_path.read_bytes())
     etapas_rows = parse_corte_etapas_txt(etapas_path.read_bytes())
     if not saldos_rows or not pedidos_rows or not etapas_rows:
@@ -1190,7 +1215,7 @@ def _refresh_directory_data() -> dict:
             f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, etapas={len(etapas_rows)}"
         )
 
-    stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
+    stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True, accumulate_on_conflict=True)
     stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
     stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
     stats_comparativo = {"read": 0, "inserted": 0, "updated": 0}
@@ -1257,7 +1282,11 @@ def _sources_signature() -> str:
 def _directory_sources_signature() -> str:
     sources = _directory_autoload_sources()
     parts = []
-    for label in ("saldos", "pedidos", "etapas", "comparativo", "deudas"):
+    for path in _find_all_autoload_files("*SALDOS-SECCI*.TXT", "*SALDOS-SECCI*.txt"):
+        payload = path.read_bytes()
+        digest = hashlib.sha256(payload).hexdigest()
+        parts.append(f"saldos:{path.name}:{digest}")
+    for label in ("pedidos", "etapas", "comparativo", "deudas"):
         path = sources.get(label)
         if not path:
             continue
@@ -3179,7 +3208,7 @@ def upload():
         elif kind == "deudas_vencidas":
             stats = import_deuda_clientes_rows(DB_PATH, rows)
         elif kind == "saldos":
-            stats = import_rows(DB_PATH, rows, replace_all=False)
+            stats = import_rows(DB_PATH, rows, replace_all=False, accumulate_on_conflict=True)
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
     except RequestEntityTooLarge:

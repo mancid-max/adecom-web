@@ -519,7 +519,12 @@ def init_db(db_path: str | Path) -> None:
     conn.close()
 
 
-def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) -> dict:
+def import_rows(
+    db_path: Path,
+    rows: Iterable[dict],
+    replace_all: bool = False,
+    accumulate_on_conflict: bool = False,
+) -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
     inserted = 0
@@ -557,34 +562,67 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
                 row["segunda"],
                 row["taller_nombre"],
             )
-            _execute(
-                conn,
-                """
-                INSERT INTO saldos_seccion (
-                    articulo, corte, fecha_iso, programa, proceso, bodega, saldo,
-                    corte_1, taller, t_externo, limpiado, lavanderia, terminacion,
-                    muestra, segunda, taller_nombre
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(corte) DO UPDATE
-                SET articulo = excluded.articulo,
-                    fecha_iso = excluded.fecha_iso,
-                    programa = excluded.programa,
-                    proceso = excluded.proceso,
-                    bodega = excluded.bodega,
-                    saldo = excluded.saldo,
-                    corte_1 = excluded.corte_1,
-                    taller = excluded.taller,
-                    t_externo = excluded.t_externo,
-                    limpiado = excluded.limpiado,
-                    lavanderia = excluded.lavanderia,
-                    terminacion = excluded.terminacion,
-                    muestra = excluded.muestra,
-                    segunda = excluded.segunda,
-                    taller_nombre = excluded.taller_nombre,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                values,
-            )
+            if accumulate_on_conflict:
+                _execute(
+                    conn,
+                    """
+                    INSERT INTO saldos_seccion (
+                        articulo, corte, fecha_iso, programa, proceso, bodega, saldo,
+                        corte_1, taller, t_externo, limpiado, lavanderia, terminacion,
+                        muestra, segunda, taller_nombre
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(corte) DO UPDATE
+                    SET articulo = excluded.articulo,
+                        fecha_iso = COALESCE(excluded.fecha_iso, saldos_seccion.fecha_iso),
+                        programa = saldos_seccion.programa + excluded.programa,
+                        proceso = saldos_seccion.proceso + excluded.proceso,
+                        bodega = saldos_seccion.bodega + excluded.bodega,
+                        saldo = saldos_seccion.saldo + excluded.saldo,
+                        corte_1 = saldos_seccion.corte_1 + excluded.corte_1,
+                        taller = saldos_seccion.taller + excluded.taller,
+                        t_externo = saldos_seccion.t_externo + excluded.t_externo,
+                        limpiado = saldos_seccion.limpiado + excluded.limpiado,
+                        lavanderia = saldos_seccion.lavanderia + excluded.lavanderia,
+                        terminacion = saldos_seccion.terminacion + excluded.terminacion,
+                        muestra = saldos_seccion.muestra + excluded.muestra,
+                        segunda = saldos_seccion.segunda + excluded.segunda,
+                        taller_nombre = CASE
+                            WHEN trim(COALESCE(excluded.taller_nombre, '')) <> '' THEN excluded.taller_nombre
+                            ELSE saldos_seccion.taller_nombre
+                        END,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    values,
+                )
+            else:
+                _execute(
+                    conn,
+                    """
+                    INSERT INTO saldos_seccion (
+                        articulo, corte, fecha_iso, programa, proceso, bodega, saldo,
+                        corte_1, taller, t_externo, limpiado, lavanderia, terminacion,
+                        muestra, segunda, taller_nombre
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(corte) DO UPDATE
+                    SET articulo = excluded.articulo,
+                        fecha_iso = excluded.fecha_iso,
+                        programa = excluded.programa,
+                        proceso = excluded.proceso,
+                        bodega = excluded.bodega,
+                        saldo = excluded.saldo,
+                        corte_1 = excluded.corte_1,
+                        taller = excluded.taller,
+                        t_externo = excluded.t_externo,
+                        limpiado = excluded.limpiado,
+                        lavanderia = excluded.lavanderia,
+                        terminacion = excluded.terminacion,
+                        muestra = excluded.muestra,
+                        segunda = excluded.segunda,
+                        taller_nombre = excluded.taller_nombre,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    values,
+                )
             if replace_all or not existed:
                 inserted += 1
             else:
