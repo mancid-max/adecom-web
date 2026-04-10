@@ -514,16 +514,27 @@
                     <table class="bodega-table">
                       <thead>
                         <tr>
-                          <th>Articulo</th>
-                          <th>Descripcion</th>
-                          <th>Stock</th>
+                          <th>Codigo</th>
+                          <th>Tiro</th>
+                          <th>Bota</th>
+                          <th>Color</th>
+                          {% for size in collection.size_headers %}
+                            <th class="num">{{ size }}</th>
+                          {% endfor %}
+                          <th class="num">Total</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {% for row in collection.articles[:20] %}
+                        {% for row in collection.articles %}
                           <tr>
                             <td>{{ row.articulo }}</td>
-                            <td>{{ row.descripcion }}</td>
+                            <td>{{ row.tiro }}</td>
+                            <td>{{ row.bota }}</td>
+                            <td>{{ row.color }}</td>
+                            {% for size in collection.size_headers %}
+                              {% set qty = (row.sizes.get(size) if row.sizes else 0) %}
+                              <td class="num">{{ qty if qty else "" }}</td>
+                            {% endfor %}
                             <td class="num">{{ row.stock|miles }}</td>
                           </tr>
                         {% endfor %}

@@ -2537,10 +2537,12 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
         ws = wb[sheet_name]
         header_idx = None
         header_map: dict[str, int] = {}
+        size_cols: dict[int, int] = {}
         for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=30, values_only=True), start=1):
             normalized = [_inventory_norm(v) for v in row]
             if not any(normalized):
                 continue
+            size_cols = {}
             for col_idx, cell in enumerate(normalized):
                 if not cell:
                     continue
@@ -2564,6 +2566,16 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                     or cell in {"total", "cantidad", "cant"}
                 ):
                     header_map.setdefault("stock", col_idx)
+            for col_idx, raw in enumerate(row):
+                size_num = None
+                if isinstance(raw, (int, float)):
+                    size_num = int(raw)
+                else:
+                    digits = re.sub(r"\D+", "", str(raw or ""))
+                    if digits:
+                        size_num = int(digits)
+                if size_num and 30 <= size_num <= 60:
+                    size_cols[size_num] = col_idx
             if "articulo" in header_map and "stock" in header_map:
                 header_idx = row_idx
                 break
@@ -2580,15 +2592,22 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
             if not articulo:
                 continue
             stock_value = _inventory_to_float(row[header_map["stock"]] if header_map["stock"] < len(row) else 0)
+            sizes_map: dict[int, int] = {}
+            for size_num, col_idx in sorted(size_cols.items()):
+                value = int(round(_inventory_to_float(row[col_idx] if col_idx < len(row) else 0)))
+                sizes_map[size_num] = value
+            sizes_total = sum(v for v in sizes_map.values() if v > 0)
+            if stock_value <= 0 and sizes_total > 0:
+                stock_value = float(sizes_total)
             if stock_value <= 0:
                 continue
             descripcion = ""
             if "descripcion" in header_map and header_map["descripcion"] < len(row):
                 descripcion = str(row[header_map["descripcion"]] or "").strip()
+            tiro = str(row[header_map["tiro"]] or "").strip() if "tiro" in header_map and header_map["tiro"] < len(row) else ""
+            bota = str(row[header_map["bota"]] or "").strip() if "bota" in header_map and header_map["bota"] < len(row) else ""
+            color = str(row[header_map["color"]] or "").strip() if "color" in header_map and header_map["color"] < len(row) else ""
             if not descripcion:
-                tiro = str(row[header_map["tiro"]] or "").strip() if "tiro" in header_map and header_map["tiro"] < len(row) else ""
-                bota = str(row[header_map["bota"]] or "").strip() if "bota" in header_map and header_map["bota"] < len(row) else ""
-                color = str(row[header_map["color"]] or "").strip() if "color" in header_map and header_map["color"] < len(row) else ""
                 descripcion = " ".join(part for part in [tiro, bota, color] if part).strip()
             coleccion = ""
             if "coleccion" in header_map and header_map["coleccion"] < len(row):
@@ -2602,8 +2621,12 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                     "sheet": sheet_name,
                     "articulo": articulo,
                     "descripcion": descripcion or "-",
+                    "tiro": tiro or "-",
+                    "bota": bota or "-",
+                    "color": color or "-",
                     "coleccion": coleccion,
                     "stock": int(round(stock_value)),
+                    "sizes": sizes_map,
                 }
             )
 
@@ -2621,11 +2644,14 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 "total_stock": 0,
                 "items_count": 0,
                 "articles": [],
+                "size_headers": set(),
             },
         )
         bucket["total_stock"] = int(bucket["total_stock"]) + int(item["stock"] or 0)
         bucket["items_count"] = int(bucket["items_count"]) + 1
         bucket["articles"].append(item)
+        for size_num in (item.get("sizes") or {}).keys():
+            bucket["size_headers"].add(int(size_num))
 
     collections = []
     for bucket in grouped.values():
@@ -2639,6 +2665,7 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 "total_stock": int(bucket["total_stock"]),
                 "items_count": int(bucket["items_count"]),
                 "articles": articles[:200],
+                "size_headers": sorted(int(x) for x in (bucket.get("size_headers") or set())),
             }
         )
     collections.sort(key=lambda x: (-int(x["total_stock"]), str(x["name"])))
