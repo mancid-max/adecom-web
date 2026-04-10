@@ -481,12 +481,21 @@
             <div class="table-tools">
               <label for="inventoryCollectionSelect">Coleccion:</label>
               <select id="inventoryCollectionSelect">
+                <option value="__ALL__">Todos</option>
                 {% for collection in inventory_book.collections %}
                   <option value="{{ collection.name }}" {% if collection.name == inventory_book.default_collection %}selected{% endif %}>
                     {{ collection.name }}
                   </option>
                 {% endfor %}
               </select>
+            </div>
+            <div class="modal-kpis" id="inventorySizeCards">
+              <article><h4>Total 36</h4><p id="invTotal36">0</p></article>
+              <article><h4>Total 38</h4><p id="invTotal38">0</p></article>
+              <article><h4>Total 40</h4><p id="invTotal40">0</p></article>
+              <article><h4>Total 42</h4><p id="invTotal42">0</p></article>
+              <article><h4>Total 44</h4><p id="invTotal44">0</p></article>
+              <article><h4>Total 46</h4><p id="invTotal46">0</p></article>
             </div>
             <div class="table-wrap bodega-wrap">
               <table class="bodega-table" id="inventoryBookTable">
@@ -3467,20 +3476,39 @@
         return n.toLocaleString("es-CL");
       };
 
+      const cardEls = {
+        36: document.getElementById("invTotal36"),
+        38: document.getElementById("invTotal38"),
+        40: document.getElementById("invTotal40"),
+        42: document.getElementById("invTotal42"),
+        44: document.getElementById("invTotal44"),
+        46: document.getElementById("invTotal46"),
+      };
+
+      const allRows = collections.flatMap((item) => (Array.isArray(item.articles) ? item.articles : []));
+
       const renderCollection = (collectionName) => {
-        const current = collections.find((item) => String(item.name || "") === String(collectionName || ""));
-        if (!current) {
-          tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay datos para esta coleccion.</td></tr>';
-          return;
-        }
-        const rows = Array.isArray(current.articles) ? current.articles : [];
+        const rows =
+          String(collectionName || "") === "__ALL__"
+            ? allRows
+            : (collections.find((item) => String(item.name || "") === String(collectionName || "")) || {}).articles || [];
         if (!rows.length) {
-          tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay articulos con stock para esta coleccion.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay datos para esta coleccion.</td></tr>';
+          Object.values(cardEls).forEach((el) => {
+            if (el) el.textContent = "0";
+          });
           return;
         }
+        const sizeTotals = { 36: 0, 38: 0, 40: 0, 42: 0, 44: 0, 46: 0 };
         tbody.innerHTML = rows
           .map((row) => {
             const sizes = row.sizes || {};
+            sizeTotals[36] += Number(sizes[36] || 0);
+            sizeTotals[38] += Number(sizes[38] || 0);
+            sizeTotals[40] += Number(sizes[40] || 0);
+            sizeTotals[42] += Number(sizes[42] || 0);
+            sizeTotals[44] += Number(sizes[44] || 0);
+            sizeTotals[46] += Number(sizes[46] || 0);
             return `
               <tr>
                 <td>${row.articulo || "-"}</td>
@@ -3498,6 +3526,10 @@
             `;
           })
           .join("");
+        Object.keys(cardEls).forEach((size) => {
+          const el = cardEls[size];
+          if (el) el.textContent = Number(sizeTotals[size] || 0).toLocaleString("es-CL");
+        });
       };
 
       select.addEventListener("change", () => renderCollection(select.value));
