@@ -6,86 +6,662 @@
   <title>Nueva Seccion | ADECOM</title>
   <style>
     :root {
-      --bg: #f4f2ee;
-      --panel: #1d2533;
-      --panel-2: #283247;
-      --ink: #f6f1e8;
-      --accent: #dccfb9;
+      --bg: #eef3f7;
+      --panel: #ffffff;
+      --panel-soft: #f7fafc;
+      --ink: #18324c;
+      --muted: #64809b;
+      --line: rgba(80, 109, 145, 0.16);
+      --shadow: 0 24px 48px rgba(27, 50, 79, 0.08);
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --green-text: #118347;
+      --yellow-bg: rgba(245, 158, 11, 0.14);
+      --yellow-text: #b96d09;
+      --red-bg: rgba(239, 68, 68, 0.13);
+      --red-text: #c53535;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--bg);
-      color: #181818;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-    header {
-      background: linear-gradient(135deg, var(--panel), var(--panel-2));
+      background:
+        radial-gradient(circle at top left, rgba(101, 163, 255, 0.14), transparent 28%),
+        linear-gradient(180deg, #f8fbfd 0%, var(--bg) 100%);
       color: var(--ink);
-      padding: 20px 24px;
+    }
+    .shell {
+      width: min(1360px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 22px 0 34px;
+    }
+    .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 2px solid rgba(220, 207, 185, 0.25);
+      gap: 16px;
+      margin-bottom: 18px;
+      padding: 18px 22px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #17304a 0%, #244868 100%);
+      color: #f7fbff;
+      box-shadow: var(--shadow);
     }
-    h1 {
+    .topbar h1 {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 34px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1;
+      letter-spacing: .02em;
     }
-    form { margin: 0; }
-    button {
-      border: 1px solid rgba(220, 207, 185, 0.4);
-      background: rgba(220, 207, 185, 0.16);
-      color: #f2eadc;
+    .topbar p {
+      margin: 8px 0 0;
+      color: rgba(244, 249, 255, 0.76);
+    }
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .topbar button,
+    .chip {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.12);
+      color: #f7fbff;
+      border-radius: 999px;
       padding: 10px 14px;
-      border-radius: 10px;
       font-weight: 700;
-      cursor: pointer;
     }
-    main {
+    .hero {
       display: grid;
-      place-items: center;
+      grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .hero-card,
+    .stat-card,
+    .area-card,
+    .table-card,
+    .comment-card {
+      border-radius: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+    .hero-card {
       padding: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.16), transparent 30%),
+        linear-gradient(140deg, #ffffff 0%, #f7fbff 100%);
     }
-    .card {
-      width: min(740px, 100%);
-      border-radius: 18px;
-      background: #fff;
-      border: 1px solid #ddd2c1;
-      padding: 30px;
-      box-shadow: 0 22px 46px rgba(22, 28, 40, 0.12);
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #57718c;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      font-size: 12px;
+      font-weight: 800;
     }
-    .card h2 {
-      margin: 0 0 10px;
-      font-size: 30px;
-      font-family: Georgia, "Times New Roman", serif;
-      color: #1b2230;
-    }
-    .card p {
+    .hero-card h2 {
       margin: 0;
-      color: #3f4450;
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.02;
+    }
+    .hero-card p {
+      margin: 10px 0 0;
+      max-width: 64ch;
+      color: #58718a;
       line-height: 1.6;
+    }
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      padding: 18px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .stat-card small {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .stat-card strong {
+      font-size: 32px;
+      line-height: 1;
+    }
+    .stat-card span {
+      color: #607a94;
+      font-size: 13px;
+    }
+    .section-title {
+      margin: 0 0 12px;
+      color: #516d89;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .areas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .area-card {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .area-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 6px;
+      border-radius: 24px;
+    }
+    .area-card-green::before { background: #22c55e; }
+    .area-card-yellow::before { background: #f59e0b; }
+    .area-card-red::before { background: #ef4444; }
+    .area-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .area-head h3 {
+      margin: 0 0 4px;
+      font-size: 22px;
+    }
+    .area-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+    .status-green { background: var(--green-bg); color: var(--green-text); }
+    .status-yellow { background: var(--yellow-bg); color: var(--yellow-text); }
+    .status-red { background: var(--red-bg); color: var(--red-text); }
+    .area-main {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .area-main strong {
+      font-size: 38px;
+      line-height: 1;
+    }
+    .area-main span {
+      color: #5e7892;
+      font-weight: 700;
+    }
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e7eef5;
+    }
+    .progress > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+    }
+    .status-green + .progress > span,
+    .progress-green { background: linear-gradient(90deg, #22c55e 0%, #86efac 100%); }
+    .progress-yellow { background: linear-gradient(90deg, #f59e0b 0%, #fde047 100%); }
+    .progress-red { background: linear-gradient(90deg, #ef4444 0%, #fb923c 100%); }
+    .area-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .area-meta div {
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: var(--panel-soft);
+      border: 1px solid rgba(80, 109, 145, 0.12);
+    }
+    .area-meta dt {
+      margin: 0 0 4px;
+      color: #6a839d;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: .08em;
+      font-weight: 900;
+    }
+    .area-meta dd {
+      margin: 0;
+      font-weight: 800;
+      color: #17314a;
+    }
+    .area-note {
+      margin: 0;
+      color: #58718b;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+    .table-card,
+    .comment-card {
+      padding: 18px;
+    }
+    .daily-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, .9fr);
+      gap: 18px;
+      margin-bottom: 18px;
+      align-items: start;
+    }
+    .daily-stack {
+      display: grid;
+      gap: 14px;
+    }
+    .daily-card {
+      padding: 18px;
+      border-radius: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+    .daily-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .daily-card-head h3,
+    .summary-panel h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #17314a;
+    }
+    .daily-card-head span {
+      color: #607a94;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 800;
+    }
+    .daily-grid {
+      display: grid;
+      grid-template-columns: 132px repeat(7, minmax(42px, 1fr)) 70px;
+      gap: 1px;
+      background: rgba(80, 109, 145, 0.14);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .daily-cell {
+      background: #fff;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 6px;
+      text-align: center;
+      font-size: 13px;
+      color: #17314a;
+    }
+    .daily-cell.label {
+      justify-content: flex-start;
+      padding-left: 14px;
+      font-weight: 800;
+      background: #f8fbff;
+    }
+    .daily-cell.header {
+      background: #ebf4fb;
+      color: #56708a;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .daily-cell.header-accent {
+      background: #d7ecff;
+      color: #0d4d7d;
+    }
+    .daily-cell.total {
+      background: #0c63a7;
+      color: #fff;
+      font-weight: 900;
+    }
+    .daily-cell.hit {
+      background: #edf9ef;
+      color: #118347;
+      font-weight: 800;
+    }
+    .daily-cell.empty {
+      color: #acc0d3;
+      background: #fbfdff;
+    }
+    .summary-panel {
+      padding: 18px;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 30%),
+        linear-gradient(160deg, #ffffff 0%, #f4f9fd 100%);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 18px;
+    }
+    .summary-panel p {
+      margin: 8px 0 14px;
+      color: #607a94;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+    .summary-list {
+      display: grid;
+      gap: 12px;
+    }
+    .summary-item {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(80, 109, 145, 0.13);
+    }
+    .summary-item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .summary-item-head strong {
+      color: #17314a;
+      font-size: 17px;
+    }
+    .summary-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .summary-metrics div {
+      padding: 10px;
+      border-radius: 14px;
+      background: #f7fafc;
+      border: 1px solid rgba(80, 109, 145, 0.1);
+    }
+    .summary-metrics small {
+      display: block;
+      margin-bottom: 4px;
+      color: #6a839d;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: .08em;
+      font-weight: 800;
+    }
+    .summary-metrics span {
+      color: #18324c;
+      font-weight: 800;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th,
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(80, 109, 145, 0.12);
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      color: #57708a;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 11px;
+    }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .comments {
+      display: grid;
+      gap: 10px;
+    }
+    .comments p {
+      margin: 0;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: #f5f9fc;
+      border: 1px solid rgba(80, 109, 145, 0.12);
+      color: #56708a;
+      line-height: 1.55;
+    }
+    @media (max-width: 980px) {
+      .hero,
+      .daily-layout { grid-template-columns: 1fr; }
+      .summary-panel { position: static; }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 20px, 1360px); padding-top: 12px; }
+      .topbar { padding: 16px; border-radius: 20px; }
+      .topbar-actions { width: 100%; justify-content: space-between; }
+      .topbar { flex-direction: column; align-items: stretch; }
+      .hero-card, .table-card, .comment-card, .stat-card, .area-card { border-radius: 20px; }
+      .hero-stats { grid-template-columns: 1fr 1fr; }
+      .area-meta { grid-template-columns: 1fr; }
+      th, td { padding: 10px 8px; font-size: 13px; }
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 680px; }
+      .daily-card { padding: 14px; border-radius: 20px; }
+      .daily-grid { grid-template-columns: 120px repeat(7, minmax(40px, 1fr)) 64px; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>ADECOM - Nueva Seccion</h1>
-    <form method="post" action="{{ url_for('logout') }}">
-      <button type="submit">Cerrar sesion</button>
-    </form>
-  </header>
-  <main>
-    <section class="card">
-      <h2>Seccion nueva habilitada</h2>
-      <p>
-        Entraste con la clave de la nueva seccion. Aqui puedes montar el nuevo flujo sin mezclarlo con ADECOM WEB.
-      </p>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">{{ dashboard.sheet_reference }}</p>
+        <h1>{{ dashboard.month_title }}</h1>
+        <p>Vista web construida siguiendo la lógica del Excel de metas de producción.</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="chip">% esperado {{ dashboard.expected_pct }}%</span>
+        <form method="post" action="{{ url_for('logout') }}">
+          <button type="submit">Cerrar sesion</button>
+        </form>
+      </div>
+    </header>
+
+    <section class="hero">
+      <article class="hero-card">
+        <p class="eyebrow">Resumen del mes</p>
+        <h2>Seguimiento de metas por area</h2>
+        <p>
+          La sección replica el formato del libro: metas diarias, avance acumulado, proyección al cierre y faltante.
+          El semáforo marca verde cuando el área cumple o supera la meta, amarillo cuando va al menos a media meta
+          y rojo cuando está bajo ese umbral.
+        </p>
+      </article>
+      <div class="hero-stats">
+        <article class="stat-card">
+          <small>Dias habiles mes</small>
+          <strong>{{ dashboard.days_month }}</strong>
+          <span>Base del cálculo mensual</span>
+        </article>
+        <article class="stat-card">
+          <small>Dias transcurridos</small>
+          <strong>{{ dashboard.days_elapsed }}</strong>
+          <span>Avance del calendario</span>
+        </article>
+        <article class="stat-card">
+          <small>Dias restantes</small>
+          <strong>{{ dashboard.days_remaining }}</strong>
+          <span>Margen operativo pendiente</span>
+        </article>
+        <article class="stat-card">
+          <small>% esperado</small>
+          <strong>{{ dashboard.expected_pct }}%</strong>
+          <span>Ritmo ideal del mes</span>
+        </article>
+      </div>
     </section>
-  </main>
+
+    <section class="daily-layout">
+      <div class="daily-stack">
+        <h2 class="section-title">Carga Diaria</h2>
+        {% for block in dashboard.daily_weeks %}
+          <article class="daily-card">
+            <div class="daily-card-head">
+              <h3>{{ block.label }}</h3>
+              <span>Vista por dia</span>
+            </div>
+            <div class="table-wrap">
+              <div class="daily-grid">
+                <div class="daily-cell header">Dias habiles</div>
+                {% for item in block.habiles %}
+                  <div class="daily-cell header {% if item %}header-accent{% endif %}">{{ item if item is not none else "-" }}</div>
+                {% endfor %}
+                {% for _ in range(7 - block.habiles|length) %}<div class="daily-cell header">-</div>{% endfor %}
+                <div class="daily-cell total">Total</div>
+
+                <div class="daily-cell label">Dia y fecha</div>
+                {% for item in block.fecha_labels %}
+                  <div class="daily-cell header">{{ item if item is not none else "-" }}</div>
+                {% endfor %}
+                {% for _ in range(7 - block.fecha_labels|length) %}<div class="daily-cell header">-</div>{% endfor %}
+                <div class="daily-cell total">Mes</div>
+
+                {% for row in block.rows %}
+                  <div class="daily-cell label">{{ row.name }}</div>
+                  {% for value in row["values"] %}
+                    <div class="daily-cell {% if value %}hit{% else %}empty{% endif %}">{{ value if value is not none else "" }}</div>
+                  {% endfor %}
+                  {% for _ in range(7 - row["values"]|length) %}<div class="daily-cell empty"></div>{% endfor %}
+                  <div class="daily-cell total">{{ row.total }}</div>
+                {% endfor %}
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+
+      <aside class="summary-panel">
+        <p class="eyebrow">Resumen lateral</p>
+        <h3>Metas y acumulados</h3>
+        <p>El panel replica la lectura de la tabla azul del Excel: meta diaria, meta mensual, acumulado proyectado y real.</p>
+        <div class="summary-list">
+          {% for area in dashboard.areas %}
+            <article class="summary-item">
+              <div class="summary-item-head">
+                <strong>{{ area.name }}</strong>
+                <span class="status status-{{ area.avg_status }}">{{ area.avg_ratio_pct }}%</span>
+              </div>
+              <div class="summary-metrics">
+                <div><small>X dia</small><span>{{ area.meta_day }}</span></div>
+                <div><small>Meta mes</small><span>{{ area.meta_month }}</span></div>
+                <div><small>Proyectado</small><span>{{ area.projection }}</span></div>
+                <div><small>Real</small><span>{{ area.actual }}</span></div>
+                <div><small>Prom. x dia</small><span>{{ area.avg_ratio_pct }}%</span></div>
+                <div><small>Real x dia</small><span>{{ area.avg_day }}</span></div>
+              </div>
+              <p class="area-note">{{ area.focus }}</p>
+            </article>
+          {% endfor %}
+        </div>
+      </aside>
+    </section>
+
+    <h2 class="section-title">Areas</h2>
+    <section class="areas-grid">
+      {% for area in dashboard.areas %}
+        {% set pct = area.ratio_pct|float %}
+        <article class="area-card area-card-{{ area.status }}">
+          <div class="area-head">
+            <div>
+              <h3>{{ area.name }}</h3>
+              <p>Meta diaria {{ area.meta_day }}</p>
+            </div>
+            <span class="status status-{{ area.status }}">{{ area.status_label }}</span>
+          </div>
+          <div class="area-main">
+            <strong>{{ area.actual }}</strong>
+            <span>{{ area.ratio_pct }}% de {{ area.meta_month }}</span>
+          </div>
+          <div class="progress">
+            <span class="progress-{{ area.status }}" style="width: {{ [pct, 100]|min }}%"></span>
+          </div>
+          <dl class="area-meta">
+            <div>
+              <dt>Meta mes</dt>
+              <dd>{{ area.meta_month }}</dd>
+            </div>
+            <div>
+              <dt>Proyeccion</dt>
+              <dd>{{ area.projection }}</dd>
+            </div>
+            <div>
+              <dt>Faltante</dt>
+              <dd>{{ area.remaining }}</dd>
+            </div>
+            <div>
+              <dt>Ritmo actual</dt>
+              <dd>{{ area.ratio_pct }}%</dd>
+            </div>
+          </dl>
+          <p class="area-note">{{ area.focus }}</p>
+        </article>
+      {% endfor %}
+    </section>
+
+    <section class="table-card">
+      <h2 class="section-title">Totales Semanales</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Semana</th>
+              <th>Corte</th>
+              <th>Urrutia</th>
+              <th>Sur</th>
+              <th>Lavanderia</th>
+              <th>Terminacion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in dashboard.weekly_rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="num">{{ row.corte }}</td>
+                <td class="num">{{ row.urrutia }}</td>
+                <td class="num">{{ row.sur }}</td>
+                <td class="num">{{ row.lavanderia }}</td>
+                <td class="num">{{ row.terminacion }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="comment-card">
+      <h2 class="section-title">Comentarios</h2>
+      <div class="comments">
+        {% for comment in dashboard.comments %}
+          <p>{{ comment }}</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
 </body>
 </html>

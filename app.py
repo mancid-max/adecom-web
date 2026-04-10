@@ -276,7 +276,7 @@ def logout():
 def new_section():
     if not NEW_SECTION_ENABLED:
         return redirect(url_for("index"))
-    return render_template("new_section.html")
+    return render_template("new_section.html", dashboard=_build_new_section_dashboard())
 
 
 @app.get("/otra-landing")
@@ -1432,18 +1432,18 @@ def _build_production_goals_summary() -> dict[str, object]:
         {
             "name": "Corte",
             "goal": 10000,
-            "actual": 2154,
+            "actual": 2918,
             "projected": 1904.76,
-            "daily_avg": 538.5,
-            "comment": "Supera el ritmo proyectado del corte revisado.",
+            "daily_avg": 729.5,
+            "comment": "Supera con holgura el ritmo proyectado del corte revisado.",
         },
         {
             "name": "Urrutia",
             "goal": 6000,
-            "actual": 686,
+            "actual": 936,
             "projected": 1142.86,
-            "daily_avg": 171.5,
-            "comment": "Va bajo el ritmo esperado y conviene revisarlo cuanto antes.",
+            "daily_avg": 234,
+            "comment": "Subio respecto a la carga anterior, pero sigue bajo el ritmo esperado.",
         },
         {
             "name": "Tierra del Fuego",
@@ -1456,10 +1456,10 @@ def _build_production_goals_summary() -> dict[str, object]:
         {
             "name": "Lavandería",
             "goal": 10000,
-            "actual": 1984,
+            "actual": 2453,
             "projected": 1904.76,
-            "daily_avg": 496,
-            "comment": "Va levemente sobre lo proyectado y mantiene buen ritmo.",
+            "daily_avg": 613.25,
+            "comment": "Va por encima de lo proyectado y acelero su acumulado.",
         },
         {
             "name": "Terminación",
@@ -1529,6 +1529,295 @@ def _build_production_goals_summary() -> dict[str, object]:
             "Urrutia y Tierra del Fuego necesitan seguimiento más cercano.",
         ],
     }
+
+
+def _build_new_section_dashboard() -> dict[str, object]:
+    weekday_names = {
+        0: "Lun",
+        1: "Mar",
+        2: "Mie",
+        3: "Jue",
+        4: "Vie",
+        5: "Sab",
+        6: "Dom",
+    }
+
+    def _day_label(day: int | None) -> str | None:
+        if not day:
+            return None
+        dt = date(2026, 4, int(day))
+        return f"{weekday_names.get(dt.weekday(), '')} {day}"
+
+    days_month = 21
+    days_remaining = 17
+    days_elapsed = 4
+    expected_pct = round((days_elapsed / days_month) * 100, 1) if days_month else 0.0
+    weekly_rows = [
+        {"label": "Sem 1", "corte": 850, "urrutia": 338, "sur": 0, "lavanderia": 1108, "terminacion": 524},
+        {"label": "Sem 2", "corte": 2068, "urrutia": 598, "sur": 0, "lavanderia": 1345, "terminacion": 1279},
+        {"label": "Sem 3", "corte": 0, "urrutia": 0, "sur": 0, "lavanderia": 0, "terminacion": 0},
+        {"label": "Sem 4", "corte": 0, "urrutia": 0, "sur": 0, "lavanderia": 0, "terminacion": 0},
+        {"label": "Sem 5", "corte": 0, "urrutia": 0, "sur": 0, "lavanderia": 0, "terminacion": 0},
+    ]
+    daily_weeks = [
+        {
+            "label": "Semana 1",
+            "habiles": [1, 2, None, None, None],
+            "fechas": [1, 2, 3, 4, 5],
+            "fecha_labels": [_day_label(1), _day_label(2), _day_label(3), _day_label(4), _day_label(5)],
+            "rows": [
+                {"name": "Corte", "values": [652, 198, None, None, None], "total": 850},
+                {"name": "Urrutia", "values": [176, 162, None, None, None], "total": 338},
+                {"name": "Sur", "values": [None, None, None, None, None], "total": 0},
+                {"name": "Lavanderia", "values": [456, 652, None, None, None], "total": 1108},
+                {"name": "Terminacion", "values": [152, 372, None, None, None], "total": 524},
+            ],
+        },
+        {
+            "label": "Semana 2",
+            "habiles": [3, 4, 5, 6, 7, None, None],
+            "fechas": [6, 7, 8, 9, 10, 11, 12],
+            "fecha_labels": [_day_label(6), _day_label(7), _day_label(8), _day_label(9), _day_label(10), _day_label(11), _day_label(12)],
+            "rows": [
+                {"name": "Corte", "values": [652, 652, 164, 600, None, None, None], "total": 2068},
+                {"name": "Urrutia", "values": [150, 198, 250, None, None, None, None], "total": 598},
+                {"name": "Sur", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Lavanderia", "values": [341, 535, 469, None, None, None, None], "total": 1345},
+                {"name": "Terminacion", "values": [468, 392, 419, None, None, None, None], "total": 1279},
+            ],
+        },
+        {
+            "label": "Semana 3",
+            "habiles": [8, 9, 10, 11, 12, None, None],
+            "fechas": [13, 14, 15, 16, 17, 18, 19],
+            "fecha_labels": [_day_label(13), _day_label(14), _day_label(15), _day_label(16), _day_label(17), _day_label(18), _day_label(19)],
+            "rows": [
+                {"name": "Corte", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Urrutia", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Sur", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Lavanderia", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Terminacion", "values": [None, None, None, None, None, None, None], "total": 0},
+            ],
+        },
+        {
+            "label": "Semana 4",
+            "habiles": [13, 14, 15, 16, 17, None, None],
+            "fechas": [20, 21, 22, 23, 24, 25, 26],
+            "fecha_labels": [_day_label(20), _day_label(21), _day_label(22), _day_label(23), _day_label(24), _day_label(25), _day_label(26)],
+            "rows": [
+                {"name": "Corte", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Urrutia", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Sur", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Lavanderia", "values": [None, None, None, None, None, None, None], "total": 0},
+                {"name": "Terminacion", "values": [None, None, None, None, None, None, None], "total": 0},
+            ],
+        },
+        {
+            "label": "Semana 5",
+            "habiles": [18, 19, 20, 21, None],
+            "fechas": [27, 28, 29, 30, None],
+            "fecha_labels": [_day_label(27), _day_label(28), _day_label(29), _day_label(30), None],
+            "rows": [
+                {"name": "Corte", "values": [None, None, None, None, None], "total": 0},
+                {"name": "Urrutia", "values": [None, None, None, None, None], "total": 0},
+                {"name": "Sur", "values": [None, None, None, None, None], "total": 0},
+                {"name": "Lavanderia", "values": [None, None, None, None, None], "total": 0},
+                {"name": "Terminacion", "values": [None, None, None, None, None], "total": 0},
+            ],
+        },
+    ]
+    sections_seed = [
+        {"name": "Corte", "meta_day": 476, "meta_month": 10000, "actual": 2918, "projection": 1905, "remaining": 7082, "focus": "Arranca claramente sobre el ritmo esperado y lidera el avance actual."},
+        {"name": "Urrutia", "meta_day": 286, "meta_month": 6000, "actual": 686, "projection": 1143, "remaining": 5314, "focus": "Va bajo el ritmo proyectado y necesita recuperación temprana."},
+        {"name": "Tierra del Fuego", "meta_day": 190, "meta_month": 4000, "actual": 0, "projection": 762, "remaining": 4000, "focus": "No muestra carga en la foto revisada del mes."},
+        {"name": "Lavanderia", "meta_day": 476, "meta_month": 10000, "actual": 2453, "projection": 1905, "remaining": 7547, "focus": "Aumenta el acumulado y queda por encima del esperado del periodo."},
+        {"name": "Terminacion", "meta_day": 476, "meta_month": 10000, "actual": 1803, "projection": 1905, "remaining": 8197, "focus": "Está cerca del objetivo proyectado y con margen de ajuste corto."},
+    ]
+
+    sections: list[dict[str, object]] = []
+    for item in sections_seed:
+        if item["name"] == "Urrutia":
+            item["actual"] = 936
+            item["remaining"] = 5064
+            item["focus"] = "Subio respecto a la carga anterior, pero sigue bajo el proyectado."
+        ratio = (int(item["actual"]) / int(item["meta_month"])) if int(item["meta_month"]) > 0 else 0.0
+        avg_day = round(int(item["actual"]) / days_elapsed, 2) if days_elapsed > 0 else 0.0
+        avg_ratio = (avg_day / int(item["meta_day"])) if int(item["meta_day"]) > 0 else 0.0
+        avg_status = _production_goal_status(avg_ratio)
+        status = _production_goal_status(ratio)
+        sections.append(
+            {
+                **item,
+                "ratio_pct": round(ratio * 100, 1),
+                "status": status,
+                "status_label": "En meta" if status == "green" else ("A media meta" if status == "yellow" else "Bajo objetivo"),
+                "avg_day": avg_day,
+                "avg_ratio_pct": round(avg_ratio * 100, 1),
+                "avg_status": avg_status,
+                "avg_status_label": "En meta diaria" if avg_status == "green" else ("Media meta diaria" if avg_status == "yellow" else "Bajo meta diaria"),
+            }
+        )
+
+    return {
+        "month_title": "Abril 2026",
+        "sheet_reference": "Formato base: 1_PROGRAMAS DE PRODUCCION MHC",
+        "days_month": days_month,
+        "days_remaining": days_remaining,
+        "days_elapsed": days_elapsed,
+        "expected_pct": expected_pct,
+        "areas": sections,
+        "weekly_rows": weekly_rows,
+        "daily_weeks": daily_weeks,
+        "comments": [
+            "La vista diaria replica los bloques de la hoja de abril: días hábiles, fecha, carga por sección y total del bloque.",
+            "El panel lateral resume meta mensual, acumulado proyectado, real y porcentaje acumulado por sección.",
+        ],
+    }
+
+
+def _build_excel_preview_dashboard() -> dict[str, object]:
+    weekday_names = {
+        0: "L",
+        1: "M",
+        2: "M",
+        3: "J",
+        4: "V",
+        5: "S",
+        6: "D",
+    }
+
+    def _wd(day: int) -> str:
+        return weekday_names[date(2026, 4, day).weekday()]
+
+    week_defs = [
+        {
+            "label": "TOTAL SEM 1",
+            "days": [1, 2, 3, 4, 5],
+            "areas": {
+                "CORTE": [652, 198, None, None, None],
+                "URRUTIA": [176, 162, None, None, None],
+                "TIERRA FUEGO": [None, None, None, None, None],
+                "SUR": [None, None, None, None, None],
+                "LAVANDERIA": [456, 652, None, None, None],
+                "TERMINACION": [152, 372, None, None, None],
+            },
+        },
+        {
+            "label": "TOTAL SEM 2",
+            "days": [6, 7, 8, 9, 10, 11, 12],
+            "areas": {
+                "CORTE": [652, 652, 164, 600, None, None, None],
+                "URRUTIA": [150, 198, 250, None, None, None, None],
+                "TIERRA FUEGO": [None, None, None, None, None, None, None],
+                "SUR": [None, None, None, None, None, None, None],
+                "LAVANDERIA": [341, 535, 469, None, None, None, None],
+                "TERMINACION": [468, 392, 419, None, None, None, None],
+            },
+        },
+        {
+            "label": "TOTAL SEM 3",
+            "days": [13, 14, 15, 16, 17, 18, 19],
+            "areas": {
+                "CORTE": [None, None, None, None, None, None, None],
+                "URRUTIA": [None, None, None, None, None, None, None],
+                "TIERRA FUEGO": [None, None, None, None, None, None, None],
+                "SUR": [None, None, None, None, None, None, None],
+                "LAVANDERIA": [None, None, None, None, None, None, None],
+                "TERMINACION": [None, None, None, None, None, None, None],
+            },
+        },
+        {
+            "label": "TOTAL SEM 4",
+            "days": [20, 21, 22, 23, 24, 25, 26],
+            "areas": {
+                "CORTE": [None, None, None, None, None, None, None],
+                "URRUTIA": [None, None, None, None, None, None, None],
+                "TIERRA FUEGO": [None, None, None, None, None, None, None],
+                "SUR": [None, None, None, None, None, None, None],
+                "LAVANDERIA": [None, None, None, None, None, None, None],
+                "TERMINACION": [None, None, None, None, None, None, None],
+            },
+        },
+        {
+            "label": "TOTAL SEM 5",
+            "days": [27, 28, 29, 30],
+            "areas": {
+                "CORTE": [None, None, None, None],
+                "URRUTIA": [None, None, None, None],
+                "TIERRA FUEGO": [None, None, None, None],
+                "SUR": [None, None, None, None],
+                "LAVANDERIA": [None, None, None, None],
+                "TERMINACION": [None, None, None, None],
+            },
+        },
+    ]
+
+    area_meta = [
+        {"name": "CORTE", "meta": 476, "month": 10000},
+        {"name": "URRUTIA", "meta": 286, "month": 6000},
+        {"name": "TIERRA FUEGO", "meta": 190, "month": 4000},
+        {"name": "SUR", "meta": 0, "month": 0},
+        {"name": "LAVANDERIA", "meta": 476, "month": 10000},
+        {"name": "TERMINACION", "meta": 476, "month": 10000},
+    ]
+
+    for week in week_defs:
+        week["rows"] = []
+        for day in week["days"]:
+            row = {"day": day, "weekday": _wd(day), "cells": []}
+            for area in area_meta:
+                prod = week["areas"][area["name"]][week["days"].index(day)]
+                row["cells"].append({"prod": prod, "mues": None})
+            week["rows"].append(row)
+        totals = []
+        for area in area_meta:
+            vals = week["areas"][area["name"]]
+            totals.append(sum(int(v or 0) for v in vals))
+        week["totals"] = totals
+
+    accum_lookup = {
+        "CORTE": {"actual": 2918, "proj": 1905, "avg": 729.5, "pct": 153.3},
+        "URRUTIA": {"actual": 936, "proj": 1143, "avg": 234.0, "pct": 81.8},
+        "TIERRA FUEGO": {"actual": 0, "proj": 762, "avg": 0.0, "pct": 0.0},
+        "SUR": {"actual": 0, "proj": 0, "avg": 0.0, "pct": 0.0},
+        "LAVANDERIA": {"actual": 2453, "proj": 1905, "avg": 613.25, "pct": 128.8},
+        "TERMINACION": {"actual": 1803, "proj": 1905, "avg": 450.75, "pct": 94.7},
+    }
+
+    summary_rows = []
+    for area in area_meta:
+        extra = accum_lookup[area["name"]]
+        summary_rows.append(
+            {
+                "name": area["name"],
+                "meta_day": area["meta"],
+                "meta_month": area["month"],
+                "actual": extra["actual"],
+                "proj": extra["proj"],
+                "avg": extra["avg"],
+                "pct": extra["pct"],
+                "advance_vs_projection_pct": round((extra["actual"] / extra["proj"]) * 100, 2) if extra["proj"] else 0.0,
+                "diff": area["month"] - extra["actual"] if area["month"] else 0,
+            }
+        )
+
+    return {
+        "title": "MES DE PROCESO ABRIL 2026",
+        "days_note": "Días hábiles restantes de 21",
+        "columns": area_meta,
+        "weeks": week_defs,
+        "summary_rows": summary_rows,
+    }
+
+
+def _is_local_request() -> bool:
+    host = str(request.host or "").strip().lower()
+    server = str(request.environ.get("SERVER_NAME") or "").strip().lower()
+    if host.startswith(("127.0.0.1", "localhost")):
+        return True
+    if server.startswith(("127.0.0.1", "localhost")):
+        return True
+    return os.environ.get("ADECOM_LOCAL_PREVIEW", "0").strip() == "1"
 
 
 def _month_from_text(value: object) -> tuple[str, str]:
@@ -2769,6 +3058,9 @@ def index():
     upload_debug = session.pop("upload_debug", "")
     proyeccion_state = _load_proyeccion_state()
     production_goals = _build_production_goals_summary()
+    production_daily_dashboard = _build_new_section_dashboard()
+    excel_preview_dashboard = _build_excel_preview_dashboard()
+    local_preview_enabled = _is_local_request()
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     return render_template(
@@ -2804,6 +3096,9 @@ def index():
         upload_debug=upload_debug,
         proyeccion_state=proyeccion_state,
         production_goals=production_goals,
+        production_daily_dashboard=production_daily_dashboard,
+        excel_preview_dashboard=excel_preview_dashboard,
+        local_preview_enabled=local_preview_enabled,
         can_upload=_can_upload(),
         admin_key_enabled=bool(_admin_key()),
         assistant_enabled=ASSISTANT_ENABLED,
@@ -2883,6 +3178,8 @@ def upload():
             stats = import_comparativo_clientes_rows(DB_PATH, rows)
         elif kind == "deudas_vencidas":
             stats = import_deuda_clientes_rows(DB_PATH, rows)
+        elif kind == "saldos":
+            stats = import_rows(DB_PATH, rows, replace_all=False)
         else:
             stats = import_rows(DB_PATH, rows, replace_all=True)
     except RequestEntityTooLarge:

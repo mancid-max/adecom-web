@@ -28,6 +28,7 @@
         <div class="side-group">
           <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Opciones</button>
           <div class="side-group-body" hidden>
+            <button type="button" class="side-link side-action-btn" data-open-id="openProductionGoalsModal">Metas produccion</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
@@ -157,94 +158,19 @@
       <header class="dashboard-section-title">
         <h2>PRODUCCION</h2>
       </header>
-    <section class="production-goals-panel">
-      <div class="production-goals-hero">
-        <div>
-          <p class="production-goals-kicker">{{ production_goals.month_label }}</p>
-          <h3>Metas de produccion por seccion</h3>
-          <p class="production-goals-copy">
-            Meta acumulada {{ production_goals.total_actual|miles }} de {{ production_goals.total_goal|miles }}
-            con corte al dia habil {{ production_goals.projected_day }}.
-          </p>
-        </div>
-        <div class="production-goals-overall">
-          <span class="status-chip status-{{ production_goals.status }}">{{ production_goals.status_label }}</span>
-          <strong>{{ production_goals.total_ratio_pct }}%</strong>
-          <small>{{ production_goals.work_days }} dias habiles en el mes</small>
-        </div>
-      </div>
-
-      <div class="production-goals-kpis">
-        <article>
-          <small>Meta mensual</small>
-          <strong>{{ production_goals.total_goal|miles }}</strong>
-          <span>Total planificado</span>
-        </article>
-        <article>
-          <small>Acumulado real</small>
-          <strong>{{ production_goals.total_actual|miles }}</strong>
-          <span>Avance cargado</span>
-        </article>
-        <article>
-          <small>Contra proyectado</small>
-          <strong>{{ production_goals.projected_total_ratio_pct }}%</strong>
-          <span>Sobre {{ production_goals.projected_total|miles }}</span>
-        </article>
-        <article>
-          <small>Secciones en verde</small>
-          <strong>{{ production_goals.green_count }}</strong>
-          <span>{{ production_goals.delayed_count }} en rojo</span>
-        </article>
-      </div>
-
-      <div class="production-goals-grid">
-        {% for area in production_goals.sections %}
-          {% set pct = area.ratio_pct|float %}
-          <article class="production-goal-card production-goal-card-{{ area.status }}">
-            <div class="production-goal-head">
-              <div>
-                <h4>{{ area.name }}</h4>
-                <small>Meta {{ area.goal|miles }}</small>
-              </div>
-              <span class="status-chip status-{{ area.status }}">{{ area.status_label }}</span>
-            </div>
-            <div class="production-goal-numbers">
-              <strong>{{ area.actual|miles }}</strong>
-              <span>{{ area.ratio_pct }}% de la meta</span>
-            </div>
-            <div class="production-goal-progress" aria-hidden="true">
-              <span class="production-goal-progress-fill production-goal-progress-fill-{{ area.status }}" style="width: {{ [pct, 100]|min }}%"></span>
-            </div>
-            <dl class="production-goal-meta">
-              <div>
-                <dt>Proyectado</dt>
-                <dd>{{ area.projected|miles }}</dd>
-              </div>
-              <div>
-                <dt>Ritmo</dt>
-                <dd>{{ area.projected_ratio_pct }}%</dd>
-              </div>
-              <div>
-                <dt>Promedio dia</dt>
-                <dd>{{ area.daily_avg }}</dd>
-              </div>
-            </dl>
-            {% if area.comment %}
-              <p class="production-goal-comment">{{ area.comment }}</p>
-            {% endif %}
-          </article>
-        {% endfor %}
-      </div>
-
-      {% if production_goals.comments %}
-        <div class="production-goals-comments">
-          {% for comment in production_goals.comments %}
-            <p>{{ comment }}</p>
-          {% endfor %}
-        </div>
-      {% endif %}
-    </section>
     <section class="summary dashboard-kpi-row dashboard-ops-row">
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openProductionGoalsModal">
+          <h2>Metas produccion</h2>
+        </button>
+      </article>
+      {% if local_preview_enabled %}
+        <article class="card-action summary-secondary">
+          <button type="button" class="summary-open summary-open-centered" id="openProductionExcelModal">
+            <h2>Vista excel local</h2>
+          </button>
+        </article>
+      {% endif %}
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openBodegaModal">
           <h2>Ordenes en bodega</h2>
@@ -257,6 +183,282 @@
       </article>
     </section>
     </section>
+
+    <dialog id="productionGoalsModal" class="modal modal-production-goals">
+      <div class="modal-head">
+        <div>
+          <h3>Metas de produccion</h3>
+          <p class="production-goals-copy">
+            {{ production_goals.month_label }} · corte al dia habil {{ production_goals.projected_day }}.
+          </p>
+        </div>
+        <button
+          type="button"
+          id="closeProductionGoalsModal"
+          class="modal-close"
+          onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
+        >Cerrar</button>
+      </div>
+      <section class="production-goals-panel">
+        <div class="production-goals-hero">
+          <div>
+            <p class="production-goals-kicker">{{ production_goals.month_label }}</p>
+            <h3>Metas de produccion por seccion</h3>
+            <p class="production-goals-copy">
+              Meta acumulada {{ production_goals.total_actual|miles }} de {{ production_goals.total_goal|miles }}
+              con corte al dia habil {{ production_goals.projected_day }}.
+            </p>
+          </div>
+          <div class="production-goals-overall">
+            <span class="status-chip status-{{ production_goals.status }}">{{ production_goals.status_label }}</span>
+            <strong>{{ production_goals.total_ratio_pct }}%</strong>
+            <small>{{ production_goals.work_days }} dias habiles en el mes</small>
+          </div>
+        </div>
+
+        <div class="production-goals-kpis">
+          <article>
+            <small>Meta mensual</small>
+            <strong>{{ production_goals.total_goal|miles }}</strong>
+            <span>Total planificado</span>
+          </article>
+          <article>
+            <small>Acumulado real</small>
+            <strong>{{ production_goals.total_actual|miles }}</strong>
+            <span>Avance cargado</span>
+          </article>
+          <article>
+            <small>Contra proyectado</small>
+            <strong>{{ production_goals.projected_total_ratio_pct }}%</strong>
+            <span>Sobre {{ production_goals.projected_total|miles }}</span>
+          </article>
+          <article>
+            <small>Secciones en verde</small>
+            <strong>{{ production_goals.green_count }}</strong>
+            <span>{{ production_goals.delayed_count }} en rojo</span>
+          </article>
+        </div>
+
+        <div class="production-goals-grid">
+          {% for area in production_goals.sections %}
+            {% set pct = area.ratio_pct|float %}
+            <article class="production-goal-card production-goal-card-{{ area.status }}">
+              <div class="production-goal-head">
+                <div>
+                  <h4>{{ area.name }}</h4>
+                  <small>Meta {{ area.goal|miles }}</small>
+                </div>
+                <span class="status-chip status-{{ area.status }}">{{ area.status_label }}</span>
+              </div>
+              <div class="production-goal-numbers">
+                <strong>{{ area.actual|miles }}</strong>
+                <span>{{ area.ratio_pct }}% de la meta</span>
+              </div>
+              <div class="production-goal-progress" aria-hidden="true">
+                <span class="production-goal-progress-fill production-goal-progress-fill-{{ area.status }}" style="width: {{ [pct, 100]|min }}%"></span>
+              </div>
+              <dl class="production-goal-meta">
+                <div>
+                  <dt>Proyectado</dt>
+                  <dd>{{ area.projected|miles }}</dd>
+                </div>
+                <div>
+                  <dt>Ritmo</dt>
+                  <dd>{{ area.projected_ratio_pct }}%</dd>
+                </div>
+                <div>
+                  <dt>Promedio dia</dt>
+                  <dd>{{ area.daily_avg }}</dd>
+                </div>
+              </dl>
+              {% if area.comment %}
+                <p class="production-goal-comment">{{ area.comment }}</p>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+
+        {% if production_goals.comments %}
+          <div class="production-goals-comments">
+            {% for comment in production_goals.comments %}
+              <p>{{ comment }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </section>
+    </dialog>
+
+    <dialog id="productionGoalsDailyModal" class="modal modal-production-goals">
+      <div class="modal-head">
+        <div>
+          <h3>Metas de produccion</h3>
+          <p class="production-goals-copy">
+            {{ production_daily_dashboard.month_title }} · vista diaria y resumen lateral.
+          </p>
+        </div>
+        <button
+          type="button"
+          id="closeProductionGoalsDailyModal"
+          class="modal-close"
+          onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
+        >Cerrar</button>
+      </div>
+      <section class="production-daily-layout">
+        <div class="production-daily-stack">
+          {% for block in production_daily_dashboard.daily_weeks %}
+            <article class="production-daily-card">
+              <div class="production-daily-card-head">
+                <h4>{{ block.label }}</h4>
+                <span>Vista por dia</span>
+              </div>
+              <div class="table-wrap">
+                <div class="production-daily-grid">
+                  <div class="production-daily-cell header">Dias habiles</div>
+                  {% for item in block.habiles %}
+                    <div class="production-daily-cell header {% if item %}header-accent{% endif %}">{{ item if item is not none else "-" }}</div>
+                  {% endfor %}
+                  {% for _ in range(7 - block.habiles|length) %}<div class="production-daily-cell header">-</div>{% endfor %}
+                  <div class="production-daily-cell total">Total</div>
+
+                  <div class="production-daily-cell label">Dia y fecha</div>
+                  {% for item in block.fecha_labels %}
+                    <div class="production-daily-cell header">{{ item if item is not none else "-" }}</div>
+                  {% endfor %}
+                  {% for _ in range(7 - block.fecha_labels|length) %}<div class="production-daily-cell header">-</div>{% endfor %}
+                  <div class="production-daily-cell total">Mes</div>
+
+                  {% for row in block.rows %}
+                    <div class="production-daily-cell label">{{ row.name }}</div>
+                    {% for value in row["values"] %}
+                      <div class="production-daily-cell {% if value %}hit{% else %}empty{% endif %}">{{ value if value is not none else "" }}</div>
+                    {% endfor %}
+                    {% for _ in range(7 - row["values"]|length) %}<div class="production-daily-cell empty"></div>{% endfor %}
+                    <div class="production-daily-cell total">{{ row.total }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+
+        <aside class="production-summary-panel">
+          <p class="production-goals-kicker">{{ production_daily_dashboard.month_title }}</p>
+          <h4>Metas y acumulados</h4>
+          <p class="production-goals-copy">Resumen lateral siguiendo la tabla de control del Excel.</p>
+          <div class="production-summary-list">
+            {% for area in production_daily_dashboard.areas %}
+              <article class="production-summary-item">
+                <div class="production-summary-item-head">
+                  <strong>{{ area.name }}</strong>
+                  <span class="status-chip status-{{ area.avg_status }}">{{ area.avg_ratio_pct }}%</span>
+                </div>
+                <div class="production-summary-metrics">
+                  <div><small>X dia</small><span>{{ area.meta_day }}</span></div>
+                  <div><small>Meta mes</small><span>{{ area.meta_month }}</span></div>
+                  <div><small>Proyectado</small><span>{{ area.projection }}</span></div>
+                  <div><small>Real</small><span>{{ area.actual }}</span></div>
+                  <div><small>Prom. x dia</small><span>{{ area.avg_ratio_pct }}%</span></div>
+                  <div><small>Real x dia</small><span>{{ area.avg_day }}</span></div>
+                </div>
+                <p class="production-summary-note">{{ area.focus }}</p>
+              </article>
+            {% endfor %}
+          </div>
+        </aside>
+      </section>
+    </dialog>
+
+    {% if local_preview_enabled %}
+      <dialog id="productionExcelModal" class="modal modal-production-excel">
+        <div class="modal-head">
+          <div>
+            <h3>Vista Excel local</h3>
+            <p class="production-goals-copy">
+              Replica visual inspirada en `Metas 2025_Revisa ADCM.xlsx` usando los datos actuales de produccion.
+            </p>
+          </div>
+          <button
+            type="button"
+            id="closeProductionExcelModal"
+            class="modal-close"
+            onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
+          >Cerrar</button>
+        </div>
+
+        <section class="excel-preview-shell">
+          <div class="excel-preview-frame">
+            <div class="excel-preview-sheet">
+              <div class="excel-abr-title-row">
+                <div class="excel-abr-title">{{ excel_preview_dashboard.title }}</div>
+                <div class="excel-abr-days-note">{{ excel_preview_dashboard.days_note }}</div>
+              </div>
+
+              <div class="excel-abr-grid" style="grid-template-columns: 78px 50px{% for _ in excel_preview_dashboard.columns %} repeat(2, 62px){% endfor %};">
+                <div class="excel-abr-cell excel-abr-head">AREA</div>
+                <div class="excel-abr-cell excel-abr-head"></div>
+                {% for col in excel_preview_dashboard.columns %}
+                  <div class="excel-abr-cell excel-abr-head excel-abr-area" style="grid-column: span 2;">{{ col.name }}</div>
+                {% endfor %}
+
+                <div class="excel-abr-cell excel-abr-subhead">TIPO</div>
+                <div class="excel-abr-cell excel-abr-subhead"></div>
+                {% for col in excel_preview_dashboard.columns %}
+                  <div class="excel-abr-cell excel-abr-subhead">PROD</div>
+                  <div class="excel-abr-cell excel-abr-subhead">MUES</div>
+                {% endfor %}
+
+                <div class="excel-abr-cell excel-abr-meta">META FIJA DIA</div>
+                <div class="excel-abr-cell excel-abr-meta"></div>
+                {% for col in excel_preview_dashboard.columns %}
+                  <div class="excel-abr-cell excel-abr-meta">{{ col.meta }}</div>
+                  <div class="excel-abr-cell excel-abr-meta">0</div>
+                {% endfor %}
+
+                {% for week in excel_preview_dashboard.weeks %}
+                  {% for row in week.rows %}
+                    <div class="excel-abr-cell">{{ row.day }}</div>
+                    <div class="excel-abr-cell">{{ row.weekday }}</div>
+                    {% for cell in row.cells %}
+                      <div class="excel-abr-cell {% if cell.prod %}excel-abr-value{% endif %}">{{ cell.prod if cell.prod is not none else "" }}</div>
+                      <div class="excel-abr-cell">{{ cell.mues if cell.mues is not none else "" }}</div>
+                    {% endfor %}
+                  {% endfor %}
+                  <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">{{ week.label }}</div>
+                  {% for total in week.totals %}
+                    <div class="excel-abr-cell excel-abr-total">{{ total }}</div>
+                    <div class="excel-abr-cell excel-abr-total">0</div>
+                  {% endfor %}
+                {% endfor %}
+
+                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">PROD. ACUM</div>
+                {% for row in excel_preview_dashboard.summary_rows %}
+                  <div class="excel-abr-cell excel-abr-total">{{ row.actual }}</div>
+                  <div class="excel-abr-cell excel-abr-total">0</div>
+                {% endfor %}
+
+                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">META MES</div>
+                {% for row in excel_preview_dashboard.summary_rows %}
+                  <div class="excel-abr-cell excel-abr-meta">{{ row.meta_month }}</div>
+                  <div class="excel-abr-cell excel-abr-meta">0</div>
+                {% endfor %}
+
+                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">DIFERENCIAS</div>
+                {% for row in excel_preview_dashboard.summary_rows %}
+                  <div class="excel-abr-cell excel-abr-diff">{{ row.diff }}</div>
+                  <div class="excel-abr-cell excel-abr-diff">0</div>
+                {% endfor %}
+
+                <div class="excel-abr-cell excel-abr-progress-label" style="grid-column: span 2;">% AVANCE REAL v/s AVANCE ESPERADO</div>
+                {% for row in excel_preview_dashboard.summary_rows %}
+                  <div class="excel-abr-cell excel-abr-progress {% if row.advance_vs_projection_pct >= 100 %}excel-abr-progress-green{% elif row.advance_vs_projection_pct >= 50 %}excel-abr-progress-yellow{% else %}excel-abr-progress-red{% endif %}">{{ row.advance_vs_projection_pct }}%</div>
+                  <div class="excel-abr-cell excel-abr-progress excel-abr-progress-empty">-</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
+      </dialog>
+    {% endif %}
 
     {% if ventas_docs_summary.available %}
       <dialog id="ventasDocsModal" class="modal ventas-docs-block">
@@ -1527,6 +1729,8 @@
       });
 
       const openIdToModalId = {
+        openProductionGoalsModal: "productionGoalsDailyModal",
+        openProductionExcelModal: "productionExcelModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
@@ -1536,6 +1740,8 @@
         openProyeccionModal: "proyeccionModal",
       };
       const triggerToModal = {
+        openProductionGoalsModal: "productionGoalsDailyModal",
+        openProductionExcelModal: "productionExcelModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
@@ -1595,6 +1801,9 @@
       exclusiveModalIds.forEach((modalId) => {
         const dlg = document.getElementById(modalId);
         if (!dlg) return;
+        dlg.addEventListener("click", (event) => {
+          if (event.target === dlg) dlg.close();
+        });
         dlg.addEventListener("close", () => {
           const hasOpenDashboardModal = exclusiveModalIds.some((id) => {
             const target = document.getElementById(id);

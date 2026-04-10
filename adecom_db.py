@@ -531,6 +531,14 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
             _execute(conn, "DELETE FROM saldos_seccion")
         for row in rows:
             read += 1
+            existed = False
+            if not replace_all:
+                current = _execute(
+                    conn,
+                    "SELECT 1 FROM saldos_seccion WHERE corte = ? LIMIT 1",
+                    (row["corte"],),
+                ).fetchone()
+                existed = bool(current)
             values = (
                 row["articulo"],
                 row["corte"],
@@ -577,7 +585,7 @@ def import_rows(db_path: Path, rows: Iterable[dict], replace_all: bool = False) 
                 """,
                 values,
             )
-            if replace_all:
+            if replace_all or not existed:
                 inserted += 1
             else:
                 updated += 1

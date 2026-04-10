@@ -7227,6 +7227,553 @@ body.theme-gentelella,
   box-shadow: 0 22px 50px rgba(27, 51, 80, 0.08);
 }
 
+.modal-production-goals {
+  width: min(1180px, 98vw);
+}
+
+.modal-production-excel {
+  width: min(1320px, 99vw);
+}
+
+.excel-preview-shell {
+  padding: 4px 0 0;
+}
+
+.excel-preview-frame {
+  overflow: auto;
+  max-height: 82vh;
+  padding: 4px;
+  border-radius: 10px;
+  background: #f2f5f8;
+  border: 1px solid #c8d2dd;
+}
+
+.excel-preview-sheet {
+  min-width: 1180px;
+  padding: 10px;
+  background:
+    linear-gradient(#e7edf4 1px, transparent 1px),
+    linear-gradient(90deg, #e7edf4 1px, transparent 1px),
+    #ffffff;
+  background-size: 22px 22px;
+}
+
+.excel-preview-summary {
+  display: flex;
+  justify-content: flex-start;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+
+.excel-preview-titlebox {
+  display: grid;
+  grid-template-columns: 84px 120px 74px;
+  grid-template-rows: 34px 34px;
+  border: 1px solid #5f7d9c;
+}
+
+.excel-preview-year,
+.excel-preview-month {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  font-weight: 900;
+  color: #fff;
+  background: #ff1e1e;
+}
+
+.excel-preview-month {
+  color: #fffbe6;
+}
+
+.excel-preview-sidehead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  background: #bfd5ea;
+  color: #17324a;
+  font-weight: 800;
+}
+
+.excel-preview-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 1px;
+  background: #5f7d9c;
+  border: 1px solid #5f7d9c;
+}
+
+.excel-preview-meta div {
+  padding: 8px 10px;
+}
+
+.excel-preview-meta-yellow {
+  background: #fff169;
+}
+
+.excel-preview-meta-blue {
+  background: #0c63a7;
+}
+
+.excel-preview-meta small {
+  display: block;
+  color: #4c5d73;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.excel-preview-meta strong {
+  color: #17324a;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.excel-preview-meta-blue small,
+.excel-preview-meta-blue strong {
+  color: #fff;
+}
+
+.excel-preview-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(360px, .95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.excel-abr-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.excel-abr-title,
+.excel-abr-days-note {
+  padding: 8px 10px;
+  border: 1px solid #c8d2dd;
+  background: #fff;
+  color: #17324a;
+  font-weight: 900;
+}
+
+.excel-abr-days-note {
+  color: #5d748d;
+  font-weight: 700;
+}
+
+.excel-abr-grid {
+  display: grid;
+  gap: 1px;
+  background: #c8d2dd;
+  border: 1px solid #c8d2dd;
+}
+
+.excel-abr-cell {
+  min-height: 32px;
+  padding: 6px 4px;
+  background: #fff;
+  color: #17324a;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.excel-abr-head {
+  background: #d7e6f5;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.excel-abr-area {
+  background: #c4dbf2;
+}
+
+.excel-abr-subhead {
+  background: #e7f0fa;
+  font-weight: 800;
+}
+
+.excel-abr-meta {
+  background: #fff169;
+  font-weight: 900;
+}
+
+.excel-abr-value {
+  background: #eef9ef;
+  color: #0f8a47;
+  font-weight: 900;
+}
+
+.excel-abr-total-label {
+  justify-content: flex-start;
+  padding-left: 10px;
+  background: #edf2f7;
+  font-weight: 900;
+}
+
+.excel-abr-total {
+  background: #f2f6fb;
+  font-weight: 800;
+}
+
+.excel-abr-diff {
+  background: #fff0f0;
+  color: #b22a2a;
+  font-weight: 900;
+}
+
+.excel-abr-progress-label {
+  justify-content: flex-start;
+  padding-left: 10px;
+  background: #d25fc1;
+  color: #fff;
+  font-weight: 900;
+}
+
+.excel-abr-progress {
+  font-weight: 900;
+}
+
+.excel-abr-progress-green {
+  background: #dff2d8;
+  color: #0a7c33;
+}
+
+.excel-abr-progress-yellow {
+  background: #fff6c7;
+  color: #9c6a00;
+}
+
+.excel-abr-progress-red {
+  background: #ffdede;
+  color: #b42323;
+}
+
+.excel-abr-progress-empty {
+  background: #fafafa;
+  color: #b8bec7;
+}
+
+.excel-preview-left {
+  display: grid;
+  gap: 8px;
+}
+
+.excel-week-grid {
+  display: grid;
+  gap: 1px;
+  background: #5f7d9c;
+  border: 1px solid #5f7d9c;
+}
+
+.excel-cell {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  background: #fff;
+  color: #17324a;
+  font-size: 12px;
+}
+
+.excel-cell-title {
+  justify-content: flex-start;
+  font-size: 14px;
+  font-weight: 900;
+  background: #fff;
+}
+
+.excel-cell-month {
+  justify-content: center;
+  font-weight: 900;
+  color: #fff;
+  background: #ff1e1e;
+}
+
+.excel-cell-subtitle {
+  background: #b7cfe7;
+  color: #18324c;
+  font-weight: 800;
+}
+
+.excel-cell-habil,
+.excel-cell-date {
+  background: #dcedfb;
+  font-weight: 800;
+}
+
+.excel-cell-area {
+  justify-content: flex-start;
+  font-weight: 900;
+  background: #fff;
+}
+
+.excel-cell-spacer,
+.excel-cell-blank {
+  background: #fff;
+}
+
+.excel-cell-value {
+  background: #f2fcf2;
+  color: #0f8a47;
+  font-weight: 900;
+}
+
+.excel-cell-totalhead,
+.excel-cell-total {
+  background: #0c63a7;
+  color: #fff;
+  font-weight: 900;
+}
+
+.excel-preview-right {
+  align-self: start;
+}
+
+.excel-kpi-grid {
+  display: grid;
+  grid-template-columns: 84px 98px 170px 98px 98px 110px;
+  gap: 1px;
+  background: #0c63a7;
+  border: 1px solid #0c63a7;
+}
+
+.excel-kpi-head,
+.excel-kpi-num,
+.excel-kpi-section-name,
+.excel-kpi-pct {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  background: #fff;
+  color: #17324a;
+  font-size: 13px;
+}
+
+.excel-kpi-head {
+  background: #0c63a7;
+  color: #fff;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.excel-kpi-head-yellow {
+  background: #fff169;
+  color: #17324a;
+}
+
+.excel-kpi-section,
+.excel-kpi-section-name {
+  background: #0c63a7;
+  color: #fff;
+  font-weight: 900;
+}
+
+.excel-kpi-num {
+  font-weight: 800;
+}
+
+.excel-kpi-pct {
+  font-weight: 900;
+}
+
+.excel-kpi-pct-green {
+  background: #ebfaef;
+  color: #108746;
+}
+
+.excel-kpi-pct-yellow {
+  background: #fff4d9;
+  color: #b77405;
+}
+
+.excel-kpi-pct-red {
+  background: #ffe5e5;
+  color: #cb3333;
+}
+
+.production-daily-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, .9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.production-daily-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.production-daily-card,
+.production-summary-panel {
+  padding: 18px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(77, 104, 138, 0.13);
+}
+
+.production-daily-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.production-daily-card-head h4,
+.production-summary-panel h4 {
+  margin: 0;
+  color: #17324a;
+  font-size: 18px;
+}
+
+.production-daily-card-head span {
+  color: #607a94;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+}
+
+.production-daily-grid {
+  display: grid;
+  grid-template-columns: 132px repeat(7, minmax(42px, 1fr)) 70px;
+  gap: 1px;
+  background: rgba(80, 109, 145, 0.14);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.production-daily-cell {
+  background: #fff;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  text-align: center;
+  font-size: 13px;
+  color: #17314a;
+}
+
+.production-daily-cell.label {
+  justify-content: flex-start;
+  padding-left: 14px;
+  font-weight: 800;
+  background: #f8fbff;
+}
+
+.production-daily-cell.header {
+  background: #ebf4fb;
+  color: #56708a;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.production-daily-cell.header-accent {
+  background: #d7ecff;
+  color: #0d4d7d;
+}
+
+.production-daily-cell.total {
+  background: #0c63a7;
+  color: #fff;
+  font-weight: 900;
+}
+
+.production-daily-cell.hit {
+  background: #edf9ef;
+  color: #118347;
+  font-weight: 800;
+}
+
+.production-daily-cell.empty {
+  color: #acc0d3;
+  background: #fbfdff;
+}
+
+.production-summary-panel {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 30%),
+    linear-gradient(160deg, #ffffff 0%, #f4f9fd 100%);
+}
+
+.production-summary-panel p {
+  margin: 8px 0 14px;
+}
+
+.production-summary-list {
+  display: grid;
+  gap: 12px;
+}
+
+.production-summary-item {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(80, 109, 145, 0.13);
+}
+
+.production-summary-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.production-summary-item-head strong {
+  color: #17314a;
+  font-size: 17px;
+}
+
+.production-summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.production-summary-metrics div {
+  padding: 10px;
+  border-radius: 14px;
+  background: #f7fafc;
+  border: 1px solid rgba(80, 109, 145, 0.1);
+}
+
+.production-summary-metrics small {
+  display: block;
+  margin-bottom: 4px;
+  color: #6a839d;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: .08em;
+  font-weight: 800;
+}
+
+.production-summary-metrics span {
+  color: #18324c;
+  font-weight: 800;
+}
+
+.production-summary-note {
+  margin: 10px 0 0;
+  color: #58718b;
+  line-height: 1.55;
+  font-size: 13px;
+}
+
 .production-goals-hero {
   display: flex;
   justify-content: space-between;
@@ -7447,6 +7994,28 @@ body.theme-gentelella,
 }
 
 @media (max-width: 640px) {
+  .excel-preview-sheet {
+    min-width: 1080px;
+  }
+
+  .production-daily-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .production-daily-card,
+  .production-summary-panel {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .production-daily-grid {
+    grid-template-columns: 120px repeat(7, minmax(40px, 1fr)) 64px;
+  }
+
+  .production-summary-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
   body,
   .theme-gentelella body {
     background: #f3f4f8 !important;
