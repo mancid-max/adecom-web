@@ -29,6 +29,8 @@
           <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Opciones</button>
           <div class="side-group-body" hidden>
             <button type="button" class="side-link side-action-btn" data-open-id="openProductionGoalsModal">Metas produccion</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openProductionExcelModal">Modelo Excel metas</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openInventoryBookModal">Stock bodega libro</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
@@ -162,6 +164,16 @@
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openProductionGoalsModal">
           <h2>Metas produccion</h2>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openProductionExcelModal">
+          <h2>Modelo Excel metas</h2>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openInventoryBookModal">
+          <h2>Stock bodega libro</h2>
         </button>
       </article>
       <article class="card-action summary-secondary">
@@ -448,6 +460,86 @@
               </div>
             </div>
           </div>
+        </section>
+      </dialog>
+
+      <dialog id="inventoryBookModal" class="modal modal-production-goals">
+        <div class="modal-head">
+          <div>
+            <h3>Stock de bodega por coleccion</h3>
+            <p class="production-goals-copy">Vista tipo libro para revisar inventario por coleccion.</p>
+          </div>
+          <button
+            type="button"
+            id="closeInventoryBookModal"
+            class="modal-close"
+            onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
+          >Cerrar</button>
+        </div>
+        <section class="production-goals-panel">
+          {% if inventory_book.available %}
+            <div class="production-goals-kpis">
+              <article>
+                <small>Archivo</small>
+                <strong>{{ inventory_book.file_name }}</strong>
+                <span>Fuente activa</span>
+              </article>
+              <article>
+                <small>Total stock</small>
+                <strong>{{ inventory_book.total_stock|miles }}</strong>
+                <span>Unidades en bodega</span>
+              </article>
+              <article>
+                <small>Items</small>
+                <strong>{{ inventory_book.total_items|miles }}</strong>
+                <span>Articulos con stock</span>
+              </article>
+              <article>
+                <small>Colecciones</small>
+                <strong>{{ inventory_book.collections|length|miles }}</strong>
+                <span>Secciones del libro</span>
+              </article>
+            </div>
+            <div class="production-goals-grid">
+              {% for collection in inventory_book.collections %}
+                <article class="production-goal-card production-goal-card-green">
+                  <div class="production-goal-head">
+                    <div>
+                      <h4>Coleccion {{ collection.name }}</h4>
+                      <small>{{ collection.items_count|miles }} articulos</small>
+                    </div>
+                    <span class="status-chip status-green">{{ collection.total_stock|miles }}</span>
+                  </div>
+                  <div class="table-wrap bodega-wrap">
+                    <table class="bodega-table">
+                      <thead>
+                        <tr>
+                          <th>Articulo</th>
+                          <th>Descripcion</th>
+                          <th>Stock</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in collection.articles[:20] %}
+                          <tr>
+                            <td>{{ row.articulo }}</td>
+                            <td>{{ row.descripcion }}</td>
+                            <td class="num">{{ row.stock|miles }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="production-goals-comments">
+              <p>No se pudo cargar el inventario.</p>
+              <p>{{ inventory_book.error }}</p>
+              <p>Ruta configurada: {{ inventory_book.path }}</p>
+            </div>
+          {% endif %}
         </section>
       </dialog>
 
@@ -1720,7 +1812,9 @@
       });
 
       const openIdToModalId = {
-          openProductionGoalsModal: "productionExcelModal",
+        openProductionGoalsModal: "productionExcelModal",
+        openProductionExcelModal: "productionExcelModal",
+        openInventoryBookModal: "inventoryBookModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
@@ -1732,6 +1826,7 @@
       const triggerToModal = {
         openProductionGoalsModal: "productionGoalsDailyModal",
         openProductionExcelModal: "productionExcelModal",
+        openInventoryBookModal: "inventoryBookModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",

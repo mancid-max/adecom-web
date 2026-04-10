@@ -67,6 +67,12 @@ SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
 SEED_CORTES_4200_XLSX = SEED_DIR / "Cortes 4200.xlsx"
+INVENTORY_BOOK_PATH = Path(
+    os.environ.get(
+        "ADECOM_INVENTARIO_XLSX",
+        r"C:\Users\manuh\OneDrive - Mohicano Jeans\INVENTARIO 01-04 COMPLETO.xlsx",
+    )
+)
 AUTOLOAD_DIR = Path(
     os.environ.get(
         "ADECOM_AUTOLOAD_DIR",
@@ -2450,6 +2456,204 @@ def _to_int(value: object) -> int:
         return 0
 
 
+def _inventory_norm(value: object) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = re.sub(r"[^a-zA-Z0-9]+", " ", text).strip().lower()
+    return text
+
+
+def _inventory_to_float(value: object) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    text = text.replace(" ", "").replace(".", "").replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def _extract_collection_from_articulo(articulo: str) -> str:
+    digits = "".join(ch for ch in str(articulo or "") if ch.isdigit())
+    if len(digits) >= 6:
+        return digits[2:6]
+    if len(digits) >= 4:
+        return digits[:4]
+    return (str(articulo or "").strip() or "Sin coleccion")[:12]
+
+
+def _extract_collection_from_sheet(sheet_name: str) -> str:
+    text = _inventory_norm(sheet_name)
+    m = re.search(r"(\d{2})", text)
+    if m:
+        return m.group(1)
+    return (str(sheet_name or "").strip() or "Sin coleccion")[:20]
+
+
+def _load_inventory_book_dashboard() -> dict[str, object]:
+    base = {
+        "available": False,
+        "error": "",
+        "file_name": "",
+        "path": str(INVENTORY_BOOK_PATH),
+        "collections": [],
+        "total_stock": 0,
+        "total_items": 0,
+    }
+    candidate_paths = [INVENTORY_BOOK_PATH, SEED_DIR / "INVENTARIO 01-04 COMPLETO.xlsx"]
+    existing_paths = [p for p in candidate_paths if p and p.exists()]
+    if not existing_paths:
+        base["error"] = "No se encontro el archivo de inventario configurado."
+        return base
+
+    try:
+        from openpyxl import load_workbook
+    except Exception as exc:
+        base["error"] = f"No se pudo cargar openpyxl: {exc}"
+        return base
+
+    wb = None
+    active_path = None
+    last_error = ""
+    for p in existing_paths:
+        try:
+            wb = load_workbook(p, data_only=True, read_only=True)
+            active_path = p
+            break
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+    if wb is None or active_path is None:
+        base["error"] = f"No se pudo abrir el inventario: {last_error}"
+        return base
+
+    rows_out: list[dict[str, object]] = []
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        header_idx = None
+        header_map: dict[str, int] = {}
+        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=30, values_only=True), start=1):
+            normalized = [_inventory_norm(v) for v in row]
+            if not any(normalized):
+                continue
+            for col_idx, cell in enumerate(normalized):
+                if not cell:
+                    continue
+                if "articulo" in cell or cell in {"codigo", "cod articulo", "cod"}:
+                    header_map["articulo"] = col_idx
+                if "descripcion" in cell or "detalle" in cell or "producto" in cell:
+                    header_map["descripcion"] = col_idx
+                if "tiro" in cell:
+                    header_map["tiro"] = col_idx
+                if "bota" in cell:
+                    header_map["bota"] = col_idx
+                if "color" in cell:
+                    header_map["color"] = col_idx
+                if cell in {"coleccion", "temporada", "linea"}:
+                    header_map["coleccion"] = col_idx
+                if (
+                    "stock" in cell
+                    or "saldo" in cell
+                    or "existencia" in cell
+                    or "disponible" in cell
+                    or cell in {"total", "cantidad", "cant"}
+                ):
+                    header_map.setdefault("stock", col_idx)
+            if "articulo" in header_map and "stock" in header_map:
+                header_idx = row_idx
+                break
+
+        if not header_idx or "articulo" not in header_map or "stock" not in header_map:
+            continue
+
+        for row in ws.iter_rows(min_row=header_idx + 1, values_only=True):
+            try:
+                articulo_raw = row[header_map["articulo"]]
+            except Exception:
+                continue
+            articulo = str(articulo_raw or "").strip()
+            if not articulo:
+                continue
+            stock_value = _inventory_to_float(row[header_map["stock"]] if header_map["stock"] < len(row) else 0)
+            if stock_value <= 0:
+                continue
+            descripcion = ""
+            if "descripcion" in header_map and header_map["descripcion"] < len(row):
+                descripcion = str(row[header_map["descripcion"]] or "").strip()
+            if not descripcion:
+                tiro = str(row[header_map["tiro"]] or "").strip() if "tiro" in header_map and header_map["tiro"] < len(row) else ""
+                bota = str(row[header_map["bota"]] or "").strip() if "bota" in header_map and header_map["bota"] < len(row) else ""
+                color = str(row[header_map["color"]] or "").strip() if "color" in header_map and header_map["color"] < len(row) else ""
+                descripcion = " ".join(part for part in [tiro, bota, color] if part).strip()
+            coleccion = ""
+            if "coleccion" in header_map and header_map["coleccion"] < len(row):
+                coleccion = str(row[header_map["coleccion"]] or "").strip()
+            if not coleccion:
+                coleccion = _extract_collection_from_sheet(sheet_name)
+            if not coleccion:
+                coleccion = _extract_collection_from_articulo(articulo)
+            rows_out.append(
+                {
+                    "sheet": sheet_name,
+                    "articulo": articulo,
+                    "descripcion": descripcion or "-",
+                    "coleccion": coleccion,
+                    "stock": int(round(stock_value)),
+                }
+            )
+
+    if not rows_out:
+        base["error"] = "No se detectaron columnas compatibles (articulo + stock) con stock positivo."
+        return base
+
+    grouped: dict[str, dict[str, object]] = {}
+    for item in rows_out:
+        key = str(item["coleccion"] or "").strip() or "Sin coleccion"
+        bucket = grouped.setdefault(
+            key,
+            {
+                "name": key,
+                "total_stock": 0,
+                "items_count": 0,
+                "articles": [],
+            },
+        )
+        bucket["total_stock"] = int(bucket["total_stock"]) + int(item["stock"] or 0)
+        bucket["items_count"] = int(bucket["items_count"]) + 1
+        bucket["articles"].append(item)
+
+    collections = []
+    for bucket in grouped.values():
+        articles = sorted(
+            bucket["articles"],
+            key=lambda x: (-int(x.get("stock") or 0), str(x.get("articulo") or "")),
+        )
+        collections.append(
+            {
+                "name": bucket["name"],
+                "total_stock": int(bucket["total_stock"]),
+                "items_count": int(bucket["items_count"]),
+                "articles": articles[:200],
+            }
+        )
+    collections.sort(key=lambda x: (-int(x["total_stock"]), str(x["name"])))
+
+    return {
+        "available": True,
+        "error": "",
+        "file_name": active_path.name,
+        "path": str(active_path),
+        "collections": collections,
+        "total_stock": sum(int(c["total_stock"]) for c in collections),
+        "total_items": sum(int(c["items_count"]) for c in collections),
+    }
+
+
 def _load_ventas_docs_summary() -> dict:
     base = {
         "available": False,
@@ -3092,6 +3296,7 @@ def index():
     local_preview_enabled = _is_local_request()
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
+    inventory_book = _load_inventory_book_dashboard()
     return render_template(
         "index.html",
         rows=rows,
@@ -3133,6 +3338,7 @@ def index():
         assistant_enabled=ASSISTANT_ENABLED,
         assistant_provider=assistant_provider,
         ventas_docs_summary=ventas_docs_summary,
+        inventory_book=inventory_book,
     )
 
 
