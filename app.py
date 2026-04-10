@@ -1101,14 +1101,21 @@ def _read_source_bytes(source: str) -> bytes:
 
 
 def _refresh_web_data() -> dict:
-    saldos_rows = parse_saldos_txt(_read_source_bytes(AUTOLOAD_SALDOS_SOURCE))
+    saldos_sources = [
+        src.strip()
+        for src in re.split(r"[,\n;]+", str(AUTOLOAD_SALDOS_SOURCE or ""))
+        if src.strip()
+    ]
+    saldos_rows: list[dict] = []
+    for source in saldos_sources:
+        saldos_rows.extend(parse_saldos_txt(_read_source_bytes(source)))
     pedidos_rows = parse_pedidos_talla_txt(_read_source_bytes(AUTOLOAD_PEDIDOS_SOURCE))
     etapas_rows = parse_corte_etapas_txt(_read_source_bytes(AUTOLOAD_ETAPAS_SOURCE))
     if not saldos_rows or not pedidos_rows or not etapas_rows:
         raise ValueError(
             f"Lectura vacia: saldos={len(saldos_rows)}, pedidos={len(pedidos_rows)}, etapas={len(etapas_rows)}"
         )
-    stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True)
+    stats_saldos = import_rows(DB_PATH, saldos_rows, replace_all=True, accumulate_on_conflict=True)
     stats_pedidos = import_pedidos_talla_rows(DB_PATH, pedidos_rows)
     stats_etapas = import_corte_etapas_rows(DB_PATH, etapas_rows)
     stats_comparativo = {"read": 0, "inserted": 0, "updated": 0}
@@ -2399,10 +2406,18 @@ def ensure_seed_data() -> None:
         init_db(DB_PATH)
         return
     init_db(DB_PATH)
-    if SEED_SALDOS.exists() and _table_count("saldos_seccion") == 0:
-        saldos_rows = parse_saldos_txt(SEED_SALDOS.read_bytes())
+    seed_saldos_files = sorted(
+        {p.resolve(): p for p in [*SEED_DIR.glob("SALDOS-SECCI*.TXT"), *SEED_DIR.glob("SALDOS-SECCI*.txt")]}.values(),
+        key=lambda p: p.name.lower(),
+    )
+    if not seed_saldos_files and SEED_SALDOS.exists():
+        seed_saldos_files = [SEED_SALDOS]
+    if seed_saldos_files and _table_count("saldos_seccion") == 0:
+        saldos_rows: list[dict] = []
+        for seed_file in seed_saldos_files:
+            saldos_rows.extend(parse_saldos_txt(seed_file.read_bytes()))
         if saldos_rows:
-            import_rows(DB_PATH, saldos_rows, replace_all=True)
+            import_rows(DB_PATH, saldos_rows, replace_all=True, accumulate_on_conflict=True)
     if SEED_PEDIDOS.exists() and _table_count("pedidos_talla") == 0:
         pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
         if pedidos_rows:

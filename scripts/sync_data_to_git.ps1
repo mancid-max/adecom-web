@@ -36,11 +36,33 @@ function Find-SourceFile {
   return ($foundFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)
 }
 
+function Find-SourceFiles {
+  param(
+    [string]$Dir,
+    [string]$Token,
+    [string]$ExcludeToken = ""
+  )
+  if (!(Test-Path $Dir)) { return @() }
+  $tokenN = ($Token -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
+  $excludeN = ($ExcludeToken -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
+  $files = Get-ChildItem -Path $Dir -File
+  $foundFiles = @()
+  foreach ($f in $files) {
+    $nameN = ($f.Name -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
+    if ($nameN -notmatch $tokenN) { continue }
+    if ($excludeN -and $nameN -match $excludeN) { continue }
+    $foundFiles += $f
+  }
+  if ($foundFiles.Count -eq 0) { return @() }
+  return ($foundFiles | Sort-Object Name)
+}
+
 function Stage-And-Push {
   param([string]$RepoRoot)
 
   $seedRel = @(
-    "seed/SALDOS-SECCI.TXT",
+    "seed/SALDOS-SECCI*.TXT",
+    "seed/SALDOS-SECCI*.txt",
     "seed/PEDIDOSXTALLA.TXT",
     "seed/Grande-Adecom.TXT"
   )
@@ -80,8 +102,19 @@ function Sync-Now {
   $seedDir = Join-Path $RepoRoot "seed"
   New-Item -ItemType Directory -Path $seedDir -Force | Out-Null
 
+  $saldosFiles = Find-SourceFiles -Dir $FromDir -Token "SALDOS-SECCI" -ExcludeToken ""
+  if ($saldosFiles.Count -eq 0) {
+    throw "No se encontraron archivos: SALDOS-SECCI"
+  }
+  Get-ChildItem -Path $seedDir -File -Filter "SALDOS-SECCI*.TXT" -ErrorAction SilentlyContinue | Remove-Item -Force
+  Get-ChildItem -Path $seedDir -File -Filter "SALDOS-SECCI*.txt" -ErrorAction SilentlyContinue | Remove-Item -Force
+  foreach ($src in $saldosFiles) {
+    $dst = Join-Path $seedDir $src.Name
+    Copy-Item -Path $src.FullName -Destination $dst -Force
+    Write-Host ("[sync] Copiado: {0} -> {1}" -f $src.Name, $src.Name)
+  }
+
   $map = @(
-    @{ token = "SALDOS-SECCI"; exclude = ""; target = "SALDOS-SECCI.TXT" },
     @{ token = "PEDIDOSXTALLA"; exclude = "TODAS"; target = "PEDIDOSXTALLA.TXT" },
     @{ token = "Grande-Adecom"; exclude = ""; target = "Grande-Adecom.TXT" }
   )
