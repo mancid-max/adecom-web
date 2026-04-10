@@ -478,72 +478,37 @@
         </div>
         <section class="production-goals-panel">
           {% if inventory_book.available %}
-            <div class="production-goals-kpis">
-              <article>
-                <small>Archivo</small>
-                <strong>{{ inventory_book.file_name }}</strong>
-                <span>Fuente activa</span>
-              </article>
-              <article>
-                <small>Total stock</small>
-                <strong>{{ inventory_book.total_stock|miles }}</strong>
-                <span>Unidades en bodega</span>
-              </article>
-              <article>
-                <small>Items</small>
-                <strong>{{ inventory_book.total_items|miles }}</strong>
-                <span>Articulos con stock</span>
-              </article>
-              <article>
-                <small>Colecciones</small>
-                <strong>{{ inventory_book.collections|length|miles }}</strong>
-                <span>Secciones del libro</span>
-              </article>
+            <div class="table-tools">
+              <label for="inventoryCollectionSelect">Coleccion:</label>
+              <select id="inventoryCollectionSelect">
+                {% for collection in inventory_book.collections %}
+                  <option value="{{ collection.name }}" {% if collection.name == inventory_book.default_collection %}selected{% endif %}>
+                    {{ collection.name }}
+                  </option>
+                {% endfor %}
+              </select>
             </div>
-            <div class="production-goals-grid">
-              {% for collection in inventory_book.collections %}
-                <article class="production-goal-card production-goal-card-green">
-                  <div class="production-goal-head">
-                    <div>
-                      <h4>Coleccion {{ collection.name }}</h4>
-                      <small>{{ collection.items_count|miles }} articulos</small>
-                    </div>
-                    <span class="status-chip status-green">{{ collection.total_stock|miles }}</span>
-                  </div>
-                  <div class="table-wrap bodega-wrap">
-                    <table class="bodega-table">
-                      <thead>
-                        <tr>
-                          <th>Codigo</th>
-                          <th>Tiro</th>
-                          <th>Bota</th>
-                          <th>Color</th>
-                          {% for size in collection.size_headers %}
-                            <th class="num">{{ size }}</th>
-                          {% endfor %}
-                          <th class="num">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for row in collection.articles %}
-                          <tr>
-                            <td>{{ row.articulo }}</td>
-                            <td>{{ row.tiro }}</td>
-                            <td>{{ row.bota }}</td>
-                            <td>{{ row.color }}</td>
-                            {% for size in collection.size_headers %}
-                              {% set qty = (row.sizes.get(size) if row.sizes else 0) %}
-                              <td class="num">{{ qty if qty else "" }}</td>
-                            {% endfor %}
-                            <td class="num">{{ row.stock|miles }}</td>
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                </article>
-              {% endfor %}
+            <div class="table-wrap bodega-wrap">
+              <table class="bodega-table" id="inventoryBookTable">
+                <thead>
+                  <tr>
+                    <th>Codigo</th>
+                    <th>Tiro</th>
+                    <th>Bota</th>
+                    <th>Color</th>
+                    <th class="num">36</th>
+                    <th class="num">38</th>
+                    <th class="num">40</th>
+                    <th class="num">42</th>
+                    <th class="num">44</th>
+                    <th class="num">46</th>
+                    <th class="num">Total</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryBookTableBody"></tbody>
+              </table>
             </div>
+            <script id="inventoryBookData" type="application/json">{{ inventory_book.collections|tojson }}</script>
           {% else %}
             <div class="production-goals-comments">
               <p>No se pudo cargar el inventario.</p>
@@ -3479,6 +3444,64 @@
         if (idx >= 0 && idx < dateKeys.length - 1) render(dateKeys[idx + 1]);
       });
       render(dateInput.value || payload.latest_date || "");
+    })();
+
+    (function () {
+      const dataNode = document.getElementById("inventoryBookData");
+      const select = document.getElementById("inventoryCollectionSelect");
+      const tbody = document.getElementById("inventoryBookTableBody");
+      if (!dataNode || !select || !tbody) return;
+
+      let collections = [];
+      try {
+        const parsed = JSON.parse(dataNode.textContent || "[]");
+        collections = Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        collections = [];
+      }
+      if (!collections.length) return;
+
+      const formatNum = (value) => {
+        const n = Number(value || 0);
+        if (!Number.isFinite(n) || n <= 0) return "";
+        return n.toLocaleString("es-CL");
+      };
+
+      const renderCollection = (collectionName) => {
+        const current = collections.find((item) => String(item.name || "") === String(collectionName || ""));
+        if (!current) {
+          tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay datos para esta coleccion.</td></tr>';
+          return;
+        }
+        const rows = Array.isArray(current.articles) ? current.articles : [];
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay articulos con stock para esta coleccion.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = rows
+          .map((row) => {
+            const sizes = row.sizes || {};
+            return `
+              <tr>
+                <td>${row.articulo || "-"}</td>
+                <td>${row.tiro || "-"}</td>
+                <td>${row.bota || "-"}</td>
+                <td>${row.color || "-"}</td>
+                <td class="num">${formatNum(sizes[36])}</td>
+                <td class="num">${formatNum(sizes[38])}</td>
+                <td class="num">${formatNum(sizes[40])}</td>
+                <td class="num">${formatNum(sizes[42])}</td>
+                <td class="num">${formatNum(sizes[44])}</td>
+                <td class="num">${formatNum(sizes[46])}</td>
+                <td class="num">${formatNum(row.stock)}</td>
+              </tr>
+            `;
+          })
+          .join("");
+      };
+
+      select.addEventListener("change", () => renderCollection(select.value));
+      renderCollection(select.value || "42");
     })();
 
     (function () {

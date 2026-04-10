@@ -2683,7 +2683,18 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 "size_headers": sorted(int(x) for x in (bucket.get("size_headers") or set())),
             }
         )
-    collections.sort(key=lambda x: (-int(x["total_stock"]), str(x["name"])))
+    def _collection_sort_key(item: dict[str, object]):
+        name = str(item.get("name") or "").strip()
+        if name == "42":
+            return (0, 0, name)
+        if name.isdigit():
+            return (1, int(name), name)
+        return (2, 9999, name)
+
+    collections.sort(key=_collection_sort_key)
+    default_collection = "42"
+    if not any(str(c.get("name") or "") == "42" for c in collections):
+        default_collection = str((collections[0] if collections else {}).get("name") or "")
 
     return {
         "available": True,
@@ -2691,6 +2702,7 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
         "file_name": active_path.name,
         "path": str(active_path),
         "collections": collections,
+        "default_collection": default_collection,
         "total_stock": sum(int(c["total_stock"]) for c in collections),
         "total_items": sum(int(c["items_count"]) for c in collections),
     }
