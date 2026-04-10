@@ -121,13 +121,6 @@
           <h2>Metas produccion</h2>
         </button>
       </article>
-      
-        <article class="card-action summary-secondary">
-          <button type="button" class="summary-open summary-open-centered" id="openProductionExcelModal">
-            <h2>Vista excel local</h2>
-          </button>
-        </article>
-      
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openBodegaModal">
           <h2>Ordenes en bodega</h2>
@@ -1169,13 +1162,12 @@
       </section>
     </dialog>
 
-    
       <dialog id="productionExcelModal" class="modal modal-production-excel">
         <div class="modal-head">
           <div>
-            <h3>Vista Excel local</h3>
+            <h3>Metas de produccion</h3>
             <p class="production-goals-copy">
-              Replica visual inspirada en `Metas 2025_Revisa ADCM.xlsx` usando los datos actuales de produccion.
+              Replica visual inspirada en `Metas 2025_Revisa ADCM.xlsx` usando los datos actuales de abril.
             </p>
           </div>
           <button
@@ -2115,7 +2107,6 @@
           </div>
         </section>
       </dialog>
-    
 
     
       <dialog id="ventasDocsModal" class="modal ventas-docs-block">
@@ -20539,8 +20530,7 @@
       });
 
       const openIdToModalId = {
-        openProductionGoalsModal: "productionGoalsDailyModal",
-        openProductionExcelModal: "productionExcelModal",
+          openProductionGoalsModal: "productionExcelModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
