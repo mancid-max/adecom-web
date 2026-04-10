@@ -8918,3 +8918,19 @@ body.theme-gentelella,
   width: 6.67% !important;
 }
 
+#inventorySizeCards .inventory-total-all {
+  background: linear-gradient(135deg, #123a66, #0f5a7a) !important;
+  border: 2px solid #7fd3ff !important;
+  box-shadow: 0 10px 24px rgba(18, 58, 102, 0.35) !important;
+}
+
+#inventorySizeCards .inventory-total-all h4,
+#inventorySizeCards .inventory-total-all p {
+  color: #f5fbff !important;
+}
+
+#inventorySizeCards .inventory-total-all p {
+  font-size: 2.1rem !important;
+  font-weight: 800 !important;
+}
+

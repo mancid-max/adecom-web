@@ -2043,6 +2043,7 @@
               </select>
             </div>
             <div class="modal-kpis" id="inventorySizeCards">
+              <article class="inventory-total-all"><h4>Total todo</h4><p id="invTotalAll">0</p></article>
               <article><h4>Total 36</h4><p id="invTotal36">0</p></article>
               <article><h4>Total 38</h4><p id="invTotal38">0</p></article>
               <article><h4>Total 40</h4><p id="invTotal40">0</p></article>
@@ -25674,6 +25675,7 @@
       };
 
       const cardEls = {
+        all: document.getElementById("invTotalAll"),
         36: document.getElementById("invTotal36"),
         38: document.getElementById("invTotal38"),
         40: document.getElementById("invTotal40"),
@@ -25697,6 +25699,7 @@
           return;
         }
         const sizeTotals = { 36: 0, 38: 0, 40: 0, 42: 0, 44: 0, 46: 0 };
+        let grandTotal = 0;
         tbody.innerHTML = rows
           .map((row) => {
             const sizes = row.sizes || {};
@@ -25706,6 +25709,7 @@
             sizeTotals[42] += Number(sizes[42] || 0);
             sizeTotals[44] += Number(sizes[44] || 0);
             sizeTotals[46] += Number(sizes[46] || 0);
+            grandTotal += Number(row.stock || 0);
             return `
               <tr>
                 <td>${row.articulo || "-"}</td>
@@ -25723,7 +25727,9 @@
             `;
           })
           .join("");
+        if (cardEls.all) cardEls.all.textContent = Number(grandTotal || 0).toLocaleString("es-CL");
         Object.keys(cardEls).forEach((size) => {
+          if (size === "all") return;
           const el = cardEls[size];
           if (el) el.textContent = Number(sizeTotals[size] || 0).toLocaleString("es-CL");
         });
