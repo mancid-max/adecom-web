@@ -22295,8 +22295,11 @@
       const formItemId = document.getElementById("inventoryFormItemId");
       const formSubmit = document.getElementById("inventoryFormSubmit");
       const formReset = document.getElementById("inventoryFormReset");
+      const formDeleteBtn = document.getElementById("inventoryFormDelete");
       const deleteForm = document.getElementById("inventoryDeleteForm");
       const deleteItemId = document.getElementById("inventoryDeleteItemId");
+      const manageSearchInput = document.getElementById("inventoryManageSearch");
+      const manageMatches = document.getElementById("inventoryManageMatches");
       const formFields = {
         coleccion: document.getElementById("inventoryFormColeccion"),
         articulo: document.getElementById("inventoryFormArticulo"),
@@ -22311,6 +22314,12 @@
         44: document.getElementById("inventoryForm44"),
         46: document.getElementById("inventoryForm46"),
       };
+      const normalizeSearch = (value) =>
+        String(value || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim();
 
       const formatNum = (value) => {
         const n = Number(value || 0);
@@ -22329,9 +22338,81 @@
       };
 
       const allRows = collections.flatMap((item) => (Array.isArray(item.articles) ? item.articles : []));
+      const materializeRow = (row, fallbackCollection) => ({
+        id: Number(row.id || 0),
+        coleccion: String(row.coleccion || fallbackCollection || "").trim(),
+        articulo: String(row.articulo || "").trim(),
+        tiro: String(row.tiro || "").trim(),
+        bota: String(row.bota || "").trim(),
+        color: String(row.color || "").trim(),
+        stock: Number(row.stock || 0),
+        sizes: row.sizes || {},
+      });
+      const applyRowToForm = (row) => {
+        if (!manageForm || !formItemId || !formSubmit) return;
+        formItemId.value = String(row.id || "");
+        if (formFields.coleccion) formFields.coleccion.value = row.coleccion || "";
+        if (formFields.articulo) formFields.articulo.value = row.articulo || "";
+        if (formFields.tiro) formFields.tiro.value = row.tiro || "";
+        if (formFields.bota) formFields.bota.value = row.bota || "";
+        if (formFields.color) formFields.color.value = row.color || "";
+        if (formFields.stock) formFields.stock.value = String(Number(row.stock || 0));
+        [36, 38, 40, 42, 44, 46].forEach((size) => {
+          const field = formFields[size];
+          if (field) field.value = String(Number((row.sizes || {})[size] || 0));
+        });
+        formSubmit.textContent = "Actualizar registro";
+        if (formDeleteBtn instanceof HTMLButtonElement) formDeleteBtn.disabled = false;
+        manageForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      };
+      const renderManageMatches = () => {
+        if (!canManage || !manageMatches) return;
+        const query = normalizeSearch(manageSearchInput?.value || "");
+        if (!query) {
+          manageMatches.innerHTML = '<span class="empty">Escribe para buscar articulo, tiro, bota o color.</span>';
+          return;
+        }
+        const matches = allRows
+          .map((row) => materializeRow(row, row.coleccion || ""))
+          .filter((row) => {
+            const text = normalizeSearch(`${row.articulo} ${row.coleccion} ${row.tiro} ${row.bota} ${row.color}`);
+            return text.includes(query);
+          })
+          .sort((a, b) => Number(b.stock || 0) - Number(a.stock || 0))
+          .slice(0, 12);
+        if (!matches.length) {
+          manageMatches.innerHTML = '<span class="empty">Sin resultados para esta busqueda.</span>';
+          return;
+        }
+        manageMatches.innerHTML = matches
+          .map(
+            (row) => `
+              <button type="button" class="btn-ghost inventory-match-btn"
+                data-id="${row.id}"
+                data-coleccion="${row.coleccion}"
+                data-articulo="${row.articulo}"
+                data-tiro="${row.tiro}"
+                data-bota="${row.bota}"
+                data-color="${row.color}"
+                data-stock="${Number(row.stock || 0)}"
+                data-36="${Number((row.sizes || {})[36] || 0)}"
+                data-38="${Number((row.sizes || {})[38] || 0)}"
+                data-40="${Number((row.sizes || {})[40] || 0)}"
+                data-42="${Number((row.sizes || {})[42] || 0)}"
+                data-44="${Number((row.sizes || {})[44] || 0)}"
+                data-46="${Number((row.sizes || {})[46] || 0)}"
+              >
+                <strong>${row.articulo || "-"}</strong>
+                <span>Cole ${row.coleccion || "-"} · ${row.bota || "-"} · Total ${formatNum(row.stock)}</span>
+              </button>
+            `
+          )
+          .join("");
+      };
 
       const renderCollection = (collectionName) => {
         const selectedAll = String(collectionName || "") === "__ALL__";
+        const searchText = normalizeSearch(manageSearchInput?.value || "");
         const rows =
           String(collectionName || "") === "__ALL__"
             ? allRows
@@ -22345,17 +22426,27 @@
                 return String(a?.articulo || "").localeCompare(String(b?.articulo || ""));
               })
           : rows;
-        if (!sortedRows.length) {
+        const renderedRows = searchText
+          ? sortedRows.filter((row) => {
+              const normalized = normalizeSearch(
+                `${row?.articulo || ""} ${row?.tiro || ""} ${row?.bota || ""} ${row?.color || ""} ${row?.coleccion || collectionName || ""}`
+              );
+              return normalized.includes(searchText);
+            })
+          : sortedRows;
+        if (!renderedRows.length) {
           tbody.innerHTML = `<tr><td colspan="${canManage ? 12 : 11}" class="empty">No hay datos para esta coleccion.</td></tr>`;
           Object.values(cardEls).forEach((el) => {
             if (el) el.textContent = "0";
           });
+          renderManageMatches();
           return;
         }
         const sizeTotals = { 36: 0, 38: 0, 40: 0, 42: 0, 44: 0, 46: 0 };
         let grandTotal = 0;
-        tbody.innerHTML = sortedRows
+        tbody.innerHTML = renderedRows
           .map((row) => {
+            const rowObj = materializeRow(row, collectionName);
             const sizes = row.sizes || {};
             sizeTotals[36] += Number(sizes[36] || 0);
             sizeTotals[38] += Number(sizes[38] || 0);
@@ -22381,13 +22472,13 @@
                   canManage
                     ? `<td>
                          <button type="button" class="btn-ghost inventory-edit-btn"
-                           data-id="${row.id || ""}"
-                           data-coleccion="${row.coleccion || collectionName || ""}"
-                           data-articulo="${row.articulo || ""}"
-                           data-tiro="${row.tiro || ""}"
-                           data-bota="${row.bota || ""}"
-                           data-color="${row.color || ""}"
-                           data-stock="${Number(row.stock || 0)}"
+                           data-id="${rowObj.id || ""}"
+                           data-coleccion="${rowObj.coleccion || ""}"
+                           data-articulo="${rowObj.articulo || ""}"
+                           data-tiro="${rowObj.tiro || ""}"
+                           data-bota="${rowObj.bota || ""}"
+                           data-color="${rowObj.color || ""}"
+                           data-stock="${Number(rowObj.stock || 0)}"
                            data-36="${Number(sizes[36] || 0)}"
                            data-38="${Number(sizes[38] || 0)}"
                            data-40="${Number(sizes[40] || 0)}"
@@ -22409,6 +22500,7 @@
           const el = cardEls[size];
           if (el) el.textContent = Number(sizeTotals[size] || 0).toLocaleString("es-CL");
         });
+        renderManageMatches();
       };
 
       select.addEventListener("change", () => renderCollection(select.value));
@@ -22429,26 +22521,30 @@
           if (field) field.value = "";
         });
         formSubmit.textContent = "Guardar registro";
+        if (formDeleteBtn instanceof HTMLButtonElement) formDeleteBtn.disabled = true;
       };
       tbody.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
         const editBtn = target.closest(".inventory-edit-btn");
         if (editBtn instanceof HTMLButtonElement) {
-          if (!manageForm || !formItemId || !formSubmit) return;
-          formItemId.value = editBtn.dataset.id || "";
-          if (formFields.coleccion) formFields.coleccion.value = editBtn.dataset.coleccion || "";
-          if (formFields.articulo) formFields.articulo.value = editBtn.dataset.articulo || "";
-          if (formFields.tiro) formFields.tiro.value = editBtn.dataset.tiro || "";
-          if (formFields.bota) formFields.bota.value = editBtn.dataset.bota || "";
-          if (formFields.color) formFields.color.value = editBtn.dataset.color || "";
-          if (formFields.stock) formFields.stock.value = editBtn.dataset.stock || "";
-          [36, 38, 40, 42, 44, 46].forEach((size) => {
-            const field = formFields[size];
-            if (field) field.value = editBtn.dataset[String(size)] || "";
+          applyRowToForm({
+            id: Number(editBtn.dataset.id || 0),
+            coleccion: editBtn.dataset.coleccion || "",
+            articulo: editBtn.dataset.articulo || "",
+            tiro: editBtn.dataset.tiro || "",
+            bota: editBtn.dataset.bota || "",
+            color: editBtn.dataset.color || "",
+            stock: Number(editBtn.dataset.stock || 0),
+            sizes: {
+              36: Number(editBtn.dataset["36"] || 0),
+              38: Number(editBtn.dataset["38"] || 0),
+              40: Number(editBtn.dataset["40"] || 0),
+              42: Number(editBtn.dataset["42"] || 0),
+              44: Number(editBtn.dataset["44"] || 0),
+              46: Number(editBtn.dataset["46"] || 0),
+            },
           });
-          formSubmit.textContent = "Actualizar registro";
-          manageForm.scrollIntoView({ behavior: "smooth", block: "center" });
           return;
         }
         const delBtn = target.closest(".inventory-del-btn");
@@ -22462,10 +22558,48 @@
       if (formReset instanceof HTMLButtonElement) {
         formReset.addEventListener("click", () => clearManageForm());
       }
+      if (formDeleteBtn instanceof HTMLButtonElement) {
+        formDeleteBtn.addEventListener("click", () => {
+          const itemId = String(formItemId?.value || "").trim();
+          if (!itemId || !deleteForm || !deleteItemId) return;
+          if (!window.confirm("Eliminar el registro seleccionado?")) return;
+          deleteItemId.value = itemId;
+          deleteForm.submit();
+        });
+      }
+      if (manageMatches) {
+        manageMatches.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const btn = target.closest(".inventory-match-btn");
+          if (!(btn instanceof HTMLButtonElement)) return;
+          applyRowToForm({
+            id: Number(btn.dataset.id || 0),
+            coleccion: btn.dataset.coleccion || "",
+            articulo: btn.dataset.articulo || "",
+            tiro: btn.dataset.tiro || "",
+            bota: btn.dataset.bota || "",
+            color: btn.dataset.color || "",
+            stock: Number(btn.dataset.stock || 0),
+            sizes: {
+              36: Number(btn.dataset["36"] || 0),
+              38: Number(btn.dataset["38"] || 0),
+              40: Number(btn.dataset["40"] || 0),
+              42: Number(btn.dataset["42"] || 0),
+              44: Number(btn.dataset["44"] || 0),
+              46: Number(btn.dataset["46"] || 0),
+            },
+          });
+        });
+      }
+      if (manageSearchInput instanceof HTMLInputElement) {
+        manageSearchInput.addEventListener("input", () => renderCollection(select.value));
+      }
       select.addEventListener("change", () => {
         if (!formItemId?.value) clearManageForm();
       });
       clearManageForm();
+      renderManageMatches();
     })();
 
     (function () {
