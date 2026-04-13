@@ -1563,13 +1563,44 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
     for idx, start in enumerate(week_starts, start=1):
         hab_row = next(ws.iter_rows(min_row=max(start - 3, 1), max_row=max(start - 3, 1), values_only=True), ())
         day_row = next(ws.iter_rows(min_row=max(start - 2, 1), max_row=max(start - 2, 1), values_only=True), ())
-        habiles = [int(_to_float(v)) if _to_float(v) > 0 else None for v in list(hab_row[5:12])]
-        fechas = [int(_to_float(v)) if _to_float(v) > 0 else None for v in list(day_row[5:12])]
+        day_candidates = [
+            (i, int(_to_float(v) or 0))
+            for i, v in enumerate(day_row)
+            if int(_to_float(v) or 0) > 0 and int(_to_float(v) or 0) <= 31
+        ]
+        best_run: list[tuple[int, int]] = []
+        for i in range(len(day_candidates)):
+            run = [day_candidates[i]]
+            for j in range(i + 1, len(day_candidates)):
+                prev_col, prev_val = run[-1]
+                col, val = day_candidates[j]
+                if col > prev_col and val == prev_val + 1:
+                    run.append((col, val))
+                elif val <= prev_val:
+                    break
+            if len(run) > len(best_run):
+                best_run = run
+        selected = best_run if len(best_run) >= 2 else day_candidates
+        day_col_indices = [i for i, _ in selected]
+        habiles = []
+        fechas = []
+        for i_col in day_col_indices:
+            h_raw = hab_row[i_col] if i_col < len(hab_row) else None
+            d_raw = day_row[i_col] if i_col < len(day_row) else None
+            h_val = int(_to_float(h_raw) or 0)
+            d_val = int(_to_float(d_raw) or 0)
+            habiles.append(h_val if h_val > 0 else None)
+            fechas.append(d_val if d_val > 0 else None)
         week_rows = []
         for area_key, offset, label in week_area_rows:
             row = next(ws.iter_rows(min_row=start + offset, max_row=start + offset, values_only=True), ())
-            values = [int(_to_float(v)) if _to_float(v) > 0 else None for v in list(row[5:12])]
-            total = int(_to_float(row[10] if len(row) > 10 else 0) or 0)
+            values = []
+            for i_col in day_col_indices:
+                raw = row[i_col] if i_col < len(row) else None
+                num = int(_to_float(raw) or 0)
+                values.append(num if num > 0 else None)
+            total_cell = int(_to_float(row[10] if len(row) > 10 else 0) or 0)
+            total = total_cell if total_cell > 0 else sum(int(v or 0) for v in values)
             week_rows.append({"key": area_key, "name": label, "values": values, "total": total})
         weeks.append(
             {
