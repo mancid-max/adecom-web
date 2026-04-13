@@ -73,6 +73,12 @@ PROGRAMAS_MHC_PATH = Path(
         str(SEED_DIR / "1_PROGRAMAS DE PRODUCCION MHC .xlsx"),
     )
 )
+PROGRAMAS_MHC_SNAPSHOT_PATH = Path(
+    os.environ.get(
+        "ADECOM_PROGRAMAS_MHC_SNAPSHOT",
+        str(SEED_DIR / "PROGRAMAS_MHC_SNAPSHOT.json"),
+    )
+)
 INVENTORY_BOOK_PATH = Path(
     os.environ.get(
         "ADECOM_INVENTARIO_XLSX",
@@ -1476,8 +1482,23 @@ def _production_goal_status(ratio: float) -> str:
 
 
 def _load_programas_mhc_snapshot() -> dict[str, object] | None:
+    def _load_programas_snapshot_json() -> dict[str, object] | None:
+        if not PROGRAMAS_MHC_SNAPSHOT_PATH.exists():
+            return None
+        try:
+            raw = json.loads(PROGRAMAS_MHC_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        if not isinstance(raw, dict):
+            return None
+        weeks = raw.get("weeks") or []
+        sections = raw.get("sections") or {}
+        if not isinstance(weeks, list) or not isinstance(sections, dict):
+            return None
+        return raw
+
     if not PROGRAMAS_MHC_PATH.exists():
-        return None
+        return _load_programas_snapshot_json()
     try:
         from openpyxl import load_workbook
     except Exception:
@@ -1485,7 +1506,7 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
     try:
         wb = load_workbook(PROGRAMAS_MHC_PATH, data_only=True, read_only=True)
     except Exception:
-        return None
+        return _load_programas_snapshot_json()
 
     month_aliases = {
         1: "enero",
@@ -1520,7 +1541,7 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
             candidates.sort()
             sheet_name = candidates[-1][2]
     if not sheet_name:
-        return None
+        return _load_programas_snapshot_json()
 
     ws = wb[sheet_name]
     row2 = next(ws.iter_rows(min_row=2, max_row=2, values_only=True), ())
@@ -1611,7 +1632,7 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
             }
         )
 
-    return {
+    snapshot = {
         "sheet_name": sheet_name,
         "days_month": days_month,
         "days_elapsed": days_elapsed,
@@ -1619,6 +1640,14 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
         "sections": sections,
         "weeks": weeks,
     }
+    try:
+        PROGRAMAS_MHC_SNAPSHOT_PATH.write_text(
+            json.dumps(snapshot, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+    return snapshot
 
 
 def _build_production_goals_summary() -> dict[str, object]:

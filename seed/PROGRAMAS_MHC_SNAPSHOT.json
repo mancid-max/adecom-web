@@ -1,0 +1,480 @@
+{
+  "sheet_name": "Abril 2026",
+  "days_month": 21,
+  "days_elapsed": 4,
+  "days_remaining": 17,
+  "sections": {
+    "corte": {
+      "name": "Corte",
+      "meta_day": 476.1904761904762,
+      "meta_month": 10000.0,
+      "projected": 1904.7619047619048,
+      "actual": 2918.0,
+      "daily_avg": 729.5
+    },
+    "urrutia": {
+      "name": "Urrutia",
+      "meta_day": 285.7142857142857,
+      "meta_month": 6000.0,
+      "projected": 1142.857142857143,
+      "actual": 1338.0,
+      "daily_avg": 334.5
+    },
+    "tierra_fuego": {
+      "name": "Tierra del Fuego",
+      "meta_day": 190.47619047619048,
+      "meta_month": 4000.0,
+      "projected": 761.9047619047619,
+      "actual": 0.0,
+      "daily_avg": 0.0
+    },
+    "lavanderia": {
+      "name": "Lavandería",
+      "meta_day": 476.1904761904762,
+      "meta_month": 10000.0,
+      "projected": 1904.7619047619048,
+      "actual": 3249.0,
+      "daily_avg": 812.25
+    },
+    "terminacion": {
+      "name": "Terminación",
+      "meta_day": 476.1904761904762,
+      "meta_month": 10000.0,
+      "projected": 1904.7619047619048,
+      "actual": 2217.0,
+      "daily_avg": 554.25
+    }
+  },
+  "weeks": [
+    {
+      "label": "Semana 1",
+      "habiles": [
+        1,
+        2,
+        null,
+        null,
+        null
+      ],
+      "fechas": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "rows": [
+        {
+          "key": "corte",
+          "name": "Corte",
+          "values": [
+            652,
+            198,
+            null,
+            null,
+            null
+          ],
+          "total": 850
+        },
+        {
+          "key": "urrutia",
+          "name": "Urrutia",
+          "values": [
+            176,
+            162,
+            null,
+            null,
+            null
+          ],
+          "total": 338
+        },
+        {
+          "key": "sur",
+          "name": "Sur",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "lavanderia",
+          "name": "Lavanderia",
+          "values": [
+            456,
+            652,
+            null,
+            null,
+            null
+          ],
+          "total": 1108
+        },
+        {
+          "key": "terminacion",
+          "name": "Terminacion",
+          "values": [
+            152,
+            372,
+            null,
+            null,
+            null
+          ],
+          "total": 524
+        }
+      ]
+    },
+    {
+      "label": "Semana 2",
+      "habiles": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        null,
+        null
+      ],
+      "fechas": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "rows": [
+        {
+          "key": "corte",
+          "name": "Corte",
+          "values": [
+            652,
+            652,
+            164,
+            600,
+            null,
+            null,
+            null
+          ],
+          "total": 2068
+        },
+        {
+          "key": "urrutia",
+          "name": "Urrutia",
+          "values": [
+            150,
+            198,
+            250,
+            200,
+            202,
+            null,
+            null
+          ],
+          "total": 1000
+        },
+        {
+          "key": "sur",
+          "name": "Sur",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "lavanderia",
+          "name": "Lavanderia",
+          "values": [
+            341,
+            535,
+            469,
+            274,
+            522,
+            null,
+            null
+          ],
+          "total": 2141
+        },
+        {
+          "key": "terminacion",
+          "name": "Terminacion",
+          "values": [
+            468,
+            392,
+            419,
+            414,
+            null,
+            null,
+            null
+          ],
+          "total": 1693
+        }
+      ]
+    },
+    {
+      "label": "Semana 3",
+      "habiles": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        null,
+        null
+      ],
+      "fechas": [
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "rows": [
+        {
+          "key": "corte",
+          "name": "Corte",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "urrutia",
+          "name": "Urrutia",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "sur",
+          "name": "Sur",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "lavanderia",
+          "name": "Lavanderia",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "terminacion",
+          "name": "Terminacion",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        }
+      ]
+    },
+    {
+      "label": "Semana 4",
+      "habiles": [
+        13,
+        14,
+        15,
+        16,
+        17,
+        null,
+        null
+      ],
+      "fechas": [
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "rows": [
+        {
+          "key": "corte",
+          "name": "Corte",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "urrutia",
+          "name": "Urrutia",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "sur",
+          "name": "Sur",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "lavanderia",
+          "name": "Lavanderia",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "terminacion",
+          "name": "Terminacion",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        }
+      ]
+    },
+    {
+      "label": "Semana 5",
+      "habiles": [
+        18,
+        19,
+        20,
+        21
+      ],
+      "fechas": [
+        27,
+        28,
+        29,
+        30
+      ],
+      "rows": [
+        {
+          "key": "corte",
+          "name": "Corte",
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "urrutia",
+          "name": "Urrutia",
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "sur",
+          "name": "Sur",
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "lavanderia",
+          "name": "Lavanderia",
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        },
+        {
+          "key": "terminacion",
+          "name": "Terminacion",
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ],
+          "total": 0
+        }
+      ]
+    }
+  ]
+}
