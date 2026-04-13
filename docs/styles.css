@@ -8934,3 +8934,41 @@ body.theme-gentelella,
   font-weight: 800 !important;
 }
 
+.inventory-manage-form {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid #d7dee5;
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+
+.inventory-manage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.inventory-manage-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.86rem;
+  color: #354b62;
+  font-weight: 600;
+}
+
+.inventory-manage-grid input {
+  border: 1px solid #c9d3de;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 0.92rem;
+  background: #ffffff;
+}
+
+.inventory-manage-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+

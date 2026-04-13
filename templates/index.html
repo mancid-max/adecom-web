@@ -30,7 +30,7 @@
           <div class="side-group-body" hidden>
             <button type="button" class="side-link side-action-btn" data-open-id="openProductionGoalsModal">Metas produccion</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProductionExcelModal">Modelo Excel metas</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openInventoryBookModal">Stock bodega libro</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openInventoryBookModal">Stock bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
@@ -173,7 +173,7 @@
       </article>
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openInventoryBookModal">
-          <h2>Stock bodega libro</h2>
+          <h2>Stock bodega</h2>
         </button>
       </article>
       <article class="card-action summary-secondary">
@@ -484,7 +484,62 @@
                   </option>
                 {% endfor %}
               </select>
+              {% if can_upload %}
+                <form method="post" action="/inventory/manage/sync-excel" class="inline-form">
+                  <button type="submit" class="btn-ghost">Sincronizar desde Excel</button>
+                </form>
+              {% endif %}
             </div>
+            {% if can_upload %}
+            <form method="post" action="/inventory/manage/save" class="inventory-manage-form" id="inventoryManageForm">
+              <input type="hidden" name="item_id" id="inventoryFormItemId" value="">
+              <div class="inventory-manage-grid">
+                <label>Coleccion
+                  <input type="text" name="coleccion" id="inventoryFormColeccion" placeholder="42">
+                </label>
+                <label>Articulo
+                  <input type="text" name="articulo" id="inventoryFormArticulo" required>
+                </label>
+                <label>Tiro
+                  <input type="text" name="tiro" id="inventoryFormTiro">
+                </label>
+                <label>Bota
+                  <input type="text" name="bota" id="inventoryFormBota">
+                </label>
+                <label>Color
+                  <input type="text" name="color" id="inventoryFormColor">
+                </label>
+                <label>Total
+                  <input type="number" name="stock" id="inventoryFormStock" min="0" step="1">
+                </label>
+                <label>36
+                  <input type="number" name="talla_36" id="inventoryForm36" min="0" step="1">
+                </label>
+                <label>38
+                  <input type="number" name="talla_38" id="inventoryForm38" min="0" step="1">
+                </label>
+                <label>40
+                  <input type="number" name="talla_40" id="inventoryForm40" min="0" step="1">
+                </label>
+                <label>42
+                  <input type="number" name="talla_42" id="inventoryForm42" min="0" step="1">
+                </label>
+                <label>44
+                  <input type="number" name="talla_44" id="inventoryForm44" min="0" step="1">
+                </label>
+                <label>46
+                  <input type="number" name="talla_46" id="inventoryForm46" min="0" step="1">
+                </label>
+              </div>
+              <div class="inventory-manage-actions">
+                <button type="submit" id="inventoryFormSubmit">Guardar registro</button>
+                <button type="button" class="btn-ghost" id="inventoryFormReset">Nuevo</button>
+              </div>
+            </form>
+            <form method="post" action="/inventory/manage/delete" id="inventoryDeleteForm" hidden>
+              <input type="hidden" name="item_id" id="inventoryDeleteItemId" value="">
+            </form>
+            {% endif %}
             <div class="modal-kpis" id="inventorySizeCards">
               <article class="inventory-total-all"><h4>Total todo</h4><p id="invTotalAll">0</p></article>
               <article><h4>Total 36</h4><p id="invTotal36">0</p></article>
@@ -509,17 +564,18 @@
                     <th class="num">44</th>
                     <th class="num">46</th>
                     <th class="num">Total</th>
+                    {% if can_upload %}<th>Acciones</th>{% endif %}
                   </tr>
                 </thead>
                 <tbody id="inventoryBookTableBody"></tbody>
               </table>
             </div>
             <script id="inventoryBookData" type="application/json">{{ inventory_book.collections|tojson }}</script>
+            <script id="inventoryBookConfig" type="application/json">{{ {"can_manage": can_upload}|tojson }}</script>
           {% else %}
             <div class="production-goals-comments">
               <p>No se pudo cargar el inventario.</p>
               <p>{{ inventory_book.error }}</p>
-              <p>Ruta configurada: {{ inventory_book.path }}</p>
             </div>
           {% endif %}
         </section>
@@ -3454,6 +3510,7 @@
 
     (function () {
       const dataNode = document.getElementById("inventoryBookData");
+      const configNode = document.getElementById("inventoryBookConfig");
       const select = document.getElementById("inventoryCollectionSelect");
       const tbody = document.getElementById("inventoryBookTableBody");
       if (!dataNode || !select || !tbody) return;
@@ -3466,6 +3523,33 @@
         collections = [];
       }
       if (!collections.length) return;
+      let canManage = false;
+      try {
+        const parsedCfg = JSON.parse(configNode?.textContent || "{}");
+        canManage = Boolean(parsedCfg?.can_manage);
+      } catch (_) {
+        canManage = false;
+      }
+      const manageForm = document.getElementById("inventoryManageForm");
+      const formItemId = document.getElementById("inventoryFormItemId");
+      const formSubmit = document.getElementById("inventoryFormSubmit");
+      const formReset = document.getElementById("inventoryFormReset");
+      const deleteForm = document.getElementById("inventoryDeleteForm");
+      const deleteItemId = document.getElementById("inventoryDeleteItemId");
+      const formFields = {
+        coleccion: document.getElementById("inventoryFormColeccion"),
+        articulo: document.getElementById("inventoryFormArticulo"),
+        tiro: document.getElementById("inventoryFormTiro"),
+        bota: document.getElementById("inventoryFormBota"),
+        color: document.getElementById("inventoryFormColor"),
+        stock: document.getElementById("inventoryFormStock"),
+        36: document.getElementById("inventoryForm36"),
+        38: document.getElementById("inventoryForm38"),
+        40: document.getElementById("inventoryForm40"),
+        42: document.getElementById("inventoryForm42"),
+        44: document.getElementById("inventoryForm44"),
+        46: document.getElementById("inventoryForm46"),
+      };
 
       const formatNum = (value) => {
         const n = Number(value || 0);
@@ -3501,7 +3585,7 @@
               })
           : rows;
         if (!sortedRows.length) {
-          tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay datos para esta coleccion.</td></tr>';
+          tbody.innerHTML = `<tr><td colspan="${canManage ? 12 : 11}" class="empty">No hay datos para esta coleccion.</td></tr>`;
           Object.values(cardEls).forEach((el) => {
             if (el) el.textContent = "0";
           });
@@ -3532,6 +3616,28 @@
                 <td class="num">${formatNum(sizes[44])}</td>
                 <td class="num">${formatNum(sizes[46])}</td>
                 <td class="num">${formatNum(row.stock)}</td>
+                ${
+                  canManage
+                    ? `<td>
+                         <button type="button" class="btn-ghost inventory-edit-btn"
+                           data-id="${row.id || ""}"
+                           data-coleccion="${row.coleccion || collectionName || ""}"
+                           data-articulo="${row.articulo || ""}"
+                           data-tiro="${row.tiro || ""}"
+                           data-bota="${row.bota || ""}"
+                           data-color="${row.color || ""}"
+                           data-stock="${Number(row.stock || 0)}"
+                           data-36="${Number(sizes[36] || 0)}"
+                           data-38="${Number(sizes[38] || 0)}"
+                           data-40="${Number(sizes[40] || 0)}"
+                           data-42="${Number(sizes[42] || 0)}"
+                           data-44="${Number(sizes[44] || 0)}"
+                           data-46="${Number(sizes[46] || 0)}"
+                         >Editar</button>
+                         <button type="button" class="btn-ghost inventory-del-btn" data-id="${row.id || ""}">Eliminar</button>
+                       </td>`
+                    : ""
+                }
               </tr>
             `;
           })
@@ -3546,6 +3652,59 @@
 
       select.addEventListener("change", () => renderCollection(select.value));
       renderCollection(select.value || "42");
+
+      if (!canManage) return;
+      const clearManageForm = () => {
+        if (!manageForm || !formItemId || !formSubmit) return;
+        formItemId.value = "";
+        if (formFields.coleccion) formFields.coleccion.value = select.value === "__ALL__" ? "" : (select.value || "");
+        if (formFields.articulo) formFields.articulo.value = "";
+        if (formFields.tiro) formFields.tiro.value = "";
+        if (formFields.bota) formFields.bota.value = "";
+        if (formFields.color) formFields.color.value = "";
+        if (formFields.stock) formFields.stock.value = "";
+        [36, 38, 40, 42, 44, 46].forEach((size) => {
+          const field = formFields[size];
+          if (field) field.value = "";
+        });
+        formSubmit.textContent = "Guardar registro";
+      };
+      tbody.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const editBtn = target.closest(".inventory-edit-btn");
+        if (editBtn instanceof HTMLButtonElement) {
+          if (!manageForm || !formItemId || !formSubmit) return;
+          formItemId.value = editBtn.dataset.id || "";
+          if (formFields.coleccion) formFields.coleccion.value = editBtn.dataset.coleccion || "";
+          if (formFields.articulo) formFields.articulo.value = editBtn.dataset.articulo || "";
+          if (formFields.tiro) formFields.tiro.value = editBtn.dataset.tiro || "";
+          if (formFields.bota) formFields.bota.value = editBtn.dataset.bota || "";
+          if (formFields.color) formFields.color.value = editBtn.dataset.color || "";
+          if (formFields.stock) formFields.stock.value = editBtn.dataset.stock || "";
+          [36, 38, 40, 42, 44, 46].forEach((size) => {
+            const field = formFields[size];
+            if (field) field.value = editBtn.dataset[String(size)] || "";
+          });
+          formSubmit.textContent = "Actualizar registro";
+          manageForm.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
+        const delBtn = target.closest(".inventory-del-btn");
+        if (!(delBtn instanceof HTMLButtonElement)) return;
+        const itemId = delBtn.dataset.id || "";
+        if (!itemId || !deleteForm || !deleteItemId) return;
+        if (!window.confirm("Eliminar este registro de stock?")) return;
+        deleteItemId.value = itemId;
+        deleteForm.submit();
+      });
+      if (formReset instanceof HTMLButtonElement) {
+        formReset.addEventListener("click", () => clearManageForm());
+      }
+      select.addEventListener("change", () => {
+        if (!formItemId?.value) clearManageForm();
+      });
+      clearManageForm();
     })();
 
     (function () {

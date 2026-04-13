@@ -21,6 +21,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
     add_lavanderia_registro,
+    delete_inventory_stock_row,
     delete_lavanderia_registro,
     get_conn,
     import_lavanderia_rows,
@@ -34,6 +35,7 @@ from adecom_db import (
     init_db,
     import_pedidos_talla_rows,
     import_rows,
+    query_inventory_stock_rows,
     query_lavanderia_productividad,
     query_lavanderia_catalogos,
     query_assistant_rules,
@@ -41,6 +43,8 @@ from adecom_db import (
     query_comparativo_clientes,
     query_pedidos_talla_sections,
     query_rows,
+    replace_inventory_stock_rows,
+    save_inventory_stock_row,
 )
 from parsers import (
     parse_comparativo_clientes_txt,
@@ -2975,27 +2979,16 @@ def _extract_collection_from_sheet(sheet_name: str) -> str:
     return (str(sheet_name or "").strip() or "Sin coleccion")[:20]
 
 
-def _load_inventory_book_dashboard() -> dict[str, object]:
-    base = {
-        "available": False,
-        "error": "",
-        "file_name": "",
-        "path": str(INVENTORY_BOOK_PATH),
-        "collections": [],
-        "total_stock": 0,
-        "total_items": 0,
-    }
+def _load_inventory_rows_from_excel() -> tuple[list[dict[str, object]], str, str]:
     candidate_paths = [INVENTORY_BOOK_PATH, SEED_DIR / "INVENTARIO 01-04 COMPLETO.xlsx"]
     existing_paths = [p for p in candidate_paths if p and p.exists()]
     if not existing_paths:
-        base["error"] = "No se encontro el archivo de inventario configurado."
-        return base
+        return [], "", "No se encontro el archivo de inventario configurado."
 
     try:
         from openpyxl import load_workbook
     except Exception as exc:
-        base["error"] = f"No se pudo cargar openpyxl: {exc}"
-        return base
+        return [], "", f"No se pudo cargar openpyxl: {exc}"
 
     wb = None
     active_path = None
@@ -3009,8 +3002,7 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
             last_error = str(exc)
             continue
     if wb is None or active_path is None:
-        base["error"] = f"No se pudo abrir el inventario: {last_error}"
-        return base
+        return [], "", f"No se pudo abrir el inventario: {last_error}"
 
     rows_out: list[dict[str, object]] = []
     for sheet_name in wb.sheetnames:
@@ -3028,8 +3020,6 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                     continue
                 if "articulo" in cell or cell in {"codigo", "cod articulo", "cod"}:
                     header_map["articulo"] = col_idx
-                if "descripcion" in cell or "detalle" in cell or "producto" in cell:
-                    header_map["descripcion"] = col_idx
                 if "tiro" in cell:
                     header_map["tiro"] = col_idx
                 if "bota" in cell:
@@ -3064,11 +3054,7 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
             continue
 
         for row in ws.iter_rows(min_row=header_idx + 1, values_only=True):
-            try:
-                articulo_raw = row[header_map["articulo"]]
-            except Exception:
-                continue
-            articulo = str(articulo_raw or "").strip()
+            articulo = str(row[header_map["articulo"]] or "").strip() if header_map["articulo"] < len(row) else ""
             if not articulo:
                 continue
             stock_value = _inventory_to_float(row[header_map["stock"]] if header_map["stock"] < len(row) else 0)
@@ -3081,14 +3067,9 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 stock_value = float(sizes_total)
             if stock_value <= 0:
                 continue
-            descripcion = ""
-            if "descripcion" in header_map and header_map["descripcion"] < len(row):
-                descripcion = str(row[header_map["descripcion"]] or "").strip()
             tiro = str(row[header_map["tiro"]] or "").strip() if "tiro" in header_map and header_map["tiro"] < len(row) else ""
             bota = str(row[header_map["bota"]] or "").strip() if "bota" in header_map and header_map["bota"] < len(row) else ""
             color = str(row[header_map["color"]] or "").strip() if "color" in header_map and header_map["color"] < len(row) else ""
-            if not descripcion:
-                descripcion = " ".join(part for part in [tiro, bota, color] if part).strip()
             coleccion = ""
             if "coleccion" in header_map and header_map["coleccion"] < len(row):
                 coleccion = str(row[header_map["coleccion"]] or "").strip()
@@ -3098,25 +3079,43 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 coleccion = _extract_collection_from_articulo(articulo)
             rows_out.append(
                 {
-                    "sheet": sheet_name,
                     "articulo": articulo,
-                    "descripcion": descripcion or "-",
-                    "tiro": tiro or "-",
-                    "bota": bota or "-",
-                    "color": color or "-",
+                    "tiro": tiro,
+                    "bota": bota,
+                    "color": color,
                     "coleccion": coleccion,
                     "stock": int(round(stock_value)),
                     "sizes": sizes_map,
+                    "fuente": "excel",
                 }
             )
-
     if not rows_out:
-        base["error"] = "No se detectaron columnas compatibles (articulo + stock) con stock positivo."
-        return base
+        return [], str(active_path), "No se detectaron columnas compatibles (articulo + stock) con stock positivo."
+    return rows_out, str(active_path), ""
 
+
+def _build_inventory_book_dashboard_from_db_rows(rows: list[dict[str, object]], source_label: str = "Base de datos") -> dict[str, object]:
     grouped: dict[str, dict[str, object]] = {}
-    for item in rows_out:
-        key = str(item["coleccion"] or "").strip() or "Sin coleccion"
+    for item in rows:
+        key = str(item.get("coleccion") or "").strip() or "Sin coleccion"
+        sizes = {
+            36: int(item.get("talla_36") or 0),
+            38: int(item.get("talla_38") or 0),
+            40: int(item.get("talla_40") or 0),
+            42: int(item.get("talla_42") or 0),
+            44: int(item.get("talla_44") or 0),
+            46: int(item.get("talla_46") or 0),
+        }
+        article_item = {
+            "id": int(item.get("id") or 0),
+            "coleccion": key,
+            "articulo": str(item.get("articulo") or "").strip(),
+            "tiro": str(item.get("tiro") or "").strip() or "-",
+            "bota": str(item.get("bota") or "").strip() or "-",
+            "color": str(item.get("color") or "").strip() or "-",
+            "stock": int(item.get("stock") or 0),
+            "sizes": sizes,
+        }
         bucket = grouped.setdefault(
             key,
             {
@@ -3124,14 +3123,12 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 "total_stock": 0,
                 "items_count": 0,
                 "articles": [],
-                "size_headers": set(),
+                "size_headers": {36, 38, 40, 42, 44, 46},
             },
         )
-        bucket["total_stock"] = int(bucket["total_stock"]) + int(item["stock"] or 0)
+        bucket["total_stock"] = int(bucket["total_stock"]) + int(article_item["stock"] or 0)
         bucket["items_count"] = int(bucket["items_count"]) + 1
-        bucket["articles"].append(item)
-        for size_num in (item.get("sizes") or {}).keys():
-            bucket["size_headers"].add(int(size_num))
+        bucket["articles"].append(article_item)
 
     collections = []
     for bucket in grouped.values():
@@ -3144,10 +3141,11 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
                 "name": bucket["name"],
                 "total_stock": int(bucket["total_stock"]),
                 "items_count": int(bucket["items_count"]),
-                "articles": articles[:200],
+                "articles": articles,
                 "size_headers": sorted(int(x) for x in (bucket.get("size_headers") or set())),
             }
         )
+
     def _collection_sort_key(item: dict[str, object]):
         name = str(item.get("name") or "").strip()
         if name == "42":
@@ -3162,14 +3160,57 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
         default_collection = str((collections[0] if collections else {}).get("name") or "")
 
     return {
-        "available": True,
-        "error": "",
-        "file_name": active_path.name,
-        "path": str(active_path),
+        "available": bool(collections),
+        "error": "" if collections else "No hay datos de stock cargados.",
+        "file_name": source_label,
+        "path": source_label,
         "collections": collections,
         "default_collection": default_collection,
         "total_stock": sum(int(c["total_stock"]) for c in collections),
         "total_items": sum(int(c["items_count"]) for c in collections),
+    }
+
+
+def _load_inventory_book_dashboard() -> dict[str, object]:
+    rows_db = query_inventory_stock_rows(DB_PATH)
+    if rows_db:
+        return _build_inventory_book_dashboard_from_db_rows(rows_db, "Base de datos")
+
+    parsed_rows, excel_path, err = _load_inventory_rows_from_excel()
+    if parsed_rows:
+        replace_inventory_stock_rows(DB_PATH, parsed_rows)
+        rows_db = query_inventory_stock_rows(DB_PATH)
+        if rows_db:
+            source = Path(excel_path).name if excel_path else "Excel"
+            return _build_inventory_book_dashboard_from_db_rows(rows_db, source)
+    return {
+        "available": False,
+        "error": err or "No hay datos de stock cargados.",
+        "file_name": "",
+        "path": excel_path or str(INVENTORY_BOOK_PATH),
+        "collections": [],
+        "default_collection": "42",
+        "total_stock": 0,
+        "total_items": 0,
+    }
+
+
+def _inventory_row_from_form(form: object) -> dict[str, object]:
+    get = form.get
+    return {
+        "coleccion": str(get("coleccion") or "").strip(),
+        "articulo": str(get("articulo") or "").strip(),
+        "tiro": str(get("tiro") or "").strip(),
+        "bota": str(get("bota") or "").strip(),
+        "color": str(get("color") or "").strip(),
+        "talla_36": _to_int(get("talla_36")),
+        "talla_38": _to_int(get("talla_38")),
+        "talla_40": _to_int(get("talla_40")),
+        "talla_42": _to_int(get("talla_42")),
+        "talla_44": _to_int(get("talla_44")),
+        "talla_46": _to_int(get("talla_46")),
+        "stock": _to_int(get("stock")),
+        "fuente": "web",
     }
 
 
@@ -4032,6 +4073,66 @@ def upload_refresh_local():
         app.logger.exception("Fallo en actualizacion local", exc_info=exc)
         session["upload_debug"] = f"{exc.__class__.__name__}: {exc}"
         flash("No se pudo actualizar la data local.", "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/inventory/manage/save")
+def inventory_manage_save():
+    if not _can_upload():
+        flash("Acceso denegado para gestionar stock.", "error")
+        return redirect(url_for("index"))
+    try:
+        row_id_raw = str(request.form.get("item_id") or "").strip()
+        row_id = int(row_id_raw) if row_id_raw.isdigit() else None
+        payload = _inventory_row_from_form(request.form)
+        if not str(payload.get("articulo") or "").strip():
+            raise ValueError("El articulo es obligatorio.")
+        stats = save_inventory_stock_row(DB_PATH, payload, row_id=row_id)
+        if int(stats.get("updated") or 0) > 0:
+            flash("Stock actualizado correctamente.", "success")
+        else:
+            flash("Stock agregado correctamente.", "success")
+    except Exception as exc:
+        flash(f"No se pudo guardar el stock: {exc}", "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/inventory/manage/delete")
+def inventory_manage_delete():
+    if not _can_upload():
+        flash("Acceso denegado para gestionar stock.", "error")
+        return redirect(url_for("index"))
+    try:
+        row_id_raw = str(request.form.get("item_id") or "").strip()
+        row_id = int(row_id_raw) if row_id_raw.isdigit() else 0
+        if row_id <= 0:
+            raise ValueError("ID de registro invalido.")
+        deleted = delete_inventory_stock_row(DB_PATH, row_id)
+        if deleted:
+            flash("Registro de stock eliminado.", "success")
+        else:
+            flash("No se encontro el registro de stock.", "error")
+    except Exception as exc:
+        flash(f"No se pudo eliminar el stock: {exc}", "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/inventory/manage/sync-excel")
+def inventory_manage_sync_excel():
+    if not _can_upload():
+        flash("Acceso denegado para sincronizar stock.", "error")
+        return redirect(url_for("index"))
+    try:
+        parsed_rows, _, err = _load_inventory_rows_from_excel()
+        if not parsed_rows:
+            raise ValueError(err or "No se detectaron filas validas en el inventario.")
+        stats = replace_inventory_stock_rows(DB_PATH, parsed_rows)
+        flash(
+            f"Stock sincronizado desde Excel. Filas: {stats.get('inserted', 0)}.",
+            "success",
+        )
+    except Exception as exc:
+        flash(f"No se pudo sincronizar desde Excel: {exc}", "error")
     return redirect(url_for("index"))
 
 

@@ -308,6 +308,29 @@ def init_db(db_path: str | Path) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS inventory_stock (
+                    id BIGSERIAL PRIMARY KEY,
+                    coleccion TEXT NOT NULL DEFAULT '',
+                    articulo TEXT NOT NULL,
+                    tiro TEXT NOT NULL DEFAULT '',
+                    bota TEXT NOT NULL DEFAULT '',
+                    color TEXT NOT NULL DEFAULT '',
+                    talla_36 INTEGER NOT NULL DEFAULT 0,
+                    talla_38 INTEGER NOT NULL DEFAULT 0,
+                    talla_40 INTEGER NOT NULL DEFAULT 0,
+                    talla_42 INTEGER NOT NULL DEFAULT 0,
+                    talla_44 INTEGER NOT NULL DEFAULT 0,
+                    talla_46 INTEGER NOT NULL DEFAULT 0,
+                    stock INTEGER NOT NULL DEFAULT 0,
+                    fuente TEXT NOT NULL DEFAULT 'web',
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(coleccion, articulo, tiro, bota, color)
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -501,6 +524,29 @@ def init_db(db_path: str | Path) -> None:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     etapa TEXT NOT NULL UNIQUE,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS inventory_stock (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    coleccion TEXT NOT NULL DEFAULT '',
+                    articulo TEXT NOT NULL,
+                    tiro TEXT NOT NULL DEFAULT '',
+                    bota TEXT NOT NULL DEFAULT '',
+                    color TEXT NOT NULL DEFAULT '',
+                    talla_36 INTEGER NOT NULL DEFAULT 0,
+                    talla_38 INTEGER NOT NULL DEFAULT 0,
+                    talla_40 INTEGER NOT NULL DEFAULT 0,
+                    talla_42 INTEGER NOT NULL DEFAULT 0,
+                    talla_44 INTEGER NOT NULL DEFAULT 0,
+                    talla_46 INTEGER NOT NULL DEFAULT 0,
+                    stock INTEGER NOT NULL DEFAULT 0,
+                    fuente TEXT NOT NULL DEFAULT 'web',
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(coleccion, articulo, tiro, bota, color)
                 )
                 """,
             )
@@ -1542,6 +1588,212 @@ def import_deuda_clientes_rows(db_path: Path, rows: Iterable[dict]) -> dict:
                 _execute(conn, "UPDATE deuda_clientes SET updated_at = CURRENT_TIMESTAMP")
     conn.close()
     return {"read": read, "inserted": len(values), "updated": 0}
+
+
+def _inventory_stock_clean_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _inventory_stock_to_int(value: object) -> int:
+    raw = str(value or "").strip().replace(".", "").replace(" ", "").replace(",", "")
+    if not raw:
+        return 0
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return 0
+
+
+def _inventory_stock_clean_row(row: dict[str, object]) -> dict[str, object]:
+    sizes = row.get("sizes") if isinstance(row.get("sizes"), dict) else {}
+    size_36 = _inventory_stock_to_int(row.get("talla_36", sizes.get(36, 0) if isinstance(sizes, dict) else 0))
+    size_38 = _inventory_stock_to_int(row.get("talla_38", sizes.get(38, 0) if isinstance(sizes, dict) else 0))
+    size_40 = _inventory_stock_to_int(row.get("talla_40", sizes.get(40, 0) if isinstance(sizes, dict) else 0))
+    size_42 = _inventory_stock_to_int(row.get("talla_42", sizes.get(42, 0) if isinstance(sizes, dict) else 0))
+    size_44 = _inventory_stock_to_int(row.get("talla_44", sizes.get(44, 0) if isinstance(sizes, dict) else 0))
+    size_46 = _inventory_stock_to_int(row.get("talla_46", sizes.get(46, 0) if isinstance(sizes, dict) else 0))
+    stock = _inventory_stock_to_int(row.get("stock"))
+    if stock <= 0:
+        stock = size_36 + size_38 + size_40 + size_42 + size_44 + size_46
+    return {
+        "coleccion": _inventory_stock_clean_text(row.get("coleccion")),
+        "articulo": _inventory_stock_clean_text(row.get("articulo")),
+        "tiro": _inventory_stock_clean_text(row.get("tiro")),
+        "bota": _inventory_stock_clean_text(row.get("bota")),
+        "color": _inventory_stock_clean_text(row.get("color")),
+        "talla_36": size_36,
+        "talla_38": size_38,
+        "talla_40": size_40,
+        "talla_42": size_42,
+        "talla_44": size_44,
+        "talla_46": size_46,
+        "stock": stock,
+        "fuente": _inventory_stock_clean_text(row.get("fuente")) or "web",
+    }
+
+
+def replace_inventory_stock_rows(db_path: Path, rows: Iterable[dict]) -> dict:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    rows_list = list(rows)
+    read = len(rows_list)
+    inserted = 0
+    with conn:
+        _execute(conn, "DELETE FROM inventory_stock")
+        values = []
+        for row in rows_list:
+            clean = _inventory_stock_clean_row(row)
+            if not clean["articulo"]:
+                continue
+            values.append(
+                (
+                    clean["coleccion"],
+                    clean["articulo"],
+                    clean["tiro"],
+                    clean["bota"],
+                    clean["color"],
+                    clean["talla_36"],
+                    clean["talla_38"],
+                    clean["talla_40"],
+                    clean["talla_42"],
+                    clean["talla_44"],
+                    clean["talla_46"],
+                    clean["stock"],
+                    clean["fuente"],
+                )
+            )
+        if values:
+            _executemany(
+                conn,
+                """
+                INSERT INTO inventory_stock (
+                    coleccion, articulo, tiro, bota, color,
+                    talla_36, talla_38, talla_40, talla_42, talla_44, talla_46,
+                    stock, fuente
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            inserted = len(values)
+    conn.close()
+    return {"read": read, "inserted": inserted, "updated": 0}
+
+
+def save_inventory_stock_row(db_path: Path, row: dict[str, object], row_id: int | None = None) -> dict[str, int]:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    clean = _inventory_stock_clean_row(row)
+    if not clean["articulo"]:
+        conn.close()
+        return {"inserted": 0, "updated": 0}
+    with conn:
+        if row_id:
+            exists = _execute(
+                conn,
+                "SELECT 1 FROM inventory_stock WHERE id = ? LIMIT 1",
+                (int(row_id),),
+            ).fetchone()
+            if exists:
+                _execute(
+                    conn,
+                    """
+                    UPDATE inventory_stock
+                    SET coleccion = ?, articulo = ?, tiro = ?, bota = ?, color = ?,
+                        talla_36 = ?, talla_38 = ?, talla_40 = ?, talla_42 = ?, talla_44 = ?, talla_46 = ?,
+                        stock = ?, fuente = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (
+                        clean["coleccion"],
+                        clean["articulo"],
+                        clean["tiro"],
+                        clean["bota"],
+                        clean["color"],
+                        clean["talla_36"],
+                        clean["talla_38"],
+                        clean["talla_40"],
+                        clean["talla_42"],
+                        clean["talla_44"],
+                        clean["talla_46"],
+                        clean["stock"],
+                        clean["fuente"],
+                        int(row_id),
+                    ),
+                )
+                conn.close()
+                return {"inserted": 0, "updated": 1}
+        _execute(
+            conn,
+            """
+            INSERT INTO inventory_stock (
+                coleccion, articulo, tiro, bota, color,
+                talla_36, talla_38, talla_40, talla_42, talla_44, talla_46,
+                stock, fuente
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(coleccion, articulo, tiro, bota, color) DO UPDATE
+            SET talla_36 = excluded.talla_36,
+                talla_38 = excluded.talla_38,
+                talla_40 = excluded.talla_40,
+                talla_42 = excluded.talla_42,
+                talla_44 = excluded.talla_44,
+                talla_46 = excluded.talla_46,
+                stock = excluded.stock,
+                fuente = excluded.fuente,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                clean["coleccion"],
+                clean["articulo"],
+                clean["tiro"],
+                clean["bota"],
+                clean["color"],
+                clean["talla_36"],
+                clean["talla_38"],
+                clean["talla_40"],
+                clean["talla_42"],
+                clean["talla_44"],
+                clean["talla_46"],
+                clean["stock"],
+                clean["fuente"],
+            ),
+        )
+    conn.close()
+    return {"inserted": 1, "updated": 0}
+
+
+def delete_inventory_stock_row(db_path: Path, row_id: int) -> bool:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    with conn:
+        cur = _execute(conn, "DELETE FROM inventory_stock WHERE id = ?", (int(row_id),))
+        deleted = int(getattr(cur, "rowcount", 0) or 0) > 0
+    conn.close()
+    return deleted
+
+
+def query_inventory_stock_rows(db_path: Path, collection: str = "") -> list[dict[str, object]]:
+    init_db(db_path)
+    conn = get_conn(db_path)
+    params: list[object] = []
+    where = ""
+    if str(collection or "").strip():
+        where = "WHERE coleccion = ?"
+        params.append(str(collection or "").strip())
+    rows = _execute(
+        conn,
+        f"""
+        SELECT
+            id, coleccion, articulo, tiro, bota, color,
+            talla_36, talla_38, talla_40, talla_42, talla_44, talla_46,
+            stock, fuente, updated_at
+        FROM inventory_stock
+        {where}
+        ORDER BY stock DESC, articulo ASC
+        """,
+        params,
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def query_comparativo_clientes(db_path: Path, q: str = "") -> dict:
