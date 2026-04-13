@@ -1963,7 +1963,7 @@ def _build_new_section_dashboard() -> dict[str, object]:
     expected_pct = round((days_elapsed / days_month) * 100, 1) if days_month else 0.0
     weekly_rows = [
         {"label": "Sem 1", "corte": 850, "urrutia": 338, "sur": 0, "lavanderia": 1108, "terminacion": 524},
-        {"label": "Sem 2", "corte": 2068, "urrutia": 598, "sur": 0, "lavanderia": 1345, "terminacion": 1279},
+        {"label": "Sem 2", "corte": 2068, "urrutia": 1000, "sur": 0, "lavanderia": 2141, "terminacion": 1693},
         {"label": "Sem 3", "corte": 0, "urrutia": 0, "sur": 0, "lavanderia": 0, "terminacion": 0},
         {"label": "Sem 4", "corte": 0, "urrutia": 0, "sur": 0, "lavanderia": 0, "terminacion": 0},
         {"label": "Sem 5", "corte": 0, "urrutia": 0, "sur": 0, "lavanderia": 0, "terminacion": 0},
@@ -1989,10 +1989,10 @@ def _build_new_section_dashboard() -> dict[str, object]:
             "fecha_labels": [_day_label(6), _day_label(7), _day_label(8), _day_label(9), _day_label(10), _day_label(11), _day_label(12)],
             "rows": [
                 {"name": "Corte", "values": [652, 652, 164, 600, None, None, None], "total": 2068},
-                {"name": "Urrutia", "values": [150, 198, 250, None, None, None, None], "total": 598},
+                {"name": "Urrutia", "values": [150, 198, 250, 200, 202, None, None], "total": 1000},
                 {"name": "Sur", "values": [None, None, None, None, None, None, None], "total": 0},
-                {"name": "Lavanderia", "values": [341, 535, 469, None, None, None, None], "total": 1345},
-                {"name": "Terminacion", "values": [468, 392, 419, None, None, None, None], "total": 1279},
+                {"name": "Lavanderia", "values": [341, 535, 469, 274, 522, None, None], "total": 2141},
+                {"name": "Terminacion", "values": [468, 392, 419, 414, None, None, None], "total": 1693},
             ],
         },
         {
@@ -2214,11 +2214,11 @@ def _build_excel_preview_dashboard() -> dict[str, object]:
             "days": [6, 7, 8, 9, 10, 11, 12],
             "areas": {
                 "CORTE": [652, 652, 164, 600, None, None, None],
-                "URRUTIA": [150, 198, 250, None, None, None, None],
+                "URRUTIA": [150, 198, 250, 200, 202, None, None],
                 "TIERRA FUEGO": [None, None, None, None, None, None, None],
                 "SUR": [None, None, None, None, None, None, None],
-                "LAVANDERIA": [341, 535, 469, None, None, None, None],
-                "TERMINACION": [468, 392, 419, None, None, None, None],
+                "LAVANDERIA": [341, 535, 469, 274, 522, None, None],
+                "TERMINACION": [468, 392, 419, 414, None, None, None],
             },
         },
         {
