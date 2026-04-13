@@ -57,9 +57,13 @@
           <span class="top-nav-user-label">Equipo</span>
           <strong>ADECOM</strong>
         </div>
-        <form method="post" action="{{ url_for('logout') }}" class="upload-quick-form">
-          <button type="submit" class="top-logout-btn">Salir</button>
-        </form>
+        <button
+          type="button"
+          class="top-admin-btn {% if can_upload %}top-admin-btn-active{% else %}top-admin-btn-locked{% endif %}"
+          id="openAdminAccessModal"
+        >
+          {% if can_upload %}Admin activo{% else %}Admin bloqueado{% endif %}
+        </button>
       </div>
     </header>
 
@@ -132,7 +136,6 @@
         <a href="{{ url_for('index') }}" class="btn-ghost search-reset-btn">Restaurar</a>
       </form>
     </section>
-
     <section class="dashboard-section-block dashboard-section-block-pedidos">
       <header class="dashboard-section-title">
         <h2>PEDIDOS</h2>
@@ -188,6 +191,53 @@
       </article>
     </section>
     </section>
+
+    <dialog id="adminAccessModal" class="modal modal-production-goals">
+      <div class="modal-head">
+        <div>
+          <h3>Acceso de administracion</h3>
+          <p class="production-goals-copy">Gestiona permisos para actualizar datos.</p>
+        </div>
+        <button
+          type="button"
+          id="closeAdminAccessModal"
+          class="modal-close"
+          onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
+        >Cerrar</button>
+      </div>
+      <section class="production-goals-panel">
+        <div class="inventory-manage-panel">
+          {% if admin_key_enabled %}
+            {% if can_upload %}
+              <p class="production-goals-copy">Sesion admin activa. Puedes editar y actualizar datos.</p>
+              <form method="post" action="{{ url_for('admin_logout') }}" class="inventory-manage-actions">
+                <button type="submit">Cerrar sesion admin</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('admin_login') }}" class="inventory-manage-form">
+                <div class="inventory-manage-grid">
+                  <label for="adminKeyInput">Clave de administrador
+                    <input
+                      id="adminKeyInput"
+                      name="admin_key"
+                      type="password"
+                      placeholder="Ingresa clave de administrador"
+                      autocomplete="off"
+                      required
+                    >
+                  </label>
+                </div>
+                <div class="inventory-manage-actions">
+                  <button type="submit">Activar modo edicion</button>
+                </div>
+              </form>
+            {% endif %}
+          {% else %}
+            <p class="production-goals-copy">No hay clave admin configurada en el servidor.</p>
+          {% endif %}
+        </div>
+      </section>
+    </dialog>
 
     <dialog id="productionGoalsModal" class="modal modal-production-goals">
       <div class="modal-head">
@@ -491,10 +541,18 @@
               {% endif %}
             </div>
             {% if inventory_manage_enabled %}
-            <section class="inventory-manage-panel">
+            <section class="summary dashboard-kpi-row inventory-crud-card-row">
+              <article class="card-action summary-secondary">
+                <button type="button" class="summary-open summary-open-centered" id="openInventoryCrudPanel">
+                  <h2>Gestionar articulos</h2>
+                </button>
+              </article>
+            </section>
+            <section class="inventory-manage-panel" id="inventoryCrudPanel" hidden>
               <div class="inventory-manage-head">
                 <h4>Gestion de stock</h4>
                 <p>Busca un articulo para editarlo o agrega uno nuevo.</p>
+                <button type="button" class="btn-ghost" id="closeInventoryCrudPanel">Cerrar gestion</button>
               </div>
               <div class="inventory-manage-search">
                 <label for="inventoryManageSearch">Buscador de articulo</label>
@@ -1831,14 +1889,12 @@
       const sideModeFocusBtn = document.getElementById("sideModeFocusBtn");
       if (navModeFocusBtn) {
         navModeFocusBtn.addEventListener("click", () => {
-          const adminBox = document.getElementById("adminAccessSection");
-          if (adminBox) adminBox.scrollIntoView({ behavior: "smooth", block: "center" });
+          openById("openAdminAccessModal");
         });
       }
       if (sideModeFocusBtn) {
         sideModeFocusBtn.addEventListener("click", () => {
-          const adminBox = document.getElementById("adminAccessSection");
-          if (adminBox) adminBox.scrollIntoView({ behavior: "smooth", block: "center" });
+          openById("openAdminAccessModal");
         });
       }
 
@@ -1862,6 +1918,7 @@
       });
 
       const openIdToModalId = {
+        openAdminAccessModal: "adminAccessModal",
         openProductionGoalsModal: "productionGoalsDailyModal",
         openProductionExcelModal: "productionExcelModal",
         openInventoryBookModal: "inventoryBookModal",
@@ -1874,6 +1931,7 @@
         openProyeccionModal: "proyeccionModal",
       };
       const triggerToModal = {
+        openAdminAccessModal: "adminAccessModal",
         openProductionGoalsModal: "productionGoalsDailyModal",
         openProductionExcelModal: "productionExcelModal",
         openInventoryBookModal: "inventoryBookModal",
@@ -3551,6 +3609,9 @@
       const deleteItemId = document.getElementById("inventoryDeleteItemId");
       const manageSearchInput = document.getElementById("inventoryManageSearch");
       const manageMatches = document.getElementById("inventoryManageMatches");
+      const openCrudPanelBtn = document.getElementById("openInventoryCrudPanel");
+      const closeCrudPanelBtn = document.getElementById("closeInventoryCrudPanel");
+      const crudPanel = document.getElementById("inventoryCrudPanel");
       const formFields = {
         coleccion: document.getElementById("inventoryFormColeccion"),
         articulo: document.getElementById("inventoryFormArticulo"),
@@ -3571,6 +3632,13 @@
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .trim();
+      function setCrudPanelOpen(open) {
+        if (!crudPanel) return;
+        crudPanel.hidden = !open;
+        if (open && manageSearchInput instanceof HTMLInputElement) {
+          manageSearchInput.focus();
+        }
+      }
 
       const formatNum = (value) => {
         const n = Number(value || 0);
@@ -3614,6 +3682,7 @@
         });
         formSubmit.textContent = "Actualizar registro";
         if (formDeleteBtn instanceof HTMLButtonElement) formDeleteBtn.disabled = false;
+        setCrudPanelOpen(true);
         manageForm.scrollIntoView({ behavior: "smooth", block: "center" });
       };
       const renderManageMatches = () => {
@@ -3758,6 +3827,12 @@
       renderCollection(select.value || "42");
 
       if (!canManage) return;
+      if (openCrudPanelBtn instanceof HTMLButtonElement) {
+        openCrudPanelBtn.addEventListener("click", () => setCrudPanelOpen(true));
+      }
+      if (closeCrudPanelBtn instanceof HTMLButtonElement) {
+        closeCrudPanelBtn.addEventListener("click", () => setCrudPanelOpen(false));
+      }
       const clearManageForm = () => {
         if (!manageForm || !formItemId || !formSubmit) return;
         formItemId.value = "";
@@ -3851,6 +3926,7 @@
       });
       clearManageForm();
       renderManageMatches();
+      setCrudPanelOpen(false);
     })();
 
     (function () {

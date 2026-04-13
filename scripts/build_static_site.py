@@ -11,7 +11,6 @@ from flask import session
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
 STATIC_DIR = ROOT / "static"
-REPO_URL = "https://github.com/mancid-max/adecom-web"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -98,10 +97,11 @@ def _postprocess_main_html(html: str) -> str:
     html = html.replace('href="/" class="btn-ghost search-reset-btn"', 'href="#" class="btn-ghost search-reset-btn"')
     html = html.replace('href="/otra-landing"', 'href="otra-landing/"')
     html = re.sub(
-        r'<button type="submit" class="top-logout-btn">Salir</button>',
-        f'<a class="top-logout-btn" href="{REPO_URL}" target="_blank" rel="noreferrer">GitHub</a>',
+        r'<form method="post" action="/logout" class="upload-quick-form">\s*<button type="submit" class="top-logout-btn">Salir</button>\s*</form>',
+        "",
         html,
         count=1,
+        flags=re.S,
     )
     html = html.replace("</body>", f"{STATIC_BRIDGE_SCRIPT}\n</body>")
     return html

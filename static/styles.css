@@ -8956,10 +8956,23 @@ body.theme-gentelella,
   color: #183b57;
 }
 
+.inventory-manage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .inventory-manage-head p {
   margin: 4px 0 10px;
   color: #46617a;
   font-size: 0.88rem;
+  width: 100%;
+}
+
+.inventory-crud-card-row {
+  margin: 10px 0 14px;
 }
 
 .inventory-manage-search {
@@ -9044,5 +9057,43 @@ body.theme-gentelella,
 .inventory-manage-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.top-admin-btn {
+  border: 1px solid #b8c9da;
+  background: #f7fbff;
+  color: #1f4564;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.top-admin-btn:hover {
+  border-color: #8fb5d4;
+  background: #eaf4ff;
+}
+
+.top-admin-btn-active {
+  background: linear-gradient(135deg, #0f6b48, #11825a);
+  border-color: #0c5d3f;
+  color: #f4fffa;
+}
+
+.top-admin-btn-active:hover {
+  background: linear-gradient(135deg, #0d5e40, #0f744f);
+  border-color: #0a4c34;
+}
+
+.top-admin-btn-locked {
+  background: #fff3f2;
+  border-color: #e7b8b5;
+  color: #7e2d2a;
+}
+
+.top-admin-btn-locked:hover {
+  background: #ffe8e6;
+  border-color: #dc9b97;
 }
 
