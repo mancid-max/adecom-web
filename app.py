@@ -3857,6 +3857,7 @@ def index():
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     inventory_book = _load_inventory_book_dashboard()
+    inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     return render_template(
         "index.html",
         rows=rows,
@@ -3894,6 +3895,7 @@ def index():
         excel_preview_dashboard=excel_preview_dashboard,
         local_preview_enabled=local_preview_enabled,
         can_upload=_can_upload(),
+        inventory_manage_enabled=inventory_manage_enabled,
         admin_key_enabled=bool(_admin_key()),
         assistant_enabled=ASSISTANT_ENABLED,
         assistant_provider=assistant_provider,

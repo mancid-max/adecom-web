@@ -484,13 +484,13 @@
                   </option>
                 {% endfor %}
               </select>
-              {% if can_upload %}
+              {% if inventory_manage_enabled %}
                 <form method="post" action="/inventory/manage/sync-excel" class="inline-form">
                   <button type="submit" class="btn-ghost">Sincronizar desde Excel</button>
                 </form>
               {% endif %}
             </div>
-            {% if can_upload %}
+            {% if inventory_manage_enabled %}
             <form method="post" action="/inventory/manage/save" class="inventory-manage-form" id="inventoryManageForm">
               <input type="hidden" name="item_id" id="inventoryFormItemId" value="">
               <div class="inventory-manage-grid">
@@ -564,14 +564,14 @@
                     <th class="num">44</th>
                     <th class="num">46</th>
                     <th class="num">Total</th>
-                    {% if can_upload %}<th>Acciones</th>{% endif %}
+                    {% if inventory_manage_enabled %}<th>Acciones</th>{% endif %}
                   </tr>
                 </thead>
                 <tbody id="inventoryBookTableBody"></tbody>
               </table>
             </div>
             <script id="inventoryBookData" type="application/json">{{ inventory_book.collections|tojson }}</script>
-            <script id="inventoryBookConfig" type="application/json">{{ {"can_manage": can_upload}|tojson }}</script>
+            <script id="inventoryBookConfig" type="application/json">{{ {"can_manage": inventory_manage_enabled}|tojson }}</script>
           {% else %}
             <div class="production-goals-comments">
               <p>No se pudo cargar el inventario.</p>
