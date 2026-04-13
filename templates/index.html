@@ -461,12 +461,11 @@
       </dialog>
 
       <dialog id="inventoryBookModal" class="modal modal-production-goals">
-        <div class="modal-head">
-          <div>
+      <div class="modal-head">
+        <div>
             <h3>Stock de bodega por coleccion</h3>
-            <p class="production-goals-copy">Vista tipo libro para revisar inventario por coleccion.</p>
-          </div>
-          <button
+        </div>
+        <button
             type="button"
             id="closeInventoryBookModal"
             class="modal-close"
@@ -3487,11 +3486,21 @@
       const allRows = collections.flatMap((item) => (Array.isArray(item.articles) ? item.articles : []));
 
       const renderCollection = (collectionName) => {
+        const selectedAll = String(collectionName || "") === "__ALL__";
         const rows =
           String(collectionName || "") === "__ALL__"
             ? allRows
             : (collections.find((item) => String(item.name || "") === String(collectionName || "")) || {}).articles || [];
-        if (!rows.length) {
+        const sortedRows = selectedAll
+          ? rows
+              .slice()
+              .sort((a, b) => {
+                const byTotal = Number(b?.stock || 0) - Number(a?.stock || 0);
+                if (byTotal !== 0) return byTotal;
+                return String(a?.articulo || "").localeCompare(String(b?.articulo || ""));
+              })
+          : rows;
+        if (!sortedRows.length) {
           tbody.innerHTML = '<tr><td colspan="11" class="empty">No hay datos para esta coleccion.</td></tr>';
           Object.values(cardEls).forEach((el) => {
             if (el) el.textContent = "0";
@@ -3500,7 +3509,7 @@
         }
         const sizeTotals = { 36: 0, 38: 0, 40: 0, 42: 0, 44: 0, 46: 0 };
         let grandTotal = 0;
-        tbody.innerHTML = rows
+        tbody.innerHTML = sortedRows
           .map((row) => {
             const sizes = row.sizes || {};
             sizeTotals[36] += Number(sizes[36] || 0);
