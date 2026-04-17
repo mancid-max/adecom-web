@@ -243,29 +243,29 @@
           "key": "corte",
           "name": "Corte",
           "values": [
-            null,
-            null,
-            null,
+            600,
+            652,
+            0,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 1252
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
-            null,
-            null,
-            null,
+            300,
+            352,
+            164,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 816
         },
         {
           "key": "sur",
@@ -285,29 +285,29 @@
           "key": "lavanderia",
           "name": "Lavanderia",
           "values": [
-            null,
-            null,
-            null,
+            250,
+            464,
+            608,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 1322
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
-            null,
-            null,
-            null,
+            508,
+            506,
+            133,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 1147
         }
       ]
     },
