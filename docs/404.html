@@ -22501,20 +22501,20 @@
             grandTotal += Number(row.stock || 0);
             return `
               <tr>
-                <td>${row.articulo || "-"}</td>
-                <td>${row.tiro || "-"}</td>
-                <td>${row.bota || "-"}</td>
-                <td>${row.color || "-"}</td>
-                <td class="num">${formatNum(sizes[36])}</td>
-                <td class="num">${formatNum(sizes[38])}</td>
-                <td class="num">${formatNum(sizes[40])}</td>
-                <td class="num">${formatNum(sizes[42])}</td>
-                <td class="num">${formatNum(sizes[44])}</td>
-                <td class="num">${formatNum(sizes[46])}</td>
-                <td class="num">${formatNum(row.stock)}</td>
+                <td data-label="Codigo">${row.articulo || "-"}</td>
+                <td data-label="Tiro">${row.tiro || "-"}</td>
+                <td data-label="Bota">${row.bota || "-"}</td>
+                <td data-label="Color">${row.color || "-"}</td>
+                <td class="num" data-label="Talla 36">${formatNum(sizes[36])}</td>
+                <td class="num" data-label="Talla 38">${formatNum(sizes[38])}</td>
+                <td class="num" data-label="Talla 40">${formatNum(sizes[40])}</td>
+                <td class="num" data-label="Talla 42">${formatNum(sizes[42])}</td>
+                <td class="num" data-label="Talla 44">${formatNum(sizes[44])}</td>
+                <td class="num" data-label="Talla 46">${formatNum(sizes[46])}</td>
+                <td class="num" data-label="Total">${formatNum(row.stock)}</td>
                 ${
                   canManage
-                    ? `<td>
+                    ? `<td class="inventory-actions-cell" data-label="Acciones">
                          <button type="button" class="btn-ghost inventory-edit-btn"
                            data-id="${rowObj.id || ""}"
                            data-coleccion="${rowObj.coleccion || ""}"

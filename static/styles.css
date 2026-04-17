@@ -9097,3 +9097,133 @@ body.theme-gentelella,
   border-color: #dc9b97;
 }
 
+@media (max-width: 760px) {
+  #inventoryBookModal .table-tools {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  #inventoryBookModal .table-tools label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #32506a;
+  }
+
+  #inventoryBookModal .table-tools select,
+  #inventoryBookModal .table-tools .inline-form button {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 12px;
+  }
+
+  #inventorySizeCards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  #inventorySizeCards article {
+    min-height: 92px;
+  }
+
+  #inventoryBookModal .table-wrap.bodega-wrap {
+    overflow: visible;
+  }
+
+  #inventoryBookModal .bodega-table {
+    min-width: 0 !important;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+  }
+
+  #inventoryBookModal .bodega-table thead {
+    display: none;
+  }
+
+  #inventoryBookModal .bodega-table tbody,
+  #inventoryBookModal .bodega-table tr,
+  #inventoryBookModal .bodega-table td {
+    display: block;
+    width: 100%;
+  }
+
+  #inventoryBookModal .bodega-table tbody tr {
+    border: 1px solid #c8d6e5;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 10px 22px rgba(23, 54, 82, 0.08);
+    padding: 10px 10px 8px;
+  }
+
+  #inventoryBookModal .bodega-table tbody td {
+    border: 0;
+    padding: 6px 2px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: right;
+  }
+
+  #inventoryBookModal .bodega-table tbody td::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #516d85;
+    text-align: left;
+    flex: 1;
+  }
+
+  #inventoryBookModal .bodega-table tbody td:first-child {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #183b57;
+    border-bottom: 1px dashed #d5e1ec;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+  }
+
+  #inventoryBookModal .bodega-table tbody td:nth-child(11) {
+    font-weight: 800;
+    color: #0f5a7a;
+    border-top: 1px dashed #d5e1ec;
+    margin-top: 4px;
+    padding-top: 8px;
+  }
+
+  #inventoryBookModal .bodega-table .inventory-actions-cell {
+    justify-content: flex-start;
+    gap: 8px;
+    padding-top: 10px;
+  }
+
+  #inventoryBookModal .bodega-table .inventory-actions-cell::before {
+    display: none;
+  }
+
+  #inventoryBookModal .bodega-table .inventory-actions-cell button {
+    min-height: 36px;
+    border-radius: 10px;
+    flex: 1;
+  }
+
+  #inventoryBookModal .bodega-table td.empty {
+    text-align: center;
+    justify-content: center;
+    color: #4f667e;
+    font-weight: 600;
+    border: 1px dashed #cad7e4;
+    border-radius: 12px;
+    background: #f7fbff;
+    padding: 12px;
+  }
+
+  #inventoryBookModal .bodega-table td.empty::before {
+    display: none;
+  }
+}
+
