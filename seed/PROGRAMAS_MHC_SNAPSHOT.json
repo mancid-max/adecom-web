@@ -9,16 +9,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 1904.7619047619048,
-      "actual": 2918.0,
-      "daily_avg": 729.5
+      "actual": 4770.0,
+      "daily_avg": 1192.5
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 1142.857142857143,
-      "actual": 1338.0,
-      "daily_avg": 334.5
+      "actual": 2354.0,
+      "daily_avg": 588.5
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -33,16 +33,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 1904.7619047619048,
-      "actual": 3249.0,
-      "daily_avg": 812.25
+      "actual": 4985.0,
+      "daily_avg": 1246.25
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 1904.7619047619048,
-      "actual": 2217.0,
-      "daily_avg": 554.25
+      "actual": 4002.0,
+      "daily_avg": 1000.5
     }
   },
   "weeks": [
@@ -210,11 +210,11 @@
             392,
             419,
             414,
-            null,
+            406,
             null,
             null
           ],
-          "total": 1693
+          "total": 2099
         }
       ]
     },
@@ -245,13 +245,13 @@
           "values": [
             600,
             652,
-            0,
             null,
             null,
+            600,
             null,
             null
           ],
-          "total": 1252
+          "total": 1852
         },
         {
           "key": "urrutia",
@@ -260,12 +260,12 @@
             300,
             352,
             164,
-            null,
+            200,
             null,
             null,
             null
           ],
-          "total": 816
+          "total": 1016
         },
         {
           "key": "sur",
@@ -288,12 +288,12 @@
             250,
             464,
             608,
-            null,
+            414,
             null,
             null,
             null
           ],
-          "total": 1322
+          "total": 1736
         },
         {
           "key": "terminacion",
@@ -302,12 +302,12 @@
             508,
             506,
             133,
-            null,
+            232,
             null,
             null,
             null
           ],
-          "total": 1147
+          "total": 1379
         }
       ]
     },
