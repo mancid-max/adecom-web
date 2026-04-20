@@ -2870,6 +2870,126 @@ def _autoload_proyeccion_rows() -> list[dict[str, object]]:
     return []
 
 
+def _format_fecha_display(fecha_iso: object) -> str:
+    raw = str(fecha_iso or "").strip()
+    parts = raw.split("-")
+    if len(parts) == 3 and all(parts):
+        return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    return raw
+
+
+def _full_table_stage_label(row: dict[str, object]) -> str:
+    stages = [
+        ("bodega", "BODEGA"),
+        ("corte_1", "CORTE"),
+        ("taller", "TALLER"),
+        ("t_externo", "T.EXTERNO"),
+        ("limpiado", "LIMPIADO"),
+        ("lavanderia", "LAVANDERIA"),
+        ("terminacion", "TERMINACION"),
+        ("muestra", "MUESTRA"),
+        ("segunda", "SEGUNDA"),
+    ]
+    for key, label in stages:
+        if int(row.get(key) or 0) > 0:
+            return label
+    return "Sin movimiento"
+
+
+def _full_table_restante_detalle(row: dict[str, object]) -> str:
+    labels = [
+        ("corte_1", "Corte"),
+        ("taller", "Taller"),
+        ("t_externo", "T. Externo"),
+        ("limpiado", "Limpiado"),
+        ("lavanderia", "Lavanderia"),
+        ("terminacion", "Terminacion"),
+        ("muestra", "Muestra"),
+        ("segunda", "Segunda"),
+    ]
+    parts: list[str] = []
+    for key, label in labels:
+        value = int(row.get(key) or 0)
+        if value > 0:
+            parts.append(f"{label}: {value}")
+    return " | ".join(parts) if parts else "Sin restante"
+
+
+def _temporada_from_seed_saldos(path: Path) -> str:
+    name = str(path.name or "").upper()
+    m = re.search(r"SALDOS-SECCI\s*(\d{2})", name)
+    if m:
+        return m.group(1)
+    m2 = re.search(r"(\d{2})", name)
+    return m2.group(1) if m2 else ""
+
+
+def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str, int], list[str]]:
+    numeric_fields = [
+        "programa",
+        "proceso",
+        "bodega",
+        "saldo",
+        "corte_1",
+        "taller",
+        "t_externo",
+        "limpiado",
+        "lavanderia",
+        "terminacion",
+        "muestra",
+        "segunda",
+    ]
+    totals = {key: 0 for key in numeric_fields}
+    rows: list[dict[str, object]] = []
+    temporadas_seen: set[str] = set()
+    seen_rows: set[tuple] = set()
+
+    saldos_seed_paths = sorted(
+        {p.resolve(): p for p in [*SEED_DIR.glob("SALDOS-SECCI*.TXT"), *SEED_DIR.glob("SALDOS-SECCI*.txt")]}.values(),
+        key=lambda p: p.name.lower(),
+    )
+    for path in saldos_seed_paths:
+        temporada = _temporada_from_seed_saldos(path)
+        if temporada not in {"42", "43"}:
+            continue
+        try:
+            parsed_rows = parse_saldos_txt(path.read_bytes())
+        except Exception:
+            continue
+        temporadas_seen.add(temporada)
+        for parsed in parsed_rows:
+            row = dict(parsed)
+            row_key = (
+                temporada,
+                str(row.get("articulo") or "").strip(),
+                str(row.get("corte") or "").strip(),
+                str(row.get("fecha_iso") or "").strip(),
+                *[int(row.get(key) or 0) for key in numeric_fields],
+            )
+            if row_key in seen_rows:
+                continue
+            seen_rows.add(row_key)
+            for key in numeric_fields:
+                row[key] = int(row.get(key) or 0)
+                totals[key] += int(row[key] or 0)
+            row["temporada"] = temporada
+            row["fecha_display"] = _format_fecha_display(row.get("fecha_iso"))
+            row["proceso_actual"] = _full_table_stage_label(row)
+            row["restante_detalle"] = _full_table_restante_detalle(row)
+            rows.append(row)
+
+    rows.sort(
+        key=lambda r: (
+            str(r.get("fecha_iso") or ""),
+            str(r.get("corte") or ""),
+            str(r.get("articulo") or ""),
+        ),
+        reverse=True,
+    )
+    temporadas = sorted(temporadas_seen, key=lambda x: int(x) if str(x).isdigit() else 999)
+    return rows, totals, temporadas
+
+
 def ensure_seed_data() -> None:
     if not ENABLE_SEED:
         init_db(DB_PATH)
@@ -3857,6 +3977,7 @@ def index():
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     inventory_book = _load_inventory_book_dashboard()
+    full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     return render_template(
         "index.html",
@@ -3901,6 +4022,9 @@ def index():
         assistant_provider=assistant_provider,
         ventas_docs_summary=ventas_docs_summary,
         inventory_book=inventory_book,
+        full_table_rows=full_table_rows,
+        full_table_totals=full_table_totals,
+        full_table_temporadas=full_table_temporadas,
     )
 
 

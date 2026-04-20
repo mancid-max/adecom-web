@@ -808,6 +808,13 @@
           <option value="Corte">Corte</option>
           <option value="Sin movimiento">Sin movimiento</option>
         </select>
+        <label>Temporada:</label>
+        <div id="temporadaFiltro" class="comparativo-toolbar" aria-label="Filtro temporada tabla completa">
+          <button type="button" class="comparativo-toggle is-active" data-temporada-value="todo">Todas</button>
+          {% for temp in full_table_temporadas %}
+          <button type="button" class="comparativo-toggle" data-temporada-value="{{ temp }}">{{ temp }}</button>
+          {% endfor %}
+        </div>
       </div>
       <section class="full-table-stage-panel">
         <div class="full-table-stage-head">
@@ -854,12 +861,13 @@
             </tr>
           </thead>
           <tbody>
-            {% for row in rows %}
+            {% for row in full_table_rows %}
             <tr
               class="{% if row.bodega|int > 0 %}row-bodega{% elif row.lavanderia|int > 0 %}row-lavanderia{% endif %}"
               data-clickable="1"
               data-articulo="{{ row.articulo }}"
               data-corte="{{ row.corte }}"
+              data-temporada="{{ row.temporada }}"
               data-fecha="{{ row.fecha_iso or '' }}"
               data-programa="{{ row.programa }}"
               data-proceso="{{ row.proceso }}"
@@ -904,16 +912,16 @@
               <td>Totales</td>
               <td>-</td>
               <td>-</td>
-              <td class="full-table-num">{{ totals.programa }}</td>
-              <td class="full-table-num">{{ totals.proceso }}</td>
-              <td class="full-table-num">{{ totals.bodega }}</td>
-              <td class="full-table-num">{{ totals.saldo }}</td>
-              <td class="full-table-num">{{ totals.corte_1 }}</td>
-              <td class="full-table-num">{{ totals.taller }}</td>
-              <td class="full-table-num">{{ totals.t_externo }}</td>
-              <td class="full-table-num">{{ totals.limpiado }}</td>
-              <td class="full-table-num">{{ totals.lavanderia }}</td>
-              <td class="full-table-num">{{ totals.terminacion }}</td>
+              <td class="full-table-num">{{ full_table_totals.programa }}</td>
+              <td class="full-table-num">{{ full_table_totals.proceso }}</td>
+              <td class="full-table-num">{{ full_table_totals.bodega }}</td>
+              <td class="full-table-num">{{ full_table_totals.saldo }}</td>
+              <td class="full-table-num">{{ full_table_totals.corte_1 }}</td>
+              <td class="full-table-num">{{ full_table_totals.taller }}</td>
+              <td class="full-table-num">{{ full_table_totals.t_externo }}</td>
+              <td class="full-table-num">{{ full_table_totals.limpiado }}</td>
+              <td class="full-table-num">{{ full_table_totals.lavanderia }}</td>
+              <td class="full-table-num">{{ full_table_totals.terminacion }}</td>
             </tr>
           </tfoot>
         </table>
@@ -3034,6 +3042,7 @@
 
     (function () {
       const filtro = document.getElementById("tipoFiltro");
+      const temporadaFiltro = document.getElementById("temporadaFiltro");
       const table = document.getElementById("fullTableMain");
       const stageGrid = document.getElementById("fullTableStageGrid");
       const visibleTotals = document.getElementById("fullTableVisibleTotals");
@@ -3041,6 +3050,10 @@
       const tbody = table.querySelector("tbody");
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr[data-clickable="1"]'));
+      const seasonButtons = temporadaFiltro
+        ? Array.from(temporadaFiltro.querySelectorAll("[data-temporada-value]"))
+        : [];
+      let season = "todo";
 
       const stageMeta = {
         Bodega: "estado-pill estado-pill-green",
@@ -3152,15 +3165,27 @@
         rows.forEach((row) => {
           const esMuestra = row.dataset.esmuestra === "1";
           const stage = row.dataset.etapaactual || "";
+          const rowSeason = String(row.dataset.temporada || "");
           let visible = true;
           if (value === "produccion") visible = !esMuestra;
           else if (value !== "todo") visible = stage === value;
+          if (visible && season !== "todo") {
+            visible = rowSeason === season;
+          }
           row.style.display = visible ? "" : "none";
         });
         renderStageSummary();
       };
 
       filtro.addEventListener("change", applyFilter);
+      seasonButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          season = String(btn.getAttribute("data-temporada-value") || "todo");
+          seasonButtons.forEach((item) => item.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          applyFilter();
+        });
+      });
       applyFilter();
     })();
 
