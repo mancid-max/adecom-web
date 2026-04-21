@@ -1,30 +1,30 @@
 {
   "sheet_name": "Abril 2026",
   "days_month": 21,
-  "days_elapsed": 4,
-  "days_remaining": 17,
+  "days_elapsed": 13,
+  "days_remaining": 8,
   "sections": {
     "corte": {
       "name": "Corte",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
-      "projected": 1904.7619047619048,
+      "projected": 6190.476190476191,
       "actual": 4770.0,
-      "daily_avg": 1192.5
+      "daily_avg": 366.9230769230769
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
-      "projected": 1142.857142857143,
-      "actual": 2604.0,
-      "daily_avg": 651.0
+      "projected": 3714.285714285714,
+      "actual": 2754.0,
+      "daily_avg": 211.84615384615384
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
       "meta_day": 190.47619047619048,
       "meta_month": 4000.0,
-      "projected": 761.9047619047619,
+      "projected": 2476.190476190476,
       "actual": 0.0,
       "daily_avg": 0.0
     },
@@ -32,17 +32,17 @@
       "name": "Lavandería",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
-      "projected": 1904.7619047619048,
-      "actual": 5538.0,
-      "daily_avg": 1384.5
+      "projected": 6190.476190476191,
+      "actual": 6192.0,
+      "daily_avg": 476.3076923076923
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
-      "projected": 1904.7619047619048,
-      "actual": 4408.0,
-      "daily_avg": 1102.0
+      "projected": 6190.476190476191,
+      "actual": 4871.0,
+      "daily_avg": 374.6923076923077
     }
   },
   "weeks": [
@@ -350,7 +350,7 @@
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
-            null,
+            150,
             null,
             null,
             null,
@@ -358,7 +358,7 @@
             null,
             null
           ],
-          "total": 0
+          "total": 150
         },
         {
           "key": "sur",
@@ -378,7 +378,7 @@
           "key": "lavanderia",
           "name": "Lavanderia",
           "values": [
-            null,
+            654,
             null,
             null,
             null,
@@ -386,13 +386,13 @@
             null,
             null
           ],
-          "total": 0
+          "total": 654
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
-            null,
+            463,
             null,
             null,
             null,
@@ -400,7 +400,7 @@
             null,
             null
           ],
-          "total": 0
+          "total": 463
         }
       ]
     },
