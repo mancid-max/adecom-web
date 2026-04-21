@@ -9,16 +9,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 4770.0,
-      "daily_avg": 366.9230769230769
+      "actual": 5370.0,
+      "daily_avg": 413.0769230769231
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 3714.285714285714,
-      "actual": 2754.0,
-      "daily_avg": 211.84615384615384
+      "actual": 2954.0,
+      "daily_avg": 227.23076923076923
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -33,8 +33,8 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 6192.0,
-      "daily_avg": 476.3076923076923
+      "actual": 7007.0,
+      "daily_avg": 539.0
     },
     "terminacion": {
       "name": "Terminación",
@@ -337,28 +337,28 @@
           "name": "Corte",
           "values": [
             null,
-            null,
+            600,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 600
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
             150,
-            null,
+            200,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 150
+          "total": 350
         },
         {
           "key": "sur",
@@ -379,14 +379,14 @@
           "name": "Lavanderia",
           "values": [
             654,
-            null,
+            815,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 654
+          "total": 1469
         },
         {
           "key": "terminacion",
