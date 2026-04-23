@@ -925,16 +925,16 @@
               <td>Totales</td>
               <td>-</td>
               <td>-</td>
-              <td class="full-table-num">{{ full_table_totals.programa }}</td>
-              <td class="full-table-num">{{ full_table_totals.proceso }}</td>
-              <td class="full-table-num">{{ full_table_totals.bodega }}</td>
-              <td class="full-table-num">{{ full_table_totals.saldo }}</td>
-              <td class="full-table-num">{{ full_table_totals.corte_1 }}</td>
-              <td class="full-table-num">{{ full_table_totals.taller }}</td>
-              <td class="full-table-num">{{ full_table_totals.t_externo }}</td>
-              <td class="full-table-num">{{ full_table_totals.limpiado }}</td>
-              <td class="full-table-num">{{ full_table_totals.lavanderia }}</td>
-              <td class="full-table-num">{{ full_table_totals.terminacion }}</td>
+              <td class="full-table-num" id="fullTableTotalPrograma">{{ full_table_totals.programa }}</td>
+              <td class="full-table-num" id="fullTableTotalProceso">{{ full_table_totals.proceso }}</td>
+              <td class="full-table-num" id="fullTableTotalBodega">{{ full_table_totals.bodega }}</td>
+              <td class="full-table-num" id="fullTableTotalSaldo">{{ full_table_totals.saldo }}</td>
+              <td class="full-table-num" id="fullTableTotalCorte">{{ full_table_totals.corte_1 }}</td>
+              <td class="full-table-num" id="fullTableTotalTaller">{{ full_table_totals.taller }}</td>
+              <td class="full-table-num" id="fullTableTotalTExterno">{{ full_table_totals.t_externo }}</td>
+              <td class="full-table-num" id="fullTableTotalLimpiado">{{ full_table_totals.limpiado }}</td>
+              <td class="full-table-num" id="fullTableTotalLavanderia">{{ full_table_totals.lavanderia }}</td>
+              <td class="full-table-num" id="fullTableTotalTerminacion">{{ full_table_totals.terminacion }}</td>
             </tr>
           </tfoot>
         </table>
@@ -3122,6 +3122,18 @@
       const table = document.getElementById("fullTableMain");
       const stageGrid = document.getElementById("fullTableStageGrid");
       const visibleTotals = document.getElementById("fullTableVisibleTotals");
+      const footerTotals = {
+        programa: document.getElementById("fullTableTotalPrograma"),
+        proceso: document.getElementById("fullTableTotalProceso"),
+        bodega: document.getElementById("fullTableTotalBodega"),
+        saldo: document.getElementById("fullTableTotalSaldo"),
+        corte1: document.getElementById("fullTableTotalCorte"),
+        taller: document.getElementById("fullTableTotalTaller"),
+        texterno: document.getElementById("fullTableTotalTExterno"),
+        limpiado: document.getElementById("fullTableTotalLimpiado"),
+        lavanderia: document.getElementById("fullTableTotalLavanderia"),
+        terminacion: document.getElementById("fullTableTotalTerminacion"),
+      };
       const summaryToggle = document.getElementById("toggleFullTableSummary");
       const summaryPanel = document.getElementById("fullTableSummaryPanel");
       if (!etapaFiltro || !table) return;
@@ -3214,6 +3226,13 @@
             total,
             activeRows,
           };
+        });
+
+        cards.forEach((item) => {
+          const target = footerTotals[item.key];
+          if (target) {
+            target.textContent = format(item.total);
+          }
         });
 
         if (!cards.length) {
