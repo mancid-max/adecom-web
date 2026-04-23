@@ -2924,6 +2924,14 @@ def _temporada_from_seed_saldos(path: Path) -> str:
     return m2.group(1) if m2 else ""
 
 
+def _full_table_tipo_label(row: dict[str, object]) -> str:
+    corte = str(row.get("corte") or "").strip()
+    normalized = corte.lstrip("0")
+    if normalized.startswith("96"):
+        return "muestras"
+    return "produccion"
+
+
 def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str, int], list[str]]:
     numeric_fields = [
         "programa",
@@ -2973,6 +2981,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 row[key] = int(row.get(key) or 0)
                 totals[key] += int(row[key] or 0)
             row["temporada"] = temporada
+            row["tipo"] = _full_table_tipo_label(row)
             row["fecha_display"] = _format_fecha_display(row.get("fecha_iso"))
             row["proceso_actual"] = _full_table_stage_label(row)
             row["restante_detalle"] = _full_table_restante_detalle(row)

@@ -17,8 +17,8 @@
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 3714.285714285714,
-      "actual": 2954.0,
-      "daily_avg": 227.23076923076923
+      "actual": 3254.0,
+      "daily_avg": 250.30769230769232
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -33,16 +33,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 7007.0,
-      "daily_avg": 539.0
+      "actual": 7572.0,
+      "daily_avg": 582.4615384615385
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 4871.0,
-      "daily_avg": 374.6923076923077
+      "actual": 5907.0,
+      "daily_avg": 454.38461538461536
     }
   },
   "weeks": [
@@ -352,13 +352,13 @@
           "values": [
             150,
             200,
-            null,
+            300,
             null,
             null,
             null,
             null
           ],
-          "total": 350
+          "total": 650
         },
         {
           "key": "sur",
@@ -380,27 +380,27 @@
           "values": [
             654,
             815,
-            null,
+            565,
             null,
             null,
             null,
             null
           ],
-          "total": 1469
+          "total": 2034
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
             463,
-            null,
-            null,
+            483,
+            553,
             null,
             null,
             null,
             null
           ],
-          "total": 463
+          "total": 1499
         }
       ]
     },

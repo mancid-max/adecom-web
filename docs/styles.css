@@ -1600,7 +1600,69 @@ button.full-table-stage-card:hover,
   color: #205a9e !important;
 }
 
+#fullTableModal .full-table-tools {
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#fullTableModal .full-table-filter-stack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#fullTableModal .full-table-filter-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d6774;
+}
+
+#fullTableModal .full-table-toolbar-inline {
+  margin: 0;
+}
+
+#fullTableModal .full-table-summary-toggle {
+  width: 100%;
+  margin: 6px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid #d6dce5;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f7faff 0%, #edf3fb 100%);
+  color: #16385f;
+}
+
+#fullTableModal .full-table-summary-toggle:hover {
+  background: linear-gradient(180deg, #f3f8ff 0%, #e7effa 100%);
+}
+
+#fullTableModal .full-table-summary-toggle.is-active {
+  border-color: #274d79;
+  background: linear-gradient(180deg, #e8f0fb 0%, #dbe8f8 100%);
+}
+
+#fullTableModal .full-table-summary-toggle-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+#fullTableModal .full-table-summary-toggle-meta {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4e6682;
+}
+
 @media (max-width: 900px) {
+  #fullTableModal .full-table-summary-toggle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .full-table-stage-head {
     flex-direction: column;
   }

@@ -789,11 +789,10 @@
         <h3>Tabla completa</h3>
         <button type="button" id="closeFullTableModal" class="modal-close">Cerrar</button>
       </div>
-      <div class="table-tools">
-        <label for="tipoFiltro">Vista:</label>
-        <select id="tipoFiltro">
+      <div class="table-tools full-table-tools">
+        <label for="etapaFiltro">Etapa:</label>
+        <select id="etapaFiltro">
           <option value="todo">Todos</option>
-          <option value="produccion">Solo produccion</option>
           <option value="Bodega">Bodega</option>
           <option value="Lavanderia">Lavanderia</option>
           <option value="Terminacion">Terminacion</option>
@@ -803,21 +802,39 @@
           <option value="Corte">Corte</option>
           <option value="Sin movimiento">Sin movimiento</option>
         </select>
-        <label>Temporada:</label>
-        <div id="temporadaFiltro" class="comparativo-toolbar" aria-label="Filtro temporada tabla completa">
-          <button type="button" class="comparativo-toggle is-active" data-temporada-value="todo">Todas</button>
-          {% for temp in full_table_temporadas %}
-          <button type="button" class="comparativo-toggle" data-temporada-value="{{ temp }}">{{ temp }}</button>
-          {% endfor %}
+        <div class="full-table-filter-stack">
+          <span class="full-table-filter-label">Temporada:</span>
+          <div id="temporadaFiltro" class="comparativo-toolbar full-table-toolbar-inline" aria-label="Filtro temporada tabla completa">
+            <button type="button" class="comparativo-toggle is-active" data-temporada-value="todo">Todas</button>
+            {% for temp in full_table_temporadas %}
+            <button type="button" class="comparativo-toggle" data-temporada-value="{{ temp }}">{{ temp }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="full-table-filter-stack">
+          <span class="full-table-filter-label">Tipo:</span>
+          <div id="tipoTablaFiltro" class="comparativo-toolbar full-table-toolbar-inline" aria-label="Filtro tipo tabla completa">
+            <button type="button" class="comparativo-toggle is-active" data-type-value="todo">Todas</button>
+            <button type="button" class="comparativo-toggle" data-type-value="muestras">Muestras</button>
+            <button type="button" class="comparativo-toggle" data-type-value="produccion">Produccion</button>
+          </div>
         </div>
       </div>
-      <section class="full-table-stage-panel">
+      <button
+        type="button"
+        class="full-table-summary-toggle"
+        id="toggleFullTableSummary"
+        aria-expanded="false"
+      >
+        <span class="full-table-summary-toggle-title">Resumen</span>
+        <span class="full-table-summary-toggle-meta" id="fullTableVisibleTotals">-</span>
+      </button>
+      <section class="full-table-stage-panel" id="fullTableSummaryPanel" hidden>
         <div class="full-table-stage-head">
           <div>
             <h4>Resumen por columna</h4>
             <p>Tarjetas alineadas con los nombres de la tabla.</p>
           </div>
-          <div class="full-table-stage-total" id="fullTableVisibleTotals">-</div>
         </div>
         <div class="full-table-stage-grid" id="fullTableStageGrid"></div>
       </section>
@@ -863,6 +880,7 @@
               data-articulo="{{ row.articulo }}"
               data-corte="{{ row.corte }}"
               data-temporada="{{ row.temporada }}"
+              data-tipo="{{ row.tipo }}"
               data-fecha="{{ row.fecha_iso or '' }}"
               data-programa="{{ row.programa }}"
               data-proceso="{{ row.proceso }}"
@@ -2962,8 +2980,35 @@
       const modal = document.getElementById("fullTableModal");
       const openBtn = document.getElementById("openFullTableModal");
       const closeBtn = document.getElementById("closeFullTableModal");
+      const etapaFiltro = document.getElementById("etapaFiltro");
+      const temporadaFiltro = document.getElementById("temporadaFiltro");
+      const tipoTablaFiltro = document.getElementById("tipoTablaFiltro");
+      const summaryToggle = document.getElementById("toggleFullTableSummary");
+      const summaryPanel = document.getElementById("fullTableSummaryPanel");
       if (!modal || !openBtn || !closeBtn) return;
-      openBtn.addEventListener("click", () => modal.showModal());
+      openBtn.addEventListener("click", () => {
+        if (etapaFiltro) {
+          etapaFiltro.value = "todo";
+        }
+        if (temporadaFiltro) {
+          const activeSeason = temporadaFiltro.querySelector('[data-temporada-value="todo"]');
+          if (activeSeason) activeSeason.click();
+        }
+        if (tipoTablaFiltro) {
+          const activeType = tipoTablaFiltro.querySelector('[data-type-value="todo"]');
+          if (activeType) activeType.click();
+        }
+        if (etapaFiltro) {
+          etapaFiltro.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        modal.dispatchEvent(new Event("reset-full-table-sort"));
+        if (summaryPanel && summaryToggle) {
+          summaryPanel.setAttribute("hidden", "");
+          summaryToggle.setAttribute("aria-expanded", "false");
+          summaryToggle.classList.remove("is-active");
+        }
+        modal.showModal();
+      });
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
@@ -2977,6 +3022,7 @@
     })();
 
     (function () {
+      const modal = document.getElementById("fullTableModal");
       const table = document.getElementById("fullTableMain");
       const bodyWrap = document.getElementById("fullTableBodyWrap");
       if (!table || !bodyWrap) return;
@@ -2984,6 +3030,38 @@
       const headers = table.querySelectorAll("th.sortable-th");
       let currentKey = "";
       let direction = "desc";
+
+      const sortRowsLatestFirst = () => {
+        if (!tbody) return;
+        currentKey = "fecha";
+        direction = "desc";
+
+        headers.forEach((h) => {
+          h.classList.remove("sortable-active");
+          h.removeAttribute("data-dir");
+        });
+        const active = table.querySelector('th.sortable-th[data-sort-key="fecha"]');
+        if (active) {
+          active.classList.add("sortable-active");
+          active.setAttribute("data-dir", direction);
+        }
+
+        const rows = Array.from(tbody.querySelectorAll("tr"))
+          .filter((row) => row.querySelectorAll("td").length > 0);
+
+        rows.sort((a, b) => {
+          const fechaA = String(a.dataset.fecha || "");
+          const fechaB = String(b.dataset.fecha || "");
+          if (fechaA !== fechaB) {
+            return fechaB.localeCompare(fechaA, "es", { sensitivity: "base" });
+          }
+          const corteA = String(a.dataset.corte || "");
+          const corteB = String(b.dataset.corte || "");
+          return corteB.localeCompare(corteA, "es", { numeric: true, sensitivity: "base" });
+        });
+
+        rows.forEach((row) => tbody.appendChild(row));
+      };
 
       const sortRows = (key) => {
         if (!tbody) return;
@@ -3031,24 +3109,33 @@
         });
       });
 
-      // Orden inicial: primero los que estan en bodega (verde).
-      sortRows("bodega");
+      sortRowsLatestFirst();
+      if (modal) {
+        modal.addEventListener("reset-full-table-sort", sortRowsLatestFirst);
+      }
     })();
 
     (function () {
-      const filtro = document.getElementById("tipoFiltro");
+      const etapaFiltro = document.getElementById("etapaFiltro");
       const temporadaFiltro = document.getElementById("temporadaFiltro");
+      const tipoTablaFiltro = document.getElementById("tipoTablaFiltro");
       const table = document.getElementById("fullTableMain");
       const stageGrid = document.getElementById("fullTableStageGrid");
       const visibleTotals = document.getElementById("fullTableVisibleTotals");
-      if (!filtro || !table) return;
+      const summaryToggle = document.getElementById("toggleFullTableSummary");
+      const summaryPanel = document.getElementById("fullTableSummaryPanel");
+      if (!etapaFiltro || !table) return;
       const tbody = table.querySelector("tbody");
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr[data-clickable="1"]'));
       const seasonButtons = temporadaFiltro
         ? Array.from(temporadaFiltro.querySelectorAll("[data-temporada-value]"))
         : [];
+      const typeButtons = tipoTablaFiltro
+        ? Array.from(tipoTablaFiltro.querySelectorAll("[data-type-value]"))
+        : [];
       let season = "todo";
+      let rowType = "todo";
 
       const stageMeta = {
         Bodega: "estado-pill estado-pill-green",
@@ -3142,41 +3229,63 @@
           >
             <span class="${stageMeta[item.filterValue] || "estado-pill estado-pill-blue"}" translate="no">${item.label}</span>
             <strong>${format(item.total)}</strong>
-            <small>${format(item.activeRows)} ${item.activeRows === 1 ? "orden" : "ordenes"} con valor</small>
+            <small>${format(item.activeRows)} ${item.activeRows === 1 ? "orden" : "ordenes"}</small>
           </button>
         `).join("");
 
         stageGrid.querySelectorAll("[data-stage-filter]").forEach((btn) => {
           btn.addEventListener("click", () => {
             const stage = btn.getAttribute("data-stage-filter") || "todo";
-            filtro.value = stage;
+            etapaFiltro.value = stage;
             applyFilter();
           });
         });
       };
 
+      if (summaryToggle && summaryPanel) {
+        summaryToggle.addEventListener("click", () => {
+          const willOpen = summaryPanel.hasAttribute("hidden");
+          if (willOpen) summaryPanel.removeAttribute("hidden");
+          else summaryPanel.setAttribute("hidden", "");
+          summaryToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+          summaryToggle.classList.toggle("is-active", willOpen);
+        });
+      }
+
       const applyFilter = () => {
-        const value = filtro.value;
+        const stageValue = etapaFiltro.value;
         rows.forEach((row) => {
-          const esMuestra = row.dataset.esmuestra === "1";
           const stage = row.dataset.etapaactual || "";
           const rowSeason = String(row.dataset.temporada || "");
+          const currentType = String(row.dataset.tipo || "");
           let visible = true;
-          if (value === "produccion") visible = !esMuestra;
-          else if (value !== "todo") visible = stage === value;
+          if (stageValue !== "todo") {
+            visible = stage === stageValue;
+          }
           if (visible && season !== "todo") {
             visible = rowSeason === season;
+          }
+          if (visible && rowType !== "todo") {
+            visible = currentType === rowType;
           }
           row.style.display = visible ? "" : "none";
         });
         renderStageSummary();
       };
 
-      filtro.addEventListener("change", applyFilter);
+      etapaFiltro.addEventListener("change", applyFilter);
       seasonButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           season = String(btn.getAttribute("data-temporada-value") || "todo");
           seasonButtons.forEach((item) => item.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          applyFilter();
+        });
+      });
+      typeButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          rowType = String(btn.getAttribute("data-type-value") || "todo");
+          typeButtons.forEach((item) => item.classList.remove("is-active"));
           btn.classList.add("is-active");
           applyFilter();
         });
