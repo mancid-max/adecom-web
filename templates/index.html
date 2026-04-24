@@ -819,6 +819,16 @@
             <button type="button" class="comparativo-toggle" data-type-value="produccion">Produccion</button>
           </div>
         </div>
+        <div class="full-table-filter-stack full-table-search-stack">
+          <label class="full-table-filter-label" for="fullTableArticuloSearch">Articulo:</label>
+          <input
+            type="text"
+            id="fullTableArticuloSearch"
+            placeholder="Buscar articulo..."
+            autocomplete="off"
+            inputmode="numeric"
+          >
+        </div>
       </div>
       <button
         type="button"
@@ -2983,6 +2993,7 @@
       const etapaFiltro = document.getElementById("etapaFiltro");
       const temporadaFiltro = document.getElementById("temporadaFiltro");
       const tipoTablaFiltro = document.getElementById("tipoTablaFiltro");
+      const articuloSearch = document.getElementById("fullTableArticuloSearch");
       const summaryToggle = document.getElementById("toggleFullTableSummary");
       const summaryPanel = document.getElementById("fullTableSummaryPanel");
       if (!modal || !openBtn || !closeBtn) return;
@@ -2997,6 +3008,10 @@
         if (tipoTablaFiltro) {
           const activeType = tipoTablaFiltro.querySelector('[data-type-value="todo"]');
           if (activeType) activeType.click();
+        }
+        if (articuloSearch) {
+          articuloSearch.value = "";
+          articuloSearch.dispatchEvent(new Event("input", { bubbles: true }));
         }
         if (etapaFiltro) {
           etapaFiltro.dispatchEvent(new Event("change", { bubbles: true }));
@@ -3119,6 +3134,7 @@
       const etapaFiltro = document.getElementById("etapaFiltro");
       const temporadaFiltro = document.getElementById("temporadaFiltro");
       const tipoTablaFiltro = document.getElementById("tipoTablaFiltro");
+      const articuloSearch = document.getElementById("fullTableArticuloSearch");
       const table = document.getElementById("fullTableMain");
       const stageGrid = document.getElementById("fullTableStageGrid");
       const visibleTotals = document.getElementById("fullTableVisibleTotals");
@@ -3148,6 +3164,7 @@
         : [];
       let season = "todo";
       let rowType = "todo";
+      let articleQuery = "";
 
       const stageMeta = {
         Bodega: "estado-pill estado-pill-green",
@@ -3277,6 +3294,7 @@
           const stage = row.dataset.etapaactual || "";
           const rowSeason = String(row.dataset.temporada || "");
           const currentType = String(row.dataset.tipo || "");
+          const articulo = String(row.dataset.articulo || "").trim().toLowerCase();
           let visible = true;
           if (stageValue !== "todo") {
             visible = stage === stageValue;
@@ -3287,12 +3305,21 @@
           if (visible && rowType !== "todo") {
             visible = currentType === rowType;
           }
+          if (visible && articleQuery) {
+            visible = articulo.includes(articleQuery);
+          }
           row.style.display = visible ? "" : "none";
         });
         renderStageSummary();
       };
 
       etapaFiltro.addEventListener("change", applyFilter);
+      if (articuloSearch) {
+        articuloSearch.addEventListener("input", () => {
+          articleQuery = String(articuloSearch.value || "").trim().toLowerCase();
+          applyFilter();
+        });
+      }
       seasonButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           season = String(btn.getAttribute("data-temporada-value") || "todo");

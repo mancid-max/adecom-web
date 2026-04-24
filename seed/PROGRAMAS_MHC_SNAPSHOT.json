@@ -9,16 +9,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 5370.0,
-      "daily_avg": 413.0769230769231
+      "actual": 5974.0,
+      "daily_avg": 459.53846153846155
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 3714.285714285714,
-      "actual": 3254.0,
-      "daily_avg": 250.30769230769232
+      "actual": 3406.0,
+      "daily_avg": 262.0
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -33,16 +33,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 7572.0,
-      "daily_avg": 582.4615384615385
+      "actual": 8101.0,
+      "daily_avg": 623.1538461538462
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 5907.0,
-      "daily_avg": 454.38461538461536
+      "actual": 6310.0,
+      "daily_avg": 485.38461538461536
     }
   },
   "weeks": [
@@ -339,12 +339,12 @@
             null,
             600,
             null,
-            null,
+            604,
             null,
             null,
             null
           ],
-          "total": 600
+          "total": 1204
         },
         {
           "key": "urrutia",
@@ -353,12 +353,12 @@
             150,
             200,
             300,
-            null,
+            152,
             null,
             null,
             null
           ],
-          "total": 650
+          "total": 802
         },
         {
           "key": "sur",
@@ -381,12 +381,12 @@
             654,
             815,
             565,
-            null,
+            529,
             null,
             null,
             null
           ],
-          "total": 2034
+          "total": 2563
         },
         {
           "key": "terminacion",
@@ -395,12 +395,12 @@
             463,
             483,
             553,
-            null,
+            403,
             null,
             null,
             null
           ],
-          "total": 1499
+          "total": 1902
         }
       ]
     },
