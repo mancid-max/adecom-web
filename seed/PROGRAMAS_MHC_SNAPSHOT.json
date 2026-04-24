@@ -17,8 +17,8 @@
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 3714.285714285714,
-      "actual": 3406.0,
-      "daily_avg": 262.0
+      "actual": 3606.0,
+      "daily_avg": 277.38461538461536
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -354,11 +354,11 @@
             200,
             300,
             152,
-            null,
+            200,
             null,
             null
           ],
-          "total": 802
+          "total": 1002
         },
         {
           "key": "sur",
