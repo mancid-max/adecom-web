@@ -3451,7 +3451,7 @@
               processSummary: processSnapshot.summary,
               repeats: 1,
               priority: 20,
-              text: "Formato de corte fuera del patron esperado. Revisar escritura del codigo.",
+              text: "Error de formato. Revisar escritura del codigo.",
             });
           }
 
@@ -3501,7 +3501,7 @@
               .join(" || "),
             repeats: repeatedCuts.length,
             priority: 100 + repeatedCuts.length,
-            text: `Articulo repetido en distintos cortes (${repeatedCuts.length}). Revisar si ya se habia mandado a hacer muestra de este articulo.`,
+            text: `Se repite en distintos cortes (${repeatedCuts.length}). Revisar si ya se habia mandado a hacer muestra de este articulo.`,
           });
         });
 
@@ -3535,7 +3535,7 @@
           <article class="full-table-observation-card ${issue.kind === "formato" ? "is-danger" : (issue.kind === "duplicado" ? "is-duplicate" : "is-warn")}">
             <div class="full-table-observation-top">
               <strong>${issue.articulo}</strong>
-              <span class="full-table-observation-kind">${issue.kind === "duplicado" ? "Repetido" : (issue.kind === "formato" ? "Formato" : "Muestra alta")}</span>
+              <span class="full-table-observation-kind">${issue.kind === "duplicado" ? "Se repite" : (issue.kind === "formato" ? "Error de formato" : "Muestra alta")}</span>
             </div>
             <small>Veces: ${format(issue.repeats || 1)}</small>
             ${issue.processSummary ? `<div class="full-table-observation-process">${issue.processSummary}</div>` : ""}
