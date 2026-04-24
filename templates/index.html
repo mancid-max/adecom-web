@@ -820,25 +820,48 @@
           </div>
         </div>
         <div class="full-table-filter-stack full-table-search-stack">
-          <label class="full-table-filter-label" for="fullTableArticuloSearch">Articulo:</label>
-          <input
-            type="text"
-            id="fullTableArticuloSearch"
-            placeholder="Buscar articulo..."
-            autocomplete="off"
-            inputmode="numeric"
-          >
+          <div class="full-table-search-field">
+            <label class="full-table-filter-label" for="fullTableArticuloSearch">Articulo:</label>
+            <input
+              type="text"
+              id="fullTableArticuloSearch"
+              placeholder="Buscar articulo..."
+              autocomplete="off"
+              inputmode="numeric"
+            >
+          </div>
+          <div class="full-table-search-field">
+            <label class="full-table-filter-label" for="fullTableCorteSearch">Corte:</label>
+            <input
+              type="text"
+              id="fullTableCorteSearch"
+              placeholder="Buscar corte..."
+              autocomplete="off"
+              inputmode="numeric"
+            >
+          </div>
         </div>
       </div>
-      <button
-        type="button"
-        class="full-table-summary-toggle"
-        id="toggleFullTableSummary"
-        aria-expanded="false"
-      >
-        <span class="full-table-summary-toggle-title">Resumen</span>
-        <span class="full-table-summary-toggle-meta" id="fullTableVisibleTotals">-</span>
-      </button>
+      <div class="full-table-toggle-grid">
+        <button
+          type="button"
+          class="full-table-summary-toggle"
+          id="toggleFullTableSummary"
+          aria-expanded="false"
+        >
+          <span class="full-table-summary-toggle-title">Resumen</span>
+          <span class="full-table-summary-toggle-meta" id="fullTableVisibleTotals">-</span>
+        </button>
+        <button
+          type="button"
+          class="full-table-summary-toggle full-table-summary-toggle-observations"
+          id="toggleFullTableObservations"
+          aria-expanded="false"
+        >
+          <span class="full-table-summary-toggle-title">Observaciones</span>
+          <span class="full-table-summary-toggle-meta" id="fullTableObservationsMeta">Sin observaciones</span>
+        </button>
+      </div>
       <section class="full-table-stage-panel" id="fullTableSummaryPanel" hidden>
         <div class="full-table-stage-head">
           <div>
@@ -847,6 +870,30 @@
           </div>
         </div>
         <div class="full-table-stage-grid" id="fullTableStageGrid"></div>
+      </section>
+      <section class="full-table-stage-panel full-table-observations-panel" id="fullTableObservationsPanel" hidden>
+        <div class="full-table-stage-head">
+          <div>
+            <h4>Observaciones de formato</h4>
+            <p>Alertas para revisar cortes y valores sospechosos.</p>
+          </div>
+        </div>
+        <div class="full-table-observations-columns">
+          <section class="full-table-observations-group">
+            <div class="full-table-observations-group-head">
+              <h5>Observaciones</h5>
+              <span id="fullTableObservationsOpenMeta">0</span>
+            </div>
+            <div class="full-table-observations-list" id="fullTableObservationsList"></div>
+          </section>
+          <section class="full-table-observations-group">
+            <div class="full-table-observations-group-head">
+              <h5>Observaciones listas</h5>
+              <span id="fullTableObservationsDoneMeta">0</span>
+            </div>
+            <div class="full-table-observations-list" id="fullTableObservationsDoneList"></div>
+          </section>
+        </div>
       </section>
       <section class="table-wrap bodega-wrap full-table-wrap" id="fullTableBodyWrap">
         <table class="bodega-table full-table" id="fullTableMain">
@@ -908,7 +955,7 @@
               data-etapaactual="{{ row.proceso_actual }}"
               data-ubicacionactual="{{ row.restante_detalle }}"
               data-restantedetalle="{{ row.restante_detalle }}"
-              data-esmuestra="{% if row.corte and row.corte.lstrip('0').startswith('96') %}1{% else %}0{% endif %}"
+              data-esmuestra="{% if row.tipo == 'muestras' %}1{% else %}0{% endif %}"
             >
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
@@ -2994,8 +3041,11 @@
       const temporadaFiltro = document.getElementById("temporadaFiltro");
       const tipoTablaFiltro = document.getElementById("tipoTablaFiltro");
       const articuloSearch = document.getElementById("fullTableArticuloSearch");
+      const corteSearch = document.getElementById("fullTableCorteSearch");
       const summaryToggle = document.getElementById("toggleFullTableSummary");
       const summaryPanel = document.getElementById("fullTableSummaryPanel");
+      const observationsToggle = document.getElementById("toggleFullTableObservations");
+      const observationsPanel = document.getElementById("fullTableObservationsPanel");
       if (!modal || !openBtn || !closeBtn) return;
       openBtn.addEventListener("click", () => {
         if (etapaFiltro) {
@@ -3013,6 +3063,10 @@
           articuloSearch.value = "";
           articuloSearch.dispatchEvent(new Event("input", { bubbles: true }));
         }
+        if (corteSearch) {
+          corteSearch.value = "";
+          corteSearch.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         if (etapaFiltro) {
           etapaFiltro.dispatchEvent(new Event("change", { bubbles: true }));
         }
@@ -3021,6 +3075,11 @@
           summaryPanel.setAttribute("hidden", "");
           summaryToggle.setAttribute("aria-expanded", "false");
           summaryToggle.classList.remove("is-active");
+        }
+        if (observationsPanel && observationsToggle) {
+          observationsPanel.setAttribute("hidden", "");
+          observationsToggle.setAttribute("aria-expanded", "false");
+          observationsToggle.classList.remove("is-active");
         }
         modal.showModal();
       });
@@ -3135,9 +3194,15 @@
       const temporadaFiltro = document.getElementById("temporadaFiltro");
       const tipoTablaFiltro = document.getElementById("tipoTablaFiltro");
       const articuloSearch = document.getElementById("fullTableArticuloSearch");
+      const corteSearch = document.getElementById("fullTableCorteSearch");
       const table = document.getElementById("fullTableMain");
       const stageGrid = document.getElementById("fullTableStageGrid");
       const visibleTotals = document.getElementById("fullTableVisibleTotals");
+      const observationsMeta = document.getElementById("fullTableObservationsMeta");
+      const observationsOpenMeta = document.getElementById("fullTableObservationsOpenMeta");
+      const observationsDoneMeta = document.getElementById("fullTableObservationsDoneMeta");
+      const observationsList = document.getElementById("fullTableObservationsList");
+      const observationsDoneList = document.getElementById("fullTableObservationsDoneList");
       const footerTotals = {
         programa: document.getElementById("fullTableTotalPrograma"),
         proceso: document.getElementById("fullTableTotalProceso"),
@@ -3152,6 +3217,8 @@
       };
       const summaryToggle = document.getElementById("toggleFullTableSummary");
       const summaryPanel = document.getElementById("fullTableSummaryPanel");
+      const observationsToggle = document.getElementById("toggleFullTableObservations");
+      const observationsPanel = document.getElementById("fullTableObservationsPanel");
       if (!etapaFiltro || !table) return;
       const tbody = table.querySelector("tbody");
       if (!tbody) return;
@@ -3165,6 +3232,8 @@
       let season = "todo";
       let rowType = "todo";
       let articleQuery = "";
+      let cutQuery = "";
+      const observationsStorageKey = "adecom_full_table_observations_done_v1";
 
       const stageMeta = {
         Bodega: "estado-pill estado-pill-green",
@@ -3191,6 +3260,65 @@
       ];
 
       const format = (n) => Number(n || 0).toLocaleString("es-CL");
+      const observationNumericKeys = ["programa", "proceso", "bodega", "saldo", "corte1", "taller", "texterno", "limpiado", "lavanderia", "terminacion", "muestra", "segunda"];
+      const stageKeyByLabel = {
+        Bodega: "bodega",
+        Lavanderia: "lavanderia",
+        Terminacion: "terminacion",
+        Limpiado: "limpiado",
+        "T. Externo": "texterno",
+        Taller: "taller",
+        Corte: "corte1",
+      };
+      const loadDoneObservations = () => {
+        try {
+          const raw = window.localStorage.getItem(observationsStorageKey);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return new Set(Array.isArray(parsed) ? parsed.map((item) => String(item || "")) : []);
+        } catch (_) {
+          return new Set();
+        }
+      };
+      const saveDoneObservations = (set) => {
+        try {
+          window.localStorage.setItem(observationsStorageKey, JSON.stringify([...set]));
+        } catch (_) {
+          // noop
+        }
+      };
+      let doneObservations = loadDoneObservations();
+
+      const isStrictMuestraFormat = (corte) => {
+        const value = String(corte || "").trim();
+        return value.startsWith("0096") || value.startsWith("096");
+      };
+
+      const isAcceptedMuestraFormat = (corte) => {
+        const value = String(corte || "").trim();
+        return value.startsWith("009") || value.startsWith("096");
+      };
+
+      const isProduccionFormat = (corte) => {
+        const value = String(corte || "").trim();
+        return value.startsWith("0001");
+      };
+
+      const getProcessSnapshot = (row) => {
+        const stage = String(row.dataset.etapaactual || row.dataset.procesoactual || "Sin movimiento").trim() || "Sin movimiento";
+        const stageKey = stageKeyByLabel[stage] || "";
+        let qty = stageKey ? Number(row.dataset[stageKey] || 0) : 0;
+        if (qty <= 0) {
+          qty = Number(row.dataset.proceso || 0);
+        }
+        if (qty <= 0) {
+          qty = observationNumericKeys.reduce((max, key) => Math.max(max, Number(row.dataset[key] || 0)), 0);
+        }
+        return {
+          stage,
+          qty,
+          summary: `${stage} | ${format(qty)}`,
+        };
+      };
 
       const detectStage = (row) => {
         if (Number(row.dataset.bodega || 0) > 0) return "Bodega";
@@ -3278,6 +3406,190 @@
         });
       };
 
+      const renderObservations = () => {
+        if (!observationsMeta || !observationsList || !observationsDoneList || !observationsOpenMeta || !observationsDoneMeta) return;
+        const visibleRows = rows.filter((row) => matchesPrimaryFilters(row));
+        const issues = [];
+        const articleCutMap = new Map();
+
+        visibleRows.forEach((row) => {
+          const corte = String(row.dataset.corte || "").trim();
+          const articulo = String(row.dataset.articulo || "").trim();
+          const fecha = String(row.dataset.fecha || "").trim();
+          const tipo = String(row.dataset.tipo || "").trim();
+          const processSnapshot = getProcessSnapshot(row);
+          const maxValue = observationNumericKeys.reduce((max, key) => {
+            return Math.max(max, Number(row.dataset[key] || 0));
+          }, 0);
+
+          if (tipo === "muestras" && maxValue > 10) {
+            issues.push({
+              id: `muestra-alta|${articulo}|${corte}`,
+              kind: "muestra-alta",
+              articulo,
+              corte,
+              fecha,
+              process: processSnapshot.stage,
+              quantity: processSnapshot.qty,
+              processSummary: processSnapshot.summary,
+              repeats: 1,
+              priority: 10,
+              text: `Muestra con valor alto (${format(maxValue)}). Revisar si ese corte esta bien clasificado o digitado.`,
+            });
+          }
+
+          const hasKnownFormat = isAcceptedMuestraFormat(corte) || isProduccionFormat(corte);
+          if (!hasKnownFormat || (tipo === "muestras" && !isStrictMuestraFormat(corte))) {
+            issues.push({
+              id: `formato|${articulo}|${corte}`,
+              kind: "formato",
+              articulo,
+              corte,
+              fecha,
+              process: processSnapshot.stage,
+              quantity: processSnapshot.qty,
+              processSummary: processSnapshot.summary,
+              repeats: 1,
+              priority: 20,
+              text: "Formato de corte fuera del patron esperado. Revisar escritura del codigo.",
+            });
+          }
+
+          if (articulo) {
+            if (!articleCutMap.has(articulo)) {
+              articleCutMap.set(articulo, []);
+            }
+            articleCutMap.get(articulo).push({
+              corte,
+              fecha,
+              tipo,
+              process: processSnapshot.stage,
+              quantity: processSnapshot.qty,
+              processSummary: processSnapshot.summary,
+            });
+          }
+        });
+
+        articleCutMap.forEach((entries, articulo) => {
+          const uniqueCuts = [...new Set(entries.map((item) => item.corte).filter(Boolean))];
+          if (uniqueCuts.length <= 1) return;
+          const muestrasCuts = entries
+            .filter((item) => item.tipo === "muestras")
+            .map((item) => item.corte)
+            .filter(Boolean);
+          const repeatedCuts = [...new Set((muestrasCuts.length ? muestrasCuts : uniqueCuts))];
+          if (repeatedCuts.length <= 1) return;
+          const repeatedEntries = entries.filter((item) => repeatedCuts.includes(item.corte));
+          issues.push({
+            id: `duplicado|${articulo}|${repeatedCuts.join("-")}`,
+            kind: "duplicado",
+            articulo,
+            corte: repeatedCuts.join(", "),
+            fecha: repeatedEntries
+              .map((item) => item.fecha)
+              .filter(Boolean)
+              .sort()
+              .join(" | "),
+            process: repeatedEntries
+              .map((item) => item.processSummary)
+              .filter(Boolean)
+              .join(" | "),
+            quantity: repeatedEntries.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+            processSummary: repeatedEntries
+              .map((item) => `${item.corte}: ${item.processSummary}`)
+              .filter(Boolean)
+              .join(" || "),
+            repeats: repeatedCuts.length,
+            priority: 100 + repeatedCuts.length,
+            text: `Articulo repetido en distintos cortes (${repeatedCuts.length}). Revisar si ya se habia mandado a hacer muestra de este articulo.`,
+          });
+        });
+
+        if (!issues.length) {
+          observationsMeta.textContent = "Sin observaciones";
+          observationsToggle?.classList.remove("has-alert");
+          observationsList.innerHTML = '<article class="full-table-observation-card is-empty"><strong>Sin observaciones</strong><span>Con los filtros actuales no se detectaron errores de formato ni muestras fuera de rango.</span></article>';
+          observationsDoneList.innerHTML = '<article class="full-table-observation-card is-empty"><strong>Sin listas</strong><span>Aun no hay observaciones marcadas como listas.</span></article>';
+          observationsOpenMeta.textContent = "0";
+          observationsDoneMeta.textContent = "0";
+          return;
+        }
+
+        const sortIssues = (items) => items.slice().sort((a, b) => {
+          const priorityDiff = Number(b.priority || 0) - Number(a.priority || 0);
+          if (priorityDiff !== 0) return priorityDiff;
+          const repeatsDiff = Number(b.repeats || 0) - Number(a.repeats || 0);
+          if (repeatsDiff !== 0) return repeatsDiff;
+          const articleDiff = String(a.articulo || "").localeCompare(String(b.articulo || ""), "es", { sensitivity: "base" });
+          if (articleDiff !== 0) return articleDiff;
+          return String(a.corte || "").localeCompare(String(b.corte || ""), "es", { numeric: true, sensitivity: "base" });
+        });
+
+        const openIssues = sortIssues(issues.filter((issue) => !doneObservations.has(issue.id)));
+        const doneIssues = sortIssues(issues.filter((issue) => doneObservations.has(issue.id)));
+        observationsMeta.textContent = `${format(openIssues.length)} ${openIssues.length === 1 ? "observacion" : "observaciones"}`;
+        observationsOpenMeta.textContent = format(openIssues.length);
+        observationsDoneMeta.textContent = format(doneIssues.length);
+        observationsToggle?.classList.add("has-alert");
+        const renderIssueCard = (issue, isDone) => `
+          <article class="full-table-observation-card ${issue.kind === "formato" ? "is-danger" : (issue.kind === "duplicado" ? "is-duplicate" : "is-warn")}">
+            <div class="full-table-observation-top">
+              <strong>${issue.articulo}</strong>
+              <span class="full-table-observation-kind">${issue.kind === "duplicado" ? "Repetido" : (issue.kind === "formato" ? "Formato" : "Muestra alta")}</span>
+            </div>
+            <small>Veces: ${format(issue.repeats || 1)}</small>
+            ${issue.processSummary ? `<div class="full-table-observation-process">${issue.processSummary}</div>` : ""}
+            <span>${issue.text}</span>
+            <button type="button" class="full-table-observation-action" data-observation-id="${issue.id}" data-observation-done="${isDone ? "1" : "0"}">
+              ${isDone ? "Volver a observaciones" : "Marcar como lista"}
+            </button>
+          </article>
+        `;
+        const renderIssueGroups = (items, isDone) => {
+          const groups = new Map();
+          items.forEach((issue) => {
+            const repeats = Number(issue.repeats || 1);
+            if (!groups.has(repeats)) groups.set(repeats, []);
+            groups.get(repeats).push(issue);
+          });
+          return [...groups.entries()]
+            .sort((a, b) => b[0] - a[0])
+            .map(([repeats, groupedIssues]) => `
+              <details class="full-table-observation-group-card">
+                <summary class="full-table-observation-group-summary">
+                  <span>${format(repeats)} ${repeats === 1 ? "vez" : "veces"}</span>
+                  <small>${format(groupedIssues.length)} ${groupedIssues.length === 1 ? "observacion" : "observaciones"}</small>
+                </summary>
+                <div class="full-table-observation-group-body">
+                  ${groupedIssues.map((issue) => renderIssueCard(issue, isDone)).join("")}
+                </div>
+              </details>
+            `)
+            .join("");
+        };
+
+        observationsList.innerHTML = openIssues.length
+          ? renderIssueGroups(openIssues, false)
+          : '<article class="full-table-observation-card is-empty"><strong>Sin observaciones pendientes</strong><span>Todo lo detectable con los filtros actuales esta marcado como listo.</span></article>';
+        observationsDoneList.innerHTML = doneIssues.length
+          ? renderIssueGroups(doneIssues, true)
+          : '<article class="full-table-observation-card is-empty"><strong>Sin listas</strong><span>Aun no hay observaciones marcadas como listas.</span></article>';
+
+        [observationsList, observationsDoneList].forEach((root) => {
+          root.querySelectorAll("[data-observation-id]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const issueId = String(btn.getAttribute("data-observation-id") || "");
+              const isDone = btn.getAttribute("data-observation-done") === "1";
+              if (!issueId) return;
+              if (isDone) doneObservations.delete(issueId);
+              else doneObservations.add(issueId);
+              saveDoneObservations(doneObservations);
+              renderObservations();
+            });
+          });
+        });
+      };
+
       if (summaryToggle && summaryPanel) {
         summaryToggle.addEventListener("click", () => {
           const willOpen = summaryPanel.hasAttribute("hidden");
@@ -3288,35 +3600,61 @@
         });
       }
 
-      const applyFilter = () => {
+      if (observationsToggle && observationsPanel) {
+        observationsToggle.addEventListener("click", () => {
+          const willOpen = observationsPanel.hasAttribute("hidden");
+          if (willOpen) observationsPanel.removeAttribute("hidden");
+          else observationsPanel.setAttribute("hidden", "");
+          observationsToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+          observationsToggle.classList.toggle("is-active", willOpen);
+        });
+      }
+
+      const matchesPrimaryFilters = (row) => {
         const stageValue = etapaFiltro.value;
+        const stage = row.dataset.etapaactual || "";
+        const rowSeason = String(row.dataset.temporada || "");
+        const currentType = String(row.dataset.tipo || "");
+        let visible = true;
+        if (stageValue !== "todo") {
+          visible = stage === stageValue;
+        }
+        if (visible && season !== "todo") {
+          visible = rowSeason === season;
+        }
+        if (visible && rowType !== "todo") {
+          visible = currentType === rowType;
+        }
+        return visible;
+      };
+
+      const applyFilter = () => {
         rows.forEach((row) => {
-          const stage = row.dataset.etapaactual || "";
-          const rowSeason = String(row.dataset.temporada || "");
-          const currentType = String(row.dataset.tipo || "");
           const articulo = String(row.dataset.articulo || "").trim().toLowerCase();
-          let visible = true;
-          if (stageValue !== "todo") {
-            visible = stage === stageValue;
-          }
-          if (visible && season !== "todo") {
-            visible = rowSeason === season;
-          }
-          if (visible && rowType !== "todo") {
-            visible = currentType === rowType;
-          }
+          const corte = String(row.dataset.corte || "").trim().toLowerCase();
+          let visible = matchesPrimaryFilters(row);
           if (visible && articleQuery) {
             visible = articulo.includes(articleQuery);
+          }
+          if (visible && cutQuery) {
+            visible = corte.includes(cutQuery);
           }
           row.style.display = visible ? "" : "none";
         });
         renderStageSummary();
+        renderObservations();
       };
 
       etapaFiltro.addEventListener("change", applyFilter);
       if (articuloSearch) {
         articuloSearch.addEventListener("input", () => {
           articleQuery = String(articuloSearch.value || "").trim().toLowerCase();
+          applyFilter();
+        });
+      }
+      if (corteSearch) {
+        corteSearch.addEventListener("input", () => {
+          cutQuery = String(corteSearch.value || "").trim().toLowerCase();
           applyFilter();
         });
       }

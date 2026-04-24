@@ -751,7 +751,7 @@ def _answer_assistant(question: str) -> str:
 
     if _has_keyword(qn, ["muestra", "muestras"]):
         muestras_rows = [
-            row for row in rows if str(row.get("corte", "")).lstrip("0").startswith("96")
+            row for row in rows if _is_muestra_corte(row.get("corte"))
         ]
         muestras_total = sum(int(row.get("proceso") or 0) for row in muestras_rows)
         muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
@@ -2924,10 +2924,14 @@ def _temporada_from_seed_saldos(path: Path) -> str:
     return m2.group(1) if m2 else ""
 
 
+def _is_muestra_corte(value: object) -> bool:
+    corte = str(value or "").strip()
+    digits = "".join(ch for ch in corte if ch.isdigit())
+    return digits.startswith("009") or digits.startswith("096")
+
+
 def _full_table_tipo_label(row: dict[str, object]) -> str:
-    corte = str(row.get("corte") or "").strip()
-    normalized = corte.lstrip("0")
-    if normalized.startswith("96"):
+    if _is_muestra_corte(row.get("corte")):
         return "muestras"
     return "produccion"
 
@@ -3971,7 +3975,7 @@ def index():
     muestras_rows = [
         row
         for row in rows
-        if str(row.get("corte", "")).lstrip("0").startswith("96")
+        if _is_muestra_corte(row.get("corte"))
     ]
     muestras_total = sum(int(row.get("proceso") or 0) for row in muestras_rows)
     muestras_bodega = sum(int(row.get("bodega") or 0) for row in muestras_rows)
