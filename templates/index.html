@@ -3529,9 +3529,10 @@
         const renderIssueCard = (issue, isDone) => `
           <article class="full-table-observation-card ${issue.kind === "formato" ? "is-danger" : (issue.kind === "duplicado" ? "is-duplicate" : "is-warn")}">
             <div class="full-table-observation-top">
-              <strong>${issue.articulo}</strong>
+              <strong>${issue.kind === "formato" ? (issue.corte || issue.articulo) : issue.articulo}</strong>
               <span class="full-table-observation-kind">${issue.kind === "duplicado" ? "Se repite" : (issue.kind === "formato" ? "Error de formato" : "Muestra alta")}</span>
             </div>
+            ${issue.kind === "formato" ? `<small>Articulo: ${issue.articulo || "-"}</small>` : ""}
             <small>Veces: ${format(issue.repeats || 1)}</small>
             ${issue.processSummary ? `<div class="full-table-observation-process">${issue.processSummary}</div>` : ""}
             <span>${issue.text}</span>
