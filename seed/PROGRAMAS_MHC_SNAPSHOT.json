@@ -33,16 +33,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 8101.0,
-      "daily_avg": 623.1538461538462
+      "actual": 8379.0,
+      "daily_avg": 644.5384615384615
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 6310.0,
-      "daily_avg": 485.38461538461536
+      "actual": 6649.0,
+      "daily_avg": 511.46153846153845
     }
   },
   "weeks": [
@@ -382,11 +382,11 @@
             815,
             565,
             529,
-            null,
+            278,
             null,
             null
           ],
-          "total": 2563
+          "total": 2841
         },
         {
           "key": "terminacion",
@@ -396,11 +396,11 @@
             483,
             553,
             403,
-            null,
+            339,
             null,
             null
           ],
-          "total": 1902
+          "total": 2241
         }
       ]
     },

@@ -3345,18 +3345,7 @@
       const renderStageSummary = () => {
         if (!stageGrid) return;
         const visibleRows = rows.filter((row) => row.style.display !== "none");
-        let totalOrdenes = 0;
-        let totalPrendas = 0;
-
-        visibleRows.forEach((row) => {
-          const proceso = Number(row.dataset.proceso || 0);
-          totalOrdenes += 1;
-          totalPrendas += proceso;
-        });
-
-        if (visibleTotals) {
-          visibleTotals.textContent = `${format(totalOrdenes)} ${totalOrdenes === 1 ? "orden" : "ordenes"} | ${format(totalPrendas)} prendas`;
-        }
+        const totalOrdenes = visibleRows.length;
 
         const cards = summaryColumns.map((column) => {
           let total = 0;
@@ -3372,6 +3361,12 @@
             activeRows,
           };
         });
+
+        const totalPrendas = Number(cards.find((item) => item.key === "proceso")?.total || 0);
+
+        if (visibleTotals) {
+          visibleTotals.textContent = `${format(totalOrdenes)} ${totalOrdenes === 1 ? "orden" : "ordenes"} | ${format(totalPrendas)} prendas`;
+        }
 
         cards.forEach((item) => {
           const target = footerTotals[item.key];
