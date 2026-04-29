@@ -156,6 +156,7 @@
             id="openVentaDespachoModal"
             class="summary-open summary-open-centered"
             data-open-id="openVentaDespachoModal"
+            onclick="(function(){const dlg=document.getElementById('ventaDespachoModal'); if(!dlg) return; try { if(!dlg.open) dlg.showModal(); } catch(_) { dlg.setAttribute('open',''); } })()"
             
           >
             <h2>%Venta</h2>
