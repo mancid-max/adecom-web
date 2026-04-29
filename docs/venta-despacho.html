@@ -151,7 +151,16 @@
       </header>
       <section class="summary dashboard-kpi-row venta-despacho-row">
         <article class="card-action summary-focus venta-despacho-card">
-          <a id="openVentaDespachoModal" class="summary-open summary-open-centered" href="venta-despacho.html"><h2>%Venta</h2></a>
+          <button
+            type="button"
+            id="openVentaDespachoModal"
+            class="summary-open summary-open-centered"
+            data-open-id="openVentaDespachoModal"
+            onclick="(function(){const dlg=document.getElementById('ventaDespachoModal'); if(!dlg) return; dlg.removeAttribute('hidden'); dlg.setAttribute('open',''); dlg.style.display='block'; try { if(typeof dlg.showModal==='function' && !dlg.open) dlg.showModal(); } catch(_) {} })()"
+            
+          >
+            <h2>%Venta</h2>
+          </button>
         </article>
       </section>
     </section>
@@ -32655,6 +32664,20 @@
     }, 120);
   });
 })();
+</script>
+
+
+<script>
+window.addEventListener("load", () => {
+  const dlg = document.getElementById("ventaDespachoModal");
+  if (!dlg) return;
+  dlg.removeAttribute("hidden");
+  dlg.setAttribute("open", "");
+  dlg.style.display = "block";
+  try {
+    if (typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
+  } catch (_) {}
+});
 </script>
 
 </body>
