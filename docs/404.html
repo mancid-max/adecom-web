@@ -156,7 +156,7 @@
             id="openVentaDespachoModal"
             class="summary-open summary-open-centered"
             data-open-id="openVentaDespachoModal"
-            onclick="(function(){const dlg=document.getElementById('ventaDespachoModal'); if(!dlg) return; try { if(!dlg.open) dlg.showModal(); } catch(_) { dlg.setAttribute('open',''); } })()"
+            onclick="(function(){const dlg=document.getElementById('ventaDespachoModal'); if(!dlg) return; dlg.removeAttribute('hidden'); dlg.setAttribute('open',''); dlg.style.display='block'; try { if(typeof dlg.showModal==='function' && !dlg.open) dlg.showModal(); } catch(_) {} })()"
             
           >
             <h2>%Venta</h2>
@@ -12263,7 +12263,7 @@
             
           </p>
         </div>
-        <button type="button" id="closeVentaDespachoModal" class="modal-close">Cerrar</button>
+        <button type="button" id="closeVentaDespachoModal" class="modal-close" onclick="(function(btn){const dlg=btn.closest('#ventaDespachoModal'); if(!dlg) return; try { if(typeof dlg.close==='function') dlg.close(); } catch(_) {} dlg.removeAttribute('open'); dlg.style.display='none'; })(this)">Cerrar</button>
       </div>
 
       <div class="modal-kpis venta-despacho-kpis">
