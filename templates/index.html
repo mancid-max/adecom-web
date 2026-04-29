@@ -35,6 +35,7 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openVentaDespachoModal">Venta/despacho</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
@@ -185,6 +186,24 @@
         </button>
       </article>
     </section>
+    </section>
+
+    <section class="dashboard-section-block dashboard-section-block-venta-despacho">
+      <header class="dashboard-section-title">
+        <h2>VENTA/DESPACHO</h2>
+      </header>
+      <section class="summary dashboard-kpi-row venta-despacho-row">
+        <article class="card-action summary-focus venta-despacho-card">
+          <button
+            type="button"
+            class="summary-open summary-open-centered"
+            data-open-id="openVentaDespachoModal"
+            {% if not venta_despacho_dashboard.available %}disabled{% endif %}
+          >
+            <h2>%Venta</h2>
+          </button>
+        </article>
+      </section>
     </section>
 
     <dialog id="adminAccessModal" class="modal modal-production-goals">
@@ -1032,6 +1051,168 @@
         </div>
       </div>
     </dialog>
+
+    {% set venta_top = venta_despacho_dashboard.top_client %}
+    <dialog id="ventaDespachoModal" class="modal modal-venta-despacho">
+      <div class="modal-head">
+        <div>
+          <h3>Venta/despacho</h3>
+          <p class="venta-despacho-modal-copy">
+            Archivo {{ venta_despacho_dashboard.file_name }}
+            {% if venta_despacho_dashboard.fecha_min and venta_despacho_dashboard.fecha_max %}
+            - {{ venta_despacho_dashboard.fecha_min }} a {{ venta_despacho_dashboard.fecha_max }}
+            {% endif %}
+          </p>
+        </div>
+        <button type="button" id="closeVentaDespachoModal" class="modal-close">Cerrar</button>
+      </div>
+
+      <div class="modal-kpis venta-despacho-kpis">
+        <article>
+          <h4>Solicitado</h4>
+          <p>{{ venta_despacho_dashboard.totals.solicitado|miles }}</p>
+          <small>${{ venta_despacho_dashboard.totals.valor_solicitado|miles }}</small>
+        </article>
+        <article>
+          <h4>Despachado</h4>
+          <p>{{ venta_despacho_dashboard.totals.despachado|miles }}</p>
+          <small>${{ venta_despacho_dashboard.totals.valor_despachado|miles }}</small>
+        </article>
+        <article>
+          <h4>Avance</h4>
+          <p>{{ venta_despacho_dashboard.totals.pct_despacho }}%</p>
+          <small>{{ venta_despacho_dashboard.clientes_count|miles }} clientes</small>
+        </article>
+        <article>
+          <h4>Falta</h4>
+          <p>{{ venta_despacho_dashboard.totals.saldo|miles }}</p>
+          <small>${{ venta_despacho_dashboard.totals.valor_saldo|miles }}</small>
+        </article>
+      </div>
+
+      <section class="venta-despacho-layout">
+        <aside class="venta-despacho-clientes-panel">
+          <div class="venta-despacho-panel-head">
+            <h4>Clientes por solicitado</h4>
+            <span id="ventaDespachoClientCount">{{ venta_despacho_dashboard.pedidos_count|miles }} pedidos</span>
+          </div>
+          <div class="venta-despacho-toolbar">
+            <label>
+              <span>Vendedor</span>
+              <select id="ventaDespachoVendorFilter">
+                <option value="">Todos</option>
+                {% for vendedor in venta_despacho_dashboard.vendedores %}
+                <option value="{{ vendedor }}">{{ vendedor }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="venta-despacho-toggle">
+              <input type="checkbox" id="ventaDespachoOnlySaldo" checked>
+              <span>Solo faltantes</span>
+            </label>
+          </div>
+          <div class="venta-despacho-client-list" id="ventaDespachoClientList">
+            {% for cliente in venta_despacho_dashboard.clientes %}
+            <button
+              type="button"
+              class="venta-despacho-client-btn {% if loop.first %}is-active{% endif %}"
+              data-client-index="{{ loop.index0 }}"
+            >
+              <strong>{{ cliente.cliente }}</strong>
+              <span>{{ cliente.solicitado|miles }} solic. - {{ cliente.pct_despacho }}% desp.</span>
+            </button>
+            {% else %}
+            <p class="empty">Sin clientes en PEDIDOS.Txt.</p>
+            {% endfor %}
+          </div>
+        </aside>
+
+        <section class="venta-despacho-detail-panel">
+          <div class="venta-despacho-client-head">
+            <div>
+              <h4 id="ventaDespachoClienteNombre">{{ venta_top.cliente if venta_top else '-' }}</h4>
+              <p id="ventaDespachoClienteMeta">
+                {% if venta_top %}
+                  {{ venta_top.rut }} - {{ venta_top.ciudad }} - {{ venta_top.vendedor }}
+                {% else %}
+                  Sin datos.
+                {% endif %}
+              </p>
+            </div>
+            <div class="venta-despacho-progress">
+              <span id="ventaDespachoClientePct">{{ venta_top.pct_despacho if venta_top else 0 }}%</span>
+              <small>despachado</small>
+            </div>
+          </div>
+
+          <div class="venta-despacho-client-kpis">
+            <article>
+              <small>Solicitado</small>
+              <strong id="ventaDespachoClienteSolicitado">{{ venta_top.solicitado|miles if venta_top else 0 }}</strong>
+            </article>
+            <article>
+              <small>Despachado</small>
+              <strong id="ventaDespachoClienteDespachado">{{ venta_top.despachado|miles if venta_top else 0 }}</strong>
+            </article>
+            <article>
+              <small>Falta</small>
+              <strong id="ventaDespachoClienteSaldo">{{ venta_top.saldo|miles if venta_top else 0 }}</strong>
+            </article>
+            <article>
+              <small>$ falta</small>
+              <strong id="ventaDespachoClienteValorSaldo">${{ venta_top.valor_saldo|miles if venta_top else 0 }}</strong>
+            </article>
+          </div>
+
+          <section class="table-wrap bodega-wrap venta-despacho-table-wrap">
+            <p class="table-hint">Detalle agrupado por articulo. Tallas: despachado/solicitado.</p>
+            <table class="bodega-table" id="ventaDespachoArticulosTable">
+              <thead>
+                <tr>
+                  <th>Articulo</th>
+                  <th>Descripcion</th>
+                  <th>Solicitado</th>
+                  <th>Despachado</th>
+                  <th>%</th>
+                  <th>Falta</th>
+                  <th>$ solicitado</th>
+                  <th>$ despacho</th>
+                  <th>$ falta</th>
+                  <th>Stock bodega</th>
+                  <th>Estado stock</th>
+                  <th>Etapa produccion</th>
+                  <th>Tallas</th>
+                </tr>
+              </thead>
+              <tbody id="ventaDespachoDetalleBody">
+                {% if venta_top %}
+                  {% for item in venta_top.articulos %}
+                  <tr>
+                    <td>{{ item.articulo }}</td>
+                    <td>{{ item.descripcion }}</td>
+                    <td class="num">{{ item.solicitado|miles }}</td>
+                    <td class="num">{{ item.despachado|miles }}</td>
+                    <td class="num">{{ item.pct_despacho }}%</td>
+                    <td class="num">{{ item.saldo|miles }}</td>
+                    <td class="num">${{ item.valor_solicitado|miles }}</td>
+                    <td class="num">${{ item.valor_despachado|miles }}</td>
+                    <td class="num">${{ item.valor_saldo|miles }}</td>
+                    <td class="num">{{ item.stock_bodega|miles }}</td>
+                    <td><span class="status-chip status-{{ item.stock_status_tone }}">{{ item.stock_status }}</span></td>
+                    <td>{{ item.etapa_produccion }}</td>
+                    <td>{{ item.tallas_label }}</td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="13" class="empty">Sin detalle.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </section>
+        </section>
+      </section>
+    </dialog>
+    <script id="ventaDespachoData" type="application/json">{{ venta_despacho_dashboard|tojson }}</script>
 
     <section class="ventas-block" id="sectionPedidos">
       <h2>Pedidos</h2>
@@ -2004,6 +2185,7 @@
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
         openVentasTotalModal: "ventasTotalModal",
+        openVentaDespachoModal: "ventaDespachoModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openProyeccionModal: "proyeccionModal",
@@ -2017,6 +2199,7 @@
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
         openVentasTotalModal: "ventasTotalModal",
+        openVentaDespachoModal: "ventaDespachoModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
@@ -2055,7 +2238,7 @@
       Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
         bindExclusiveTrigger(document.getElementById(triggerId), modalId);
       });
-      document.querySelectorAll(".top-nav-menu-item[data-open-id], .side-action-btn[data-open-id]").forEach((btn) => {
+      document.querySelectorAll(".top-nav-menu-item[data-open-id], .side-action-btn[data-open-id], .summary-open[data-open-id]").forEach((btn) => {
         const openId = String(btn.getAttribute("data-open-id") || "");
         btn.addEventListener("click", () => {
           const modalId = openIdToModalId[openId] || "";
@@ -2083,6 +2266,152 @@
           if (!hasOpenDashboardModal) clearDashboardActive();
         });
       });
+    })();
+
+    (function () {
+      const modal = document.getElementById("ventaDespachoModal");
+      const closeBtn = document.getElementById("closeVentaDespachoModal");
+      const dataNode = document.getElementById("ventaDespachoData");
+      const list = document.getElementById("ventaDespachoClientList");
+      const countEl = document.getElementById("ventaDespachoClientCount");
+      const vendorFilter = document.getElementById("ventaDespachoVendorFilter");
+      const onlySaldoToggle = document.getElementById("ventaDespachoOnlySaldo");
+      const body = document.getElementById("ventaDespachoDetalleBody");
+      const nameEl = document.getElementById("ventaDespachoClienteNombre");
+      const metaEl = document.getElementById("ventaDespachoClienteMeta");
+      const pctEl = document.getElementById("ventaDespachoClientePct");
+      const solicitadoEl = document.getElementById("ventaDespachoClienteSolicitado");
+      const despachadoEl = document.getElementById("ventaDespachoClienteDespachado");
+      const saldoEl = document.getElementById("ventaDespachoClienteSaldo");
+      const valorSaldoEl = document.getElementById("ventaDespachoClienteValorSaldo");
+      if (!modal || !dataNode || !list || !body || !nameEl || !metaEl) return;
+      let data = {};
+      try {
+        data = JSON.parse(dataNode.textContent || "{}");
+      } catch (_) {
+        data = {};
+      }
+      const clients = Array.isArray(data.clientes) ? data.clientes : [];
+      let visibleClients = clients.slice();
+      let activeClientIndex = clients.length ? 0 : -1;
+      const fmt = (value) => Number(value || 0).toLocaleString("es-CL");
+      const money = (value) => {
+        const num = Number(value || 0);
+        const prefix = num < 0 ? "-$" : "$";
+        return `${prefix}${Math.abs(num).toLocaleString("es-CL")}`;
+      };
+      const pct = (value) => `${Number(value || 0).toLocaleString("es-CL", { maximumFractionDigits: 1 })}%`;
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+      const stockToneClass = (tone) => {
+        if (tone === "green") return "status-green";
+        if (tone === "red") return "status-red";
+        return "status-yellow";
+      };
+      const getFilteredRows = (client) => {
+        const rows = Array.isArray(client?.articulos) ? client.articulos.slice() : [];
+        if (!onlySaldoToggle || !onlySaldoToggle.checked) return rows;
+        return rows.filter((item) => Number(item.saldo || 0) > 0);
+      };
+      const renderClientList = () => {
+        const selectedVendor = String(vendorFilter?.value || "").trim().toLowerCase();
+        visibleClients = clients.filter((client) => {
+          const vendor = String(client.vendedor || "").trim().toLowerCase();
+          return !selectedVendor || vendor === selectedVendor;
+        });
+        if (countEl) {
+          countEl.textContent = `${fmt(visibleClients.length)} clientes`;
+        }
+        if (!visibleClients.length) {
+          list.innerHTML = '<p class="empty">Sin clientes para ese vendedor.</p>';
+          activeClientIndex = -1;
+          body.innerHTML = '<tr><td colspan="13" class="empty">Sin detalle.</td></tr>';
+          nameEl.textContent = "-";
+          metaEl.textContent = "Sin datos.";
+          if (pctEl) pctEl.textContent = "0%";
+          if (solicitadoEl) solicitadoEl.textContent = "0";
+          if (despachadoEl) despachadoEl.textContent = "0";
+          if (saldoEl) saldoEl.textContent = "0";
+          if (valorSaldoEl) valorSaldoEl.textContent = "$0";
+          return;
+        }
+        if (activeClientIndex < 0 || activeClientIndex >= visibleClients.length) {
+          activeClientIndex = 0;
+        }
+        list.innerHTML = visibleClients.map((client, index) => `
+          <button type="button"
+            class="venta-despacho-client-btn ${index === activeClientIndex ? "is-active" : ""}"
+            data-visible-client-index="${index}">
+            <strong>${escapeHtml(client.cliente || "-")}</strong>
+            <span>${fmt(client.solicitado)} solic. - ${pct(client.pct_despacho)} desp.</span>
+          </button>
+        `).join("");
+        list.querySelectorAll("[data-visible-client-index]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            renderClient(Number(btn.getAttribute("data-visible-client-index") || "0"));
+          });
+        });
+      };
+      const renderClient = (index) => {
+        const client = visibleClients[index];
+        if (!client) return;
+        activeClientIndex = index;
+        list.querySelectorAll("[data-visible-client-index]").forEach((btn) => {
+          btn.classList.toggle("is-active", Number(btn.getAttribute("data-visible-client-index")) === index);
+        });
+        nameEl.textContent = client.cliente || "-";
+        metaEl.textContent = [client.rut, client.ciudad, client.vendedor].filter(Boolean).join(" - ") || "-";
+        if (pctEl) pctEl.textContent = pct(client.pct_despacho);
+        if (solicitadoEl) solicitadoEl.textContent = fmt(client.solicitado);
+        if (despachadoEl) despachadoEl.textContent = fmt(client.despachado);
+        if (saldoEl) saldoEl.textContent = fmt(client.saldo);
+        if (valorSaldoEl) valorSaldoEl.textContent = money(client.valor_saldo);
+        const rows = getFilteredRows(client);
+        if (!rows.length) {
+          body.innerHTML = '<tr><td colspan="13" class="empty">Sin articulos pendientes para este filtro.</td></tr>';
+          return;
+        }
+        body.innerHTML = rows.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.articulo || "-")}</td>
+            <td>${escapeHtml(item.descripcion || "-")}</td>
+            <td class="num">${fmt(item.solicitado)}</td>
+            <td class="num">${fmt(item.despachado)}</td>
+            <td class="num">${pct(item.pct_despacho)}</td>
+            <td class="num">${fmt(item.saldo)}</td>
+            <td class="num">${money(item.valor_solicitado)}</td>
+            <td class="num">${money(item.valor_despachado)}</td>
+            <td class="num">${money(item.valor_saldo)}</td>
+            <td class="num">${fmt(item.stock_bodega)}</td>
+            <td><span class="status-chip ${stockToneClass(item.stock_status_tone)}">${escapeHtml(item.stock_status || "-")}</span></td>
+            <td>${escapeHtml(item.etapa_produccion || "-")}</td>
+            <td>${escapeHtml(item.tallas_label || "-")}</td>
+          </tr>
+        `).join("");
+      };
+      if (vendorFilter) {
+        vendorFilter.addEventListener("change", () => {
+          activeClientIndex = 0;
+          renderClientList();
+          if (visibleClients.length) renderClient(activeClientIndex);
+        });
+      }
+      if (onlySaldoToggle) {
+        onlySaldoToggle.addEventListener("change", () => {
+          if (visibleClients.length && activeClientIndex >= 0) {
+            renderClient(activeClientIndex);
+          }
+        });
+      }
+      if (closeBtn) {
+        closeBtn.addEventListener("click", () => modal.close());
+      }
+      renderClientList();
+      if (visibleClients.length) renderClient(activeClientIndex);
     })();
 
     (function () {

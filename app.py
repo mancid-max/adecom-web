@@ -67,6 +67,7 @@ DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
+SEED_PEDIDOS_DETALLE = SEED_DIR / "PEDIDOS.Txt"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
@@ -2924,6 +2925,24 @@ def _temporada_from_seed_saldos(path: Path) -> str:
     return m2.group(1) if m2 else ""
 
 
+def _seed_saldos_files(preferred_temporadas: set[str] | None = None) -> list[Path]:
+    paths = sorted(
+        {p.resolve(): p for p in [*SEED_DIR.glob("SALDOS-SECCI*.TXT"), *SEED_DIR.glob("SALDOS-SECCI*.txt")]}.values(),
+        key=lambda p: p.name.lower(),
+    )
+    if preferred_temporadas:
+        preferred = [
+            path
+            for path in paths
+            if _temporada_from_seed_saldos(path) in preferred_temporadas
+        ]
+        if preferred:
+            return preferred
+    if paths:
+        return paths
+    return [SEED_SALDOS] if SEED_SALDOS.exists() else []
+
+
 def _is_muestra_corte(value: object) -> bool:
     corte = str(value or "").strip()
     digits = "".join(ch for ch in corte if ch.isdigit())
@@ -2956,10 +2975,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
     temporadas_seen: set[str] = set()
     seen_rows: set[tuple] = set()
 
-    saldos_seed_paths = sorted(
-        {p.resolve(): p for p in [*SEED_DIR.glob("SALDOS-SECCI*.TXT"), *SEED_DIR.glob("SALDOS-SECCI*.txt")]}.values(),
-        key=lambda p: p.name.lower(),
-    )
+    saldos_seed_paths = _seed_saldos_files({"42", "43"})
     for path in saldos_seed_paths:
         temporada = _temporada_from_seed_saldos(path)
         if temporada not in {"42", "43"}:
@@ -3008,12 +3024,7 @@ def ensure_seed_data() -> None:
         init_db(DB_PATH)
         return
     init_db(DB_PATH)
-    seed_saldos_files = sorted(
-        {p.resolve(): p for p in [*SEED_DIR.glob("SALDOS-SECCI*.TXT"), *SEED_DIR.glob("SALDOS-SECCI*.txt")]}.values(),
-        key=lambda p: p.name.lower(),
-    )
-    if not seed_saldos_files and SEED_SALDOS.exists():
-        seed_saldos_files = [SEED_SALDOS]
+    seed_saldos_files = _seed_saldos_files({"42", "43"})
     if seed_saldos_files and _table_count("saldos_seccion") == 0:
         saldos_rows: list[dict] = []
         for seed_file in seed_saldos_files:
@@ -3616,6 +3627,355 @@ def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
     }
 
 
+def _pedidos_detalle_decode(content: bytes) -> str:
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("latin-1", errors="replace")
+
+
+def _pedidos_detalle_int(value: object) -> int:
+    text = str(value or "").strip().replace(".", "").replace(",", "")
+    if not text:
+        return 0
+    sign = -1 if text.startswith("-") else 1
+    digits = "".join(ch for ch in text if ch.isdigit())
+    return sign * int(digits) if digits else 0
+
+
+def _pedidos_detalle_date(value: object) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _pedidos_detalle_talla(value: object) -> str:
+    text = str(value or "").upper()
+    match = re.search(r"T\s*/?\s*(\d{2})\b|T(\d{2})\b", text)
+    if not match:
+        return ""
+    return str(match.group(1) or match.group(2) or "")
+
+
+def _pedidos_detalle_base_desc(value: object) -> str:
+    text = " ".join(str(value or "").split())
+    text = re.sub(r"\s+T\s*/?\s*\d{2}\b", "", text, flags=re.I)
+    text = re.sub(r"\s+T\d{2}\b", "", text, flags=re.I)
+    return text.strip()
+
+
+def _pct_despacho(despachado: int, solicitado: int) -> float:
+    if solicitado <= 0:
+        return 0.0
+    return round((despachado / solicitado) * 100, 1)
+
+
+def _build_inventory_stock_lookup(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    lookup: dict[str, dict[str, object]] = {}
+    for row in rows:
+        articulo = str(row.get("articulo") or "").strip()
+        if not articulo:
+            continue
+        bucket = lookup.setdefault(
+            articulo,
+            {
+                "stock_total": 0,
+                "sizes": {36: 0, 38: 0, 40: 0, 42: 0, 44: 0, 46: 0},
+            },
+        )
+        bucket["stock_total"] = int(bucket["stock_total"]) + int(row.get("stock") or 0)
+        sizes = bucket["sizes"]
+        for talla in (36, 38, 40, 42, 44, 46):
+            sizes[talla] = int(sizes.get(talla) or 0) + int(row.get(f"talla_{talla}") or 0)
+    return lookup
+
+
+def _build_trazabilidad_lookup(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    stage_defs = [
+        ("corte_1", "Corte"),
+        ("taller", "Taller"),
+        ("t_externo", "T. Externo"),
+        ("limpiado", "Limpiado"),
+        ("lavanderia", "Lavanderia"),
+        ("terminacion", "Terminacion"),
+        ("muestra", "Muestra"),
+        ("segunda", "Segunda"),
+    ]
+    lookup: dict[str, dict[str, object]] = {}
+    for row in rows:
+        articulo = str(row.get("articulo") or "").strip()
+        if not articulo:
+            continue
+        bucket = lookup.setdefault(
+            articulo,
+            {
+                "pendiente_total": 0,
+                "stage_totals": {key: 0 for key, _ in stage_defs},
+            },
+        )
+        for key, _label in stage_defs:
+            value = int(row.get(key) or 0)
+            if value > 0:
+                bucket["stage_totals"][key] = int(bucket["stage_totals"].get(key) or 0) + value
+                bucket["pendiente_total"] = int(bucket["pendiente_total"]) + value
+
+    for bucket in lookup.values():
+        active = []
+        for key, label in stage_defs:
+            qty = int((bucket.get("stage_totals") or {}).get(key) or 0)
+            if qty > 0:
+                active.append({"key": key, "label": label, "qty": qty})
+        bucket["active_stages"] = active
+        bucket["etapa_label"] = ", ".join(f"{item['label']} {item['qty']}" for item in active) if active else "-"
+        bucket["etapa_principal"] = str(active[0]["label"]) if active else "-"
+    return lookup
+
+
+def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | None = None) -> dict[str, object]:
+    path = SEED_PEDIDOS_DETALLE
+    empty_totals = {
+        "solicitado": 0,
+        "despachado": 0,
+        "saldo": 0,
+        "valor_solicitado": 0,
+        "valor_despachado": 0,
+        "valor_saldo": 0,
+        "pct_despacho": 0.0,
+    }
+    empty = {
+        "available": False,
+        "file_name": path.name,
+        "clientes": [],
+        "top_client": None,
+        "totals": empty_totals,
+        "fecha_min": "",
+        "fecha_max": "",
+        "pedidos_count": 0,
+        "clientes_count": 0,
+        "articulos_count": 0,
+    }
+    if not path.exists() or not path.is_file():
+        return empty
+
+    inventory_lookup = _build_inventory_stock_lookup(query_inventory_stock_rows(DB_PATH))
+    trazabilidad_lookup = _build_trazabilidad_lookup(trazabilidad_rows or [])
+    text = _pedidos_detalle_decode(path.read_bytes())
+    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    clientes: dict[str, dict[str, object]] = {}
+    fechas: list[str] = []
+    pedidos_unicos: set[str] = set()
+    articulos_unicos: set[str] = set()
+
+    for raw in reader:
+        if not raw:
+            continue
+        pedido = str(raw.get("PEDIDO") or "").strip()
+        articulo = str(raw.get("ARTICULO") or "").strip()
+        cliente_nombre = str(raw.get("CLIENTE") or "").strip()
+        rut = str(raw.get("RUT") or "").strip()
+        if not pedido and not articulo and not cliente_nombre:
+            continue
+
+        solicitado = _pedidos_detalle_int(raw.get("SOLICITADO"))
+        despachado = _pedidos_detalle_int(raw.get("DESPACHADO"))
+        saldo = _pedidos_detalle_int(raw.get("saldo") or raw.get("SALDO"))
+        precio = _pedidos_detalle_int(raw.get("PRECIO"))
+        valor_solicitado = solicitado * precio
+        valor_despachado = despachado * precio
+        valor_saldo = saldo * precio
+        fecha_iso = _pedidos_detalle_date(raw.get("FECHA"))
+        if fecha_iso:
+            fechas.append(fecha_iso)
+        if pedido:
+            pedidos_unicos.add(pedido)
+        if articulo:
+            articulos_unicos.add(articulo)
+
+        cliente_key = rut or cliente_nombre or "SIN CLIENTE"
+        cliente = clientes.setdefault(
+            cliente_key,
+            {
+                "key": cliente_key,
+                "rut": rut,
+                "cliente": cliente_nombre or "-",
+                "ciudad": str(raw.get("CIUDAD") or "").strip(),
+                "vendedor": str(raw.get("VENDEDOR") or "").strip(),
+                "solicitado": 0,
+                "despachado": 0,
+                "saldo": 0,
+                "valor_solicitado": 0,
+                "valor_despachado": 0,
+                "valor_saldo": 0,
+                "pedidos": set(),
+                "articulos_map": {},
+            },
+        )
+        cliente["ciudad"] = cliente.get("ciudad") or str(raw.get("CIUDAD") or "").strip()
+        cliente["vendedor"] = cliente.get("vendedor") or str(raw.get("VENDEDOR") or "").strip()
+        cliente["solicitado"] = int(cliente["solicitado"]) + solicitado
+        cliente["despachado"] = int(cliente["despachado"]) + despachado
+        cliente["saldo"] = int(cliente["saldo"]) + saldo
+        cliente["valor_solicitado"] = int(cliente["valor_solicitado"]) + valor_solicitado
+        cliente["valor_despachado"] = int(cliente["valor_despachado"]) + valor_despachado
+        cliente["valor_saldo"] = int(cliente["valor_saldo"]) + valor_saldo
+        if pedido:
+            cliente["pedidos"].add(pedido)
+
+        articulos_map = cliente["articulos_map"]
+        art_key = articulo or str(raw.get("DESCRIPCION") or "").strip() or "SIN ARTICULO"
+        articulo_row = articulos_map.setdefault(
+            art_key,
+            {
+                "articulo": articulo or "-",
+                "descripcion": _pedidos_detalle_base_desc(raw.get("DESCRIPCION")) or "-",
+                "solicitado": 0,
+                "despachado": 0,
+                "saldo": 0,
+                "valor_solicitado": 0,
+                "valor_despachado": 0,
+                "valor_saldo": 0,
+                "tallas_map": {},
+            },
+        )
+        articulo_row["solicitado"] = int(articulo_row["solicitado"]) + solicitado
+        articulo_row["despachado"] = int(articulo_row["despachado"]) + despachado
+        articulo_row["saldo"] = int(articulo_row["saldo"]) + saldo
+        articulo_row["valor_solicitado"] = int(articulo_row["valor_solicitado"]) + valor_solicitado
+        articulo_row["valor_despachado"] = int(articulo_row["valor_despachado"]) + valor_despachado
+        articulo_row["valor_saldo"] = int(articulo_row["valor_saldo"]) + valor_saldo
+        talla = _pedidos_detalle_talla(raw.get("DESCRIPCION"))
+        if talla:
+            tallas_map = articulo_row["tallas_map"]
+            talla_row = tallas_map.setdefault(talla, {"talla": talla, "solicitado": 0, "despachado": 0, "saldo": 0})
+            talla_row["solicitado"] = int(talla_row["solicitado"]) + solicitado
+            talla_row["despachado"] = int(talla_row["despachado"]) + despachado
+            talla_row["saldo"] = int(talla_row["saldo"]) + saldo
+
+    clientes_rows: list[dict[str, object]] = []
+    totals = dict(empty_totals)
+    for cliente in clientes.values():
+        solicitado = int(cliente["solicitado"])
+        despachado = int(cliente["despachado"])
+        articulos_rows = []
+        for articulo_row in cliente["articulos_map"].values():
+            art_solicitado = int(articulo_row["solicitado"])
+            art_despachado = int(articulo_row["despachado"])
+            tallas = sorted(
+                [
+                    {
+                        "talla": item["talla"],
+                        "solicitado": int(item["solicitado"]),
+                        "despachado": int(item["despachado"]),
+                        "saldo": int(item["saldo"]),
+                    }
+                    for item in articulo_row["tallas_map"].values()
+                ],
+                key=lambda item: int(item["talla"]) if str(item["talla"]).isdigit() else 999,
+            )
+            articulo_code = str(articulo_row["articulo"] or "").strip()
+            inventory_item = inventory_lookup.get(articulo_code) or {"stock_total": 0, "sizes": {}}
+            stock_sizes = inventory_item.get("sizes") or {}
+            saldo_sizes = [item for item in tallas if int(item["saldo"]) > 0]
+            stock_match_qty = 0
+            for item in saldo_sizes:
+                talla_value = str(item.get("talla") or "").strip()
+                if talla_value.isdigit():
+                    stock_match_qty += min(
+                        int(stock_sizes.get(int(talla_value)) or 0),
+                        int(item["saldo"]),
+                    )
+            stock_total = int(inventory_item.get("stock_total") or 0)
+            art_saldo = int(articulo_row["saldo"])
+            if art_saldo <= 0:
+                stock_status = "Sin falta"
+                stock_status_tone = "yellow"
+            elif stock_match_qty >= art_saldo:
+                stock_status = "Disponible"
+                stock_status_tone = "green"
+            elif stock_match_qty > 0:
+                stock_status = "Parcial"
+                stock_status_tone = "yellow"
+            elif stock_total > 0:
+                stock_status = "Sin talla"
+                stock_status_tone = "yellow"
+            else:
+                stock_status = "Sin stock"
+                stock_status_tone = "red"
+            trazabilidad_item = trazabilidad_lookup.get(articulo_code) or {}
+            tallas_label = " | ".join(
+                f"{item['talla']}: {item['despachado']}/{item['solicitado']}"
+                for item in tallas
+            )
+            articulos_rows.append(
+                {
+                    "articulo": articulo_code or "-",
+                    "descripcion": articulo_row["descripcion"],
+                    "solicitado": art_solicitado,
+                    "despachado": art_despachado,
+                    "saldo": art_saldo,
+                    "pct_despacho": _pct_despacho(art_despachado, art_solicitado),
+                    "valor_solicitado": int(articulo_row["valor_solicitado"]),
+                    "valor_despachado": int(articulo_row["valor_despachado"]),
+                    "valor_saldo": int(articulo_row["valor_saldo"]),
+                    "tallas_label": tallas_label or "-",
+                    "tallas": tallas,
+                    "stock_bodega": stock_total,
+                    "stock_match_qty": stock_match_qty,
+                    "stock_status": stock_status,
+                    "stock_status_tone": stock_status_tone,
+                    "etapa_produccion": str(trazabilidad_item.get("etapa_label") or "-"),
+                    "etapa_principal": str(trazabilidad_item.get("etapa_principal") or "-"),
+                    "pendiente_produccion": int(trazabilidad_item.get("pendiente_total") or 0),
+                }
+            )
+        articulos_rows.sort(key=lambda item: (-int(item["solicitado"]), -int(item["saldo"]), str(item["articulo"])))
+        cliente_row = {
+            "key": cliente["key"],
+            "rut": cliente["rut"],
+            "cliente": cliente["cliente"],
+            "ciudad": cliente["ciudad"],
+            "vendedor": cliente["vendedor"],
+            "solicitado": solicitado,
+            "despachado": despachado,
+            "saldo": int(cliente["saldo"]),
+            "pct_despacho": _pct_despacho(despachado, solicitado),
+            "valor_solicitado": int(cliente["valor_solicitado"]),
+            "valor_despachado": int(cliente["valor_despachado"]),
+            "valor_saldo": int(cliente["valor_saldo"]),
+            "pedidos_count": len(cliente["pedidos"]),
+            "articulos": articulos_rows,
+        }
+        clientes_rows.append(cliente_row)
+        for key in ("solicitado", "despachado", "saldo", "valor_solicitado", "valor_despachado", "valor_saldo"):
+            totals[key] = int(totals[key]) + int(cliente_row[key])
+
+    totals["pct_despacho"] = _pct_despacho(int(totals["despachado"]), int(totals["solicitado"]))
+    clientes_rows.sort(key=lambda item: (-int(item["solicitado"]), -int(item["valor_solicitado"]), str(item["cliente"])))
+    vendedores = sorted({str(item.get("vendedor") or "").strip() for item in clientes_rows if str(item.get("vendedor") or "").strip()})
+
+    return {
+        "available": True,
+        "file_name": path.name,
+        "clientes": clientes_rows,
+        "top_client": clientes_rows[0] if clientes_rows else None,
+        "totals": totals,
+        "fecha_min": min(fechas) if fechas else "",
+        "fecha_max": max(fechas) if fechas else "",
+        "pedidos_count": len(pedidos_unicos),
+        "clientes_count": len(clientes_rows),
+        "articulos_count": len(articulos_unicos),
+        "vendedores": vendedores,
+    }
+
+
 @app.get("/")
 def index():
     assistant_provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
@@ -3991,6 +4351,7 @@ def index():
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     inventory_book = _load_inventory_book_dashboard()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
+    venta_despacho_dashboard = _load_venta_despacho_dashboard(rows)
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     return render_template(
         "index.html",
@@ -4038,6 +4399,7 @@ def index():
         full_table_rows=full_table_rows,
         full_table_totals=full_table_totals,
         full_table_temporadas=full_table_temporadas,
+        venta_despacho_dashboard=venta_despacho_dashboard,
     )
 
 
@@ -4404,11 +4766,11 @@ def export_csv():
 
 if __name__ == "__main__":
     init_db(DB_PATH)
-    debug_mode = os.environ.get("ADECOM_DEBUG", "0").strip() == "1"
+    debug_mode = os.environ.get("ADECOM_DEBUG", "1").strip() == "1"
     app.run(
         host="127.0.0.1",
         port=int(os.environ.get("PORT", "5000")),
         debug=debug_mode,
-        use_reloader=False,
+        use_reloader=debug_mode,
     )
 

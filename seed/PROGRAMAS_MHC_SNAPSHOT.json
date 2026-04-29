@@ -9,16 +9,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 5974.0,
-      "daily_avg": 459.53846153846155
+      "actual": 6580.0,
+      "daily_avg": 506.15384615384613
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 3714.285714285714,
-      "actual": 3606.0,
-      "daily_avg": 277.38461538461536
+      "actual": 3856.0,
+      "daily_avg": 296.61538461538464
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -33,16 +33,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 8379.0,
-      "daily_avg": 644.5384615384615
+      "actual": 8818.0,
+      "daily_avg": 678.3076923076923
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 6649.0,
-      "daily_avg": 511.46153846153845
+      "actual": 6825.0,
+      "daily_avg": 525.0
     }
   },
   "weeks": [
@@ -423,23 +423,23 @@
           "key": "corte",
           "name": "Corte",
           "values": [
-            null,
+            606,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 606
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
-            null,
+            250,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 250
         },
         {
           "key": "sur",
@@ -456,23 +456,23 @@
           "key": "lavanderia",
           "name": "Lavanderia",
           "values": [
-            null,
+            439,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 439
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
-            null,
+            176,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 176
         }
       ]
     }
