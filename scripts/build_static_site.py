@@ -64,27 +64,6 @@ STATIC_BRIDGE_SCRIPT = """
 </script>
 """
 
-STATIC_VENTA_LINK_PATTERN = re.compile(
-    r'<button[^>]*id="openVentaDespachoModal"[^>]*class="summary-open[^"]*"[^>]*>[\s\S]*?<h2>%Venta</h2>\s*</button>',
-    re.S,
-)
-
-VENTA_DESPACHO_AUTOOPEN_SCRIPT = """
-<script>
-window.addEventListener("load", () => {
-  const dlg = document.getElementById("ventaDespachoModal");
-  if (!dlg) return;
-  dlg.removeAttribute("hidden");
-  dlg.setAttribute("open", "");
-  dlg.style.display = "block";
-  try {
-    if (typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
-  } catch (_) {}
-});
-</script>
-"""
-
-
 def _render_main_html() -> str:
     app_module.ASSISTANT_ENABLED = False
     app_module.ensure_seed_data()
@@ -112,30 +91,11 @@ def _postprocess_main_html(html: str) -> str:
     )
     html = html.replace("</body>", f"{STATIC_BRIDGE_SCRIPT}\n</body>")
     return html
-
-
-def _build_static_venta_page(html: str) -> str:
-    return html.replace("</body>", f"{VENTA_DESPACHO_AUTOOPEN_SCRIPT}\n</body>")
-
-
-def _build_static_index_html(html: str) -> str:
-    replacement = (
-        '<a id="openVentaDespachoModal" class="summary-open summary-open-centered" '
-        'href="venta-despacho.html">'
-        "<h2>%Venta</h2>"
-        "</a>"
-    )
-    return STATIC_VENTA_LINK_PATTERN.sub(replacement, html, count=1)
-
-
 def _write_docs(main_html: str) -> None:
     DOCS_DIR.mkdir(exist_ok=True)
     shutil.copy2(STATIC_DIR / "styles.css", DOCS_DIR / "styles.css")
-    index_html = _build_static_index_html(main_html)
-    venta_html = _build_static_venta_page(main_html)
-    (DOCS_DIR / "index.html").write_text(index_html, encoding="utf-8")
-    (DOCS_DIR / "404.html").write_text(index_html, encoding="utf-8")
-    (DOCS_DIR / "venta-despacho.html").write_text(venta_html, encoding="utf-8")
+    (DOCS_DIR / "index.html").write_text(main_html, encoding="utf-8")
+    (DOCS_DIR / "404.html").write_text(main_html, encoding="utf-8")
     (DOCS_DIR / ".nojekyll").write_text("", encoding="utf-8")
 
 
