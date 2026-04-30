@@ -9535,6 +9535,18 @@ body.theme-gentelella,
   letter-spacing: 0;
 }
 
+.venta-despacho-toolbar input[type="text"] {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cfdce8;
+  border-radius: 8px;
+  background: #fff;
+  color: #18364f;
+  padding: 0 12px;
+  font: inherit;
+  letter-spacing: 0;
+}
+
 .venta-despacho-toggle {
   display: inline-flex !important;
   align-items: center;

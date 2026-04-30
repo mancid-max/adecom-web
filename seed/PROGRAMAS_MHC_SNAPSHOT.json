@@ -9,16 +9,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 6580.0,
-      "daily_avg": 506.15384615384613
+      "actual": 7184.0,
+      "daily_avg": 552.6153846153846
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 285.7142857142857,
       "meta_month": 6000.0,
       "projected": 3714.285714285714,
-      "actual": 3856.0,
-      "daily_avg": 296.61538461538464
+      "actual": 4006.0,
+      "daily_avg": 308.15384615384613
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -33,16 +33,16 @@
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 8818.0,
-      "daily_avg": 678.3076923076923
+      "actual": 9585.0,
+      "daily_avg": 737.3076923076923
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 476.1904761904762,
       "meta_month": 10000.0,
       "projected": 6190.476190476191,
-      "actual": 6825.0,
-      "daily_avg": 525.0
+      "actual": 7722.0,
+      "daily_avg": 594.0
     }
   },
   "weeks": [
@@ -424,22 +424,22 @@
           "name": "Corte",
           "values": [
             606,
-            null,
+            604,
             null,
             null
           ],
-          "total": 606
+          "total": 1210
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
             250,
-            null,
+            150,
             null,
             null
           ],
-          "total": 250
+          "total": 400
         },
         {
           "key": "sur",
@@ -457,22 +457,22 @@
           "name": "Lavanderia",
           "values": [
             439,
-            null,
+            767,
             null,
             null
           ],
-          "total": 439
+          "total": 1206
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
             176,
-            null,
-            null,
+            383,
+            514,
             null
           ],
-          "total": 176
+          "total": 1073
         }
       ]
     }

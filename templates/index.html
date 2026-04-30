@@ -166,11 +166,6 @@
       </header>
     <section class="summary dashboard-kpi-row dashboard-ops-row">
       <article class="card-action summary-secondary">
-        <button type="button" class="summary-open summary-open-centered" id="openProductionGoalsModal">
-          <h2>Metas produccion</h2>
-        </button>
-      </article>
-      <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openProductionExcelModal">
           <h2>Modelo Excel metas</h2>
         </button>
@@ -1100,6 +1095,16 @@
                 <option value="{{ vendedor }}">{{ vendedor }}</option>
                 {% endfor %}
               </select>
+            </label>
+            <label>
+              <span>Cliente</span>
+              <select id="ventaDespachoClientFilter">
+                <option value="">Todos</option>
+              </select>
+            </label>
+            <label>
+              <span>Buscar cliente</span>
+              <input type="text" id="ventaDespachoClientSearch" placeholder="Escribe nombre cliente">
             </label>
             <label class="venta-despacho-toggle">
               <input type="checkbox" id="ventaDespachoOnlySaldo" checked>
@@ -2270,6 +2275,8 @@
       const list = document.getElementById("ventaDespachoClientList");
       const countEl = document.getElementById("ventaDespachoClientCount");
       const vendorFilter = document.getElementById("ventaDespachoVendorFilter");
+      const clientFilter = document.getElementById("ventaDespachoClientFilter");
+      const clientSearch = document.getElementById("ventaDespachoClientSearch");
       const onlySaldoToggle = document.getElementById("ventaDespachoOnlySaldo");
       const body = document.getElementById("ventaDespachoDetalleBody");
       const nameEl = document.getElementById("ventaDespachoClienteNombre");
@@ -2302,6 +2309,11 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+      const norm = (value) => String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
       const stockToneClass = (tone) => {
         if (tone === "green") return "status-green";
         if (tone === "red") return "status-red";
@@ -2312,17 +2324,50 @@
         if (!onlySaldoToggle || !onlySaldoToggle.checked) return rows;
         return rows.filter((item) => Number(item.saldo || 0) > 0);
       };
+      const buildClientOptions = (rows) => {
+        if (!clientFilter) return;
+        const current = String(clientFilter.value || "");
+        const options = Array.from(new Set(
+          rows
+            .map((client) => String(client.cliente || "").trim())
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b, "es"));
+        clientFilter.innerHTML = [
+          '<option value="">Todos</option>',
+          ...options.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`),
+        ].join("");
+        if (options.includes(current)) {
+          clientFilter.value = current;
+        }
+      };
+      const matchesClientSearch = (client, searchValue) => {
+        const query = norm(searchValue);
+        if (!query) return true;
+        const name = norm(client?.cliente || "");
+        if (!name) return false;
+        if (name.includes(query)) return true;
+        const words = name.split(/\s+/).filter(Boolean);
+        return words.some((word) => word.startsWith(query) || query.startsWith(word));
+      };
       const renderClientList = () => {
         const selectedVendor = String(vendorFilter?.value || "").trim().toLowerCase();
-        visibleClients = clients.filter((client) => {
+        const vendorClients = clients.filter((client) => {
           const vendor = String(client.vendedor || "").trim().toLowerCase();
           return !selectedVendor || vendor === selectedVendor;
+        });
+        buildClientOptions(vendorClients);
+        const selectedClient = String(clientFilter?.value || "").trim();
+        const searchValue = String(clientSearch?.value || "");
+        visibleClients = vendorClients.filter((client) => {
+          const clientName = String(client.cliente || "").trim();
+          const matchesClient = !selectedClient || clientName === selectedClient;
+          return matchesClient && matchesClientSearch(client, searchValue);
         });
         if (countEl) {
           countEl.textContent = `${fmt(visibleClients.length)} clientes`;
         }
         if (!visibleClients.length) {
-          list.innerHTML = '<p class="empty">Sin clientes para ese vendedor.</p>';
+          list.innerHTML = '<p class="empty">Sin clientes para ese filtro.</p>';
           activeClientIndex = -1;
           body.innerHTML = '<tr><td colspan="13" class="empty">Sin detalle.</td></tr>';
           nameEl.textContent = "-";
@@ -2390,6 +2435,20 @@
       };
       if (vendorFilter) {
         vendorFilter.addEventListener("change", () => {
+          activeClientIndex = 0;
+          renderClientList();
+          if (visibleClients.length) renderClient(activeClientIndex);
+        });
+      }
+      if (clientFilter) {
+        clientFilter.addEventListener("change", () => {
+          activeClientIndex = 0;
+          renderClientList();
+          if (visibleClients.length) renderClient(activeClientIndex);
+        });
+      }
+      if (clientSearch) {
+        clientSearch.addEventListener("input", () => {
           activeClientIndex = 0;
           renderClientList();
           if (visibleClients.length) renderClient(activeClientIndex);

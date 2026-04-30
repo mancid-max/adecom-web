@@ -3678,6 +3678,13 @@ def _pct_despacho(despachado: int, solicitado: int) -> float:
     return round((despachado / solicitado) * 100, 1)
 
 
+def _is_collection_42_article(value: object) -> bool:
+    articulo = str(value or "").strip()
+    if len(articulo) < 4:
+        return False
+    return articulo[2:4] == "42"
+
+
 def _build_inventory_stock_lookup(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
     lookup: dict[str, dict[str, object]] = {}
     for row in rows:
@@ -3782,6 +3789,8 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
         cliente_nombre = str(raw.get("CLIENTE") or "").strip()
         rut = str(raw.get("RUT") or "").strip()
         if not pedido and not articulo and not cliente_nombre:
+            continue
+        if articulo and not _is_collection_42_article(articulo):
             continue
 
         solicitado = _pedidos_detalle_int(raw.get("SOLICITADO"))
@@ -4004,9 +4013,18 @@ def index():
         search_error = "No se encontraron resultados. Escriba el articulo completo o familia. Ej: 01420100 o 4201."
     elif (filters["articulo_exact"] or filters["q"]) and (rows or pedidos_count > 0):
         search_success = "Encontrado"
-    ventas_rows = pedidos_sections.get("ventas", [])
-    saldo_rows = pedidos_sections.get("saldo", [])
-    corte_rows = pedidos_sections.get("corte", [])
+    ventas_rows = [
+        row for row in pedidos_sections.get("ventas", [])
+        if _is_collection_42_article(row.get("articulo"))
+    ]
+    saldo_rows = [
+        row for row in pedidos_sections.get("saldo", [])
+        if _is_collection_42_article(row.get("articulo"))
+    ]
+    corte_rows = [
+        row for row in pedidos_sections.get("corte", [])
+        if _is_collection_42_article(row.get("articulo"))
+    ]
     ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
     ventas_por_articulo: dict[str, int] = {}
     ventas_por_familia: dict[str, dict] = {}
