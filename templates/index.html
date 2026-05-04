@@ -220,6 +220,9 @@
           {% if admin_key_enabled %}
             {% if can_upload %}
               <p class="production-goals-copy">Sesion admin activa. Puedes editar y actualizar datos.</p>
+              <form method="post" action="{{ url_for('upload_refresh_local') }}" class="inventory-manage-actions">
+                <button type="submit">Recargar datos desde seed</button>
+              </form>
               <form method="post" action="{{ url_for('admin_logout') }}" class="inventory-manage-actions">
                 <button type="submit">Cerrar sesion admin</button>
               </form>
@@ -787,18 +790,6 @@
       </section>
     </dialog>
 
-    <dialog id="uploadModal" class="modal modal-upload">
-      <div class="modal-head">
-        <h3>Subir archivo</h3>
-        <button type="button" id="closeUploadModal" class="modal-close">Cerrar</button>
-      </div>
-      <form class="upload-card" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
-        <label for="file">Seleccionar TXT, CSV o Excel</label>
-        <input id="file" name="file" type="file" accept=".txt,.csv,.xlsx" required>
-        <button type="submit">Importar</button>
-      </form>
-    </dialog>
-
     <dialog id="fullTableModal" class="modal modal-full-table">
       <div class="modal-head">
         <h3>Tabla completa</h3>
@@ -1054,7 +1045,10 @@
         <div>
           <h3>Venta/despacho</h3>
         </div>
-        <button type="button" id="closeVentaDespachoModal" class="modal-close">Cerrar</button>
+        <div class="venta-despacho-head-actions">
+          <button type="button" id="openVentaDespachoRankingModal" class="venta-despacho-head-btn">Clientes por menor despacho</button>
+          <button type="button" id="closeVentaDespachoModal" class="modal-close">Cerrar</button>
+        </div>
       </div>
 
       <div class="modal-kpis venta-despacho-kpis">
@@ -1084,7 +1078,7 @@
         <aside class="venta-despacho-clientes-panel">
           <div class="venta-despacho-panel-head">
             <h4>Clientes por solicitado</h4>
-            <span id="ventaDespachoClientCount">{{ venta_despacho_dashboard.pedidos_count|miles }} pedidos</span>
+            <span id="ventaDespachoClientCount">{{ venta_despacho_dashboard.clientes_count|miles }} clientes</span>
           </div>
           <div class="venta-despacho-toolbar">
             <label>
@@ -1118,8 +1112,11 @@
               class="venta-despacho-client-btn {% if loop.first %}is-active{% endif %}"
               data-client-index="{{ loop.index0 }}"
             >
-              <strong>{{ cliente.cliente }}</strong>
-              <span>{{ cliente.solicitado|miles }} solic. - {{ cliente.pct_despacho }}% desp.</span>
+              <span class="venta-despacho-client-topline">
+                <strong>{{ cliente.cliente }}</strong>
+                <b class="venta-despacho-pct-badge">{{ cliente.pct_despacho }}%</b>
+              </span>
+              <span>{{ cliente.solicitado|miles }} solic. - {{ cliente.despachado|miles }} desp.</span>
             </button>
             {% else %}
             <p class="empty">Sin clientes en PEDIDOS.Txt.</p>
@@ -1140,7 +1137,7 @@
               </p>
             </div>
             <div class="venta-despacho-progress">
-              <span id="ventaDespachoClientePct">{{ venta_top.pct_despacho if venta_top else 0 }}%</span>
+              <span id="ventaDespachoClientePct" class="venta-despacho-progress-badge">{{ venta_top.pct_despacho if venta_top else 0 }}%</span>
               <small>despachado</small>
             </div>
           </div>
@@ -1210,6 +1207,47 @@
             </table>
           </section>
         </section>
+      </section>
+    </dialog>
+    <dialog id="ventaDespachoRankingModal" class="modal modal-venta-despacho modal-venta-despacho-ranking">
+      <div class="modal-head">
+        <div>
+          <h3>Clientes por menor despacho</h3>
+          <p class="venta-despacho-modal-copy">Ranking compacto con clientes con faltantes y menor % de despacho.</p>
+        </div>
+        <button type="button" id="closeVentaDespachoRankingModal" class="modal-close">Cerrar</button>
+      </div>
+
+      <section class="venta-despacho-ranking-panel">
+        <div class="venta-despacho-ranking-summary">
+          <article>
+            <small>Mostrando</small>
+            <strong id="ventaDespachoRankingCount">0 clientes</strong>
+          </article>
+          <article>
+            <small>Filtro</small>
+            <strong>Menor % despacho</strong>
+          </article>
+        </div>
+
+        <div class="table-wrap bodega-wrap venta-despacho-ranking-wrap">
+          <table class="bodega-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th>Vendedor</th>
+                <th>Ciudad</th>
+                <th>% despacho</th>
+                <th>Falta</th>
+                <th>$ falta</th>
+              </tr>
+            </thead>
+            <tbody id="ventaDespachoRankingBody">
+              <tr><td colspan="7" class="empty">Sin clientes para mostrar.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </dialog>
     <script id="ventaDespachoData" type="application/json">{{ venta_despacho_dashboard|tojson }}</script>
@@ -2134,16 +2172,6 @@
         row.addEventListener("click", () => openById("openBodegaModal"));
       });
 
-      const navUploadBtn = document.getElementById("navUploadBtn");
-      const sideUploadBtn = document.getElementById("sideUploadBtn");
-      const openUploadBtn = document.getElementById("openUploadModal");
-      if (navUploadBtn && openUploadBtn) {
-        navUploadBtn.addEventListener("click", () => openUploadBtn.click());
-      }
-      if (sideUploadBtn && openUploadBtn) {
-        sideUploadBtn.addEventListener("click", () => openUploadBtn.click());
-      }
-
       const navModeFocusBtn = document.getElementById("navModeFocusBtn");
       const sideModeFocusBtn = document.getElementById("sideModeFocusBtn");
       if (navModeFocusBtn) {
@@ -2270,7 +2298,10 @@
 
     (function () {
       const modal = document.getElementById("ventaDespachoModal");
+      const rankingModal = document.getElementById("ventaDespachoRankingModal");
       const closeBtn = document.getElementById("closeVentaDespachoModal");
+      const openRankingBtn = document.getElementById("openVentaDespachoRankingModal");
+      const closeRankingBtn = document.getElementById("closeVentaDespachoRankingModal");
       const dataNode = document.getElementById("ventaDespachoData");
       const list = document.getElementById("ventaDespachoClientList");
       const countEl = document.getElementById("ventaDespachoClientCount");
@@ -2286,6 +2317,8 @@
       const despachadoEl = document.getElementById("ventaDespachoClienteDespachado");
       const saldoEl = document.getElementById("ventaDespachoClienteSaldo");
       const valorSaldoEl = document.getElementById("ventaDespachoClienteValorSaldo");
+      const rankingCountEl = document.getElementById("ventaDespachoRankingCount");
+      const rankingBody = document.getElementById("ventaDespachoRankingBody");
       if (!modal || !dataNode || !list || !body || !nameEl || !metaEl) return;
       let data = {};
       try {
@@ -2319,10 +2352,83 @@
         if (tone === "red") return "status-red";
         return "status-yellow";
       };
+      const dispatchTone = (pctValue, saldoValue) => {
+        const pctNum = Number(pctValue || 0);
+        const saldoNum = Number(saldoValue || 0);
+        if (saldoNum <= 0) return "ok";
+        if (pctNum <= 0) return "critical";
+        if (pctNum < 70) return "alert";
+        if (pctNum < 95) return "warn";
+        return "ok";
+      };
+      const sortClients = (rows, sortBy) => {
+        const sortKey = String(sortBy || "pct_asc");
+        return rows.slice().sort((a, b) => {
+          if (sortKey === "saldo_desc") {
+            return Number(b.saldo || 0) - Number(a.saldo || 0)
+              || Number(a.pct_despacho || 0) - Number(b.pct_despacho || 0)
+              || String(a.cliente || "").localeCompare(String(b.cliente || ""), "es");
+          }
+          if (sortKey === "valor_saldo_desc") {
+            return Number(b.valor_saldo || 0) - Number(a.valor_saldo || 0)
+              || Number(a.pct_despacho || 0) - Number(b.pct_despacho || 0)
+              || String(a.cliente || "").localeCompare(String(b.cliente || ""), "es");
+          }
+          if (sortKey === "solicitado_desc") {
+            return Number(b.solicitado || 0) - Number(a.solicitado || 0)
+              || Number(a.pct_despacho || 0) - Number(b.pct_despacho || 0)
+              || String(a.cliente || "").localeCompare(String(b.cliente || ""), "es");
+          }
+          if (sortKey === "cliente_asc") {
+            return String(a.cliente || "").localeCompare(String(b.cliente || ""), "es");
+          }
+          return (Number(a.saldo || 0) > 0 ? 0 : 1) - (Number(b.saldo || 0) > 0 ? 0 : 1)
+            || Number(a.pct_despacho || 0) - Number(b.pct_despacho || 0)
+            || Number(b.saldo || 0) - Number(a.saldo || 0)
+            || Number(b.valor_saldo || 0) - Number(a.valor_saldo || 0)
+            || String(a.cliente || "").localeCompare(String(b.cliente || ""), "es");
+        });
+      };
+      const sortRows = (rows) => rows.slice().sort((a, b) =>
+        (Number(a.saldo || 0) > 0 ? 0 : 1) - (Number(b.saldo || 0) > 0 ? 0 : 1)
+        || Number(b.pct_despacho || 0) - Number(a.pct_despacho || 0)
+        || Number(b.saldo || 0) - Number(a.saldo || 0)
+        || Number(b.valor_saldo || 0) - Number(a.valor_saldo || 0)
+        || String(a.articulo || "").localeCompare(String(b.articulo || ""), "es")
+      );
+      const getRankingClients = () => sortClients(
+        clients.filter((client) => Number(client.saldo || 0) > 0),
+        "pct_asc"
+      ).slice(0, 20);
       const getFilteredRows = (client) => {
-        const rows = Array.isArray(client?.articulos) ? client.articulos.slice() : [];
+        const rows = sortRows(Array.isArray(client?.articulos) ? client.articulos.slice() : []);
         if (!onlySaldoToggle || !onlySaldoToggle.checked) return rows;
         return rows.filter((item) => Number(item.saldo || 0) > 0);
+      };
+      const renderRanking = () => {
+        if (!rankingBody) return;
+        const rankingClients = getRankingClients();
+        if (rankingCountEl) {
+          rankingCountEl.textContent = `${fmt(rankingClients.length)} clientes`;
+        }
+        if (!rankingClients.length) {
+          rankingBody.innerHTML = '<tr><td colspan="7" class="empty">Sin clientes con faltantes.</td></tr>';
+          return;
+        }
+        rankingBody.innerHTML = rankingClients.map((client, index) => `
+          <tr class="venta-despacho-row-${dispatchTone(client.pct_despacho, client.saldo)}">
+            <td class="num">${index + 1}</td>
+            <td>
+              <strong>${escapeHtml(client.cliente || "-")}</strong>
+              <small class="venta-despacho-ranking-meta">${escapeHtml(client.rut || "-")}</small>
+            </td>
+            <td><strong>${escapeHtml(client.vendedor || "-")}</strong></td>
+            <td>${escapeHtml(client.ciudad || "-")}</td>
+            <td class="num"><span class="venta-despacho-pct-badge venta-despacho-pct-badge-${dispatchTone(client.pct_despacho, client.saldo)}">${pct(client.pct_despacho)}</span></td>
+            <td class="num">${fmt(client.saldo)}</td>
+            <td class="num">${money(client.valor_saldo)}</td>
+          </tr>
+        `).join("");
       };
       const buildClientOptions = (rows) => {
         if (!clientFilter) return;
@@ -2363,6 +2469,7 @@
           const matchesClient = !selectedClient || clientName === selectedClient;
           return matchesClient && matchesClientSearch(client, searchValue);
         });
+        visibleClients = sortClients(visibleClients, "solicitado_desc");
         if (countEl) {
           countEl.textContent = `${fmt(visibleClients.length)} clientes`;
         }
@@ -2384,10 +2491,13 @@
         }
         list.innerHTML = visibleClients.map((client, index) => `
           <button type="button"
-            class="venta-despacho-client-btn ${index === activeClientIndex ? "is-active" : ""}"
+            class="venta-despacho-client-btn venta-despacho-client-btn-${dispatchTone(client.pct_despacho, client.saldo)} ${index === activeClientIndex ? "is-active" : ""}"
             data-visible-client-index="${index}">
-            <strong>${escapeHtml(client.cliente || "-")}</strong>
-            <span>${fmt(client.solicitado)} solic. - ${pct(client.pct_despacho)} desp.</span>
+            <span class="venta-despacho-client-topline">
+              <strong>${escapeHtml(client.cliente || "-")}</strong>
+              <b class="venta-despacho-pct-badge venta-despacho-pct-badge-${dispatchTone(client.pct_despacho, client.saldo)}">${pct(client.pct_despacho)}</b>
+            </span>
+            <span>${fmt(client.solicitado)} solic. - ${fmt(client.despachado)} desp.</span>
           </button>
         `).join("");
         list.querySelectorAll("[data-visible-client-index]").forEach((btn) => {
@@ -2405,7 +2515,10 @@
         });
         nameEl.textContent = client.cliente || "-";
         metaEl.textContent = [client.rut, client.ciudad, client.vendedor].filter(Boolean).join(" - ") || "-";
-        if (pctEl) pctEl.textContent = pct(client.pct_despacho);
+        if (pctEl) {
+          pctEl.textContent = pct(client.pct_despacho);
+          pctEl.className = `venta-despacho-progress-badge venta-despacho-progress-badge-${dispatchTone(client.pct_despacho, client.saldo)}`;
+        }
         if (solicitadoEl) solicitadoEl.textContent = fmt(client.solicitado);
         if (despachadoEl) despachadoEl.textContent = fmt(client.despachado);
         if (saldoEl) saldoEl.textContent = fmt(client.saldo);
@@ -2416,12 +2529,12 @@
           return;
         }
         body.innerHTML = rows.map((item) => `
-          <tr>
+          <tr class="venta-despacho-row-${dispatchTone(item.pct_despacho, item.saldo)}">
             <td>${escapeHtml(item.articulo || "-")}</td>
             <td>${escapeHtml(item.descripcion || "-")}</td>
             <td class="num">${fmt(item.solicitado)}</td>
             <td class="num">${fmt(item.despachado)}</td>
-            <td class="num">${pct(item.pct_despacho)}</td>
+            <td class="num"><span class="venta-despacho-pct-badge venta-despacho-pct-badge-${dispatchTone(item.pct_despacho, item.saldo)}">${pct(item.pct_despacho)}</span></td>
             <td class="num">${fmt(item.saldo)}</td>
             <td class="num">${money(item.valor_solicitado)}</td>
             <td class="num">${money(item.valor_despachado)}</td>
@@ -2464,8 +2577,23 @@
       if (closeBtn) {
         closeBtn.addEventListener("click", () => modal.close());
       }
+      if (openRankingBtn && rankingModal) {
+        openRankingBtn.addEventListener("click", () => {
+          renderRanking();
+          rankingModal.showModal();
+        });
+      }
+      if (closeRankingBtn && rankingModal) {
+        closeRankingBtn.addEventListener("click", () => rankingModal.close());
+      }
+      if (rankingModal) {
+        rankingModal.addEventListener("click", (event) => {
+          if (event.target === rankingModal) rankingModal.close();
+        });
+      }
       renderClientList();
       if (visibleClients.length) renderClient(activeClientIndex);
+      renderRanking();
     })();
 
     (function () {
@@ -3391,29 +3519,6 @@
           ${xLabels}
         </svg>
       `;
-    })();
-
-    (function () {
-      const modal = document.getElementById("uploadModal");
-      const openBtn = document.getElementById("openUploadModal");
-      const closeBtn = document.getElementById("closeUploadModal");
-      const fileInput = document.getElementById("file");
-      if (!modal || !openBtn || !closeBtn) return;
-      const openUpload = (acceptValue) => {
-        if (fileInput && acceptValue) fileInput.setAttribute("accept", acceptValue);
-        modal.showModal();
-      };
-      openBtn.addEventListener("click", () => modal.showModal());
-      closeBtn.addEventListener("click", () => modal.close());
-      modal.addEventListener("click", (event) => {
-        const rect = modal.getBoundingClientRect();
-        const clickedInside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
-      });
     })();
 
     (function () {
@@ -4559,6 +4664,12 @@
         stock: Number(row.stock || 0),
         sizes: row.sizes || {},
       });
+      const inventoryText = (row, field) => {
+        const value = String(row?.[field] || "").trim();
+        if (value) return value;
+        if (String(row?.coleccion || "").trim() === "43") return "";
+        return "-";
+      };
       const applyRowToForm = (row) => {
         if (!manageForm || !formItemId || !formSubmit) return;
         formItemId.value = String(row.id || "");

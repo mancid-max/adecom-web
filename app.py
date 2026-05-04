@@ -3945,7 +3945,15 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
                     "pendiente_produccion": int(trazabilidad_item.get("pendiente_total") or 0),
                 }
             )
-        articulos_rows.sort(key=lambda item: (-int(item["solicitado"]), -int(item["saldo"]), str(item["articulo"])))
+        articulos_rows.sort(
+            key=lambda item: (
+                0 if int(item["saldo"]) > 0 else 1,
+                -float(item["pct_despacho"]),
+                -int(item["saldo"]),
+                -int(item["valor_saldo"]),
+                str(item["articulo"]),
+            )
+        )
         cliente_row = {
             "key": cliente["key"],
             "rut": cliente["rut"],
@@ -3967,7 +3975,16 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
             totals[key] = int(totals[key]) + int(cliente_row[key])
 
     totals["pct_despacho"] = _pct_despacho(int(totals["despachado"]), int(totals["solicitado"]))
-    clientes_rows.sort(key=lambda item: (-int(item["solicitado"]), -int(item["valor_solicitado"]), str(item["cliente"])))
+    clientes_rows.sort(
+        key=lambda item: (
+            0 if int(item["saldo"]) > 0 else 1,
+            float(item["pct_despacho"]),
+            -int(item["saldo"]),
+            -int(item["valor_saldo"]),
+            -int(item["solicitado"]),
+            str(item["cliente"]),
+        )
+    )
     vendedores = sorted({str(item.get("vendedor") or "").strip() for item in clientes_rows if str(item.get("vendedor") or "").strip()})
 
     return {
@@ -3980,6 +3997,11 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
         "fecha_max": max(fechas) if fechas else "",
         "pedidos_count": len(pedidos_unicos),
         "clientes_count": len(clientes_rows),
+        "clientes_con_faltantes": sum(1 for item in clientes_rows if int(item["saldo"]) > 0),
+        "clientes_sin_despacho": sum(
+            1 for item in clientes_rows
+            if int(item["saldo"]) > 0 and float(item["pct_despacho"]) <= 0
+        ),
         "articulos_count": len(articulos_unicos),
         "vendedores": vendedores,
     }

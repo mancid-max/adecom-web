@@ -1132,7 +1132,7 @@ td.etapas-fecha {
 }
 
 .modal-upload {
-  width: min(520px, 92vw);
+  width: min(760px, 94vw);
 }
 
 .modal-full-table {
@@ -9451,11 +9451,38 @@ body.theme-gentelella,
   width: min(1180px, calc(100vw - 24px));
 }
 
+.modal-venta-despacho-ranking {
+  width: min(1120px, calc(100vw - 24px));
+}
+
 .venta-despacho-modal-copy {
   margin: 4px 0 0;
   color: #5a7187;
   font-size: .9rem;
   font-weight: 700;
+}
+
+.venta-despacho-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.venta-despacho-head-btn {
+  border: 1px solid #cfdce8;
+  background: #f5f9fc;
+  color: #1f4b72;
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.venta-despacho-head-btn:hover {
+  background: #eaf5fc;
+  border-color: #4c92bf;
 }
 
 .venta-despacho-layout {
@@ -9579,6 +9606,13 @@ body.theme-gentelella,
   overflow-wrap: anywhere;
 }
 
+.venta-despacho-client-topline {
+  display: flex !important;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .venta-despacho-client-btn strong {
   font-size: .9rem;
   line-height: 1.15;
@@ -9595,6 +9629,21 @@ body.theme-gentelella,
 .venta-despacho-client-btn:hover {
   border-color: #4c92bf;
   background: #eaf5fc;
+}
+
+.venta-despacho-client-btn-critical {
+  border-color: #efb0b0;
+  background: #fff4f4;
+}
+
+.venta-despacho-client-btn-alert {
+  border-color: #f0d4a2;
+  background: #fff8ee;
+}
+
+.venta-despacho-client-btn-warn {
+  border-color: #d8e4a8;
+  background: #f9fbe9;
 }
 
 .venta-despacho-progress {
@@ -9619,6 +9668,55 @@ body.theme-gentelella,
   text-transform: uppercase;
 }
 
+.venta-despacho-progress-badge {
+  display: block;
+}
+
+.venta-despacho-progress-badge-critical,
+.venta-despacho-pct-badge-critical {
+  color: #8d1f1f;
+}
+
+.venta-despacho-progress-badge-alert,
+.venta-despacho-pct-badge-alert {
+  color: #9a5a05;
+}
+
+.venta-despacho-progress-badge-warn,
+.venta-despacho-pct-badge-warn {
+  color: #6a7608;
+}
+
+.venta-despacho-progress-badge-ok,
+.venta-despacho-pct-badge-ok {
+  color: #0d6840;
+}
+
+.venta-despacho-pct-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #edf4f8;
+  font-size: .8rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.venta-despacho-row-critical {
+  background: #fff6f6;
+}
+
+.venta-despacho-row-alert {
+  background: #fffaf1;
+}
+
+.venta-despacho-row-warn {
+  background: #fbfced;
+}
+
 .venta-despacho-client-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -9634,6 +9732,97 @@ body.theme-gentelella,
   min-width: 1040px;
 }
 
+.venta-despacho-ranking-panel {
+  border: 1px solid #ccd9e6;
+  border-radius: 10px;
+  background: #fff;
+  padding: 14px;
+}
+
+.venta-despacho-ranking-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.venta-despacho-ranking-summary article {
+  border: 1px solid #d8e4ef;
+  border-radius: 8px;
+  background: #f8fbfe;
+  padding: 10px;
+}
+
+.venta-despacho-ranking-summary small,
+.venta-despacho-ranking-summary strong {
+  display: block;
+}
+
+.venta-despacho-ranking-summary small {
+  color: #607589;
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.venta-despacho-ranking-summary strong {
+  margin-top: 4px;
+  color: #17324a;
+  font-size: 1rem;
+}
+
+.venta-despacho-ranking-wrap {
+  max-height: 560px;
+}
+
+.venta-despacho-ranking-wrap .bodega-table {
+  min-width: 100%;
+}
+
+.venta-despacho-ranking-wrap .bodega-table th,
+.venta-despacho-ranking-wrap .bodega-table td {
+  padding: 10px 12px;
+  font-size: .9rem;
+}
+
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(1),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(1) {
+  width: 56px;
+}
+
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(2),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(2) {
+  width: 30%;
+}
+
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(3),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(3) {
+  width: 22%;
+}
+
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(4),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(4) {
+  width: 16%;
+}
+
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(5),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(5),
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(6),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(6),
+.venta-despacho-ranking-wrap .bodega-table th:nth-child(7),
+.venta-despacho-ranking-wrap .bodega-table td:nth-child(7) {
+  white-space: nowrap;
+}
+
+.venta-despacho-ranking-meta {
+  display: block;
+  margin-top: 4px;
+  color: #607589;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .venta-despacho-card {
     grid-column: span 1;
@@ -9645,6 +9834,15 @@ body.theme-gentelella,
   }
 
   .venta-despacho-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .venta-despacho-head-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .venta-despacho-ranking-summary {
     grid-template-columns: 1fr;
   }
 
