@@ -1235,19 +1235,13 @@
         <button type="button" id="closeReporteVentaModal" class="modal-close">Cerrar</button>
       </div>
       {% if plan and plan.available %}
-      {% set default_branch = plan.default_branch if plan.default_branch in plan.branch_views else 'all' %}
-      {% set report_view = plan.branch_views[default_branch].day %}
+      {% set report_view = plan.branch_views['all'].day if plan.branch_views and 'all' in plan.branch_views else None %}
       <section class="reporte-venta-filterbar">
         <div class="reporte-venta-filtergroup" role="tablist" aria-label="Filtro periodo reporte venta">
           <button type="button" class="reporte-venta-filterbtn is-active" data-report-view="day">Dia</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="week">Semana</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="month">Mes</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="year">Año</button>
-        </div>
-        <div class="reporte-venta-filtergroup" role="tablist" aria-label="Filtro sucursal reporte venta">
-          {% for branch in plan.branches %}
-          <button type="button" class="reporte-venta-filterbtn{% if branch.key == default_branch %} is-active{% endif %}" data-report-branch="{{ branch.key }}">{{ branch.label }}</button>
-          {% endfor %}
         </div>
         <p class="table-hint">Vista actual: <strong id="reporteVentaPeriodLabel">{{ report_view.period_label }}</strong></p>
       </section>
@@ -3541,8 +3535,8 @@
         data = {};
       }
       const branchViews = data && typeof data.branch_views === "object" && data.branch_views ? data.branch_views : {};
+      const views = branchViews.all || {};
       const filterButtons = Array.from(modal.querySelectorAll("[data-report-view]"));
-      const branchButtons = Array.from(modal.querySelectorAll("[data-report-branch]"));
       const periodLabel = document.getElementById("reporteVentaPeriodLabel");
       const resumenBody = document.getElementById("reporteVentaResumenBody");
       const vendedoresBody = document.getElementById("reporteVentaVendedoresBody");
@@ -3603,18 +3597,12 @@
         `).join("") : '<tr><td colspan="5" class="empty">Sin datos para este periodo.</td></tr>';
       };
       let currentViewKey = String(data.default_view || "day");
-      let currentBranchKey = String(data.default_branch || "all");
-      const applyView = (viewKey, branchKey) => {
+      const applyView = (viewKey) => {
         currentViewKey = String(viewKey || currentViewKey || "day");
-        currentBranchKey = String(branchKey || currentBranchKey || "all");
-        const branch = branchViews[currentBranchKey] || branchViews.all || {};
-        const view = branch[currentViewKey];
+        const view = views[currentViewKey];
         if (!view) return;
         filterButtons.forEach((btn) => {
           btn.classList.toggle("is-active", String(btn.getAttribute("data-report-view") || "") === currentViewKey);
-        });
-        branchButtons.forEach((btn) => {
-          btn.classList.toggle("is-active", String(btn.getAttribute("data-report-branch") || "") === currentBranchKey);
         });
         if (periodLabel) periodLabel.textContent = String(view.period_label || "-");
         renderSummary(view);
@@ -3626,17 +3614,10 @@
         btn.addEventListener("click", () => {
           const key = String(btn.getAttribute("data-report-view") || "");
           if (!key) return;
-          applyView(key, currentBranchKey);
+          applyView(key);
         });
       });
-      branchButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const key = String(btn.getAttribute("data-report-branch") || "");
-          if (!key) return;
-          applyView(currentViewKey, key);
-        });
-      });
-      applyView(currentViewKey, currentBranchKey);
+      applyView(currentViewKey);
     })();
 
     (function () {

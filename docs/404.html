@@ -13934,28 +13934,12 @@
       </div>
       
       
-      
       <section class="reporte-venta-filterbar">
         <div class="reporte-venta-filtergroup" role="tablist" aria-label="Filtro periodo reporte venta">
           <button type="button" class="reporte-venta-filterbtn is-active" data-report-view="day">Dia</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="week">Semana</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="month">Mes</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="year">Año</button>
-        </div>
-        <div class="reporte-venta-filtergroup" role="tablist" aria-label="Filtro sucursal reporte venta">
-          
-          <button type="button" class="reporte-venta-filterbtn" data-report-branch="all">Todas</button>
-          
-          <button type="button" class="reporte-venta-filterbtn" data-report-branch="00">Boletas / Local</button>
-          
-          <button type="button" class="reporte-venta-filterbtn" data-report-branch="01">Sucursal 01</button>
-          
-          <button type="button" class="reporte-venta-filterbtn is-active" data-report-branch="04">San Gerardo</button>
-          
-          <button type="button" class="reporte-venta-filterbtn" data-report-branch="08">Sucursal 08</button>
-          
-          <button type="button" class="reporte-venta-filterbtn" data-report-branch="12">Outlet</button>
-          
         </div>
         <p class="table-hint">Vista actual: <strong id="reporteVentaPeriodLabel">05/05/2026</strong></p>
       </section>
@@ -13989,12 +13973,20 @@
               <td class="num">$-1.805.280</td>
             </tr>
             
+            <tr>
+              <td>Boletas</td>
+              <td class="num">4</td>
+              <td class="num">$287.868</td>
+              <td class="num">$54.695</td>
+              <td class="num">$342.563</td>
+            </tr>
+            
             <tr class="reporte-venta-total-row">
               <td>Totales</td>
-              <td class="num">18</td>
-              <td class="num">$9.382.016</td>
-              <td class="num">$1.782.584</td>
-              <td class="num">$11.164.600</td>
+              <td class="num">22</td>
+              <td class="num">$9.669.884</td>
+              <td class="num">$1.837.279</td>
+              <td class="num">$11.507.163</td>
             </tr>
           </tbody>
         </table>
@@ -14047,6 +14039,14 @@
               </tr>
               
               <tr>
+                <td><strong>ANGELICA MELLA</strong></td>
+                <td class="num">4</td>
+                <td class="num">$287.868</td>
+                <td class="num">$54.695</td>
+                <td class="num">$342.563</td>
+              </tr>
+              
+              <tr>
                 <td><strong>RICHARD CUEVAS</strong></td>
                 <td class="num">6</td>
                 <td class="num">$280.571</td>
@@ -14081,10 +14081,10 @@
               
               <tr>
                 <td>01 -CONTADO</td>
-                <td class="num">2</td>
-                <td class="num">$1.824.496</td>
-                <td class="num">$346.654</td>
-                <td class="num">$2.171.150</td>
+                <td class="num">3</td>
+                <td class="num">$1.838.612</td>
+                <td class="num">$349.336</td>
+                <td class="num">$2.187.948</td>
               </tr>
               
               <tr>
@@ -14097,10 +14097,18 @@
               
               <tr>
                 <td>21 -TRANSF CONTRA ENTREGA</td>
-                <td class="num">1</td>
-                <td class="num">$430.084</td>
-                <td class="num">$81.716</td>
-                <td class="num">$511.800</td>
+                <td class="num">2</td>
+                <td class="num">$626.194</td>
+                <td class="num">$118.977</td>
+                <td class="num">$745.171</td>
+              </tr>
+              
+              <tr>
+                <td>16 -TARJ DEBITO</td>
+                <td class="num">2</td>
+                <td class="num">$77.642</td>
+                <td class="num">$14.752</td>
+                <td class="num">$92.394</td>
               </tr>
               
             </tbody>
@@ -30677,8 +30685,8 @@
         data = {};
       }
       const branchViews = data && typeof data.branch_views === "object" && data.branch_views ? data.branch_views : {};
+      const views = branchViews.all || {};
       const filterButtons = Array.from(modal.querySelectorAll("[data-report-view]"));
-      const branchButtons = Array.from(modal.querySelectorAll("[data-report-branch]"));
       const periodLabel = document.getElementById("reporteVentaPeriodLabel");
       const resumenBody = document.getElementById("reporteVentaResumenBody");
       const vendedoresBody = document.getElementById("reporteVentaVendedoresBody");
@@ -30739,18 +30747,12 @@
         `).join("") : '<tr><td colspan="5" class="empty">Sin datos para este periodo.</td></tr>';
       };
       let currentViewKey = String(data.default_view || "day");
-      let currentBranchKey = String(data.default_branch || "all");
-      const applyView = (viewKey, branchKey) => {
+      const applyView = (viewKey) => {
         currentViewKey = String(viewKey || currentViewKey || "day");
-        currentBranchKey = String(branchKey || currentBranchKey || "all");
-        const branch = branchViews[currentBranchKey] || branchViews.all || {};
-        const view = branch[currentViewKey];
+        const view = views[currentViewKey];
         if (!view) return;
         filterButtons.forEach((btn) => {
           btn.classList.toggle("is-active", String(btn.getAttribute("data-report-view") || "") === currentViewKey);
-        });
-        branchButtons.forEach((btn) => {
-          btn.classList.toggle("is-active", String(btn.getAttribute("data-report-branch") || "") === currentBranchKey);
         });
         if (periodLabel) periodLabel.textContent = String(view.period_label || "-");
         renderSummary(view);
@@ -30762,17 +30764,10 @@
         btn.addEventListener("click", () => {
           const key = String(btn.getAttribute("data-report-view") || "");
           if (!key) return;
-          applyView(key, currentBranchKey);
+          applyView(key);
         });
       });
-      branchButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const key = String(btn.getAttribute("data-report-branch") || "");
-          if (!key) return;
-          applyView(currentViewKey, key);
-        });
-      });
-      applyView(currentViewKey, currentBranchKey);
+      applyView(currentViewKey);
     })();
 
     (function () {
