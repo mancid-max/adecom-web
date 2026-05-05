@@ -3936,9 +3936,15 @@ def _detailv_decode(path: Path) -> str:
     return path.read_text(encoding="latin-1", errors="replace")
 
 
-def _build_detailv_doc_lookup() -> dict[str, dict[str, object]]:
+def _build_detailv_doc_lookup() -> tuple[
+    dict[str, dict[str, object]],
+    dict[str, str],
+    dict[str, str],
+]:
     rows = _load_sales_docs_activity_rows()
     lookup: dict[str, dict[str, object]] = {}
+    payment_by_rut: dict[str, tuple[str, str]] = {}
+    payment_by_client: dict[str, tuple[str, str]] = {}
     for row in rows:
         doc = str(row.get("doc") or "").strip()
         if not doc:
@@ -3974,18 +3980,34 @@ def _build_detailv_doc_lookup() -> dict[str, dict[str, object]]:
                             doc,
                             {"net_total": 0, "fpago": "", "vendedor": "", "cliente": "", "fecha": ""},
                         )
+                        fpago = str(raw.get("Fpago") or "").strip()
+                        fecha = _pedidos_detalle_date(raw.get("fecha")) or str(raw.get("fecha") or "").strip()
                         if not bucket["fpago"]:
-                            bucket["fpago"] = str(raw.get("Fpago") or "").strip()
+                            bucket["fpago"] = fpago
                         if not bucket["vendedor"]:
                             bucket["vendedor"] = str(raw.get("Vendedor") or "").strip()
                         if not bucket["cliente"]:
                             bucket["cliente"] = str(raw.get("cliente") or "").strip()
                         if not bucket["fecha"]:
-                            bucket["fecha"] = _pedidos_detalle_date(raw.get("fecha")) or str(raw.get("fecha") or "").strip()
+                            bucket["fecha"] = fecha
+                        rut_key = "".join(ch for ch in str(raw.get("Rut") or "").upper() if ch.isalnum())
+                        client_key = str(raw.get("cliente") or "").strip().upper()
+                        if fpago and rut_key:
+                            previous = payment_by_rut.get(rut_key)
+                            if previous is None or fecha >= previous[0]:
+                                payment_by_rut[rut_key] = (fecha, fpago)
+                        if fpago and client_key:
+                            previous = payment_by_client.get(client_key)
+                            if previous is None or fecha >= previous[0]:
+                                payment_by_client[client_key] = (fecha, fpago)
                 break
             except Exception:
                 continue
-    return lookup
+    return (
+        lookup,
+        {key: value[1] for key, value in payment_by_rut.items()},
+        {key: value[1] for key, value in payment_by_client.items()},
+    )
 
 
 def _doc_type_meta(type_code: str) -> dict[str, object]:
@@ -4049,7 +4071,7 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
             continue
         active_vendor_map.setdefault(vendor, {})[str(row.get("rut") or "").strip()] = row
 
-    doc_lookup = _build_detailv_doc_lookup()
+    doc_lookup, payment_by_rut, payment_by_client = _build_detailv_doc_lookup()
     entries: list[dict[str, object]] = []
     dates: list[str] = []
 
@@ -4066,7 +4088,15 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
         cantidad = _to_int(parts[6])
         gross_total = _to_int(parts[7])
         linked = doc_lookup.get(dcto, {})
-        fpago = str(linked.get("fpago") or "").strip() or "Sin forma de pago"
+        rut_key = "".join(ch for ch in str(rut or "").upper() if ch.isalnum())
+        client_key = str(cliente or "").strip().upper()
+        fpago = str(linked.get("fpago") or "").strip()
+        if not fpago and rut_key:
+            fpago = str(payment_by_rut.get(rut_key) or "").strip()
+        if not fpago and client_key:
+            fpago = str(payment_by_client.get(client_key) or "").strip()
+        if not fpago:
+            fpago = "Sin forma de pago"
         if fecha_iso:
             dates.append(fecha_iso)
         meta = _doc_type_meta(type_code)
