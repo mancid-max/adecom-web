@@ -36,6 +36,7 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentaDespachoModal">Venta/despacho</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openReporteVentaModal">Reporte Venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
@@ -197,6 +198,16 @@
             {% if not venta_despacho_dashboard.available %}disabled{% endif %}
           >
             <h2>%Venta</h2>
+          </button>
+        </article>
+        <article class="card-action summary-secondary">
+          <button
+            type="button"
+            id="openReporteVentaModal"
+            class="summary-open summary-open-centered"
+            data-open-id="openReporteVentaModal"
+          >
+            <h2>Reporte Venta</h2>
           </button>
         </article>
       </section>
@@ -1209,6 +1220,122 @@
         </section>
       </section>
     </dialog>
+    {% set plan = comparativo_summary.plan_comercial %}
+    <dialog id="reporteVentaModal" class="modal modal-venta-despacho">
+      <div class="modal-head">
+        <div>
+          <h3>Reporte Venta</h3>
+          <p class="venta-despacho-modal-copy">
+            Cruce comercial del plan Mohicano con comparativo, deuda y ventas 2026.
+            {% if plan and plan.source_cutoff_label %}
+            Corte ventas: {{ plan.source_cutoff_label }}.
+            {% endif %}
+          </p>
+        </div>
+        <button type="button" id="closeReporteVentaModal" class="modal-close">Cerrar</button>
+      </div>
+      {% if plan and plan.available %}
+      {% set report_view = plan.views.day %}
+      <section class="reporte-venta-filterbar">
+        <div class="reporte-venta-filtergroup" role="tablist" aria-label="Filtro periodo reporte venta">
+          <button type="button" class="reporte-venta-filterbtn is-active" data-report-view="day">Dia</button>
+          <button type="button" class="reporte-venta-filterbtn" data-report-view="week">Semana</button>
+          <button type="button" class="reporte-venta-filterbtn" data-report-view="month">Mes</button>
+          <button type="button" class="reporte-venta-filterbtn" data-report-view="year">Año</button>
+        </div>
+        <p class="table-hint">Vista actual: <strong id="reporteVentaPeriodLabel">{{ report_view.period_label }}</strong></p>
+      </section>
+      <section class="table-wrap bodega-wrap">
+        <p class="table-hint">Resumen por tipo de documento segun DETALLEV.</p>
+        <table class="bodega-table bodega-table-compact" id="reporteVentaResumenTable">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th class="num">Cantidad</th>
+              <th class="num">Neto</th>
+              <th class="num">IVA</th>
+              <th class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody id="reporteVentaResumenBody">
+            {% for item in report_view.summary_rows %}
+            <tr>
+              <td>{{ item.label }}</td>
+              <td class="num">{{ item.count|miles }}</td>
+              <td class="num">${{ item.net|miles }}</td>
+              <td class="num">${{ item.iva|miles }}</td>
+              <td class="num">${{ item.gross|miles }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="reporte-venta-total-row">
+              <td>Totales</td>
+              <td class="num">{{ report_view.summary_totals.count|miles }}</td>
+              <td class="num">${{ report_view.summary_totals.net|miles }}</td>
+              <td class="num">${{ report_view.summary_totals.iva|miles }}</td>
+              <td class="num">${{ report_view.summary_totals.gross|miles }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <div class="reporte-venta-split-grid">
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Venta agrupada por vendedor en el periodo seleccionado.</p>
+          <table class="bodega-table bodega-table-compact" id="reporteVentaVendedoresTable">
+            <thead>
+              <tr>
+                <th>Vendedor</th>
+                <th class="num">Docs</th>
+                <th class="num">Neto</th>
+                <th class="num">IVA</th>
+                <th class="num">Total</th>
+              </tr>
+            </thead>
+            <tbody id="reporteVentaVendedoresBody">
+              {% for item in report_view.vendor_rows %}
+              <tr>
+                <td><strong>{{ item.vendor }}</strong></td>
+                <td class="num">{{ item.docs|miles }}</td>
+                <td class="num">${{ item.net|miles }}</td>
+                <td class="num">${{ item.iva|miles }}</td>
+                <td class="num">${{ item.gross|miles }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+        <section class="table-wrap bodega-wrap">
+          <p class="table-hint">Tipos de pago detectados desde el cruce con ventas.</p>
+          <table class="bodega-table bodega-table-compact" id="reporteVentaPagosTable">
+            <thead>
+              <tr>
+                <th>Tipo de pago</th>
+                <th class="num">Docs</th>
+                <th class="num">Neto</th>
+                <th class="num">IVA</th>
+                <th class="num">Total</th>
+              </tr>
+            </thead>
+            <tbody id="reporteVentaPagosBody">
+              {% for item in report_view.payment_rows %}
+              <tr>
+                <td>{{ item.payment_label }}</td>
+                <td class="num">{{ item.docs|miles }}</td>
+                <td class="num">${{ item.net|miles }}</td>
+                <td class="num">${{ item.iva|miles }}</td>
+                <td class="num">${{ item.gross|miles }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      </div>
+      {% else %}
+      <section class="table-wrap bodega-wrap">
+        <p class="empty">No hay datos suficientes para construir el reporte de venta.</p>
+      </section>
+      {% endif %}
+    </dialog>
+    <script id="reporteVentaData" type="application/json">{{ plan|tojson }}</script>
     <dialog id="ventaDespachoRankingModal" class="modal modal-venta-despacho modal-venta-despacho-ranking">
       <div class="modal-head">
         <div>
@@ -2214,6 +2341,7 @@
         openDisponiblesModal: "disponiblesModal",
         openVentasTotalModal: "ventasTotalModal",
         openVentaDespachoModal: "ventaDespachoModal",
+        openReporteVentaModal: "reporteVentaModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openProyeccionModal: "proyeccionModal",
@@ -2228,6 +2356,7 @@
         openDisponiblesModal: "disponiblesModal",
         openVentasTotalModal: "ventasTotalModal",
         openVentaDespachoModal: "ventaDespachoModal",
+        openReporteVentaModal: "reporteVentaModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
@@ -3392,6 +3521,100 @@
           event.clientY <= rect.bottom;
         if (!clickedInside) modal.close();
       });
+    })();
+
+    (function () {
+      const modal = document.getElementById("reporteVentaModal");
+      const closeBtn = document.getElementById("closeReporteVentaModal");
+      const dataNode = document.getElementById("reporteVentaData");
+      if (!modal || !closeBtn || !dataNode) return;
+      let data = {};
+      try {
+        data = JSON.parse(dataNode.textContent || "{}");
+      } catch (_) {
+        data = {};
+      }
+      const views = data && typeof data.views === "object" && data.views ? data.views : {};
+      const filterButtons = Array.from(modal.querySelectorAll("[data-report-view]"));
+      const periodLabel = document.getElementById("reporteVentaPeriodLabel");
+      const resumenBody = document.getElementById("reporteVentaResumenBody");
+      const vendedoresBody = document.getElementById("reporteVentaVendedoresBody");
+      const pagosBody = document.getElementById("reporteVentaPagosBody");
+      const fmt = (value) => Number(value || 0).toLocaleString("es-CL");
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+      const renderSummary = (view) => {
+        if (!resumenBody) return;
+        const rows = Array.isArray(view.summary_rows) ? view.summary_rows : [];
+        const totals = view.summary_totals || {};
+        resumenBody.innerHTML = rows.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.label || "-")}</td>
+            <td class="num">${fmt(item.count || 0)}</td>
+            <td class="num">$${fmt(item.net || 0)}</td>
+            <td class="num">$${fmt(item.iva || 0)}</td>
+            <td class="num">$${fmt(item.gross || 0)}</td>
+          </tr>
+        `).join("") + `
+          <tr class="reporte-venta-total-row">
+            <td>Totales</td>
+            <td class="num">${fmt(totals.count || 0)}</td>
+            <td class="num">$${fmt(totals.net || 0)}</td>
+            <td class="num">$${fmt(totals.iva || 0)}</td>
+            <td class="num">$${fmt(totals.gross || 0)}</td>
+          </tr>
+        `;
+      };
+      const renderVendors = (view) => {
+        if (!vendedoresBody) return;
+        const rows = Array.isArray(view.vendor_rows) ? view.vendor_rows : [];
+        vendedoresBody.innerHTML = rows.length ? rows.map((item) => `
+          <tr>
+            <td><strong>${escapeHtml(item.vendor || "-")}</strong></td>
+            <td class="num">${fmt(item.docs || 0)}</td>
+            <td class="num">$${fmt(item.net || 0)}</td>
+            <td class="num">$${fmt(item.iva || 0)}</td>
+            <td class="num">$${fmt(item.gross || 0)}</td>
+          </tr>
+        `).join("") : '<tr><td colspan="5" class="empty">Sin datos para este periodo.</td></tr>';
+      };
+      const renderPayments = (view) => {
+        if (!pagosBody) return;
+        const rows = Array.isArray(view.payment_rows) ? view.payment_rows : [];
+        pagosBody.innerHTML = rows.length ? rows.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.payment_label || "-")}</td>
+            <td class="num">${fmt(item.docs || 0)}</td>
+            <td class="num">$${fmt(item.net || 0)}</td>
+            <td class="num">$${fmt(item.iva || 0)}</td>
+            <td class="num">$${fmt(item.gross || 0)}</td>
+          </tr>
+        `).join("") : '<tr><td colspan="5" class="empty">Sin datos para este periodo.</td></tr>';
+      };
+      const applyView = (viewKey) => {
+        const view = views[viewKey];
+        if (!view) return;
+        filterButtons.forEach((btn) => {
+          btn.classList.toggle("is-active", String(btn.getAttribute("data-report-view") || "") === viewKey);
+        });
+        if (periodLabel) periodLabel.textContent = String(view.period_label || "-");
+        renderSummary(view);
+        renderVendors(view);
+        renderPayments(view);
+      };
+      closeBtn.addEventListener("click", () => modal.close());
+      filterButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = String(btn.getAttribute("data-report-view") || "");
+          if (!key) return;
+          applyView(key);
+        });
+      });
+      applyView(String(data.default_view || "day"));
     })();
 
     (function () {

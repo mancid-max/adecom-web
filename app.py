@@ -70,6 +70,7 @@ SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 SEED_PEDIDOS_DETALLE = SEED_DIR / "PEDIDOS.Txt"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
+SEED_DETALLEV = SEED_DIR / "DETALLEV.TXT"
 SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
 SEED_CORTES_4200_XLSX = SEED_DIR / "Cortes 4200.xlsx"
 PROGRAMAS_MHC_PATH = Path(
@@ -3472,6 +3473,714 @@ def _load_ventas_docs_summary() -> dict:
     }
 
 
+def _commercial_norm(value: object) -> str:
+    text = str(value or "").strip().upper()
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in normalized if not unicodedata.combining(ch))
+
+
+def _safe_yoy_pct(current: int, previous: int) -> float | None:
+    if previous <= 0:
+        return None
+    return round(((current - previous) / previous) * 100, 1)
+
+
+def _mohicano_zone_for_vendor(vendor: object) -> tuple[str, str, int | None]:
+    normalized = _commercial_norm(vendor)
+    if "HECTOR CAFFIERO" in normalized or "TITO CAFIERO" in normalized:
+        return ("Norte", "Tito Cafiero", 20)
+    if "PATRICIO CUEVAS" in normalized:
+        return ("Centro-Sur", "Patricio Cuevas", 50)
+    if "RICHARD CUEVAS" in normalized:
+        return ("Centro-Sur", "Richard Cuevas", 50)
+    if "SERGIO KRAMARENCO" in normalized:
+        return ("Extremo Sur", "Sergio Kramarenco", 15)
+    return ("Apoyo", "Otras carteras", None)
+
+
+def _load_sales_docs_activity_rows() -> list[dict[str, object]]:
+    path = _ventas_docs_file()
+    if not path or not path.exists():
+        return []
+
+    raw_rows: list[dict[str, str]] | None = None
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as fh:
+                raw_rows = [
+                    {str(k or "").strip(): str(v or "").strip() for k, v in row.items()}
+                    for row in csv.DictReader(fh, delimiter=";")
+                ]
+            break
+        except Exception:
+            raw_rows = None
+            continue
+    if not raw_rows:
+        return []
+
+    rows: list[dict[str, object]] = []
+    for raw in raw_rows:
+        fecha_iso = _pedidos_detalle_date(raw.get("fecha"))
+        if not fecha_iso:
+            continue
+        client_key = "".join(ch for ch in str(raw.get("Rut") or "").upper() if ch.isalnum())
+        if not client_key:
+            client_key = str(raw.get("cliente") or "").strip().upper()
+        if not client_key:
+            continue
+        rows.append(
+            {
+                "fecha": fecha_iso,
+                "cliente_key": client_key,
+                "cliente": str(raw.get("cliente") or "").strip(),
+                "vendedor": str(raw.get("Vendedor") or "").strip(),
+                "ciudad": str(raw.get("Ciudad") or "").strip(),
+                "doc": str(raw.get("Numero") or "").strip(),
+                "total": _to_int(raw.get("Total")),
+                "cantidad": _to_int(raw.get("Cant")),
+            }
+        )
+    return rows
+
+
+def _build_mohicano_sales_report(comparativo_summary: dict[str, object]) -> dict[str, object]:
+    rows = [dict(item) for item in (comparativo_summary.get("rows") or [])]
+    unattended_rows = [dict(item) for item in (comparativo_summary.get("unattended_2026_rows") or [])]
+    base = {
+        "available": bool(rows),
+        "source_label": "Comparativo clientes 2024-2026 + deudas + ventas 2026",
+        "source_cutoff_label": "",
+        "kpi_cards": [],
+        "zone_cards": [],
+        "vendor_rows": [],
+        "vendor_details": [],
+        "segment_cards": [],
+        "monthly_rows": [],
+        "monthly_details": [],
+        "opportunity_rows": [],
+    }
+    if not rows:
+        return base
+
+    sales_2025 = int(comparativo_summary.get("sales_total_2025") or 0)
+    sales_2026 = int(comparativo_summary.get("sales_total_2026") or 0)
+    active_2026 = int(comparativo_summary.get("attended_2026") or 0)
+    reactivation_count = int(comparativo_summary.get("unattended_2026_count") or 0)
+    reactivation_projection = int(comparativo_summary.get("unattended_2026_projection_total") or 0)
+    active_goal = 100
+    sales_docs_rows = _load_sales_docs_activity_rows()
+
+    client_score_pairs: list[tuple[float, str]] = []
+    score_by_rut: dict[str, float] = {}
+    for row in rows:
+        rut = str(row.get("rut") or "").strip()
+        history_values = [
+            int(row.get("valor_t01") or 0),
+            int(row.get("valor_t02") or 0),
+            int(row.get("valor_t03") or 0),
+        ]
+        positives = [value for value in history_values if value > 0]
+        score = round(sum(positives) / len(positives), 2) if positives else 0.0
+        score_by_rut[rut] = score
+        client_score_pairs.append((score, rut))
+    client_score_pairs.sort(key=lambda item: (-item[0], item[1]))
+    total_scored = len(client_score_pairs)
+    premium_cut = max((total_scored * 20 + 99) // 100, 1) if total_scored else 0
+    middle_cut = max((total_scored * 55 + 99) // 100, premium_cut) if total_scored else 0
+    segment_by_rut: dict[str, str] = {}
+    for idx, (_score, rut) in enumerate(client_score_pairs):
+        if idx < premium_cut:
+            segment_by_rut[rut] = "A"
+        elif idx < middle_cut:
+            segment_by_rut[rut] = "B"
+        else:
+            segment_by_rut[rut] = "C"
+
+    zone_targets = {
+        "Norte": 20,
+        "Centro-Sur": 50,
+        "Extremo Sur": 15,
+        "Apoyo": None,
+    }
+    zone_owners = {
+        "Norte": "Tito Cafiero",
+        "Centro-Sur": "Patricio + Richard",
+        "Extremo Sur": "Sergio Kramarenco",
+        "Apoyo": "Otras carteras",
+    }
+    zone_buckets: dict[str, dict[str, object]] = {}
+    vendor_buckets: dict[str, dict[str, object]] = {}
+    vendor_clients_map: dict[str, list[dict[str, object]]] = {}
+    segment_buckets: dict[str, dict[str, object]] = {
+        "A": {"label": "Premium", "offer": "Acceso anticipado + 5% a 10% descuento", "count": 0, "active": 0, "dormant": 0, "sales_2026": 0},
+        "B": {"label": "Medio", "offer": "Packs por volumen y combos 10/20 unidades", "count": 0, "active": 0, "dormant": 0, "sales_2026": 0},
+        "C": {"label": "Dormido / Bajo", "offer": "Liquidacion agresiva y reactivacion o limpieza", "count": 0, "active": 0, "dormant": 0, "sales_2026": 0},
+    }
+
+    for row in rows:
+        vendor = str(row.get("vendedor") or "").strip() or "Sin vendedor"
+        zone_name, owner_name, _target = _mohicano_zone_for_vendor(vendor)
+        zone_bucket = zone_buckets.setdefault(
+            zone_name,
+            {
+                "zone": zone_name,
+                "owner": zone_owners.get(zone_name, owner_name),
+                "target_active": zone_targets.get(zone_name),
+                "cartera": 0,
+                "active_2026": 0,
+                "reactivables": 0,
+                "sales_2025": 0,
+                "sales_2026": 0,
+            },
+        )
+        vendor_bucket = vendor_buckets.setdefault(
+            vendor,
+            {
+                "vendor": vendor,
+                "zone": zone_name,
+                "cartera": 0,
+                "active_2026": 0,
+                "reactivables": 0,
+                "sales_2025": 0,
+                "sales_2026": 0,
+                "recent_clients": 0,
+                "recent_sales": 0,
+                "recent_docs": 0,
+            },
+        )
+
+        is_active_2026 = int(row.get("cantidad_t03") or 0) > 0
+        is_reactivable = not is_active_2026 and (
+            int(row.get("cantidad_t01") or 0) > 0 or int(row.get("cantidad_t02") or 0) > 0
+        )
+        sales25 = int(row.get("valor_t02") or 0)
+        sales26 = int(row.get("valor_t03") or 0)
+
+        for bucket in (zone_bucket, vendor_bucket):
+            bucket["cartera"] = int(bucket["cartera"]) + 1
+            bucket["sales_2025"] = int(bucket["sales_2025"]) + sales25
+            bucket["sales_2026"] = int(bucket["sales_2026"]) + sales26
+            if is_active_2026:
+                bucket["active_2026"] = int(bucket["active_2026"]) + 1
+            if is_reactivable:
+                bucket["reactivables"] = int(bucket["reactivables"]) + 1
+
+        rut = str(row.get("rut") or "").strip()
+        segment_key = segment_by_rut.get(rut, "C")
+        segment_bucket = segment_buckets[segment_key]
+        segment_bucket["count"] = int(segment_bucket["count"]) + 1
+        segment_bucket["sales_2026"] = int(segment_bucket["sales_2026"]) + sales26
+        if is_active_2026:
+            segment_bucket["active"] = int(segment_bucket["active"]) + 1
+        else:
+            segment_bucket["dormant"] = int(segment_bucket["dormant"]) + 1
+
+        vendor_clients_map.setdefault(vendor, []).append(
+            {
+                "rut": rut,
+                "cliente": str(row.get("razon_social") or "").strip() or "-",
+                "ciudad": str(row.get("ciudad") or "").strip() or "-",
+                "segment": segment_key,
+                "active_2026": is_active_2026,
+                "status_label": "Activo 2026" if is_active_2026 else "Sin compra 2026",
+                "reactivable": is_reactivable,
+                "sales_2024": int(row.get("valor_t01") or 0),
+                "sales_2025": sales25,
+                "sales_2026": sales26,
+            }
+        )
+
+    recent_clients_by_vendor: dict[str, set[str]] = {}
+    recent_docs_by_vendor: dict[str, set[str]] = {}
+    recent_sales_by_vendor: dict[str, int] = {}
+    monthly_buckets: dict[str, dict[str, object]] = {}
+    monthly_clients_map: dict[str, dict[str, dict[str, object]]] = {}
+    repeat_months_by_client: dict[str, set[str]] = {}
+    clients_last_30_days: set[str] = set()
+    cutoff_label = ""
+    if sales_docs_rows:
+        max_date = max(str(item.get("fecha") or "") for item in sales_docs_rows)
+        cutoff_date = datetime.strptime(max_date, "%Y-%m-%d").date()
+        start_30 = cutoff_date.toordinal() - 29
+        cutoff_label = cutoff_date.strftime("%d/%m/%Y")
+        for item in sales_docs_rows:
+            fecha_iso = str(item.get("fecha") or "")
+            client_key = str(item.get("cliente_key") or "")
+            vendor = str(item.get("vendedor") or "").strip() or "Sin vendedor"
+            zone_name, _owner_name, _target = _mohicano_zone_for_vendor(vendor)
+            venta = int(item.get("total") or 0)
+            doc = str(item.get("doc") or "").strip() or f"{fecha_iso}-{client_key}"
+            ym = fecha_iso[:7]
+
+            monthly_bucket = monthly_buckets.setdefault(
+                ym,
+                {"month": ym, "sales_total": 0, "clients": set(), "docs": set()},
+            )
+            monthly_bucket["sales_total"] = int(monthly_bucket["sales_total"]) + venta
+            monthly_bucket["clients"].add(client_key)
+            monthly_bucket["docs"].add(doc)
+            repeat_months_by_client.setdefault(client_key, set()).add(ym)
+
+            month_clients = monthly_clients_map.setdefault(ym, {})
+            month_client = month_clients.setdefault(
+                client_key,
+                {
+                    "cliente_key": client_key,
+                    "cliente": str(item.get("cliente") or "").strip() or "-",
+                    "vendedor": vendor,
+                    "ciudad": str(item.get("ciudad") or "").strip() or "-",
+                    "docs": set(),
+                    "sales_total": 0,
+                    "cantidad_total": 0,
+                },
+            )
+            month_client["docs"].add(doc)
+            month_client["sales_total"] = int(month_client["sales_total"]) + venta
+            month_client["cantidad_total"] = int(month_client["cantidad_total"]) + int(item.get("cantidad") or 0)
+
+            if datetime.strptime(fecha_iso, "%Y-%m-%d").date().toordinal() >= start_30:
+                clients_last_30_days.add(client_key)
+                recent_clients_by_vendor.setdefault(vendor, set()).add(client_key)
+                recent_docs_by_vendor.setdefault(vendor, set()).add(doc)
+                recent_sales_by_vendor[vendor] = int(recent_sales_by_vendor.get(vendor) or 0) + venta
+                recent_clients_by_vendor.setdefault(zone_name, set()).add(client_key)
+                recent_docs_by_vendor.setdefault(zone_name, set()).add(doc)
+                recent_sales_by_vendor[zone_name] = int(recent_sales_by_vendor.get(zone_name) or 0) + venta
+
+    base["source_cutoff_label"] = cutoff_label
+    base["kpi_cards"] = [
+        {
+            "title": "Caida 2026 vs 2025",
+            "value": f"{_safe_yoy_pct(sales_2026, sales_2025) or 0}%",
+            "detail": f"Venta 2026: ${miles(sales_2026)}",
+        },
+        {
+            "title": "Clientes activos 2026",
+            "value": miles(active_2026),
+            "detail": f"Meta plan: {active_goal} | Gap: {miles(max(active_goal - active_2026, 0))}",
+        },
+        {
+            "title": "Base reactivable",
+            "value": miles(reactivation_count),
+            "detail": f"Proyeccion recuperable: ${miles(reactivation_projection)}",
+        },
+        {
+            "title": "Clientes 2+ meses 2026",
+            "value": miles(sum(1 for months in repeat_months_by_client.values() if len(months) >= 2)),
+            "detail": "Frecuencia real en ventas 2026",
+        },
+        {
+            "title": "Activos ultimos 30 dias",
+            "value": miles(len(clients_last_30_days)),
+            "detail": f"Corte ventas: {cutoff_label or '-'}",
+        },
+    ]
+
+    zone_cards = []
+    for zone_name in ("Norte", "Centro-Sur", "Extremo Sur", "Apoyo"):
+        bucket = zone_buckets.get(zone_name)
+        if not bucket:
+            continue
+        target = bucket.get("target_active")
+        active_value = int(bucket.get("active_2026") or 0)
+        detail = f"Cartera: {miles(bucket.get('cartera') or 0)} | Reactivables: {miles(bucket.get('reactivables') or 0)}"
+        if isinstance(target, int):
+            detail = f"{detail} | Gap meta: {miles(max(target - active_value, 0))}"
+        zone_cards.append(
+            {
+                "zone": zone_name,
+                "owner": bucket.get("owner") or "",
+                "active_2026": active_value,
+                "target_active": target,
+                "sales_2026": int(bucket.get("sales_2026") or 0),
+                "recent_clients": len(recent_clients_by_vendor.get(zone_name, set())),
+                "yoy_pct": _safe_yoy_pct(int(bucket.get("sales_2026") or 0), int(bucket.get("sales_2025") or 0)),
+                "detail": detail,
+            }
+        )
+    base["zone_cards"] = zone_cards
+
+    vendor_rows = []
+    for vendor, bucket in vendor_buckets.items():
+        vendor_rows.append(
+            {
+                "vendor": vendor,
+                "zone": bucket.get("zone") or "-",
+                "cartera": int(bucket.get("cartera") or 0),
+                "active_2026": int(bucket.get("active_2026") or 0),
+                "reactivables": int(bucket.get("reactivables") or 0),
+                "sales_2026": int(bucket.get("sales_2026") or 0),
+                "yoy_pct": _safe_yoy_pct(int(bucket.get("sales_2026") or 0), int(bucket.get("sales_2025") or 0)),
+                "recent_clients": len(recent_clients_by_vendor.get(vendor, set())),
+                "recent_docs": len(recent_docs_by_vendor.get(vendor, set())),
+                "recent_sales": int(recent_sales_by_vendor.get(vendor) or 0),
+            }
+        )
+    vendor_rows.sort(
+        key=lambda item: (
+            0 if item["zone"] != "Apoyo" else 1,
+            -int(item["sales_2026"]),
+            str(item["vendor"]),
+        )
+    )
+    base["vendor_rows"] = vendor_rows
+    vendor_details = []
+    for vendor, client_rows in vendor_clients_map.items():
+        ordered_rows = sorted(
+            client_rows,
+            key=lambda item: (
+                0 if bool(item.get("active_2026")) else 1,
+                -int(item.get("sales_2026") or 0),
+                -int(item.get("sales_2025") or 0),
+                str(item.get("cliente") or ""),
+            ),
+        )
+        vendor_details.append(
+            {
+                "vendor": vendor,
+                "active_count": sum(1 for item in ordered_rows if bool(item.get("active_2026"))),
+                "inactive_count": sum(1 for item in ordered_rows if not bool(item.get("active_2026"))),
+                "rows": ordered_rows,
+            }
+        )
+    vendor_details.sort(key=lambda item: str(item.get("vendor") or ""))
+    base["vendor_details"] = vendor_details
+
+    base["segment_cards"] = [
+        {
+            "segment": key,
+            "label": value["label"],
+            "offer": value["offer"],
+            "count": int(value["count"]),
+            "active": int(value["active"]),
+            "dormant": int(value["dormant"]),
+            "sales_2026": int(value["sales_2026"]),
+        }
+        for key, value in segment_buckets.items()
+    ]
+
+    monthly_rows = []
+    for month in sorted(monthly_buckets):
+        bucket = monthly_buckets[month]
+        monthly_rows.append(
+            {
+                "month": month,
+                "clients": len(bucket["clients"]),
+                "docs": len(bucket["docs"]),
+                "sales_total": int(bucket["sales_total"] or 0),
+            }
+        )
+    base["monthly_rows"] = monthly_rows
+    monthly_details = []
+    for month in sorted(monthly_clients_map):
+        month_rows = sorted(
+            (
+                {
+                    "cliente_key": str(item.get("cliente_key") or ""),
+                    "cliente": str(item.get("cliente") or ""),
+                    "vendedor": str(item.get("vendedor") or ""),
+                    "ciudad": str(item.get("ciudad") or ""),
+                    "docs_count": len(item.get("docs") or set()),
+                    "cantidad_total": int(item.get("cantidad_total") or 0),
+                    "sales_total": int(item.get("sales_total") or 0),
+                }
+                for item in monthly_clients_map[month].values()
+            ),
+            key=lambda item: (
+                -int(item.get("sales_total") or 0),
+                -int(item.get("docs_count") or 0),
+                str(item.get("cliente") or ""),
+            ),
+        )
+        month_summary = next((item for item in monthly_rows if str(item.get("month") or "") == month), None)
+        monthly_details.append(
+            {
+                "month": month,
+                "clients": int((month_summary or {}).get("clients") or 0),
+                "docs": int((month_summary or {}).get("docs") or 0),
+                "sales_total": int((month_summary or {}).get("sales_total") or 0),
+                "rows": month_rows,
+            }
+        )
+    base["monthly_details"] = monthly_details
+
+    opportunity_rows = []
+    for row in unattended_rows:
+        rut = str(row.get("rut") or "").strip()
+        opportunity_rows.append(
+            {
+                **row,
+                "segment": segment_by_rut.get(rut, "C"),
+                "debt_label": "Con vencida" if int(row.get("deuda_vencida") or 0) > 0 else (
+                    "Con deuda" if int(row.get("deuda_total") or 0) > 0 else "Sin deuda"
+                ),
+            }
+        )
+    opportunity_rows.sort(
+        key=lambda item: (
+            1 if int(item.get("deuda_vencida") or 0) > 0 else 0,
+            -int(item.get("proyeccion_2026_valor") or 0),
+            str(item.get("razon_social") or ""),
+        )
+    )
+    base["opportunity_rows"] = opportunity_rows[:15]
+    return base
+
+
+def _detailv_decode(path: Path) -> str:
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    return path.read_text(encoding="latin-1", errors="replace")
+
+
+def _build_detailv_doc_lookup() -> dict[str, dict[str, object]]:
+    rows = _load_sales_docs_activity_rows()
+    lookup: dict[str, dict[str, object]] = {}
+    for row in rows:
+        doc = str(row.get("doc") or "").strip()
+        if not doc:
+            continue
+        bucket = lookup.setdefault(
+            doc,
+            {
+                "net_total": 0,
+                "fpago": "",
+                "vendedor": "",
+                "cliente": "",
+                "fecha": "",
+            },
+        )
+        bucket["net_total"] = int(bucket["net_total"]) + int(row.get("total") or 0)
+        if not bucket["vendedor"]:
+            bucket["vendedor"] = str(row.get("vendedor") or "").strip()
+        if not bucket["cliente"]:
+            bucket["cliente"] = str(row.get("cliente") or "").strip()
+        if not bucket["fecha"]:
+            bucket["fecha"] = str(row.get("fecha") or "").strip()
+    path = _ventas_docs_file()
+    if path and path.exists():
+        for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+            try:
+                with path.open("r", encoding=encoding, newline="") as fh:
+                    reader = csv.DictReader(fh, delimiter=";")
+                    for raw in reader:
+                        doc = str(raw.get("Numero") or "").strip()
+                        if not doc:
+                            continue
+                        bucket = lookup.setdefault(
+                            doc,
+                            {"net_total": 0, "fpago": "", "vendedor": "", "cliente": "", "fecha": ""},
+                        )
+                        if not bucket["fpago"]:
+                            bucket["fpago"] = str(raw.get("Fpago") or "").strip()
+                        if not bucket["vendedor"]:
+                            bucket["vendedor"] = str(raw.get("Vendedor") or "").strip()
+                        if not bucket["cliente"]:
+                            bucket["cliente"] = str(raw.get("cliente") or "").strip()
+                        if not bucket["fecha"]:
+                            bucket["fecha"] = _pedidos_detalle_date(raw.get("fecha")) or str(raw.get("fecha") or "").strip()
+                break
+            except Exception:
+                continue
+    return lookup
+
+
+def _doc_type_meta(type_code: str) -> dict[str, object]:
+    code = str(type_code or "").strip()
+    if code in {"33", "34", "02"}:
+        return {"label": "Facturas", "sign": 1}
+    if code == "39":
+        return {"label": "Boletas", "sign": 1}
+    if code == "61":
+        return {"label": "N. de Creditos", "sign": -1}
+    if code == "56":
+        return {"label": "N. de Debitos", "sign": 1}
+    return {"label": f"Tipo {code or '-'}", "sign": 1}
+
+
+def _week_of_month(value: date) -> int:
+    return ((int(value.day) - 1) // 7) + 1
+
+
+def _spanish_month_name(month: int) -> str:
+    return {
+        1: "enero",
+        2: "febrero",
+        3: "marzo",
+        4: "abril",
+        5: "mayo",
+        6: "junio",
+        7: "julio",
+        8: "agosto",
+        9: "septiembre",
+        10: "octubre",
+        11: "noviembre",
+        12: "diciembre",
+    }.get(int(month or 0), "-")
+
+
+def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[str, object]:
+    path = SEED_DETALLEV
+    base = {
+        "available": False,
+        "file_name": path.name,
+        "date_min": "",
+        "date_max": "",
+        "latest_date": "",
+        "default_view": "day",
+        "views": {},
+    }
+    if not path.exists() or not path.is_file() or path.stat().st_size <= 0:
+        return base
+
+    text = _detailv_decode(path)
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) <= 1:
+        return base
+
+    comparativo_rows = [dict(item) for item in (comparativo_summary.get("rows") or [])]
+    active_vendor_map: dict[str, dict[str, dict[str, object]]] = {}
+    for row in comparativo_rows:
+        vendor = str(row.get("vendedor") or "").strip()
+        if not vendor:
+            continue
+        active_vendor_map.setdefault(vendor, {})[str(row.get("rut") or "").strip()] = row
+
+    doc_lookup = _build_detailv_doc_lookup()
+    entries: list[dict[str, object]] = []
+    dates: list[str] = []
+
+    for raw in lines[1:]:
+        parts = [part.strip() for part in raw.split(";")]
+        if len(parts) < 8:
+            continue
+        type_code = parts[0]
+        dcto = parts[1]
+        fecha_iso = _pedidos_detalle_date(parts[2])
+        rut = parts[3]
+        cliente = parts[4]
+        vendor = parts[5]
+        cantidad = _to_int(parts[6])
+        gross_total = _to_int(parts[7])
+        linked = doc_lookup.get(dcto, {})
+        fpago = str(linked.get("fpago") or "").strip() or "Sin forma de pago"
+        if fecha_iso:
+            dates.append(fecha_iso)
+        meta = _doc_type_meta(type_code)
+        net_total = int(linked.get("net_total") or 0)
+        if net_total == 0 and gross_total != 0:
+            if type_code == "34":
+                net_total = gross_total
+            else:
+                net_total = int(round(gross_total / 1.19))
+        iva_total = gross_total - net_total
+        active_2026 = False
+        comp_row = (active_vendor_map.get(vendor or "", {}) or {}).get(rut)
+        if comp_row and int(comp_row.get("cantidad_t03") or 0) > 0:
+            active_2026 = True
+        week_key = ""
+        week_label = ""
+        if fecha_iso:
+            iso_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
+            iso_year, iso_week, _ = iso_date.isocalendar()
+            week_key = f"{iso_year}-W{iso_week:02d}"
+            week_label = f"Semana {iso_week} {iso_year}"
+        entries.append(
+            {
+                "type_code": type_code,
+                "type_label": str(meta["label"]),
+                "doc": dcto,
+                "date": fecha_iso or "",
+                "month": (fecha_iso or "")[:7],
+                "year": (fecha_iso or "")[:4],
+                "week": week_key,
+                "week_label": week_label,
+                "rut": rut,
+                "cliente": cliente or "-",
+                "vendor": vendor or "Sin vendedor",
+                "payment": fpago,
+                "cantidad": cantidad,
+                "net": net_total,
+                "iva": iva_total,
+                "gross": gross_total,
+                "is_credit_note": type_code == "61",
+                "active_2026": active_2026,
+            }
+        )
+
+    if not entries:
+        return base
+
+    latest_date = max(str(item.get("date") or "") for item in entries if str(item.get("date") or ""))
+    latest_dt = datetime.strptime(latest_date, "%Y-%m-%d").date()
+    latest_iso = latest_dt.isocalendar()
+    latest_week = f"{latest_iso.year}-W{latest_iso.week:02d}"
+    latest_month = latest_date[:7]
+    latest_year = latest_date[:4]
+    latest_week_label = f"Semana {_week_of_month(latest_dt)} de {_spanish_month_name(latest_dt.month)} {latest_dt.year}"
+
+    def _aggregate(items: list[dict[str, object]], period_label: str) -> dict[str, object]:
+        order = {"Facturas": 1, "N. de Debitos": 2, "N. de Creditos": 3, "Boletas": 4}
+        summary_map: dict[str, dict[str, object]] = {}
+        vendor_map: dict[str, dict[str, object]] = {}
+        payment_map: dict[str, dict[str, object]] = {}
+        for item in items:
+            type_label = str(item.get("type_label") or "-")
+            summary = summary_map.setdefault(type_label, {"label": type_label, "count": 0, "net": 0, "iva": 0, "gross": 0})
+            summary["count"] = int(summary["count"]) + 1
+            summary["net"] = int(summary["net"]) + int(item.get("net") or 0)
+            summary["iva"] = int(summary["iva"]) + int(item.get("iva") or 0)
+            summary["gross"] = int(summary["gross"]) + int(item.get("gross") or 0)
+
+            vendor = str(item.get("vendor") or "Sin vendedor")
+            vendor_bucket = vendor_map.setdefault(vendor, {"vendor": vendor, "docs": 0, "net": 0, "iva": 0, "gross": 0})
+            vendor_bucket["docs"] = int(vendor_bucket["docs"]) + 1
+            vendor_bucket["net"] = int(vendor_bucket["net"]) + int(item.get("net") or 0)
+            vendor_bucket["iva"] = int(vendor_bucket["iva"]) + int(item.get("iva") or 0)
+            vendor_bucket["gross"] = int(vendor_bucket["gross"]) + int(item.get("gross") or 0)
+
+            payment = str(item.get("payment") or "Sin forma de pago")
+            payment_bucket = payment_map.setdefault(payment, {"payment_label": payment, "docs": 0, "net": 0, "iva": 0, "gross": 0})
+            payment_bucket["docs"] = int(payment_bucket["docs"]) + 1
+            payment_bucket["net"] = int(payment_bucket["net"]) + int(item.get("net") or 0)
+            payment_bucket["iva"] = int(payment_bucket["iva"]) + int(item.get("iva") or 0)
+            payment_bucket["gross"] = int(payment_bucket["gross"]) + int(item.get("gross") or 0)
+
+        summary_rows = sorted(summary_map.values(), key=lambda item: (order.get(str(item["label"]), 99), str(item["label"])))
+        return {
+            "period_label": period_label,
+            "summary_rows": summary_rows,
+            "summary_totals": {
+                "count": sum(int(item["count"]) for item in summary_rows),
+                "net": sum(int(item["net"]) for item in summary_rows),
+                "iva": sum(int(item["iva"]) for item in summary_rows),
+                "gross": sum(int(item["gross"]) for item in summary_rows),
+            },
+            "vendor_rows": sorted(vendor_map.values(), key=lambda item: (-int(item["net"]), str(item["vendor"]))),
+            "payment_rows": sorted(payment_map.values(), key=lambda item: (-int(item["net"]), str(item["payment_label"]))),
+        }
+
+    day_items = [item for item in entries if str(item.get("date") or "") == latest_date]
+    week_items = [item for item in entries if str(item.get("week") or "") == latest_week]
+    month_items = [item for item in entries if str(item.get("month") or "") == latest_month]
+    year_items = [item for item in entries if str(item.get("year") or "") == latest_year]
+
+    base["views"] = {
+        "day": _aggregate(day_items, latest_dt.strftime("%d/%m/%Y")),
+        "week": _aggregate(week_items, latest_week_label),
+        "month": _aggregate(month_items, latest_dt.strftime("%m/%Y")),
+        "year": _aggregate(year_items, latest_year),
+    }
+    base["latest_date"] = latest_date
+    base["date_min"] = min(dates) if dates else ""
+    base["date_max"] = max(dates) if dates else ""
+    base["available"] = True
+    return base
+
+
 def _load_disponibles_ranking_4200(ventas_top_articulos: list[dict]) -> dict:
     base = {
         "available": False,
@@ -4026,6 +4735,7 @@ def index():
     pedidos_sections = query_pedidos_talla_sections(DB_PATH, pedidos_q)
     exs_summary = query_exs_balance_summary(DB_PATH, filters["q"])
     comparativo_summary = query_comparativo_clientes(DB_PATH, "")
+    comparativo_summary["plan_comercial"] = _build_detailv_sales_report(comparativo_summary)
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
     search_success = ""
