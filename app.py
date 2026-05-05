@@ -4156,9 +4156,8 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
         fecha_iso = str(item.get("date") or "")
         week_key = ""
         if fecha_iso:
-            iso_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
-            iso_year, iso_week, _ = iso_date.isocalendar()
-            week_key = f"{iso_year}-W{iso_week:02d}"
+            week_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
+            week_key = f"{fecha_iso[:7]}-W{_week_of_month(week_date)}"
         entries.append(
             {
                 "type_code": raw_type,
@@ -4186,8 +4185,7 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
 
     latest_date = max(str(item.get("date") or "") for item in entries if str(item.get("date") or ""))
     latest_dt = datetime.strptime(latest_date, "%Y-%m-%d").date()
-    latest_iso = latest_dt.isocalendar()
-    latest_week = f"{latest_iso.year}-W{latest_iso.week:02d}"
+    latest_week = f"{latest_date[:7]}-W{_week_of_month(latest_dt)}"
     latest_month = latest_date[:7]
     latest_year = latest_date[:4]
     latest_week_label = f"Semana {_week_of_month(latest_dt)} de {_spanish_month_name(latest_dt.month)} {latest_dt.year}"
