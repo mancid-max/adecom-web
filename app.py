@@ -4044,100 +4044,140 @@ def _spanish_month_name(month: int) -> str:
     }.get(int(month or 0), "-")
 
 
+def _branch_label_from_bod(code: object) -> str:
+    value = str(code or "").strip().zfill(2)
+    labels = {
+        "04": "San Gerardo",
+        "00": "Boletas / Local",
+        "12": "Outlet",
+        "01": "Sucursal 01",
+        "08": "Sucursal 08",
+    }
+    return labels.get(value, f"Sucursal {value}")
+
+
+def _ventas_tipo_label(raw_type: object) -> str:
+    value = str(raw_type or "").strip().upper()
+    if value.startswith("F/") or "FACT" in value:
+        return "Facturas"
+    if value.startswith("N/CRE") or "CRED" in value:
+        return "N. de Creditos"
+    if value.startswith("NDEB") or "DEB" in value:
+        return "N. de Debitos"
+    if value.startswith("BOLE") or value.startswith("B/") or "BOLETA" in value:
+        return "Boletas"
+    return value or "Tipo -"
+
+
+def _gross_to_net_iva(gross_total: int, raw_type: object) -> tuple[int, int]:
+    value = str(raw_type or "").strip().upper()
+    if gross_total == 0:
+        return 0, 0
+    if "EXENT" in value:
+        return gross_total, 0
+    net_total = int(round(gross_total / 1.19))
+    iva_total = gross_total - net_total
+    return net_total, iva_total
+
+
 def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[str, object]:
-    path = SEED_DETALLEV
+    path = _ventas_docs_file() or SEED_VENTAS_DOCS
     base = {
         "available": False,
         "file_name": path.name,
         "date_min": "",
         "date_max": "",
         "latest_date": "",
+        "source_cutoff_label": "",
         "default_view": "day",
-        "views": {},
+        "default_branch": "all",
+        "branches": [],
+        "branch_views": {},
     }
     if not path.exists() or not path.is_file() or path.stat().st_size <= 0:
         return base
 
-    text = _detailv_decode(path)
-    lines = [line for line in text.splitlines() if line.strip()]
-    if len(lines) <= 1:
+    raw_rows: list[dict[str, str]] | None = None
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as fh:
+                raw_rows = [
+                    {str(k or "").strip(): str(v or "").strip() for k, v in row.items()}
+                    for row in csv.DictReader(fh, delimiter=";")
+                ]
+            break
+        except Exception:
+            raw_rows = None
+            continue
+    if not raw_rows:
         return base
 
-    comparativo_rows = [dict(item) for item in (comparativo_summary.get("rows") or [])]
-    active_vendor_map: dict[str, dict[str, dict[str, object]]] = {}
-    for row in comparativo_rows:
-        vendor = str(row.get("vendedor") or "").strip()
-        if not vendor:
-            continue
-        active_vendor_map.setdefault(vendor, {})[str(row.get("rut") or "").strip()] = row
-
-    doc_lookup, payment_by_rut, payment_by_client = _build_detailv_doc_lookup()
-    entries: list[dict[str, object]] = []
+    docs_map: dict[str, dict[str, object]] = {}
     dates: list[str] = []
 
-    for raw in lines[1:]:
-        parts = [part.strip() for part in raw.split(";")]
-        if len(parts) < 8:
+    for raw in raw_rows:
+        doc = str(raw.get("Numero") or "").strip()
+        fecha_iso = _pedidos_detalle_date(raw.get("fecha"))
+        if not doc or not fecha_iso:
             continue
-        type_code = parts[0]
-        dcto = parts[1]
-        fecha_iso = _pedidos_detalle_date(parts[2])
-        rut = parts[3]
-        cliente = parts[4]
-        vendor = parts[5]
-        cantidad = _to_int(parts[6])
-        gross_total = _to_int(parts[7])
-        linked = doc_lookup.get(dcto, {})
-        rut_key = "".join(ch for ch in str(rut or "").upper() if ch.isalnum())
-        client_key = str(cliente or "").strip().upper()
-        fpago = str(linked.get("fpago") or "").strip()
-        if not fpago and rut_key:
-            fpago = str(payment_by_rut.get(rut_key) or "").strip()
-        if not fpago and client_key:
-            fpago = str(payment_by_client.get(client_key) or "").strip()
-        if not fpago:
-            fpago = "Sin forma de pago"
-        if fecha_iso:
-            dates.append(fecha_iso)
-        meta = _doc_type_meta(type_code)
-        net_total = int(linked.get("net_total") or 0)
-        if net_total == 0 and gross_total != 0:
-            if type_code == "34":
-                net_total = gross_total
-            else:
-                net_total = int(round(gross_total / 1.19))
-        iva_total = gross_total - net_total
-        active_2026 = False
-        comp_row = (active_vendor_map.get(vendor or "", {}) or {}).get(rut)
-        if comp_row and int(comp_row.get("cantidad_t03") or 0) > 0:
-            active_2026 = True
+        dates.append(fecha_iso)
+        gross_line = _to_int(raw.get("Total"))
+        cantidad_line = _to_int(raw.get("Cant"))
+        bucket = docs_map.setdefault(
+            doc,
+            {
+                "raw_type": str(raw.get("Tipo") or "").strip(),
+                "doc": doc,
+                "date": fecha_iso,
+                "branch_code": str(raw.get("Bod") or "").strip().zfill(2),
+                "branch_label": _branch_label_from_bod(raw.get("Bod")),
+                "rut": str(raw.get("Rut") or "").strip(),
+                "cliente": str(raw.get("cliente") or "").strip() or "-",
+                "vendor": str(raw.get("Vendedor") or "").strip() or "Sin vendedor",
+                "payment": str(raw.get("Fpago") or "").strip() or "Sin forma de pago",
+                "cantidad": 0,
+                "gross": 0,
+            },
+        )
+        bucket["cantidad"] = int(bucket["cantidad"]) + cantidad_line
+        bucket["gross"] = int(bucket["gross"]) + gross_line
+        if not str(bucket.get("payment") or "").strip() or str(bucket.get("payment")) == "Sin forma de pago":
+            bucket["payment"] = str(raw.get("Fpago") or "").strip() or "Sin forma de pago"
+        if not str(bucket.get("vendor") or "").strip() or str(bucket.get("vendor")) == "Sin vendedor":
+            bucket["vendor"] = str(raw.get("Vendedor") or "").strip() or "Sin vendedor"
+        if not str(bucket.get("cliente") or "").strip() or str(bucket.get("cliente")) == "-":
+            bucket["cliente"] = str(raw.get("cliente") or "").strip() or "-"
+
+    entries: list[dict[str, object]] = []
+    for item in docs_map.values():
+        raw_type = str(item.get("raw_type") or "").strip()
+        gross_total = int(item.get("gross") or 0)
+        net_total, iva_total = _gross_to_net_iva(gross_total, raw_type)
+        fecha_iso = str(item.get("date") or "")
         week_key = ""
-        week_label = ""
         if fecha_iso:
             iso_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
             iso_year, iso_week, _ = iso_date.isocalendar()
             week_key = f"{iso_year}-W{iso_week:02d}"
-            week_label = f"Semana {iso_week} {iso_year}"
         entries.append(
             {
-                "type_code": type_code,
-                "type_label": str(meta["label"]),
-                "doc": dcto,
-                "date": fecha_iso or "",
-                "month": (fecha_iso or "")[:7],
-                "year": (fecha_iso or "")[:4],
+                "type_code": raw_type,
+                "type_label": _ventas_tipo_label(raw_type),
+                "doc": str(item.get("doc") or ""),
+                "date": fecha_iso,
+                "month": fecha_iso[:7],
+                "year": fecha_iso[:4],
                 "week": week_key,
-                "week_label": week_label,
-                "rut": rut,
-                "cliente": cliente or "-",
-                "vendor": vendor or "Sin vendedor",
-                "payment": fpago,
-                "cantidad": cantidad,
+                "branch_code": str(item.get("branch_code") or "00"),
+                "branch_label": str(item.get("branch_label") or _branch_label_from_bod(item.get("branch_code"))),
+                "rut": str(item.get("rut") or ""),
+                "cliente": str(item.get("cliente") or "-"),
+                "vendor": str(item.get("vendor") or "Sin vendedor"),
+                "payment": str(item.get("payment") or "Sin forma de pago"),
+                "cantidad": int(item.get("cantidad") or 0),
                 "net": net_total,
                 "iva": iva_total,
                 "gross": gross_total,
-                "is_credit_note": type_code == "61",
-                "active_2026": active_2026,
             }
         )
 
@@ -4193,18 +4233,28 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
             "payment_rows": sorted(payment_map.values(), key=lambda item: (-int(item["net"]), str(item["payment_label"]))),
         }
 
-    day_items = [item for item in entries if str(item.get("date") or "") == latest_date]
-    week_items = [item for item in entries if str(item.get("week") or "") == latest_week]
-    month_items = [item for item in entries if str(item.get("month") or "") == latest_month]
-    year_items = [item for item in entries if str(item.get("year") or "") == latest_year]
+    def _build_views(items: list[dict[str, object]]) -> dict[str, object]:
+        day_items = [item for item in items if str(item.get("date") or "") == latest_date]
+        week_items = [item for item in items if str(item.get("week") or "") == latest_week]
+        month_items = [item for item in items if str(item.get("month") or "") == latest_month]
+        year_items = [item for item in items if str(item.get("year") or "") == latest_year]
+        return {
+            "day": _aggregate(day_items, latest_dt.strftime("%d/%m/%Y")),
+            "week": _aggregate(week_items, latest_week_label),
+            "month": _aggregate(month_items, latest_dt.strftime("%m/%Y")),
+            "year": _aggregate(year_items, latest_year),
+        }
 
-    base["views"] = {
-        "day": _aggregate(day_items, latest_dt.strftime("%d/%m/%Y")),
-        "week": _aggregate(week_items, latest_week_label),
-        "month": _aggregate(month_items, latest_dt.strftime("%m/%Y")),
-        "year": _aggregate(year_items, latest_year),
-    }
+    branch_codes = sorted({str(item.get("branch_code") or "").strip().zfill(2) for item in entries if str(item.get("branch_code") or "").strip()})
+    base["branches"] = [{"key": "all", "label": "Todas"}] + [
+        {"key": code, "label": _branch_label_from_bod(code)} for code in branch_codes
+    ]
+    base["default_branch"] = "04" if "04" in branch_codes else "all"
+    base["branch_views"] = {"all": _build_views(entries)}
+    for code in branch_codes:
+        base["branch_views"][code] = _build_views([item for item in entries if str(item.get("branch_code") or "").strip().zfill(2) == code])
     base["latest_date"] = latest_date
+    base["source_cutoff_label"] = latest_dt.strftime("%d/%m/%Y")
     base["date_min"] = min(dates) if dates else ""
     base["date_max"] = max(dates) if dates else ""
     base["available"] = True
