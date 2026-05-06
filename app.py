@@ -54,6 +54,7 @@ from parsers import (
     parse_lavanderia_productividad_xlsx,
     parse_pedidos_talla_txt,
     parse_saldos_txt,
+    parse_uploaded_content,
     parse_uploaded_file,
 )
 from parsers import parse_corte_etapas_txt
@@ -3075,6 +3076,18 @@ def _ventas_docs_file() -> Path | None:
     return None
 
 
+def _seed_upload_target(filename: str) -> Path | None:
+    raw_name = Path(str(filename or "")).name
+    normalized = raw_name.upper()
+    if normalized.startswith("VENTAS-TOD-") and normalized.endswith(".CSV"):
+        return SEED_VENTAS_DOCS
+    if normalized.startswith("SALDOS-SECCI") and normalized.endswith(".TXT"):
+        temporada = _temporada_from_seed_saldos(Path(raw_name))
+        if temporada in {"42", "43"}:
+            return SEED_DIR / raw_name
+    return None
+
+
 def _to_int(value: object) -> int:
     raw = str(value or "").strip().replace(".", "").replace(" ", "")
     if not raw:
@@ -4090,6 +4103,9 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
         "latest_date": "",
         "source_cutoff_label": "",
         "default_view": "day",
+        "default_from_date": "",
+        "default_to_date": "",
+        "range_entries": [],
         "default_branch": "all",
         "branches": [],
         "branch_views": {},
@@ -4255,6 +4271,20 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
     base["source_cutoff_label"] = latest_dt.strftime("%d/%m/%Y")
     base["date_min"] = min(dates) if dates else ""
     base["date_max"] = max(dates) if dates else ""
+    base["default_from_date"] = latest_date
+    base["default_to_date"] = latest_date
+    base["range_entries"] = [
+        {
+            "date": str(item.get("date") or ""),
+            "type_label": str(item.get("type_label") or "-"),
+            "vendor": str(item.get("vendor") or "Sin vendedor"),
+            "payment": str(item.get("payment") or "Sin forma de pago"),
+            "net": int(item.get("net") or 0),
+            "iva": int(item.get("iva") or 0),
+            "gross": int(item.get("gross") or 0),
+        }
+        for item in entries
+    ]
     base["available"] = True
     return base
 
@@ -5284,9 +5314,28 @@ def upload():
             flash("No se pudo cargar la data. Intentelo nuevamente.", "error")
             return redirect(url_for("index"))
 
-        parsed = parse_uploaded_file(file)
+        filename = str(file.filename or "").strip()
+        content = file.read()
+        if not content:
+            flash("No se pudo cargar la data. Intentelo nuevamente.", "error")
+            return redirect(url_for("index"))
+
+        seed_target = _seed_upload_target(filename)
+        if seed_target:
+            seed_target.parent.mkdir(parents=True, exist_ok=True)
+            seed_target.write_bytes(content)
+
+        parsed = parse_uploaded_content(filename, content)
         kind = parsed["kind"]
         rows = parsed["rows"]
+        if kind == "ventas_docs":
+            session.pop("upload_debug", None)
+            flash(f"Archivo {Path(filename).name} guardado en seed con exito.", "success")
+            return redirect(url_for("index"))
+        if kind == "saldos" and not rows and seed_target == SEED_VENTAS_DOCS:
+            session.pop("upload_debug", None)
+            flash(f"Archivo {Path(filename).name} guardado en seed con exito.", "success")
+            return redirect(url_for("index"))
         if not rows:
             flash("No se encontraron filas validas en el archivo. Verifique formato e intentelo nuevamente.", "error")
             return redirect(url_for("index"))

@@ -231,6 +231,17 @@
           {% if admin_key_enabled %}
             {% if can_upload %}
               <p class="production-goals-copy">Sesion admin activa. Puedes editar y actualizar datos.</p>
+              <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="inventory-manage-form">
+                <div class="inventory-manage-grid">
+                  <label for="adminUploadFile">Archivo de datos
+                    <input id="adminUploadFile" name="file" type="file" accept=".txt,.csv,.xlsx" required>
+                  </label>
+                </div>
+                <div class="inventory-manage-actions">
+                  <button type="submit">Subir archivo</button>
+                </div>
+                <small class="production-goals-copy">Admite SALDOS-SECCI 42/43, VENTAS-TOD, comparativo, deudas, pedidos y otros archivos ya soportados.</small>
+              </form>
               <form method="post" action="{{ url_for('upload_refresh_local') }}" class="inventory-manage-actions">
                 <button type="submit">Recargar datos desde seed</button>
               </form>
@@ -1242,6 +1253,14 @@
           <button type="button" class="reporte-venta-filterbtn" data-report-view="week">Semana</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="month">Mes</button>
           <button type="button" class="reporte-venta-filterbtn" data-report-view="year">Año</button>
+        </div>
+        <div class="reporte-venta-filtergroup reporte-venta-rangegroup" aria-label="Rango especifico reporte venta">
+          <label for="reporteVentaFromDate">Desde</label>
+          <input id="reporteVentaFromDate" type="date" value="{{ plan.default_from_date }}" min="{{ plan.date_min }}" max="{{ plan.date_max }}">
+          <label for="reporteVentaToDate">Hasta</label>
+          <input id="reporteVentaToDate" type="date" value="{{ plan.default_to_date }}" min="{{ plan.date_min }}" max="{{ plan.date_max }}">
+          <button type="button" class="reporte-venta-filterbtn" id="reporteVentaApplyRange">Aplicar rango</button>
+          <button type="button" class="reporte-venta-filterbtn" id="reporteVentaResetLatest">Ultimo dia</button>
         </div>
         <p class="table-hint">Vista actual: <strong id="reporteVentaPeriodLabel">{{ report_view.period_label }}</strong></p>
       </section>
@@ -3541,6 +3560,13 @@
       const resumenBody = document.getElementById("reporteVentaResumenBody");
       const vendedoresBody = document.getElementById("reporteVentaVendedoresBody");
       const pagosBody = document.getElementById("reporteVentaPagosBody");
+      const fromDateInput = document.getElementById("reporteVentaFromDate");
+      const toDateInput = document.getElementById("reporteVentaToDate");
+      const applyRangeBtn = document.getElementById("reporteVentaApplyRange");
+      const resetLatestBtn = document.getElementById("reporteVentaResetLatest");
+      const rangeEntries = Array.isArray(data.range_entries) ? data.range_entries : [];
+      const defaultFromDate = String(data.default_from_date || "");
+      const defaultToDate = String(data.default_to_date || "");
       const fmt = (value) => Number(value || 0).toLocaleString("es-CL");
       const escapeHtml = (value) => String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -3548,6 +3574,60 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+      const toDisplayDate = (iso) => {
+        if (!iso || !String(iso).includes("-")) return "-";
+        const [y, m, d] = String(iso).split("-");
+        return `${d}/${m}/${y}`;
+      };
+      const aggregateEntries = (items, label) => {
+        const order = { "Facturas": 1, "N. de Debitos": 2, "N. de Creditos": 3, "Boletas": 4 };
+        const summaryMap = {};
+        const vendorMap = {};
+        const paymentMap = {};
+        items.forEach((item) => {
+          const typeLabel = String(item.type_label || "-");
+          const summary = summaryMap[typeLabel] || { label: typeLabel, count: 0, net: 0, iva: 0, gross: 0 };
+          summary.count += 1;
+          summary.net += Number(item.net || 0);
+          summary.iva += Number(item.iva || 0);
+          summary.gross += Number(item.gross || 0);
+          summaryMap[typeLabel] = summary;
+
+          const vendorLabel = String(item.vendor || "Sin vendedor");
+          const vendor = vendorMap[vendorLabel] || { vendor: vendorLabel, docs: 0, net: 0, iva: 0, gross: 0 };
+          vendor.docs += 1;
+          vendor.net += Number(item.net || 0);
+          vendor.iva += Number(item.iva || 0);
+          vendor.gross += Number(item.gross || 0);
+          vendorMap[vendorLabel] = vendor;
+
+          const paymentLabel = String(item.payment || "Sin forma de pago");
+          const payment = paymentMap[paymentLabel] || { payment_label: paymentLabel, docs: 0, net: 0, iva: 0, gross: 0 };
+          payment.docs += 1;
+          payment.net += Number(item.net || 0);
+          payment.iva += Number(item.iva || 0);
+          payment.gross += Number(item.gross || 0);
+          paymentMap[paymentLabel] = payment;
+        });
+
+        const summaryRows = Object.values(summaryMap).sort((a, b) => {
+          const ao = order[String(a.label || "")] || 99;
+          const bo = order[String(b.label || "")] || 99;
+          return ao - bo || String(a.label || "").localeCompare(String(b.label || ""));
+        });
+        return {
+          period_label: label,
+          summary_rows: summaryRows,
+          summary_totals: {
+            count: summaryRows.reduce((acc, row) => acc + Number(row.count || 0), 0),
+            net: summaryRows.reduce((acc, row) => acc + Number(row.net || 0), 0),
+            iva: summaryRows.reduce((acc, row) => acc + Number(row.iva || 0), 0),
+            gross: summaryRows.reduce((acc, row) => acc + Number(row.gross || 0), 0),
+          },
+          vendor_rows: Object.values(vendorMap).sort((a, b) => Number(b.net || 0) - Number(a.net || 0) || String(a.vendor || "").localeCompare(String(b.vendor || ""))),
+          payment_rows: Object.values(paymentMap).sort((a, b) => Number(b.net || 0) - Number(a.net || 0) || String(a.payment_label || "").localeCompare(String(b.payment_label || ""))),
+        };
+      };
       const renderSummary = (view) => {
         if (!resumenBody) return;
         const rows = Array.isArray(view.summary_rows) ? view.summary_rows : [];
@@ -3617,6 +3697,36 @@
           applyView(key);
         });
       });
+      if (applyRangeBtn && fromDateInput && toDateInput) {
+        applyRangeBtn.addEventListener("click", () => {
+          const from = String(fromDateInput.value || "");
+          const to = String(toDateInput.value || "");
+          if (!from || !to) return;
+          const dateFrom = from <= to ? from : to;
+          const dateTo = from <= to ? to : from;
+          const items = rangeEntries.filter((item) => {
+            const value = String(item.date || "");
+            return value >= dateFrom && value <= dateTo;
+          });
+          applyView(currentViewKey);
+          const label = dateFrom === dateTo
+            ? toDisplayDate(dateFrom)
+            : `${toDisplayDate(dateFrom)} a ${toDisplayDate(dateTo)}`;
+          const rangeView = aggregateEntries(items, label);
+          if (periodLabel) periodLabel.textContent = String(rangeView.period_label || "-");
+          renderSummary(rangeView);
+          renderVendors(rangeView);
+          renderPayments(rangeView);
+          filterButtons.forEach((btn) => btn.classList.remove("is-active"));
+        });
+      }
+      if (resetLatestBtn && fromDateInput && toDateInput) {
+        resetLatestBtn.addEventListener("click", () => {
+          fromDateInput.value = defaultFromDate;
+          toDateInput.value = defaultToDate;
+          applyView("day");
+        });
+      }
       applyView(currentViewKey);
     })();
 

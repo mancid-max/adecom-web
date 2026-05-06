@@ -9864,6 +9864,24 @@ body.theme-gentelella,
   gap: 8px;
 }
 
+#reporteVentaModal .reporte-venta-rangegroup {
+  align-items: center;
+}
+
+#reporteVentaModal .reporte-venta-rangegroup label {
+  color: #4d6278;
+  font-weight: 700;
+}
+
+#reporteVentaModal .reporte-venta-rangegroup input[type="date"] {
+  border: 1px solid #c8d8e8;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  color: #32506d;
+  background: #ffffff;
+}
+
 #reporteVentaModal .reporte-venta-filterbtn {
   appearance: none;
   border: 1px solid #c8d8e8;

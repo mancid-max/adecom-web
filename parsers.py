@@ -29,9 +29,15 @@ TXT_EXPECTED_COLUMNS = [
 def parse_uploaded_file(file_storage) -> dict[str, Any]:
     filename = (file_storage.filename or "").lower()
     content = file_storage.read()
+    return parse_uploaded_content(filename, content)
 
+
+def parse_uploaded_content(filename: str, content: bytes) -> dict[str, Any]:
+    filename = str(filename or "").lower()
     if filename.endswith(".txt") or filename.endswith(".csv"):
         kind = detect_txt_kind(content, filename)
+        if kind == "ventas_docs":
+            return {"kind": "ventas_docs", "rows": []}
         if kind == "corte_etapas":
             return {"kind": "corte_etapas", "rows": parse_corte_etapas_txt(content)}
         if kind == "pedidos_talla_todas":
@@ -80,6 +86,8 @@ def detect_xlsx_kind(content: bytes, filename: str) -> str:
 
 
 def detect_txt_kind(content: bytes, filename: str) -> str:
+    if "ventas-tod" in filename or "ventas_tod" in filename:
+        return "ventas_docs"
     if "pedidosxtallatodas" in filename:
         return "pedidos_talla_todas"
     if "pedidosxtalla" in filename:
