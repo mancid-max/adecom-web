@@ -1239,7 +1239,7 @@
         <div>
           <h3>Reporte Venta</h3>
           <p class="venta-despacho-modal-copy">
-            Resumen comercial construido directamente desde VENTAS-TOD 2026.
+            Resumen comercial construido desde DETALLEV con apoyo de VENTAS-TOD para tipos de pago.
             {% if plan and plan.source_cutoff_label %}
             Corte ventas: {{ plan.source_cutoff_label }}.
             {% endif %}
@@ -1250,24 +1250,36 @@
       {% if plan and plan.available %}
       {% set report_view = plan.branch_views['all'].day if plan.branch_views and 'all' in plan.branch_views else None %}
       <section class="reporte-venta-filterbar">
-        <div class="reporte-venta-filtergroup" role="tablist" aria-label="Filtro periodo reporte venta">
-          <button type="button" class="reporte-venta-filterbtn is-active" data-report-view="day">Dia</button>
-          <button type="button" class="reporte-venta-filterbtn" data-report-view="week">Semana</button>
-          <button type="button" class="reporte-venta-filterbtn" data-report-view="month">Mes</button>
-          <button type="button" class="reporte-venta-filterbtn" data-report-view="year">Año</button>
-        </div>
         <div class="reporte-venta-filtergroup reporte-venta-rangegroup" aria-label="Rango especifico reporte venta">
           <label for="reporteVentaFromDate">Desde</label>
           <input id="reporteVentaFromDate" type="date" value="{{ plan.default_from_date }}" min="{{ plan.date_min }}" max="{{ plan.date_max }}">
           <label for="reporteVentaToDate">Hasta</label>
           <input id="reporteVentaToDate" type="date" value="{{ plan.default_to_date }}" min="{{ plan.date_min }}" max="{{ plan.date_max }}">
-          <button type="button" class="reporte-venta-filterbtn" id="reporteVentaApplyRange">Aplicar rango</button>
+          <button type="button" class="reporte-venta-filterbtn" id="reporteVentaApplyRange">Buscar por fecha</button>
           <button type="button" class="reporte-venta-filterbtn" id="reporteVentaResetLatest">Ultimo dia</button>
         </div>
-        <p class="table-hint">Vista actual: <strong id="reporteVentaPeriodLabel">{{ report_view.period_label }}</strong></p>
+        <p class="table-hint reporte-venta-current">Vista actual: <strong id="reporteVentaPeriodLabel">{{ report_view.period_label }}</strong></p>
+      </section>
+      <section class="reporte-venta-kpi-grid">
+        <article class="reporte-venta-kpi-card">
+          <small>Documentos</small>
+          <strong id="reporteVentaKpiDocs">{{ report_view.summary_totals.count|miles }}</strong>
+        </article>
+        <article class="reporte-venta-kpi-card">
+          <small>Neto</small>
+          <strong id="reporteVentaKpiNet">${{ report_view.summary_totals.net|miles }}</strong>
+        </article>
+        <article class="reporte-venta-kpi-card">
+          <small>IVA</small>
+          <strong id="reporteVentaKpiIva">${{ report_view.summary_totals.iva|miles }}</strong>
+        </article>
+        <article class="reporte-venta-kpi-card reporte-venta-kpi-card-accent">
+          <small>Total</small>
+          <strong id="reporteVentaKpiGross">${{ report_view.summary_totals.gross|miles }}</strong>
+        </article>
       </section>
       <section class="table-wrap bodega-wrap">
-        <p class="table-hint">Resumen por tipo de documento segun VENTAS-TOD.</p>
+        <p class="table-hint">Resumen por tipo de documento del rango seleccionado.</p>
         <table class="bodega-table bodega-table-compact" id="reporteVentaResumenTable">
           <thead>
             <tr>
@@ -1300,7 +1312,7 @@
       </section>
       <div class="reporte-venta-split-grid">
         <section class="table-wrap bodega-wrap">
-          <p class="table-hint">Venta agrupada por vendedor en el periodo seleccionado.</p>
+          <p class="table-hint">Venta agrupada por vendedor.</p>
           <table class="bodega-table bodega-table-compact" id="reporteVentaVendedoresTable">
             <thead>
               <tr>
@@ -3557,8 +3569,11 @@
       }
       const branchViews = data && typeof data.branch_views === "object" && data.branch_views ? data.branch_views : {};
       const views = branchViews.all || {};
-      const filterButtons = Array.from(modal.querySelectorAll("[data-report-view]"));
       const periodLabel = document.getElementById("reporteVentaPeriodLabel");
+      const kpiDocs = document.getElementById("reporteVentaKpiDocs");
+      const kpiNet = document.getElementById("reporteVentaKpiNet");
+      const kpiIva = document.getElementById("reporteVentaKpiIva");
+      const kpiGross = document.getElementById("reporteVentaKpiGross");
       const resumenBody = document.getElementById("reporteVentaResumenBody");
       const vendedoresBody = document.getElementById("reporteVentaVendedoresBody");
       const pagosBody = document.getElementById("reporteVentaPagosBody");
@@ -3582,7 +3597,7 @@
         return `${d}/${m}/${y}`;
       };
       const aggregateEntries = (items, label) => {
-        const order = { "Facturas": 1, "N. de Debitos": 2, "N. de Creditos": 3, "Boletas": 4 };
+        const order = { "Facturas": 1, "Factura exenta": 2, "N. de Debitos": 3, "N. de Creditos": 4, "Boletas": 5 };
         const summaryMap = {};
         const vendorMap = {};
         const paymentMap = {};
@@ -3634,6 +3649,10 @@
         if (!resumenBody) return;
         const rows = Array.isArray(view.summary_rows) ? view.summary_rows : [];
         const totals = view.summary_totals || {};
+        if (kpiDocs) kpiDocs.textContent = fmt(totals.count || 0);
+        if (kpiNet) kpiNet.textContent = `$${fmt(totals.net || 0)}`;
+        if (kpiIva) kpiIva.textContent = `$${fmt(totals.iva || 0)}`;
+        if (kpiGross) kpiGross.textContent = `$${fmt(totals.gross || 0)}`;
         resumenBody.innerHTML = rows.map((item) => `
           <tr>
             <td>${escapeHtml(item.label || "-")}</td>
@@ -3678,27 +3697,15 @@
           </tr>
         `).join("") : '<tr><td colspan="5" class="empty">Sin datos para este periodo.</td></tr>';
       };
-      let currentViewKey = String(data.default_view || "day");
-      const applyView = (viewKey) => {
-        currentViewKey = String(viewKey || currentViewKey || "day");
-        const view = views[currentViewKey];
+      const latestView = views.day || {};
+      const applyView = (view) => {
         if (!view) return;
-        filterButtons.forEach((btn) => {
-          btn.classList.toggle("is-active", String(btn.getAttribute("data-report-view") || "") === currentViewKey);
-        });
         if (periodLabel) periodLabel.textContent = String(view.period_label || "-");
         renderSummary(view);
         renderVendors(view);
         renderPayments(view);
       };
       closeBtn.addEventListener("click", () => modal.close());
-      filterButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const key = String(btn.getAttribute("data-report-view") || "");
-          if (!key) return;
-          applyView(key);
-        });
-      });
       if (applyRangeBtn && fromDateInput && toDateInput) {
         applyRangeBtn.addEventListener("click", () => {
           const from = String(fromDateInput.value || "");
@@ -3710,26 +3717,21 @@
             const value = String(item.date || "");
             return value >= dateFrom && value <= dateTo;
           });
-          applyView(currentViewKey);
           const label = dateFrom === dateTo
             ? toDisplayDate(dateFrom)
             : `${toDisplayDate(dateFrom)} a ${toDisplayDate(dateTo)}`;
           const rangeView = aggregateEntries(items, label);
-          if (periodLabel) periodLabel.textContent = String(rangeView.period_label || "-");
-          renderSummary(rangeView);
-          renderVendors(rangeView);
-          renderPayments(rangeView);
-          filterButtons.forEach((btn) => btn.classList.remove("is-active"));
+          applyView(rangeView);
         });
       }
       if (resetLatestBtn && fromDateInput && toDateInput) {
         resetLatestBtn.addEventListener("click", () => {
           fromDateInput.value = defaultFromDate;
           toDateInput.value = defaultToDate;
-          applyView("day");
+          applyView(latestView);
         });
       }
-      applyView(currentViewKey);
+      applyView(latestView);
     })();
 
     (function () {
