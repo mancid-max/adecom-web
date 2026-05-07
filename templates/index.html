@@ -240,7 +240,7 @@
                 <div class="inventory-manage-actions">
                   <button type="submit">Subir archivo</button>
                 </div>
-                <small class="production-goals-copy">Admite SALDOS-SECCI 42/43, VENTAS-TOD, comparativo, deudas, pedidos y otros archivos ya soportados.</small>
+                <small class="production-goals-copy">Admite INVENTARIO 01-04 COMPLETO, SALDOS-SECCI 42/43, VENTAS-TOD, comparativo, deudas, pedidos y otros archivos ya soportados.</small>
               </form>
               <form method="post" action="{{ url_for('upload_refresh_local') }}" class="inventory-manage-actions">
                 <button type="submit">Recargar datos desde seed</button>
@@ -562,13 +562,15 @@
             <div class="table-tools">
               <label for="inventoryCollectionSelect">Coleccion:</label>
               <select id="inventoryCollectionSelect">
-                <option value="__ALL__">Todos</option>
+                <option value="__ALL__" {% if inventory_book.default_collection == "__ALL__" %}selected{% endif %}>Todos</option>
                 {% for collection in inventory_book.collections %}
                   <option value="{{ collection.name }}" {% if collection.name == inventory_book.default_collection %}selected{% endif %}>
                     {{ collection.name }}
                   </option>
                 {% endfor %}
               </select>
+              <label for="inventoryBrowseSearch">Articulo:</label>
+              <input type="text" id="inventoryBrowseSearch" placeholder="Buscar articulo, tiro, bota o color" autocomplete="off">
               {% if inventory_manage_enabled %}
                 <form method="post" action="/inventory/manage/sync-excel" class="inline-form">
                   <button type="submit" class="btn-ghost">Sincronizar desde Excel</button>
@@ -4915,6 +4917,7 @@
       const dataNode = document.getElementById("inventoryBookData");
       const configNode = document.getElementById("inventoryBookConfig");
       const select = document.getElementById("inventoryCollectionSelect");
+      const browseSearchInput = document.getElementById("inventoryBrowseSearch");
       const tbody = document.getElementById("inventoryBookTableBody");
       if (!dataNode || !select || !tbody) return;
 
@@ -5071,7 +5074,7 @@
 
       const renderCollection = (collectionName) => {
         const selectedAll = String(collectionName || "") === "__ALL__";
-        const searchText = normalizeSearch(manageSearchInput?.value || "");
+        const searchText = normalizeSearch(browseSearchInput?.value || "");
         const rows =
           String(collectionName || "") === "__ALL__"
             ? allRows
@@ -5163,7 +5166,10 @@
       };
 
       select.addEventListener("change", () => renderCollection(select.value));
-      renderCollection(select.value || "42");
+      if (browseSearchInput instanceof HTMLInputElement) {
+        browseSearchInput.addEventListener("input", () => renderCollection(select.value || "__ALL__"));
+      }
+      renderCollection(select.value || "__ALL__");
 
       if (!canManage) return;
       if (openCrudPanelBtn instanceof HTMLButtonElement) {
@@ -5258,7 +5264,7 @@
         });
       }
       if (manageSearchInput instanceof HTMLInputElement) {
-        manageSearchInput.addEventListener("input", () => renderCollection(select.value));
+        manageSearchInput.addEventListener("input", () => renderManageMatches());
       }
       select.addEventListener("change", () => {
         if (!formItemId?.value) clearManageForm();

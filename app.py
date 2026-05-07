@@ -92,6 +92,13 @@ INVENTORY_BOOK_PATH = Path(
         r"C:\Users\manuh\OneDrive - Mohicano Jeans\INVENTARIO 01-04 COMPLETO.xlsx",
     )
 )
+INVENTORY_BOOK_FALLBACK_PATH = Path(
+    os.environ.get(
+        "ADECOM_INVENTARIO_XLSX_FALLBACK",
+        r"C:\Users\Lenovo\OneDrive - Mohicano Jeans\INVENTARIO 01-04 COMPLETO.xlsx",
+    )
+)
+INVENTORY_BOOK_SEED_PATH = SEED_DIR / "INVENTARIO 01-04 COMPLETO.xlsx"
 AUTOLOAD_DIR = Path(
     os.environ.get(
         "ADECOM_AUTOLOAD_DIR",
@@ -3081,6 +3088,8 @@ def _seed_upload_target(filename: str) -> Path | None:
     normalized = raw_name.upper()
     if normalized.startswith("VENTAS-TOD-") and normalized.endswith(".CSV"):
         return SEED_VENTAS_DOCS
+    if normalized.startswith("INVENTARIO") and normalized.endswith(".XLSX"):
+        return INVENTORY_BOOK_SEED_PATH
     if normalized.startswith("SALDOS-SECCI") and normalized.endswith(".TXT"):
         temporada = _temporada_from_seed_saldos(Path(raw_name))
         if temporada in {"42", "43"}:
@@ -3137,31 +3146,7 @@ def _extract_collection_from_sheet(sheet_name: str) -> str:
     return (str(sheet_name or "").strip() or "Sin coleccion")[:20]
 
 
-def _load_inventory_rows_from_excel() -> tuple[list[dict[str, object]], str, str]:
-    candidate_paths = [INVENTORY_BOOK_PATH, SEED_DIR / "INVENTARIO 01-04 COMPLETO.xlsx"]
-    existing_paths = [p for p in candidate_paths if p and p.exists()]
-    if not existing_paths:
-        return [], "", "No se encontro el archivo de inventario configurado."
-
-    try:
-        from openpyxl import load_workbook
-    except Exception as exc:
-        return [], "", f"No se pudo cargar openpyxl: {exc}"
-
-    wb = None
-    active_path = None
-    last_error = ""
-    for p in existing_paths:
-        try:
-            wb = load_workbook(p, data_only=True, read_only=True)
-            active_path = p
-            break
-        except Exception as exc:
-            last_error = str(exc)
-            continue
-    if wb is None or active_path is None:
-        return [], "", f"No se pudo abrir el inventario: {last_error}"
-
+def _parse_inventory_workbook(wb, source_label: str) -> tuple[list[dict[str, object]], str, str]:
     rows_out: list[dict[str, object]] = []
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
@@ -3248,8 +3233,48 @@ def _load_inventory_rows_from_excel() -> tuple[list[dict[str, object]], str, str
                 }
             )
     if not rows_out:
-        return [], str(active_path), "No se detectaron columnas compatibles (articulo + stock) con stock positivo."
-    return rows_out, str(active_path), ""
+        return [], source_label, "No se detectaron columnas compatibles (articulo + stock) con stock positivo."
+    return rows_out, source_label, ""
+
+
+def _load_inventory_rows_from_excel_bytes(content: bytes, source_label: str) -> tuple[list[dict[str, object]], str, str]:
+    try:
+        from openpyxl import load_workbook
+    except Exception as exc:
+        return [], source_label, f"No se pudo cargar openpyxl: {exc}"
+
+    try:
+        wb = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+    except Exception as exc:
+        return [], source_label, f"No se pudo abrir el inventario: {exc}"
+    return _parse_inventory_workbook(wb, source_label)
+
+
+def _load_inventory_rows_from_excel() -> tuple[list[dict[str, object]], str, str]:
+    candidate_paths = [INVENTORY_BOOK_SEED_PATH, INVENTORY_BOOK_FALLBACK_PATH, INVENTORY_BOOK_PATH]
+    existing_paths = [p for p in candidate_paths if p and p.exists()]
+    if not existing_paths:
+        return [], "", "No se encontro el archivo de inventario configurado."
+
+    try:
+        from openpyxl import load_workbook
+    except Exception as exc:
+        return [], "", f"No se pudo cargar openpyxl: {exc}"
+
+    wb = None
+    active_path = None
+    last_error = ""
+    for p in existing_paths:
+        try:
+            wb = load_workbook(p, data_only=True, read_only=True)
+            active_path = p
+            break
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+    if wb is None or active_path is None:
+        return [], "", f"No se pudo abrir el inventario: {last_error}"
+    return _parse_inventory_workbook(wb, str(active_path))
 
 
 def _build_inventory_book_dashboard_from_db_rows(rows: list[dict[str, object]], source_label: str = "Base de datos") -> dict[str, object]:
@@ -3313,9 +3338,7 @@ def _build_inventory_book_dashboard_from_db_rows(rows: list[dict[str, object]], 
         return (2, 9999, name)
 
     collections.sort(key=_collection_sort_key)
-    default_collection = "42"
-    if not any(str(c.get("name") or "") == "42" for c in collections):
-        default_collection = str((collections[0] if collections else {}).get("name") or "")
+    default_collection = "__ALL__"
 
     return {
         "available": bool(collections),
@@ -3347,7 +3370,7 @@ def _load_inventory_book_dashboard() -> dict[str, object]:
         "file_name": "",
         "path": excel_path or str(INVENTORY_BOOK_PATH),
         "collections": [],
-        "default_collection": "42",
+        "default_collection": "__ALL__",
         "total_stock": 0,
         "total_items": 0,
     }
@@ -5324,6 +5347,19 @@ def upload():
         if seed_target:
             seed_target.parent.mkdir(parents=True, exist_ok=True)
             seed_target.write_bytes(content)
+
+        if seed_target == INVENTORY_BOOK_SEED_PATH:
+            parsed_rows, _, err = _load_inventory_rows_from_excel_bytes(content, Path(filename).name)
+            if not parsed_rows:
+                flash(err or "No se encontraron filas validas en el inventario.", "error")
+                return redirect(url_for("index"))
+            stats = replace_inventory_stock_rows(DB_PATH, parsed_rows)
+            session.pop("upload_debug", None)
+            flash(
+                f"Inventario cargado con exito. Leidos: {stats.get('read', 0)} | Insertados: {stats.get('inserted', 0)} | Actualizados: {stats.get('updated', 0)}",
+                "success",
+            )
+            return redirect(url_for("index"))
 
         parsed = parse_uploaded_content(filename, content)
         kind = parsed["kind"]
