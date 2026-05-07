@@ -570,7 +570,7 @@
                 {% endfor %}
               </select>
               <label for="inventoryBrowseSearch">Articulo:</label>
-              <input type="text" id="inventoryBrowseSearch" placeholder="Buscar articulo, tiro, bota o color" autocomplete="off">
+              <input type="text" id="inventoryBrowseSearch" placeholder="Buscar articulo" autocomplete="off">
               {% if inventory_manage_enabled %}
                 <form method="post" action="/inventory/manage/sync-excel" class="inline-form">
                   <button type="submit" class="btn-ghost">Sincronizar desde Excel</button>
@@ -5090,9 +5090,7 @@
           : rows;
         const renderedRows = searchText
           ? sortedRows.filter((row) => {
-              const normalized = normalizeSearch(
-                `${row?.articulo || ""} ${row?.tiro || ""} ${row?.bota || ""} ${row?.color || ""} ${row?.coleccion || collectionName || ""}`
-              );
+              const normalized = normalizeSearch(`${row?.articulo || ""}`);
               return normalized.includes(searchText);
             })
           : sortedRows;

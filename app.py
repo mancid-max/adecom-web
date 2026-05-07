@@ -3146,6 +3146,41 @@ def _extract_collection_from_sheet(sheet_name: str) -> str:
     return (str(sheet_name or "").strip() or "Sin coleccion")[:20]
 
 
+def _inventory_excel_candidate_paths() -> list[Path]:
+    paths = [INVENTORY_BOOK_SEED_PATH, INVENTORY_BOOK_FALLBACK_PATH, INVENTORY_BOOK_PATH]
+    deduped: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = str(path).strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(path)
+    return deduped
+
+
+def _inventory_latest_source_path() -> Path | None:
+    existing_paths = [p for p in _inventory_excel_candidate_paths() if p and p.exists()]
+    if not existing_paths:
+        return None
+    return max(existing_paths, key=lambda p: p.stat().st_mtime)
+
+
+def _inventory_db_latest_updated_at(rows: list[dict[str, object]]) -> datetime | None:
+    latest: datetime | None = None
+    for row in rows:
+        raw = str(row.get("updated_at") or "").strip()
+        if not raw:
+            continue
+        try:
+            current = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if latest is None or current > latest:
+            latest = current
+    return latest
+
+
 def _parse_inventory_workbook(wb, source_label: str) -> tuple[list[dict[str, object]], str, str]:
     rows_out: list[dict[str, object]] = []
     for sheet_name in wb.sheetnames:
@@ -3251,7 +3286,7 @@ def _load_inventory_rows_from_excel_bytes(content: bytes, source_label: str) -> 
 
 
 def _load_inventory_rows_from_excel() -> tuple[list[dict[str, object]], str, str]:
-    candidate_paths = [INVENTORY_BOOK_SEED_PATH, INVENTORY_BOOK_FALLBACK_PATH, INVENTORY_BOOK_PATH]
+    candidate_paths = _inventory_excel_candidate_paths()
     existing_paths = [p for p in candidate_paths if p and p.exists()]
     if not existing_paths:
         return [], "", "No se encontro el archivo de inventario configurado."
@@ -3331,11 +3366,9 @@ def _build_inventory_book_dashboard_from_db_rows(rows: list[dict[str, object]], 
 
     def _collection_sort_key(item: dict[str, object]):
         name = str(item.get("name") or "").strip()
-        if name == "42":
-            return (0, 0, name)
         if name.isdigit():
-            return (1, int(name), name)
-        return (2, 9999, name)
+            return (0, int(name), name)
+        return (1, 9999, name.lower())
 
     collections.sort(key=_collection_sort_key)
     default_collection = "__ALL__"
@@ -3354,15 +3387,21 @@ def _build_inventory_book_dashboard_from_db_rows(rows: list[dict[str, object]], 
 
 def _load_inventory_book_dashboard() -> dict[str, object]:
     rows_db = query_inventory_stock_rows(DB_PATH)
-    if rows_db:
-        return _build_inventory_book_dashboard_from_db_rows(rows_db, "Base de datos")
+    latest_source_path = _inventory_latest_source_path()
+    latest_source_mtime = latest_source_path.stat().st_mtime if latest_source_path and latest_source_path.exists() else 0
+    db_updated_at = _inventory_db_latest_updated_at(rows_db) if rows_db else None
+    db_is_fresh = bool(db_updated_at and db_updated_at.timestamp() >= latest_source_mtime)
+    if rows_db and db_is_fresh:
+        source_label = f"{(latest_source_path or Path('Base de datos')).name} | actualizado {db_updated_at.strftime('%d/%m/%Y %H:%M')}"
+        return _build_inventory_book_dashboard_from_db_rows(rows_db, source_label)
 
     parsed_rows, excel_path, err = _load_inventory_rows_from_excel()
     if parsed_rows:
         replace_inventory_stock_rows(DB_PATH, parsed_rows)
         rows_db = query_inventory_stock_rows(DB_PATH)
         if rows_db:
-            source = Path(excel_path).name if excel_path else "Excel"
+            source_path = Path(excel_path) if excel_path else latest_source_path
+            source = source_path.name if source_path else "Excel"
             return _build_inventory_book_dashboard_from_db_rows(rows_db, source)
     return {
         "available": False,
