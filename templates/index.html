@@ -240,7 +240,7 @@
                 <div class="inventory-manage-actions">
                   <button type="submit">Subir archivo</button>
                 </div>
-                <small class="production-goals-copy">Admite INVENTARIO 01-04 COMPLETO, SALDOS-SECCI 42/43, VENTAS-TOD, comparativo, deudas, pedidos y otros archivos ya soportados.</small>
+                <small class="production-goals-copy">Admite DETALLEV, VENTAS-TOD, INVENTARIO 01-04 COMPLETO, SALDOS-SECCI 42/43, COMPARATIVO, DEUDAS, PEDIDOS y otros archivos ya soportados.</small>
               </form>
               <form method="post" action="{{ url_for('upload_refresh_local') }}" class="inventory-manage-actions">
                 <button type="submit">Recargar datos desde seed</button>
@@ -289,6 +289,17 @@
           onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
         >Cerrar</button>
       </div>
+      {% if production_goals.month_options %}
+      <form method="get" action="{{ url_for('index') }}" class="table-tools production-month-form">
+        <input type="hidden" name="open_modal" value="productionGoalsModal">
+        <label for="productionGoalsMonthSelect">Mes con datos:</label>
+        <select id="productionGoalsMonthSelect" name="programas_month" onchange="this.form.submit()">
+          {% for option in production_goals.month_options %}
+            <option value="{{ option.key }}" {% if option.key == production_goals.selected_month_key %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      {% endif %}
       <section class="production-goals-panel">
         <div class="production-goals-hero">
           <div>
@@ -393,6 +404,17 @@
           onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
         >Cerrar</button>
       </div>
+      {% if production_daily_dashboard.month_options %}
+      <form method="get" action="{{ url_for('index') }}" class="table-tools production-month-form">
+        <input type="hidden" name="open_modal" value="productionGoalsDailyModal">
+        <label for="productionDailyMonthSelect">Mes con datos:</label>
+        <select id="productionDailyMonthSelect" name="programas_month" onchange="this.form.submit()">
+          {% for option in production_daily_dashboard.month_options %}
+            <option value="{{ option.key }}" {% if option.key == production_daily_dashboard.selected_month_key %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      {% endif %}
       <section class="production-daily-layout">
         <div class="production-daily-stack">
           {% for block in production_daily_dashboard.daily_weeks %}
@@ -470,16 +492,26 @@
             onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
           >Cerrar</button>
         </div>
+        {% if excel_preview_dashboard.month_options %}
+        <div class="table-tools production-month-form">
+          <label for="productionExcelMonthSelect">Mes con datos:</label>
+          <select id="productionExcelMonthSelect" name="programas_month">
+            {% for option in excel_preview_dashboard.month_options %}
+              <option value="{{ option.key }}" {% if option.key == excel_preview_dashboard.selected_month_key %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
 
         <section class="excel-preview-shell">
           <div class="excel-preview-frame">
             <div class="excel-preview-sheet">
               <div class="excel-abr-title-row">
-                <div class="excel-abr-title">{{ excel_preview_dashboard.title }}</div>
-                <div class="excel-abr-days-note">{{ excel_preview_dashboard.days_note }}</div>
+                <div class="excel-abr-title" id="productionExcelTitle">{{ excel_preview_dashboard.title }}</div>
+                <div class="excel-abr-days-note" id="productionExcelDaysNote">{{ excel_preview_dashboard.days_note }}</div>
               </div>
 
-              <div class="excel-abr-grid" style="grid-template-columns: 78px 50px{% for _ in excel_preview_dashboard.columns %} repeat(2, 62px){% endfor %};">
+              <div class="excel-abr-grid" id="productionExcelGrid" style="grid-template-columns: 78px 50px{% for _ in excel_preview_dashboard.columns %} repeat(2, 62px){% endfor %};">
                 <div class="excel-abr-cell excel-abr-head">AREA</div>
                 <div class="excel-abr-cell excel-abr-head"></div>
                 {% for col in excel_preview_dashboard.columns %}
@@ -544,6 +576,7 @@
           </div>
         </section>
       </dialog>
+      <script id="productionExcelDashboardsData" type="application/json">{{ excel_preview_dashboards|tojson }}</script>
 
       <dialog id="inventoryBookModal" class="modal modal-production-goals">
       <div class="modal-head">
@@ -1411,6 +1444,7 @@
       </section>
     </dialog>
     <script id="ventaDespachoData" type="application/json">{{ venta_despacho_dashboard|tojson }}</script>
+    <script id="uiStateData" type="application/json">{{ ui_state|tojson }}</script>
 
     <section class="ventas-block" id="sectionPedidos">
       <h2>Pedidos</h2>
@@ -2442,6 +2476,22 @@
           });
         });
       });
+      (function () {
+        const uiStateNode = document.getElementById("uiStateData");
+        if (!uiStateNode) return;
+        let uiState = {};
+        try {
+          uiState = JSON.parse(uiStateNode.textContent || "{}");
+        } catch (_) {
+          uiState = {};
+        }
+        const modalId = String(uiState.open_modal || "").trim();
+        if (!modalId) return;
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        closeOtherDashboardModals(modalId);
+        showDashboardModal(modalId);
+      })();
       exclusiveModalIds.forEach((modalId) => {
         const dlg = document.getElementById(modalId);
         if (!dlg) return;
@@ -4913,6 +4963,93 @@
         if (idx >= 0 && idx < dateKeys.length - 1) render(dateKeys[idx + 1]);
       });
       render(dateInput.value || payload.latest_date || "");
+    })();
+
+    (function () {
+      const modal = document.getElementById("productionExcelModal");
+      const select = document.getElementById("productionExcelMonthSelect");
+      const dataNode = document.getElementById("productionExcelDashboardsData");
+      const titleEl = document.getElementById("productionExcelTitle");
+      const daysNoteEl = document.getElementById("productionExcelDaysNote");
+      const gridEl = document.getElementById("productionExcelGrid");
+      if (!modal || !select || !dataNode || !titleEl || !daysNoteEl || !gridEl) return;
+
+      let payload = {};
+      try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+      } catch (_) {
+        payload = {};
+      }
+      const dashboards = payload && typeof payload.dashboards === "object" && payload.dashboards ? payload.dashboards : {};
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+      const renderDashboard = (dashboard) => {
+        if (!dashboard) return;
+        const columns = Array.isArray(dashboard.columns) ? dashboard.columns : [];
+        const weeks = Array.isArray(dashboard.weeks) ? dashboard.weeks : [];
+        const summaryRows = Array.isArray(dashboard.summary_rows) ? dashboard.summary_rows : [];
+        titleEl.textContent = String(dashboard.title || "MES DE PROCESO");
+        daysNoteEl.textContent = String(dashboard.days_note || "");
+        gridEl.style.gridTemplateColumns = `78px 50px${columns.map(() => " repeat(2, 62px)").join("")}`;
+        let html = `
+          <div class="excel-abr-cell excel-abr-head">AREA</div>
+          <div class="excel-abr-cell excel-abr-head"></div>
+          ${columns.map((col) => `<div class="excel-abr-cell excel-abr-head excel-abr-area" style="grid-column: span 2;">${escapeHtml(col.name || "")}</div>`).join("")}
+          <div class="excel-abr-cell excel-abr-subhead">TIPO</div>
+          <div class="excel-abr-cell excel-abr-subhead"></div>
+          ${columns.map(() => '<div class="excel-abr-cell excel-abr-subhead">PROD</div><div class="excel-abr-cell excel-abr-subhead">MUES</div>').join("")}
+          <div class="excel-abr-cell excel-abr-meta">META FIJA DIA</div>
+          <div class="excel-abr-cell excel-abr-meta"></div>
+          ${columns.map((col) => `<div class="excel-abr-cell excel-abr-meta">${escapeHtml(col.meta ?? "")}</div><div class="excel-abr-cell excel-abr-meta">0</div>`).join("")}
+        `;
+        weeks.forEach((week) => {
+          (Array.isArray(week.rows) ? week.rows : []).forEach((row) => {
+            html += `
+              <div class="excel-abr-cell">${escapeHtml(row.day ?? "")}</div>
+              <div class="excel-abr-cell">${escapeHtml(row.weekday ?? "")}</div>
+              ${(Array.isArray(row.cells) ? row.cells : []).map((cell) => `
+                <div class="excel-abr-cell ${cell && cell.prod ? "excel-abr-value" : ""}">${escapeHtml(cell?.prod ?? "")}</div>
+                <div class="excel-abr-cell">${escapeHtml(cell?.mues ?? "")}</div>
+              `).join("")}
+            `;
+          });
+          html += `
+            <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">${escapeHtml(week.label || "")}</div>
+            ${(Array.isArray(week.totals) ? week.totals : []).map((total) => `<div class="excel-abr-cell excel-abr-total">${escapeHtml(total ?? "")}</div><div class="excel-abr-cell excel-abr-total">0</div>`).join("")}
+          `;
+        });
+        html += `
+          <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">PROD. ACUM</div>
+          ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-total">${escapeHtml(row.actual ?? "")}</div><div class="excel-abr-cell excel-abr-total">0</div>`).join("")}
+          <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">META MES</div>
+          ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-meta">${escapeHtml(row.meta_month ?? "")}</div><div class="excel-abr-cell excel-abr-meta">0</div>`).join("")}
+          <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">DIFERENCIAS</div>
+          ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-diff">${escapeHtml(row.diff ?? "")}</div><div class="excel-abr-cell excel-abr-diff">0</div>`).join("")}
+          <div class="excel-abr-cell excel-abr-progress-label" style="grid-column: span 2;">% AVANCE REAL v/s AVANCE ESPERADO</div>
+          ${summaryRows.map((row) => {
+            const pct = Number(row.advance_vs_projection_pct || 0);
+            const tone = pct >= 100 ? "excel-abr-progress-green" : (pct >= 50 ? "excel-abr-progress-yellow" : "excel-abr-progress-red");
+            return `<div class="excel-abr-cell excel-abr-progress ${tone}">${escapeHtml(row.advance_vs_projection_pct ?? "")}%</div><div class="excel-abr-cell excel-abr-progress excel-abr-progress-empty">-</div>`;
+          }).join("")}
+        `;
+        gridEl.innerHTML = html;
+      };
+
+      select.addEventListener("change", () => {
+        const key = String(select.value || "").trim();
+        if (!key || !dashboards[key]) return;
+        renderDashboard(dashboards[key]);
+      });
+
+      const initialKey = String(select.value || payload.selected_month_key || "").trim();
+      if (initialKey && dashboards[initialKey]) {
+        renderDashboard(dashboards[initialKey]);
+      }
     })();
 
     (function () {

@@ -7509,6 +7509,27 @@ body.theme-gentelella,
   box-shadow: 0 22px 50px rgba(27, 51, 80, 0.08);
 }
 
+.production-month-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #d8e4ef;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.production-month-form label {
+  color: #35516d;
+  font-weight: 800;
+}
+
+.production-month-form select {
+  min-width: 220px;
+  min-height: 42px;
+}
+
 .modal-production-goals {
   width: min(1180px, 98vw);
 }
@@ -10071,6 +10092,16 @@ body.theme-gentelella,
 }
 
 @media (max-width: 900px) {
+  .production-month-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .production-month-form select {
+    width: 100%;
+    min-width: 0;
+  }
+
   #reporteVentaModal .reporte-venta-filterbar {
     flex-direction: column;
     align-items: stretch;

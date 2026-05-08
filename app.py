@@ -1495,34 +1495,8 @@ def _production_goal_status(ratio: float) -> str:
     return "red"
 
 
-def _load_programas_mhc_snapshot() -> dict[str, object] | None:
-    def _load_programas_snapshot_json() -> dict[str, object] | None:
-        if not PROGRAMAS_MHC_SNAPSHOT_PATH.exists():
-            return None
-        try:
-            raw = json.loads(PROGRAMAS_MHC_SNAPSHOT_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            return None
-        if not isinstance(raw, dict):
-            return None
-        weeks = raw.get("weeks") or []
-        sections = raw.get("sections") or {}
-        if not isinstance(weeks, list) or not isinstance(sections, dict):
-            return None
-        return raw
-
-    if not PROGRAMAS_MHC_PATH.exists():
-        return _load_programas_snapshot_json()
-    try:
-        from openpyxl import load_workbook
-    except Exception:
-        return None
-    try:
-        wb = load_workbook(PROGRAMAS_MHC_PATH, data_only=True, read_only=True)
-    except Exception:
-        return _load_programas_snapshot_json()
-
-    month_aliases = {
+def _programas_month_aliases() -> dict[int, str]:
+    return {
         1: "enero",
         2: "febrero",
         3: "marzo",
@@ -1536,24 +1510,105 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
         11: "noviembre",
         12: "diciembre",
     }
+
+
+def _programas_month_sheet_entries(sheet_names: list[str]) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    month_aliases = _programas_month_aliases()
+    for name in sheet_names:
+        norm = _norm_text(name)
+        exact_match = re.fullmatch(
+            r"(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(20\d{2})",
+            norm,
+        )
+        if not exact_match:
+            continue
+        month_word = exact_match.group(1)
+        year_num = int(exact_match.group(2))
+        month_idx = next((idx for idx, alias in month_aliases.items() if alias == month_word), 0)
+        if not month_idx:
+            continue
+        entries.append(
+            {
+                "key": str(name),
+                "sheet_name": str(name),
+                "label": f"{month_aliases[month_idx].capitalize()} {year_num}",
+                "month_num": month_idx,
+                "year_num": year_num,
+            }
+        )
+    entries.sort(key=lambda item: (int(item["year_num"]), int(item["month_num"])))
+    return entries
+
+
+def _load_programas_mhc_month_options() -> list[dict[str, object]]:
+    if not PROGRAMAS_MHC_PATH.exists():
+        return []
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(PROGRAMAS_MHC_PATH, data_only=True, read_only=True)
+    except Exception:
+        return []
+    entries = _programas_month_sheet_entries(list(wb.sheetnames))
+    return entries[-2:] if len(entries) > 2 else entries
+
+
+def _load_programas_mhc_snapshot(selected_sheet: str = "") -> dict[str, object] | None:
+    def _load_programas_snapshot_json() -> dict[str, object] | None:
+        if not PROGRAMAS_MHC_SNAPSHOT_PATH.exists():
+            return None
+        try:
+            raw = json.loads(PROGRAMAS_MHC_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        if not isinstance(raw, dict):
+            return None
+        weeks = raw.get("weeks") or []
+        sections = raw.get("sections") or {}
+        if not isinstance(weeks, list) or not isinstance(sections, dict):
+            return None
+        month_options = raw.get("month_options") or []
+        if isinstance(month_options, list):
+            month_options = [dict(item) for item in month_options if isinstance(item, dict)]
+            month_options.sort(key=lambda item: (int(item.get("year_num") or 0), int(item.get("month_num") or 0)))
+            month_options = month_options[-2:] if len(month_options) > 2 else month_options
+            raw["month_options"] = month_options
+            selected_key = str(raw.get("selected_month_key") or raw.get("sheet_name") or "").strip()
+            if month_options and all(str(item.get("key") or "").strip() != selected_key for item in month_options):
+                raw["selected_month_key"] = str(month_options[-1].get("key") or "")
+                raw["sheet_name"] = str(month_options[-1].get("sheet_name") or raw.get("sheet_name") or "")
+        return raw
+
+    if not PROGRAMAS_MHC_PATH.exists():
+        return _load_programas_snapshot_json()
+    try:
+        from openpyxl import load_workbook
+    except Exception:
+        return None
+    try:
+        wb = load_workbook(PROGRAMAS_MHC_PATH, data_only=True, read_only=True)
+    except Exception:
+        return _load_programas_snapshot_json()
+
+    month_aliases = _programas_month_aliases()
     current_label = f"{month_aliases.get(date.today().month, '')} {date.today().year}".strip()
+    month_entries = _programas_month_sheet_entries(list(wb.sheetnames))
+    month_entries = month_entries[-2:] if len(month_entries) > 2 else month_entries
     sheet_name = None
-    for name in wb.sheetnames:
-        if _norm_text(name) == _norm_text(current_label):
-            sheet_name = name
-            break
+    selected_sheet = str(selected_sheet or "").strip()
+    if selected_sheet:
+        for item in month_entries:
+            if _norm_text(str(item.get("sheet_name") or "")) == _norm_text(selected_sheet):
+                sheet_name = str(item.get("sheet_name") or "")
+                break
     if not sheet_name:
-        candidates = []
         for name in wb.sheetnames:
-            norm = _norm_text(name)
-            if any(m in norm for m in month_aliases.values()):
-                y = re.search(r"(20\d{2})", norm)
-                year = int(y.group(1)) if y else 0
-                m_idx = next((k for k, v in month_aliases.items() if v in norm), 0)
-                candidates.append((year, m_idx, name))
-        if candidates:
-            candidates.sort()
-            sheet_name = candidates[-1][2]
+            if _norm_text(name) == _norm_text(current_label):
+                sheet_name = name
+                break
+    if not sheet_name:
+        if month_entries:
+            sheet_name = str(month_entries[-1].get("sheet_name") or "")
     if not sheet_name:
         return _load_programas_snapshot_json()
 
@@ -1648,6 +1703,8 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
 
     snapshot = {
         "sheet_name": sheet_name,
+        "month_options": month_entries,
+        "selected_month_key": sheet_name,
         "days_month": days_month,
         "days_elapsed": days_elapsed,
         "days_remaining": days_remaining,
@@ -1664,8 +1721,8 @@ def _load_programas_mhc_snapshot() -> dict[str, object] | None:
     return snapshot
 
 
-def _build_production_goals_summary() -> dict[str, object]:
-    snapshot = _load_programas_mhc_snapshot()
+def _build_production_goals_summary(selected_sheet: str = "") -> dict[str, object]:
+    snapshot = _load_programas_mhc_snapshot(selected_sheet)
     if snapshot and snapshot.get("sections"):
         sections_seed = []
         ordered = ["corte", "urrutia", "tierra_fuego", "lavanderia", "terminacion"]
@@ -1723,6 +1780,8 @@ def _build_production_goals_summary() -> dict[str, object]:
             overall_status = _production_goal_status(total_ratio)
             return {
                 "month_label": str(snapshot.get("sheet_name") or "Metas produccion"),
+                "selected_month_key": str(snapshot.get("selected_month_key") or snapshot.get("sheet_name") or ""),
+                "month_options": snapshot.get("month_options") or [],
                 "work_days": int(snapshot.get("days_month") or 0),
                 "projected_day": int(snapshot.get("days_elapsed") or 0),
                 "total_goal": total_goal,
@@ -1823,6 +1882,8 @@ def _build_production_goals_summary() -> dict[str, object]:
     overall_status = _production_goal_status(total_ratio)
     return {
         "month_label": "Abril 2026",
+        "selected_month_key": "Abril 2026",
+        "month_options": [],
         "work_days": 21,
         "projected_day": 4,
         "total_goal": total_goal,
@@ -1843,8 +1904,8 @@ def _build_production_goals_summary() -> dict[str, object]:
     }
 
 
-def _build_new_section_dashboard() -> dict[str, object]:
-    snapshot = _load_programas_mhc_snapshot()
+def _build_new_section_dashboard(selected_sheet: str = "") -> dict[str, object]:
+    snapshot = _load_programas_mhc_snapshot(selected_sheet)
     if snapshot and snapshot.get("sections") and snapshot.get("weeks"):
         sheet_name = str(snapshot.get("sheet_name") or "Metas produccion")
         m = re.search(r"(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(20\d{2})", _norm_text(sheet_name))
@@ -1942,6 +2003,8 @@ def _build_new_section_dashboard() -> dict[str, object]:
 
         return {
             "month_title": sheet_name,
+            "selected_month_key": str(snapshot.get("selected_month_key") or sheet_name),
+            "month_options": snapshot.get("month_options") or [],
             "sheet_reference": "Formato base: 1_PROGRAMAS DE PRODUCCION MHC",
             "days_month": days_month,
             "days_remaining": days_remaining,
@@ -2083,6 +2146,8 @@ def _build_new_section_dashboard() -> dict[str, object]:
 
     return {
         "month_title": "Abril 2026",
+        "selected_month_key": "Abril 2026",
+        "month_options": [],
         "sheet_reference": "Formato base: 1_PROGRAMAS DE PRODUCCION MHC",
         "days_month": days_month,
         "days_remaining": days_remaining,
@@ -2098,8 +2163,8 @@ def _build_new_section_dashboard() -> dict[str, object]:
     }
 
 
-def _build_excel_preview_dashboard() -> dict[str, object]:
-    snapshot = _load_programas_mhc_snapshot()
+def _build_excel_preview_dashboard(selected_sheet: str = "") -> dict[str, object]:
+    snapshot = _load_programas_mhc_snapshot(selected_sheet)
     if snapshot and snapshot.get("sections") and snapshot.get("weeks"):
         sheet_name = str(snapshot.get("sheet_name") or "Metas produccion")
         m = re.search(r"(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(20\d{2})", _norm_text(sheet_name))
@@ -2191,6 +2256,8 @@ def _build_excel_preview_dashboard() -> dict[str, object]:
             )
         return {
             "title": f"MES DE PROCESO {str(sheet_name).upper()}",
+            "selected_month_key": str(snapshot.get("selected_month_key") or sheet_name),
+            "month_options": snapshot.get("month_options") or [],
             "days_note": f"Dias habiles del mes: {int(snapshot.get('days_month') or 0)}",
             "columns": area_meta,
             "weeks": week_defs,
@@ -2324,10 +2391,32 @@ def _build_excel_preview_dashboard() -> dict[str, object]:
 
     return {
         "title": "MES DE PROCESO ABRIL 2026",
+        "selected_month_key": "Abril 2026",
+        "month_options": [],
         "days_note": "Días hábiles restantes de 21",
         "columns": area_meta,
         "weeks": week_defs,
         "summary_rows": summary_rows,
+    }
+
+
+def _build_excel_preview_dashboards_bundle() -> dict[str, object]:
+    default_dashboard = _build_excel_preview_dashboard()
+    month_options = [dict(item) for item in (default_dashboard.get("month_options") or [])]
+    dashboards_by_month: dict[str, dict[str, object]] = {}
+    if month_options:
+        for option in month_options:
+            key = str(option.get("key") or "").strip()
+            if not key:
+                continue
+            dashboards_by_month[key] = _build_excel_preview_dashboard(key)
+    else:
+        key = str(default_dashboard.get("selected_month_key") or "Abril 2026")
+        dashboards_by_month[key] = default_dashboard
+    return {
+        "month_options": month_options,
+        "selected_month_key": str(default_dashboard.get("selected_month_key") or ""),
+        "dashboards": dashboards_by_month,
     }
 
 
@@ -3086,6 +3175,16 @@ def _ventas_docs_file() -> Path | None:
 def _seed_upload_target(filename: str) -> Path | None:
     raw_name = Path(str(filename or "")).name
     normalized = raw_name.upper()
+    if normalized == "DETALLEV.TXT":
+        return SEED_DETALLEV
+    if normalized == "COMPARATIVO.TXT":
+        return SEED_COMPARATIVO
+    if normalized == "DEUDAS_VENCIDAS.CSV":
+        return SEED_DEUDAS
+    if normalized == "PEDIDOSXTALLA.TXT":
+        return SEED_PEDIDOS
+    if normalized == "PEDIDOS.TXT":
+        return SEED_PEDIDOS_DETALLE
     if normalized.startswith("VENTAS-TOD-") and normalized.endswith(".CSV"):
         return SEED_VENTAS_DOCS
     if normalized.startswith("INVENTARIO") and normalized.endswith(".XLSX"):
@@ -4857,6 +4956,8 @@ def index():
         assistant_provider = "gemini"
     else:
         assistant_provider = "local"
+    programas_month = str(request.args.get("programas_month") or "").strip()
+    open_modal = str(request.args.get("open_modal") or "").strip()
     if not ASSISTANT_ENABLED:
         assistant_provider = "off"
     filters = {
@@ -5227,9 +5328,10 @@ def index():
     muestras_con_etapas = sum(1 for row in muestras_rows if str(row.get("etapas_fechas_detalle") or "-") != "-")
     upload_debug = session.pop("upload_debug", "")
     proyeccion_state = _load_proyeccion_state()
-    production_goals = _build_production_goals_summary()
-    production_daily_dashboard = _build_new_section_dashboard()
-    excel_preview_dashboard = _build_excel_preview_dashboard()
+    production_goals = _build_production_goals_summary(programas_month)
+    production_daily_dashboard = _build_new_section_dashboard(programas_month)
+    excel_preview_dashboard = _build_excel_preview_dashboard(programas_month)
+    excel_preview_dashboards = _build_excel_preview_dashboards_bundle()
     local_preview_enabled = _is_local_request()
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
@@ -5272,6 +5374,7 @@ def index():
         production_goals=production_goals,
         production_daily_dashboard=production_daily_dashboard,
         excel_preview_dashboard=excel_preview_dashboard,
+        excel_preview_dashboards=excel_preview_dashboards,
         local_preview_enabled=local_preview_enabled,
         can_upload=_can_upload(),
         inventory_manage_enabled=inventory_manage_enabled,
@@ -5284,6 +5387,7 @@ def index():
         full_table_totals=full_table_totals,
         full_table_temporadas=full_table_temporadas,
         venta_despacho_dashboard=venta_despacho_dashboard,
+        ui_state={"open_modal": open_modal, "programas_month": programas_month},
     )
 
 
@@ -5351,6 +5455,11 @@ def upload():
             seed_target.parent.mkdir(parents=True, exist_ok=True)
             seed_target.write_bytes(content)
 
+        if seed_target in {SEED_DETALLEV, SEED_VENTAS_DOCS, SEED_PEDIDOS_DETALLE}:
+            session.pop("upload_debug", None)
+            flash(f"Archivo {Path(filename).name} guardado en seed con exito.", "success")
+            return redirect(url_for("index"))
+
         if seed_target == INVENTORY_BOOK_SEED_PATH:
             parsed_rows, _, err = _load_inventory_rows_from_excel_bytes(content, Path(filename).name)
             if not parsed_rows:
@@ -5368,10 +5477,6 @@ def upload():
         kind = parsed["kind"]
         rows = parsed["rows"]
         if kind == "ventas_docs":
-            session.pop("upload_debug", None)
-            flash(f"Archivo {Path(filename).name} guardado en seed con exito.", "success")
-            return redirect(url_for("index"))
-        if kind == "saldos" and not rows and seed_target == SEED_VENTAS_DOCS:
             session.pop("upload_debug", None)
             flash(f"Archivo {Path(filename).name} guardado en seed con exito.", "success")
             return redirect(url_for("index"))
