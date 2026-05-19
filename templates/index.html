@@ -31,6 +31,7 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openProductionGoalsModal">Metas produccion</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProductionExcelModal">Modelo Excel metas</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openInventoryBookModal">Stock bodega</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openTrazabilidadOpModal">Trazabilidad OP</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
@@ -179,6 +180,11 @@
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openFullTableModal">
           <h2>Tabla completa</h2>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openTrazabilidadOpModal">
+          <h2>Trazabilidad OP</h2>
         </button>
       </article>
     </section>
@@ -847,6 +853,136 @@
       </section>
     </dialog>
 
+    <dialog id="trazabilidadOpModal" class="modal modal-full-table">
+      <div class="modal-head">
+        <div>
+          <h3>Trazabilidad OP</h3>
+          <p class="venta-despacho-modal-copy">Seguimiento por articulo, desde muestra hasta produccion.</p>
+        </div>
+        <button type="button" id="closeTrazabilidadOpModal" class="modal-close">Cerrar</button>
+      </div>
+      {% if trazabilidad_op_dashboard and trazabilidad_op_dashboard.available %}
+      <section class="modal-kpis">
+        <article>
+          <h4>Articulos</h4>
+          <p>{{ trazabilidad_op_dashboard.articles_count|miles }}</p>
+          <small>{{ trazabilidad_op_dashboard.total_rows|miles }} OCs leidas</small>
+        </article>
+        <article>
+          <h4>Con reproceso</h4>
+          <p>{{ trazabilidad_op_dashboard.multi_step_count|miles }}</p>
+          <small>M1, M2 o mas pasos</small>
+        </article>
+        <article>
+          <h4>Muestras</h4>
+          <p>{{ trazabilidad_op_dashboard.sample_steps_count|miles }}</p>
+          <small>Registros tipo muestra</small>
+        </article>
+        <article>
+          <h4>Produccion / SET</h4>
+          <p>{{ (trazabilidad_op_dashboard.normal_steps_count + trazabilidad_op_dashboard.set_steps_count)|miles }}</p>
+          <small>Pasos finales o relacionados</small>
+        </article>
+      </section>
+      <section class="table-wrap bodega-wrap">
+        <div class="table-tools full-table-tools">
+          <label for="trazabilidadOpSearch">Articulo:</label>
+          <input id="trazabilidadOpSearch" type="text" placeholder="Ej: 01421800" autocomplete="off">
+          <span class="table-hint" id="trazabilidadOpSearchCount">{{ trazabilidad_op_dashboard.article_groups|length|miles }} articulos</span>
+        </div>
+        <table class="bodega-table bodega-table-compact" id="trazabilidadOpTable">
+          <thead>
+            <tr>
+              <th>Articulo</th>
+              <th>Flujo</th>
+              <th class="num">OCs</th>
+              <th class="num">Programado</th>
+              <th class="num">Cortado</th>
+              <th class="num">Entregado</th>
+              <th class="num">Saldo</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in trazabilidad_op_dashboard.article_groups %}
+            <tr data-articulo="{{ group.articulo }}">
+              <td><strong>{{ group.articulo }}</strong><br><small>{{ group.status }}</small></td>
+              <td>{{ group.flow_label }}</td>
+              <td class="num">{{ group.steps_count|miles }}</td>
+              <td class="num">{{ group.programado|miles }}</td>
+              <td class="num">{{ group.cortado|miles }}</td>
+              <td class="num">{{ group.entregado|miles }}</td>
+              <td class="num">{{ group.saldo|miles }}</td>
+              <td>
+                <button type="button" class="trace-open-detail-btn" data-trace-detail-open="traceDetail{{ loop.index }}">
+                  Ver OCs
+                </button>
+                <template id="traceDetail{{ loop.index }}">
+                  <div class="trace-detail-modal-head">
+                    <div>
+                      <h3>Articulo {{ group.articulo }}</h3>
+                      <p>{{ group.flow_label }} - {{ group.steps_count|miles }} OCs</p>
+                    </div>
+                    <div class="trace-detail-summary">
+                      <span>Prog. <b>{{ group.programado|miles }}</b></span>
+                      <span>Cort. <b>{{ group.cortado|miles }}</b></span>
+                      <span>Ent. <b>{{ group.entregado|miles }}</b></span>
+                      <span>Saldo <b>{{ group.saldo|miles }}</b></span>
+                    </div>
+                  </div>
+                  <div class="full-table-mini-list">
+                    {% for step in group.steps %}
+                    <article class="trace-step-card">
+                      <div class="trace-step-head">
+                        <strong>{{ step.sequence_label }}</strong>
+                        <span>OC {{ step.oc }}</span>
+                        <small>{{ step.tipo }} - {{ step.fecha_label }}</small>
+                      </div>
+                      <div class="trace-step-status {% if step.current_stage == 'Salio' %}is-done{% endif %}">
+                        {{ step.current_state }}
+                      </div>
+                      <div class="trace-step-metrics">
+                        <span>Prog. <b>{{ step.programado|miles }}</b></span>
+                        <span>Cort. <b>{{ step.cortado|miles }}</b></span>
+                        <span>Ent. <b>{{ step.entregado|miles }}</b></span>
+                        <span>Saldo <b>{{ step.saldo|miles }}</b></span>
+                      </div>
+                    {% if step.stages %}
+                    <div class="trace-stage-list">
+                      {% for stage in step.stages %}
+                      <span class="trace-stage-chip {% if stage.is_current %}is-current{% elif stage.is_finished_out %}is-done{% endif %}">
+                        <strong>{{ stage.name }}</strong>
+                        {{ stage.start }} -> {{ stage.end }}
+                        | cant. {{ stage.pending|miles }}
+                        | {{ stage.label }}
+                      </span>
+                      {% endfor %}
+                    </div>
+                    {% endif %}
+                    </article>
+                    {% endfor %}
+                  </div>
+                </template>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% else %}
+      <section class="table-wrap bodega-wrap">
+        <p class="empty">No se encontro data valida en TRAZABILIDAD_OP.TXT.</p>
+      </section>
+      {% endif %}
+    </dialog>
+
+    <dialog id="trazabilidadOpDetailModal" class="modal trace-detail-modal">
+      <div class="trace-detail-shell">
+        <button type="button" id="closeTrazabilidadOpDetailModal" class="row-detail-close" aria-label="Cerrar">X</button>
+        <div id="trazabilidadOpDetailBody"></div>
+      </div>
+    </dialog>
+
     <dialog id="fullTableModal" class="modal modal-full-table">
       <div class="modal-head">
         <h3>Tabla completa</h3>
@@ -1272,7 +1408,7 @@
         <div>
           <h3>Reporte Venta</h3>
           <p class="venta-despacho-modal-copy">
-            Resumen comercial construido desde DETALLEV con apoyo de VENTAS-TOD para tipos de pago.
+            Resumen comercial construido solo desde DETALLEV, incluyendo tipos de pago.
             {% if plan and plan.source_cutoff_label %}
             Corte ventas: {{ plan.source_cutoff_label }}.
             {% endif %}
@@ -1370,7 +1506,7 @@
           </table>
         </section>
         <section class="table-wrap bodega-wrap">
-          <p class="table-hint">Tipos de pago leidos directamente desde VENTAS-TOD.</p>
+          <p class="table-hint">Tipos de pago leidos directamente desde DETALLEV.</p>
           <table class="bodega-table bodega-table-compact" id="reporteVentaPagosTable">
             <thead>
               <tr>
@@ -2403,6 +2539,7 @@
         openProductionGoalsModal: "productionGoalsDailyModal",
         openProductionExcelModal: "productionExcelModal",
         openInventoryBookModal: "inventoryBookModal",
+        openTrazabilidadOpModal: "trazabilidadOpModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
@@ -2418,6 +2555,7 @@
         openProductionGoalsModal: "productionGoalsDailyModal",
         openProductionExcelModal: "productionExcelModal",
         openInventoryBookModal: "inventoryBookModal",
+        openTrazabilidadOpModal: "trazabilidadOpModal",
         openBodegaModal: "bodegaModal",
         openFullTableModal: "fullTableModal",
         openDisponiblesModal: "disponiblesModal",
@@ -3909,6 +4047,53 @@
           ${xLabels}
         </svg>
       `;
+    })();
+
+    (function () {
+      const modal = document.getElementById("trazabilidadOpModal");
+      const closeBtn = document.getElementById("closeTrazabilidadOpModal");
+      if (!modal || !closeBtn) return;
+      const searchInput = document.getElementById("trazabilidadOpSearch");
+      const countEl = document.getElementById("trazabilidadOpSearchCount");
+      const rows = Array.from(document.querySelectorAll("#trazabilidadOpTable tbody tr[data-articulo]"));
+      const detailModal = document.getElementById("trazabilidadOpDetailModal");
+      const detailBody = document.getElementById("trazabilidadOpDetailBody");
+      const detailCloseBtn = document.getElementById("closeTrazabilidadOpDetailModal");
+      const applyFilter = () => {
+        const query = String(searchInput?.value || "").trim().toUpperCase();
+        let visible = 0;
+        rows.forEach((row) => {
+          const articulo = String(row.getAttribute("data-articulo") || "").toUpperCase();
+          const show = !query || articulo.includes(query);
+          row.hidden = !show;
+          if (show) visible += 1;
+        });
+        if (countEl) countEl.textContent = `${visible.toLocaleString("es-CL")} articulos`;
+      };
+      if (searchInput) {
+        searchInput.addEventListener("input", applyFilter);
+        modal.addEventListener("close", () => {
+          searchInput.value = "";
+          applyFilter();
+        });
+      }
+      document.querySelectorAll("[data-trace-detail-open]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const templateId = String(btn.getAttribute("data-trace-detail-open") || "");
+          const template = document.getElementById(templateId);
+          if (!detailModal || !detailBody || !(template instanceof HTMLTemplateElement)) return;
+          detailBody.innerHTML = "";
+          detailBody.appendChild(template.content.cloneNode(true));
+          detailModal.showModal();
+        });
+      });
+      if (detailCloseBtn && detailModal) {
+        detailCloseBtn.addEventListener("click", () => detailModal.close());
+        detailModal.addEventListener("click", (event) => {
+          if (event.target === detailModal) detailModal.close();
+        });
+      }
+      closeBtn.addEventListener("click", () => modal.close());
     })();
 
     (function () {

@@ -62,8 +62,17 @@ from parsers import parse_corte_etapas_txt
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
+
+
+def _default_sqlite_path() -> str:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        return str(Path(local_app_data) / "AdecomWeb" / "adecom.db")
+    return str(BASE_DIR / "data" / "adecom.db")
+
+
 DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
-    "ADECOM_DB_PATH", str(BASE_DIR / "data" / "adecom.db")
+    "ADECOM_DB_PATH", _default_sqlite_path()
 )
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
@@ -3647,6 +3656,210 @@ def _load_ventas_docs_summary() -> dict:
     }
 
 
+def _load_trazabilidad_op_dashboard() -> dict[str, object]:
+    path = SEED_DIR / "TRAZABILIDAD_OP.TXT"
+    base: dict[str, object] = {
+        "available": False,
+        "file_name": path.name,
+        "total_rows": 0,
+        "articles_count": 0,
+        "multi_step_count": 0,
+        "sample_steps_count": 0,
+        "normal_steps_count": 0,
+        "set_steps_count": 0,
+        "article_groups": [],
+    }
+    if not path.exists() or not path.is_file() or path.stat().st_size <= 0:
+        return base
+
+    raw_text = _detailv_decode(path)
+    reader = csv.reader(io.StringIO(raw_text), delimiter=";")
+    raw_rows = list(reader)
+    if len(raw_rows) <= 1:
+        return base
+
+    def _part(parts: list[str], idx: int) -> str:
+        return str(parts[idx] if idx < len(parts) else "").strip()
+
+    def _date_label(value: object) -> str:
+        iso = _pedidos_detalle_date(value)
+        if not iso:
+            return ""
+        try:
+            return datetime.strptime(iso, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except ValueError:
+            return str(value or "").strip()
+
+    def _stage(parts: list[str], name: str, idx: int) -> dict[str, object] | None:
+        start_iso = _pedidos_detalle_date(_part(parts, idx))
+        end_iso = _pedidos_detalle_date(_part(parts, idx + 1))
+        start = _date_label(_part(parts, idx))
+        end = _date_label(_part(parts, idx + 1))
+        pending = _to_int(_part(parts, idx + 2))
+        days = _to_int(_part(parts, idx + 3))
+        if not start_iso and not end_iso and pending <= 0 and days <= 0:
+            return None
+        is_finished_out = name == "Terminacion" and bool(start_iso) and pending <= 0
+        is_current = bool(start_iso and not end_iso and pending > 0)
+        days_display = days
+        if is_current:
+            try:
+                start_date = datetime.strptime(start_iso, "%Y-%m-%d").date()
+                days_display = max((date.today() - start_date).days + 1, days, 1)
+            except ValueError:
+                days_display = max(days, 1)
+        label = "Salio" if is_finished_out else (f"Lleva {days_display} dias" if is_current else f"{days_display} dias")
+        return {
+            "name": name,
+            "start": start or "-",
+            "end": end or "-",
+            "pending": pending,
+            "days": days,
+            "days_display": days_display,
+            "is_current": is_current,
+            "is_finished_out": is_finished_out,
+            "label": label,
+        }
+
+    groups: dict[str, dict[str, object]] = {}
+    all_entries: list[dict[str, object]] = []
+    for raw in raw_rows[1:]:
+        if not raw or not any(str(cell or "").strip() for cell in raw):
+            continue
+        articulo = _part(raw, 4)
+        if not articulo:
+            continue
+        tipo = _part(raw, 1).upper() or "-"
+        fecha_iso = _pedidos_detalle_date(_part(raw, 3)) or ""
+        oc = _part(raw, 0)
+        programado = _to_int(_part(raw, 5))
+        cortado = _to_int(_part(raw, 6))
+        entregado = _to_int(_part(raw, 7))
+        saldo = _to_int(_part(raw, 8))
+        stages = [
+            item
+            for item in (
+                _stage(raw, "Corte", 9),
+                _stage(raw, "Taller", 13),
+                _stage(raw, "Taller Ext.", 17),
+                _stage(raw, "Limpiado", 21),
+                _stage(raw, "Lavanderia", 25),
+                _stage(raw, "Terminacion", 29),
+            )
+            if item
+        ]
+        current_stage = "-"
+        current_state = "Sin movimiento"
+        for stage in reversed(stages):
+            if bool(stage.get("is_current")) or int(stage.get("pending") or 0) > 0:
+                current_stage = str(stage.get("name") or "-")
+                current_state = f"En {current_stage}"
+                break
+        if current_stage == "-" and stages:
+            last_stage = stages[-1]
+            if bool(last_stage.get("is_finished_out")):
+                current_stage = "Salio"
+                current_state = "Salio de terminacion"
+            else:
+                current_stage = str(last_stage.get("name") or "-")
+                current_state = f"Finalizo {current_stage}"
+
+        entry = {
+            "oc": oc,
+            "tipo": tipo,
+            "fecha": fecha_iso,
+            "fecha_label": _date_label(_part(raw, 3)) or "-",
+            "articulo": articulo,
+            "programado": programado,
+            "cortado": cortado,
+            "entregado": entregado,
+            "saldo": saldo,
+            "current_stage": current_stage,
+            "current_state": current_state,
+            "stages": stages,
+            "sequence_label": "",
+            "sort_key": (fecha_iso or "9999-99-99", oc),
+        }
+        all_entries.append(entry)
+        group = groups.setdefault(
+            articulo,
+            {
+                "articulo": articulo,
+                "steps": [],
+                "programado": 0,
+                "cortado": 0,
+                "entregado": 0,
+                "saldo": 0,
+                "latest_date": "",
+                "latest_date_label": "-",
+            },
+        )
+        group["steps"].append(entry)
+        group["programado"] = int(group["programado"]) + programado
+        group["cortado"] = int(group["cortado"]) + cortado
+        group["entregado"] = int(group["entregado"]) + entregado
+        group["saldo"] = int(group["saldo"]) + saldo
+        if fecha_iso and fecha_iso > str(group.get("latest_date") or ""):
+            group["latest_date"] = fecha_iso
+            group["latest_date_label"] = entry["fecha_label"]
+
+    def _trace_step_priority(item: dict[str, object]) -> tuple[int, str, str]:
+        tipo = str(item.get("tipo") or "").upper()
+        if "MUESTRA" in tipo:
+            priority = 0
+        elif "SET" in tipo:
+            priority = 1
+        elif "PRODUCCION" in tipo:
+            priority = 2
+        else:
+            priority = 3
+        return (priority, str(item.get("fecha") or "9999-99-99"), str(item.get("oc") or ""))
+
+    for group in groups.values():
+        steps = sorted(group["steps"], key=_trace_step_priority)
+        muestra_idx = 0
+        flow_labels: list[str] = []
+        for item in steps:
+            tipo = str(item.get("tipo") or "").upper()
+            if "MUESTRA" in tipo:
+                muestra_idx += 1
+                label = f"M{muestra_idx}"
+            elif "SET" in tipo:
+                label = "SET"
+            elif "PRODUCCION" in tipo:
+                label = "Produccion"
+            else:
+                label = tipo.title() or "-"
+            item["sequence_label"] = label
+            flow_labels.append(label)
+        group["steps"] = steps
+        group["flow_label"] = " > ".join(flow_labels)
+        group["steps_count"] = len(steps)
+        group["has_reprocess"] = len(steps) > 1
+        group["status"] = "Con saldo" if int(group.get("saldo") or 0) > 0 else "Sin saldo"
+
+    article_groups = sorted(
+        groups.values(),
+        key=lambda item: (
+            0 if bool(item.get("has_reprocess")) else 1,
+            str(item.get("articulo") or ""),
+        ),
+    )
+    base.update(
+        {
+            "available": bool(article_groups),
+            "total_rows": len(all_entries),
+            "articles_count": len(article_groups),
+            "multi_step_count": sum(1 for item in article_groups if bool(item.get("has_reprocess"))),
+            "sample_steps_count": sum(1 for item in all_entries if "MUESTRA" in str(item.get("tipo") or "")),
+            "normal_steps_count": sum(1 for item in all_entries if "PRODUCCION" in str(item.get("tipo") or "")),
+            "set_steps_count": sum(1 for item in all_entries if "SET" in str(item.get("tipo") or "")),
+            "article_groups": article_groups,
+        }
+    )
+    return base
+
+
 def _commercial_norm(value: object) -> str:
     text = str(value or "").strip().upper()
     normalized = unicodedata.normalize("NFKD", text)
@@ -4289,21 +4502,30 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
     if len(raw_lines) <= 1:
         return base
 
-    detailv_lookup, payment_by_rut, payment_by_client = _build_detailv_doc_lookup()
+    header_parts = [str(item or "").strip() for item in raw_lines[0].split(";")]
+    header_index = {_commercial_norm(name): idx for idx, name in enumerate(header_parts)}
+
+    def _detailv_part(parts: list[str], header: str, fallback_idx: int, default: str = "") -> str:
+        idx = header_index.get(_commercial_norm(header), fallback_idx)
+        if 0 <= idx < len(parts):
+            return str(parts[idx] or "").strip()
+        return default
+
     entries: list[dict[str, object]] = []
     dates: list[str] = []
     for line in raw_lines[1:]:
         parts = [str(item or "").strip() for item in line.split(";")]
         if len(parts) < 8:
             continue
-        raw_type = parts[0]
-        doc = parts[1]
-        fecha_iso = _pedidos_detalle_date(parts[2])
-        rut = parts[3]
-        cliente = parts[4] or "-"
-        vendor = parts[5] or "Sin vendedor"
-        cantidad = _to_int(parts[6])
-        gross_total = _to_int(parts[7])
+        raw_type = _detailv_part(parts, "Tipo", 0)
+        doc = _detailv_part(parts, "Dcto", 1)
+        fecha_iso = _pedidos_detalle_date(_detailv_part(parts, "Fecha", 2))
+        rut = _detailv_part(parts, "RUT", 3)
+        cliente = _detailv_part(parts, "Razon Social", 4) or "-"
+        vendor = _detailv_part(parts, "Vendedor", 5) or "Sin vendedor"
+        cantidad = _to_int(_detailv_part(parts, "prendas", 6))
+        gross_total = _to_int(_detailv_part(parts, "Total", 7))
+        payment = _detailv_part(parts, "F.Pago", 9)
         if not doc or not fecha_iso:
             continue
         net_total, iva_total = _gross_to_net_iva(gross_total, raw_type)
@@ -4311,14 +4533,6 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
         if fecha_iso:
             week_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
             week_key = f"{fecha_iso[:7]}-W{_week_of_month(week_date)}"
-        lookup = detailv_lookup.get(doc, {})
-        client_key = cliente.upper()
-        rut_key = "".join(ch for ch in rut.upper() if ch.isalnum())
-        payment = str(lookup.get("fpago") or "").strip()
-        if not payment and rut_key:
-            payment = str(payment_by_rut.get(rut_key) or "").strip()
-        if not payment and client_key:
-            payment = str(payment_by_client.get(client_key) or "").strip()
         dates.append(fecha_iso)
         entries.append(
             {
@@ -4333,7 +4547,7 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
                 "branch_label": "Todas",
                 "rut": rut,
                 "cliente": cliente,
-                "vendor": str(lookup.get("vendedor") or vendor or "Sin vendedor"),
+                "vendor": vendor,
                 "payment": payment or "Sin forma de pago",
                 "cantidad": cantidad,
                 "net": net_total,
@@ -5336,6 +5550,7 @@ def index():
     ventas_docs_summary = _load_ventas_docs_summary()
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     inventory_book = _load_inventory_book_dashboard()
+    trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
     venta_despacho_dashboard = _load_venta_despacho_dashboard(rows)
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
@@ -5383,6 +5598,7 @@ def index():
         assistant_provider=assistant_provider,
         ventas_docs_summary=ventas_docs_summary,
         inventory_book=inventory_book,
+        trazabilidad_op_dashboard=trazabilidad_op_dashboard,
         full_table_rows=full_table_rows,
         full_table_totals=full_table_totals,
         full_table_temporadas=full_table_temporadas,

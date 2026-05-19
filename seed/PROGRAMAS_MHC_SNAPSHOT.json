@@ -26,16 +26,16 @@
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 630.0,
-      "daily_avg": 630.0
+      "actual": 2426.0,
+      "daily_avg": 2426.0
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 300.0,
       "meta_month": 6000.0,
       "projected": 300.0,
-      "actual": 904.0,
-      "daily_avg": 904.0
+      "actual": 1836.0,
+      "daily_avg": 1836.0
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -50,16 +50,16 @@
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 1278.0,
-      "daily_avg": 1278.0
+      "actual": 2917.0,
+      "daily_avg": 2917.0
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 1552.0,
-      "daily_avg": 1552.0
+      "actual": 3921.0,
+      "daily_avg": 3921.0
     }
   },
   "weeks": [
@@ -134,11 +134,11 @@
             326,
             326,
             326,
-            null,
+            326,
             null,
             null
           ],
-          "total": 1278
+          "total": 1604
         },
         {
           "key": "terminacion",
@@ -148,11 +148,11 @@
             415,
             450,
             250,
-            null,
+            299,
             null,
             null
           ],
-          "total": 1552
+          "total": 1851
         }
       ]
     },
@@ -181,29 +181,29 @@
           "key": "corte",
           "name": "Corte",
           "values": [
-            null,
-            null,
-            null,
-            null,
+            498,
+            498,
+            200,
+            600,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 1796
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
-            null,
-            null,
-            null,
-            null,
-            null,
+            202,
+            132,
+            250,
+            248,
+            100,
             null,
             null
           ],
-          "total": 0
+          "total": 932
         },
         {
           "key": "sur",
@@ -224,28 +224,28 @@
           "name": "Lavanderia",
           "values": [
             null,
+            600,
+            113,
             null,
-            null,
-            null,
-            null,
+            600,
             null,
             null
           ],
-          "total": 0
+          "total": 1313
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
-            null,
-            null,
-            null,
-            null,
-            null,
+            382,
+            402,
+            319,
+            469,
+            498,
             null,
             null
           ],
-          "total": 0
+          "total": 2070
         }
       ]
     },

@@ -3,4 +3,6 @@ __pycache__/
 .venv/
 uploads/
 data/*.db
+data/*.db-journal
+seed/1_PROGRAMAS DE PRODUCCION MHC .xlsx
 .env
