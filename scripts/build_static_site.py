@@ -20,6 +20,18 @@ import app as app_module
 STATIC_BRIDGE_SCRIPT = """
 <script>
 (() => {
+  const ACCESS_KEY = "adecom-web";
+  const STORAGE_KEY = "adecom_static_access_ok";
+  const authed = window.localStorage.getItem(STORAGE_KEY) === "1";
+  if (!authed) {
+    document.documentElement.classList.add("static-auth-locked");
+  }
+
+  const unlock = () => {
+    window.localStorage.setItem(STORAGE_KEY, "1");
+    document.documentElement.classList.remove("static-auth-locked");
+  };
+
   document.querySelectorAll('form[action="#"]').forEach((form) => {
     form.addEventListener("submit", (event) => event.preventDefault());
   });
@@ -28,6 +40,32 @@ STATIC_BRIDGE_SCRIPT = """
   const input = document.getElementById("articuloExactInput");
   const resetLink = document.querySelector(".search-reset-btn");
   const openFullTableBtn = document.getElementById("openFullTableModal");
+  const staticLoginForm = document.getElementById("staticLoginForm");
+  const staticLoginInput = document.getElementById("staticLoginPassword");
+  const staticLoginError = document.getElementById("staticLoginError");
+  const staticLogoutBtn = document.getElementById("staticLogoutBtn");
+
+  if (staticLoginForm && staticLoginInput) {
+    staticLoginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (String(staticLoginInput.value || "").trim() === ACCESS_KEY) {
+        unlock();
+        staticLoginInput.value = "";
+        if (staticLoginError) staticLoginError.textContent = "";
+        return;
+      }
+      if (staticLoginError) staticLoginError.textContent = "Clave incorrecta.";
+      staticLoginInput.select();
+    });
+  }
+
+  if (staticLogoutBtn) {
+    staticLogoutBtn.addEventListener("click", () => {
+      window.localStorage.removeItem(STORAGE_KEY);
+      document.documentElement.classList.add("static-auth-locked");
+      if (staticLoginInput) staticLoginInput.focus();
+    });
+  }
 
   if (resetLink) {
     resetLink.setAttribute("href", "#");
@@ -64,6 +102,19 @@ STATIC_BRIDGE_SCRIPT = """
 </script>
 """
 
+STATIC_AUTH_HTML = """
+<div class="static-auth-gate" id="staticAuthGate">
+  <form class="static-auth-card" id="staticLoginForm">
+    <span class="static-auth-mark">A</span>
+    <h1>ADECOM WEB</h1>
+    <p>Ingrese su clave para continuar.</p>
+    <input id="staticLoginPassword" type="password" autocomplete="current-password" placeholder="Clave">
+    <button type="submit">Entrar</button>
+    <small id="staticLoginError"></small>
+  </form>
+</div>
+"""
+
 def _render_main_html() -> str:
     app_module.ASSISTANT_ENABLED = False
     app_module.ensure_seed_data()
@@ -79,9 +130,15 @@ def _render_main_html() -> str:
 def _postprocess_main_html(html: str) -> str:
     html = html.replace('href="/static/styles.css"', 'href="styles.css"')
     html = html.replace('<body class="theme-gentelella">', '<body class="theme-gentelella static-export">')
+    html = html.replace('<body class="theme-gentelella static-export">', f'<body class="theme-gentelella static-export">{STATIC_AUTH_HTML}')
     html = html.replace('action="/logout"', 'action="#"')
     html = html.replace('action="/"', 'action="#"')
     html = html.replace('href="/" class="btn-ghost search-reset-btn"', 'href="#" class="btn-ghost search-reset-btn"')
+    html = html.replace(
+        '<div class="top-nav-actions">',
+        '<div class="top-nav-actions"><button type="button" class="top-logout-btn static-logout-btn" id="staticLogoutBtn">Cerrar sesion</button>',
+        1,
+    )
     html = re.sub(
         r'<form method="post" action="/logout" class="upload-quick-form">\s*<button type="submit" class="top-logout-btn">Salir</button>\s*</form>',
         "",
