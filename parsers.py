@@ -646,24 +646,25 @@ def _map_txt_row(raw: list[str]) -> dict | None:
     articulo = _clean_code(cells[0])
     corte = _clean_code(cells[1])
     fecha_iso = _parse_date(cells[2])
+    numeric_start = 5 if len(cells) >= 18 and not _looks_int(cells[3]) and _looks_int(cells[5]) else 3
 
     return {
         "articulo": articulo,
         "corte": corte,
         "fecha_iso": fecha_iso,
-        "programa": _to_int(cells[3] if len(cells) > 3 else "0"),
-        "proceso": _to_int(cells[4] if len(cells) > 4 else "0"),
-        "bodega": _to_int(cells[5] if len(cells) > 5 else "0"),
-        "saldo": _to_int(cells[6] if len(cells) > 6 else "0"),
-        "corte_1": _to_int(cells[7] if len(cells) > 7 else "0"),
-        "taller": _to_int(cells[8] if len(cells) > 8 else "0"),
-        "t_externo": _to_int(cells[9] if len(cells) > 9 else "0"),
-        "limpiado": _to_int(cells[10] if len(cells) > 10 else "0"),
-        "lavanderia": _to_int(cells[11] if len(cells) > 11 else "0"),
-        "terminacion": _to_int(cells[12] if len(cells) > 12 else "0"),
-        "muestra": _to_int(cells[13] if len(cells) > 13 else "0"),
-        "segunda": _to_int(cells[14] if len(cells) > 14 else "0"),
-        "taller_nombre": cells[15].strip() if len(cells) > 15 else "",
+        "programa": _to_int(cells[numeric_start] if len(cells) > numeric_start else "0"),
+        "proceso": _to_int(cells[numeric_start + 1] if len(cells) > numeric_start + 1 else "0"),
+        "bodega": _to_int(cells[numeric_start + 2] if len(cells) > numeric_start + 2 else "0"),
+        "saldo": _to_int(cells[numeric_start + 3] if len(cells) > numeric_start + 3 else "0"),
+        "corte_1": _to_int(cells[numeric_start + 4] if len(cells) > numeric_start + 4 else "0"),
+        "taller": _to_int(cells[numeric_start + 5] if len(cells) > numeric_start + 5 else "0"),
+        "t_externo": _to_int(cells[numeric_start + 6] if len(cells) > numeric_start + 6 else "0"),
+        "limpiado": _to_int(cells[numeric_start + 7] if len(cells) > numeric_start + 7 else "0"),
+        "lavanderia": _to_int(cells[numeric_start + 8] if len(cells) > numeric_start + 8 else "0"),
+        "terminacion": _to_int(cells[numeric_start + 9] if len(cells) > numeric_start + 9 else "0"),
+        "muestra": _to_int(cells[numeric_start + 10] if len(cells) > numeric_start + 10 else "0"),
+        "segunda": _to_int(cells[numeric_start + 11] if len(cells) > numeric_start + 11 else "0"),
+        "taller_nombre": cells[numeric_start + 12].strip() if len(cells) > numeric_start + 12 else "",
     }
 
 
@@ -680,6 +681,15 @@ def _to_int(value: str) -> int:
     except ValueError:
         digits = "".join(ch for ch in s if ch.isdigit())
         return int(digits) if digits else 0
+
+
+def _looks_int(value: str) -> bool:
+    s = str(value).strip().replace(".", "").replace(",", "")
+    if not s:
+        return False
+    if s.startswith("-"):
+        s = s[1:]
+    return s.isdigit()
 
 
 def _parse_excel_date(value: Any) -> str | None:
