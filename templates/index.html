@@ -894,6 +894,7 @@
           <thead>
             <tr>
               <th>Articulo</th>
+              <th>Ultima fecha</th>
               <th>Flujo</th>
               <th class="num">OCs</th>
               <th class="num">Programado</th>
@@ -907,6 +908,7 @@
             {% for group in trazabilidad_op_dashboard.article_groups %}
             <tr data-articulo="{{ group.articulo }}">
               <td><strong>{{ group.articulo }}</strong><br><small>{{ group.status }}</small></td>
+              <td>{{ group.latest_date_label }}</td>
               <td>{{ group.flow_label }}</td>
               <td class="num">{{ group.steps_count|miles }}</td>
               <td class="num">{{ group.programado|miles }}</td>

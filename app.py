@@ -3841,9 +3841,11 @@ def _load_trazabilidad_op_dashboard() -> dict[str, object]:
     article_groups = sorted(
         groups.values(),
         key=lambda item: (
+            str(item.get("latest_date") or ""),
             0 if bool(item.get("has_reprocess")) else 1,
             str(item.get("articulo") or ""),
         ),
+        reverse=True,
     )
     base.update(
         {
