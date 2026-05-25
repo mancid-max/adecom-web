@@ -26,16 +26,16 @@
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 2426.0,
-      "daily_avg": 2426.0
+      "actual": 3908.0,
+      "daily_avg": 3908.0
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 300.0,
       "meta_month": 6000.0,
       "projected": 300.0,
-      "actual": 1836.0,
-      "daily_avg": 1836.0
+      "actual": 2434.0,
+      "daily_avg": 2434.0
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -50,16 +50,16 @@
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 2917.0,
-      "daily_avg": 2917.0
+      "actual": 3768.0,
+      "daily_avg": 3768.0
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 3921.0,
-      "daily_avg": 3921.0
+      "actual": 4660.0,
+      "daily_avg": 4660.0
     }
   },
   "weeks": [
@@ -274,29 +274,29 @@
           "key": "corte",
           "name": "Corte",
           "values": [
-            null,
-            null,
-            null,
+            498,
+            604,
+            380,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 1482
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
-            null,
-            null,
-            null,
+            250,
+            148,
+            200,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 598
         },
         {
           "key": "sur",
@@ -316,29 +316,29 @@
           "key": "lavanderia",
           "name": "Lavanderia",
           "values": [
-            null,
-            null,
-            null,
+            300,
+            300,
+            251,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 851
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
-            null,
-            null,
+            300,
+            439,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 739
         }
       ]
     },
