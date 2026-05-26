@@ -9538,6 +9538,27 @@ body.theme-gentelella,
   background: #eaf4ff;
 }
 
+.top-refresh-form {
+  margin: 0;
+}
+
+.top-refresh-btn {
+  border: 1px solid #b9cfeb;
+  background: #eef6ff;
+  color: #0f559e;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.top-refresh-btn:hover {
+  border-color: #7aa7df;
+  background: #e3f0ff;
+}
+
 .top-admin-btn-active {
   background: linear-gradient(135deg, #0f6b48, #11825a);
   border-color: #0c5d3f;

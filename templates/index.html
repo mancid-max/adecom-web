@@ -60,6 +60,13 @@
           <span class="top-nav-user-label">Equipo</span>
           <strong>ADECOM</strong>
         </div>
+        {% if can_upload %}
+        <form method="post" action="{{ url_for('upload_refresh_local') }}" class="top-refresh-form">
+          <button type="submit" class="top-refresh-btn" id="refreshDataBtn">Actualizar seed</button>
+        </form>
+        {% else %}
+        <button type="button" class="top-refresh-btn" id="refreshDataBtn" data-open-id="openAdminAccessModal">Actualizar seed</button>
+        {% endif %}
         <button
           type="button"
           class="top-admin-btn {% if can_upload %}top-admin-btn-active{% else %}top-admin-btn-locked{% endif %}"

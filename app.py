@@ -1290,6 +1290,52 @@ def _refresh_directory_data() -> dict:
     }
 
 
+def _refresh_seed_data() -> dict[str, dict[str, int]]:
+    stats: dict[str, dict[str, int]] = {}
+
+    saldos_files = _seed_saldos_files({"42", "43"})
+    saldos_rows: list[dict] = []
+    for seed_file in saldos_files:
+        saldos_rows.extend(parse_saldos_txt(seed_file.read_bytes()))
+    if saldos_rows:
+        stats["saldos"] = import_rows(DB_PATH, saldos_rows, replace_all=True, accumulate_on_conflict=True)
+    else:
+        stats["saldos"] = {"read": 0, "inserted": 0, "updated": 0}
+
+    if SEED_PEDIDOS.exists():
+        pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
+        stats["pedidos"] = import_pedidos_talla_rows(DB_PATH, pedidos_rows) if pedidos_rows else {"read": 0, "inserted": 0, "updated": 0}
+    else:
+        stats["pedidos"] = {"read": 0, "inserted": 0, "updated": 0}
+
+    if SEED_COMPARATIVO.exists():
+        comparativo_rows = parse_comparativo_clientes_txt(SEED_COMPARATIVO.read_bytes())
+        stats["comparativo"] = import_comparativo_clientes_rows(DB_PATH, comparativo_rows) if comparativo_rows else {"read": 0, "inserted": 0, "updated": 0}
+    else:
+        stats["comparativo"] = {"read": 0, "inserted": 0, "updated": 0}
+
+    if SEED_DEUDAS.exists():
+        deuda_rows = parse_deudas_vencidas_csv(SEED_DEUDAS.read_bytes())
+        stats["deudas"] = import_deuda_clientes_rows(DB_PATH, deuda_rows) if deuda_rows else {"read": 0, "inserted": 0, "updated": 0}
+    else:
+        stats["deudas"] = {"read": 0, "inserted": 0, "updated": 0}
+
+    inventory_rows, _inventory_path, inventory_err = _load_inventory_rows_from_excel()
+    if inventory_rows:
+        stats["inventario"] = replace_inventory_stock_rows(DB_PATH, inventory_rows)
+    else:
+        stats["inventario"] = {"read": 0, "inserted": 0, "updated": 0}
+        if inventory_err:
+            app.logger.warning("Inventario seed no actualizado: %s", inventory_err)
+
+    try:
+        _load_programas_mhc_snapshot()
+    except Exception as exc:
+        app.logger.warning("Snapshot PROGRAMAS MHC no actualizado: %s", exc)
+
+    return stats
+
+
 def _sources_configured() -> bool:
     return all(
         str(src or "").strip()
@@ -5803,16 +5849,19 @@ def upload_refresh_local():
         flash("Acceso denegado para cargar archivos.", "error")
         return redirect(url_for("index"))
     try:
-        changed = _refresh_if_sources_changed(force=True)
-        if not changed:
-            flash("No se encontraron fuentes locales validas para actualizar.", "error")
-            return redirect(url_for("index"))
+        stats = _refresh_seed_data()
         session.pop("upload_debug", None)
-        flash("Actualizacion local completa desde carpeta vigilada.", "success")
+        flash(
+            "Seed actualizado. "
+            f"Saldos: {stats['saldos'].get('read', 0)} | "
+            f"Pedidos: {stats['pedidos'].get('read', 0)} | "
+            f"Inventario: {stats['inventario'].get('read', 0)}.",
+            "success",
+        )
     except Exception as exc:
-        app.logger.exception("Fallo en actualizacion local", exc_info=exc)
+        app.logger.exception("Fallo en actualizacion desde seed", exc_info=exc)
         session["upload_debug"] = f"{exc.__class__.__name__}: {exc}"
-        flash("No se pudo actualizar la data local.", "error")
+        flash("No se pudo actualizar la data desde seed.", "error")
     return redirect(url_for("index"))
 
 
