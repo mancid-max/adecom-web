@@ -65,9 +65,6 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 
 
 def _default_sqlite_path() -> str:
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        return str(Path(local_app_data) / "AdecomWeb" / "adecom.db")
     return str(BASE_DIR / "data" / "adecom.db")
 
 
@@ -3218,12 +3215,11 @@ def ensure_seed_data() -> None:
             saldos_rows.extend(parse_saldos_txt(seed_file.read_bytes()))
         if saldos_rows:
             import_rows(DB_PATH, saldos_rows, replace_all=True, accumulate_on_conflict=True)
-    if _table_count("pedidos_talla") == 0:
-        pedidos_rows: list[dict] = []
-        for seed_file in _seed_pedidos_talla_files():
-            pedidos_rows.extend(parse_pedidos_talla_txt(seed_file.read_bytes()))
-        if pedidos_rows:
-            import_pedidos_talla_rows(DB_PATH, pedidos_rows)
+    pedidos_rows: list[dict] = []
+    for seed_file in _seed_pedidos_talla_files():
+        pedidos_rows.extend(parse_pedidos_talla_txt(seed_file.read_bytes()))
+    if pedidos_rows:
+        import_pedidos_talla_rows(DB_PATH, pedidos_rows)
     if SEED_COMPARATIVO.exists() and _table_count("comparativo_clientes") == 0:
         comparativo_rows = parse_comparativo_clientes_txt(SEED_COMPARATIVO.read_bytes())
         if comparativo_rows:
