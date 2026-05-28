@@ -30013,7 +30013,23 @@
 
       <dialog id="topArticulosModal" class="modal modal-top-familia">
         <div class="modal-head">
-          <h3>Top articulos con mas pedidos</h3>
+          <div>
+            <h3>Top articulos con mas pedidos</h3>
+            <div class="table-tools pedidos-collection-form">
+              <label for="topArticulosCollectionSelect">
+                <span>Temporada</span>
+                <select id="topArticulosCollectionSelect">
+                  
+                  <option value="42" selected>Temporada 42</option>
+                  
+                  <option value="43" >Temporada 43</option>
+                  
+                  <option value="all" >Temporadas 42 y 43</option>
+                  
+                </select>
+              </label>
+            </div>
+          </div>
           <button type="button" id="closeTopArticulosModal" class="modal-close">Cerrar</button>
         </div>
         <section class="table-wrap bodega-wrap">
@@ -30026,7 +30042,7 @@
                 <th class="sortable-th" data-sort-key="total">Cantidad de pedidos</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="topArticulosBody">
               
               <tr data-rank="1" data-articulo="01420200" data-total="882">
                 <td class="num">1</td>
@@ -44513,13 +44529,22 @@
       const detailMeta = document.getElementById("topArticuloDetalleMeta");
       const detailBody = document.getElementById("topArticuloDetalleBody");
       const traceDataNode = document.getElementById("ventasTrazabilidadData");
+      const pedidosDataNode = document.getElementById("pedidosCollectionData");
+      const collectionSelect = document.getElementById("topArticulosCollectionSelect");
       const table = document.getElementById("topArticulosTable");
-      if (!modal || !openBtn || !closeBtn || !detailModal || !detailCloseBtn || !detailCodigo || !detailMeta || !detailBody || !traceDataNode || !table) return;
+      const tableBody = document.getElementById("topArticulosBody");
+      if (!modal || !openBtn || !closeBtn || !detailModal || !detailCloseBtn || !detailCodigo || !detailMeta || !detailBody || !traceDataNode || !table || !tableBody) return;
       let trazabilidadPorArticulo = {};
+      let pedidosViews = {};
       try {
         trazabilidadPorArticulo = JSON.parse(traceDataNode.textContent || "{}");
       } catch (e) {
         trazabilidadPorArticulo = {};
+      }
+      try {
+        pedidosViews = JSON.parse(pedidosDataNode?.textContent || "{}");
+      } catch (e) {
+        pedidosViews = {};
       }
 
       const fmt = (n) => {
@@ -44527,6 +44552,12 @@
         if (Number.isNaN(num)) return "0";
         return num.toLocaleString("es-CL");
       };
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
 
       const stageOrder = ["Corte", "Taller", "T. Externo", "Limpiado", "Lavanderia", "Terminacion", "Segunda", "Bodega"];
 
@@ -44619,13 +44650,30 @@
           .join("");
       };
 
-      table.querySelectorAll("tbody tr[data-articulo]").forEach((row) => {
-        row.addEventListener("click", () => {
-          table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
-          row.classList.add("is-selected");
-          renderTrace(row.dataset.articulo || "", row.dataset.total || "");
-          detailModal.showModal();
-        });
+      const renderTopArticulos = (collectionKey) => {
+        const key = String(collectionKey || "42");
+        const view = pedidosViews[key] || pedidosViews["42"] || {};
+        const articulos = Array.isArray(view.ventas_top_articulos) ? view.ventas_top_articulos.slice(0, 10) : [];
+        if (!articulos.length) {
+          tableBody.innerHTML = '<tr><td colspan="3" class="empty">Sin articulos con pedidos.</td></tr>';
+          return;
+        }
+        tableBody.innerHTML = articulos.map((item, index) => `
+          <tr data-rank="${index + 1}" data-articulo="${escapeHtml(item.articulo || "")}" data-total="${Number(item.total || 0)}">
+            <td class="num">${index + 1}</td>
+            <td>${escapeHtml(item.articulo || "-")}</td>
+            <td class="num">${fmt(item.total)}</td>
+          </tr>
+        `).join("");
+      };
+
+      tableBody.addEventListener("click", (event) => {
+        const row = event.target.closest("tr[data-articulo]");
+        if (!row) return;
+        table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
+        row.classList.add("is-selected");
+        renderTrace(row.dataset.articulo || "", row.dataset.total || "");
+        detailModal.showModal();
       });
 
       window.openTopArticuloTrace = (articulo, totalPedidos = "") => {
@@ -44633,7 +44681,14 @@
         detailModal.showModal();
       };
 
-      openBtn.addEventListener("click", () => modal.showModal());
+      if (collectionSelect) {
+        renderTopArticulos(collectionSelect.value);
+        collectionSelect.addEventListener("change", () => renderTopArticulos(collectionSelect.value));
+      }
+      openBtn.addEventListener("click", () => {
+        renderTopArticulos(collectionSelect?.value || "42");
+        modal.showModal();
+      });
       closeBtn.addEventListener("click", () => {
         table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
         modal.close();
