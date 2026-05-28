@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+import os
 from pathlib import Path
 
 from flask import session
@@ -11,6 +12,13 @@ from flask import session
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
 STATIC_DIR = ROOT / "static"
+BUILD_DB = ROOT / "data" / "static-build.db"
+if BUILD_DB.exists():
+    BUILD_DB.unlink()
+os.environ["ADECOM_DB_PATH"] = str(BUILD_DB)
+os.environ["ADECOM_AUTO_REFRESH_WEB_ON_START"] = "0"
+os.environ["ADECOM_AUTO_REFRESH_WEB_BACKGROUND"] = "0"
+
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -66,7 +74,7 @@ STATIC_BRIDGE_SCRIPT = """
 
 def _render_main_html() -> str:
     app_module.ASSISTANT_ENABLED = False
-    app_module.ensure_seed_data()
+    app_module._refresh_seed_data()
     with app_module.app.test_request_context("/"):
         session["portal_section"] = "main"
         session["can_upload"] = False
