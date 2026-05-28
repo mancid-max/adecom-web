@@ -1613,14 +1613,26 @@
 
       <dialog id="ventasTotalModal" class="modal">
         <div class="modal-head">
-          <h3>Total pedidos</h3>
+          <div>
+            <h3>Total pedidos</h3>
+            <div class="table-tools pedidos-collection-form">
+              <label for="pedidosCollectionSelect">
+                <span>Coleccion</span>
+                <select id="pedidosCollectionSelect">
+                  {% for option in pedidos_collection_options %}
+                  <option value="{{ option.key }}" {% if pedidos_collection == option.key %}selected{% endif %}>{{ option.label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+          </div>
           <button type="button" id="closeVentasTotalModal" class="modal-close">Cerrar</button>
         </div>
         <div class="modal-kpis">
           <article class="kpi-clickable">
             <button type="button" id="openVentasDetalleModal" class="kpi-open-btn">
               <h4>Total pedidos</h4>
-              <p>{{ ventas_total|miles }}</p>
+              <p id="ventasTotalKpiTotal">{{ ventas_total|miles }}</p>
               <small class="kpi-hint">Ver detalle</small>
             </button>
           </article>
@@ -1628,10 +1640,10 @@
             <button type="button" id="openTopFamiliaModal" class="kpi-open-btn" {% if not ventas_top_familia %}disabled{% endif %}>
               <h4>Familia con mas pedidos</h4>
               {% if ventas_top_familia %}
-              <p>{{ ventas_top_familia.familia }}</p>
+              <p id="ventasTotalKpiFamilia">{{ ventas_top_familia.familia }}</p>
               <small class="kpi-hint">Ver detalle</small>
               {% else %}
-              <p>-</p>
+              <p id="ventasTotalKpiFamilia">-</p>
               {% endif %}
             </button>
           </article>
@@ -1639,10 +1651,10 @@
             <button type="button" id="openTopArticulosModal" class="kpi-open-btn" {% if not ventas_top_articulos %}disabled{% endif %}>
               <h4>Total modelos</h4>
               {% if ventas_top_articulo %}
-              <p>{{ ventas_top_articulos|length|miles }} modelos</p>
+              <p id="ventasTotalKpiModelos">{{ ventas_top_articulos|length|miles }} modelos</p>
               <small class="kpi-hint">Ver detalle</small>
               {% else %}
-              <p>-</p>
+              <p id="ventasTotalKpiModelos">-</p>
               {% endif %}
             </button>
           </article>
@@ -1658,7 +1670,7 @@
                 <th class="sortable-th" data-sort-key="detalle">Detalle por familia</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="ventasFamiliasBody">
               {% for g in ventas_grouped %}
               <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ g.sufijos|length }}">
                 <td>
@@ -1733,6 +1745,7 @@
       </dialog>
 
       <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
+      <script id="pedidosCollectionData" type="application/json">{{ pedidos_collection_views|tojson }}</script>
       <script id="ventasTrazabilidadData" type="application/json">{{ ventas_trazabilidad_por_articulo|tojson }}</script>
       {% if ventas_docs_summary.available %}
         <script id="ventasDocsSummaryData" type="application/json">{{ ventas_docs_summary|tojson }}</script>
@@ -3299,8 +3312,72 @@
       const modal = document.getElementById("ventasTotalModal");
       const openBtn = document.getElementById("openVentasTotalModal");
       const closeBtn = document.getElementById("closeVentasTotalModal");
+      const collectionSelect = document.getElementById("pedidosCollectionSelect");
+      const dataNode = document.getElementById("pedidosCollectionData");
+      const familiasBody = document.getElementById("ventasFamiliasBody");
+      const totalKpi = document.getElementById("ventasTotalKpiTotal");
+      const familiaKpi = document.getElementById("ventasTotalKpiFamilia");
+      const modelosKpi = document.getElementById("ventasTotalKpiModelos");
+      const topFamiliaBtn = document.getElementById("openTopFamiliaModal");
+      const topArticulosBtn = document.getElementById("openTopArticulosModal");
       if (!modal || !openBtn || !closeBtn) return;
+      let pedidosViews = {};
+      try {
+        pedidosViews = JSON.parse(dataNode?.textContent || "{}");
+      } catch (_) {
+        pedidosViews = {};
+      }
+      const fmt = (value) => Number(value || 0).toLocaleString("es-CL");
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+      const renderPedidosView = (collectionKey) => {
+        const key = String(collectionKey || "42");
+        const view = pedidosViews[key] || pedidosViews["42"] || {};
+        const familias = Array.isArray(view.ventas_grouped) ? view.ventas_grouped : [];
+        window.currentPedidosFamilias = familias;
+        if (totalKpi) totalKpi.textContent = fmt(view.ventas_total || 0);
+        if (familiaKpi) familiaKpi.textContent = view.ventas_top_familia?.familia || "-";
+        if (modelosKpi) modelosKpi.textContent = `${fmt((view.ventas_top_articulos || []).length)} modelos`;
+        if (topFamiliaBtn) topFamiliaBtn.disabled = !view.ventas_top_familia;
+        if (topArticulosBtn) topArticulosBtn.disabled = !(view.ventas_top_articulos || []).length;
+        if (!familiasBody) return;
+        if (!familias.length) {
+          familiasBody.innerHTML = '<tr><td colspan="3" class="empty">Sin pedidos con los filtros actuales.</td></tr>';
+          return;
+        }
+        familiasBody.innerHTML = familias.map((g) => {
+          const chips = Array.isArray(g.sufijos_comp) && g.sufijos_comp.length
+            ? g.sufijos_comp.map((s) => `
+                <span class="variante-chip">
+                  <span class="variante-chip-prefix">Pedidos</span>
+                  <span class="variante-chip-code">${escapeHtml(s.sufijo || "-")}</span>
+                  <span class="variante-chip-sep"> : </span>
+                  <span class="variante-chip-total">${fmt(s.pedidos_total || 0)}</span>
+                </span>
+              `).join("")
+            : '<span class="variante-chip variante-chip-empty">-</span>';
+          return `
+            <tr data-familia="${escapeHtml(g.familia || "")}" data-total="${Number(g.total || 0)}" data-detalle="${Array.isArray(g.sufijos) ? g.sufijos.length : 0}">
+              <td>
+                <button type="button" class="familia-open-btn" data-open-familia="${escapeHtml(g.familia || "")}" aria-label="Ver detalle familia ${escapeHtml(g.familia || "")}">
+                  ${escapeHtml(g.familia || "-")}
+                </button>
+              </td>
+              <td class="num">${fmt(g.total || 0)}</td>
+              <td><div class="variante-pair-grid">${chips}</div></td>
+            </tr>
+          `;
+        }).join("");
+      };
       openBtn.addEventListener("click", () => modal.showModal());
+      if (collectionSelect) {
+        renderPedidosView(collectionSelect.value);
+        collectionSelect.addEventListener("change", () => renderPedidosView(collectionSelect.value));
+      }
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
@@ -4903,7 +4980,8 @@
       } catch (e) {
         familias = [];
       }
-      const byFamilia = new Map(familias.map((item) => [String(item.familia || ""), item]));
+      window.currentPedidosFamilias = window.currentPedidosFamilias || familias;
+      const getByFamilia = () => new Map((window.currentPedidosFamilias || familias).map((item) => [String(item.familia || ""), item]));
 
       const fmt = (n) => {
         const num = Number(n || 0);
@@ -4912,7 +4990,7 @@
       };
 
       const openFamilia = (familia) => {
-        const item = byFamilia.get(String(familia || ""));
+        const item = getByFamilia().get(String(familia || ""));
         if (!item) return;
         const comp = Array.isArray(item.sufijos_comp) ? item.sufijos_comp : [];
         const tallas = Array.isArray(item.tallas) ? item.tallas : [];
@@ -5008,10 +5086,10 @@
         modal.showModal();
       };
 
-      document.querySelectorAll("[data-open-familia]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          openFamilia(btn.getAttribute("data-open-familia") || "");
-        });
+      document.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-open-familia]");
+        if (!btn) return;
+        openFamilia(btn.getAttribute("data-open-familia") || "");
       });
 
       if (articulosTallasBody) {

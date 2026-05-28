@@ -77,6 +77,7 @@ DB_PATH = os.environ.get("DATABASE_URL") or os.environ.get(
 SEED_DIR = BASE_DIR / "seed"
 SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
+SEED_PEDIDOS_43 = SEED_DIR / "PEDIDOSXTALLA 43.TXT"
 SEED_PEDIDOS_DETALLE = SEED_DIR / "PEDIDOS.Txt"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
@@ -149,6 +150,40 @@ DEFAULT_LAVANDERIA_BOTAS = [
     "Falda",
     "Falda/Short",
 ]
+
+
+def _seed_pedidos_talla_files() -> list[Path]:
+    preferred = [SEED_PEDIDOS, SEED_PEDIDOS_43]
+    files: list[Path] = []
+    seen: set[str] = set()
+    for path in preferred:
+        key = str(path).strip().lower()
+        if path.exists() and key not in seen:
+            files.append(path)
+            seen.add(key)
+    for path in sorted(SEED_DIR.glob("PEDIDOSXTALLA*.TXT")):
+        key = str(path).strip().lower()
+        if key not in seen:
+            files.append(path)
+            seen.add(key)
+    return files
+
+
+def _collection_code_from_article(value: object) -> str:
+    articulo = str(value or "").strip()
+    if len(articulo) >= 4:
+        return articulo[2:4]
+    return ""
+
+
+def _pedidos_collection_matches(value: object, selected: str) -> bool:
+    code = _collection_code_from_article(value)
+    selected_key = str(selected or "42").strip().lower()
+    if selected_key in {"", "42"}:
+        return code == "42"
+    if selected_key == "43":
+        return code == "43"
+    return True
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -1302,11 +1337,10 @@ def _refresh_seed_data() -> dict[str, dict[str, int]]:
     else:
         stats["saldos"] = {"read": 0, "inserted": 0, "updated": 0}
 
-    if SEED_PEDIDOS.exists():
-        pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
-        stats["pedidos"] = import_pedidos_talla_rows(DB_PATH, pedidos_rows) if pedidos_rows else {"read": 0, "inserted": 0, "updated": 0}
-    else:
-        stats["pedidos"] = {"read": 0, "inserted": 0, "updated": 0}
+    pedidos_rows: list[dict] = []
+    for seed_file in _seed_pedidos_talla_files():
+        pedidos_rows.extend(parse_pedidos_talla_txt(seed_file.read_bytes()))
+    stats["pedidos"] = import_pedidos_talla_rows(DB_PATH, pedidos_rows) if pedidos_rows else {"read": 0, "inserted": 0, "updated": 0}
 
     if SEED_COMPARATIVO.exists():
         comparativo_rows = parse_comparativo_clientes_txt(SEED_COMPARATIVO.read_bytes())
@@ -3184,8 +3218,10 @@ def ensure_seed_data() -> None:
             saldos_rows.extend(parse_saldos_txt(seed_file.read_bytes()))
         if saldos_rows:
             import_rows(DB_PATH, saldos_rows, replace_all=True, accumulate_on_conflict=True)
-    if SEED_PEDIDOS.exists() and _table_count("pedidos_talla") == 0:
-        pedidos_rows = parse_pedidos_talla_txt(SEED_PEDIDOS.read_bytes())
+    if _table_count("pedidos_talla") == 0:
+        pedidos_rows: list[dict] = []
+        for seed_file in _seed_pedidos_talla_files():
+            pedidos_rows.extend(parse_pedidos_talla_txt(seed_file.read_bytes()))
         if pedidos_rows:
             import_pedidos_talla_rows(DB_PATH, pedidos_rows)
     if SEED_COMPARATIVO.exists() and _table_count("comparativo_clientes") == 0:
@@ -3236,8 +3272,8 @@ def _seed_upload_target(filename: str) -> Path | None:
         return SEED_COMPARATIVO
     if normalized == "DEUDAS_VENCIDAS.CSV":
         return SEED_DEUDAS
-    if normalized == "PEDIDOSXTALLA.TXT":
-        return SEED_PEDIDOS
+    if normalized.startswith("PEDIDOSXTALLA") and normalized.endswith(".TXT"):
+        return SEED_DIR / raw_name
     if normalized == "PEDIDOS.TXT":
         return SEED_PEDIDOS_DETALLE
     if normalized.startswith("VENTAS-TOD-") and normalized.endswith(".CSV"):
@@ -5211,6 +5247,247 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
     }
 
 
+def _build_pedidos_collection_view(
+    pedidos_sections: dict[str, list[dict[str, object]]],
+    pedidos_collection: str,
+) -> dict[str, object]:
+    ventas_rows = [
+        row for row in pedidos_sections.get("ventas", [])
+        if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
+    ]
+    saldo_rows = [
+        row for row in pedidos_sections.get("saldo", [])
+        if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
+    ]
+    corte_rows = [
+        row for row in pedidos_sections.get("corte", [])
+        if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
+    ]
+    ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
+    ventas_por_articulo: dict[str, int] = {}
+    ventas_por_familia: dict[str, dict] = {}
+    ventas_por_talla: dict[int, int] = {}
+
+    for r in ventas_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        total = int(r.get("total") or 0)
+        if not articulo:
+            continue
+        ventas_por_articulo[articulo] = ventas_por_articulo.get(articulo, 0) + total
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        if familia not in ventas_por_familia:
+            ventas_por_familia[familia] = {
+                "familia": familia,
+                "total": 0,
+                "saldo_total": 0,
+                "articulos": {},
+                "sufijos": {},
+                "sufijos_saldo": {},
+                "tallas": {},
+                "tallas_corte": {},
+                "articulos_tallas": {},
+            }
+        if articulo not in ventas_por_familia[familia]["articulos_tallas"]:
+            ventas_por_familia[familia]["articulos_tallas"][articulo] = {
+                "articulo": articulo,
+                "vendida": {},
+                "cortada": {},
+            }
+        for item in r.get("tallas_items") or []:
+            talla = int(item.get("talla") or 0)
+            cantidad = int(item.get("cantidad") or 0)
+            if talla > 0:
+                ventas_por_talla[talla] = ventas_por_talla.get(talla, 0) + cantidad
+                ventas_por_familia[familia]["tallas"][talla] = (
+                    int(ventas_por_familia[familia]["tallas"].get(talla) or 0) + cantidad
+                )
+                ventas_por_familia[familia]["articulos_tallas"][articulo]["vendida"][talla] = (
+                    int(ventas_por_familia[familia]["articulos_tallas"][articulo]["vendida"].get(talla) or 0)
+                    + cantidad
+                )
+        ventas_por_familia[familia]["total"] += total
+        if articulo not in ventas_por_familia[familia]["articulos"]:
+            ventas_por_familia[familia]["articulos"][articulo] = {"articulo": articulo, "total": 0}
+        ventas_por_familia[familia]["articulos"][articulo]["total"] += total
+        prefijo = articulo[:2] if len(articulo) >= 2 else ""
+        sufijo = articulo[-2:] if len(articulo) >= 2 else articulo
+        sufijo_key = f"{prefijo}|{sufijo}"
+        if sufijo_key not in ventas_por_familia[familia]["sufijos"]:
+            ventas_por_familia[familia]["sufijos"][sufijo_key] = {"prefijo": prefijo, "sufijo": sufijo, "total": 0}
+        ventas_por_familia[familia]["sufijos"][sufijo_key]["total"] += total
+
+    for r in saldo_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        total = int(r.get("total") or 0)
+        if not articulo:
+            continue
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        if familia not in ventas_por_familia:
+            ventas_por_familia[familia] = {
+                "familia": familia,
+                "total": 0,
+                "saldo_total": 0,
+                "articulos": {},
+                "sufijos": {},
+                "sufijos_saldo": {},
+                "tallas": {},
+                "tallas_corte": {},
+                "articulos_tallas": {},
+            }
+        ventas_por_familia[familia]["saldo_total"] += total
+        prefijo = articulo[:2] if len(articulo) >= 2 else ""
+        sufijo = articulo[-2:] if len(articulo) >= 2 else articulo
+        sufijo_key = f"{prefijo}|{sufijo}"
+        if sufijo_key not in ventas_por_familia[familia]["sufijos_saldo"]:
+            ventas_por_familia[familia]["sufijos_saldo"][sufijo_key] = {"prefijo": prefijo, "sufijo": sufijo, "total": 0}
+        ventas_por_familia[familia]["sufijos_saldo"][sufijo_key]["total"] += total
+
+    for r in corte_rows:
+        articulo = str(r.get("articulo") or "").strip()
+        if not articulo:
+            continue
+        familia = articulo[2:6] if len(articulo) >= 6 else articulo
+        if familia not in ventas_por_familia:
+            ventas_por_familia[familia] = {
+                "familia": familia,
+                "total": 0,
+                "saldo_total": 0,
+                "articulos": {},
+                "sufijos": {},
+                "sufijos_saldo": {},
+                "tallas": {},
+                "tallas_corte": {},
+                "articulos_tallas": {},
+            }
+        if articulo not in ventas_por_familia[familia]["articulos_tallas"]:
+            ventas_por_familia[familia]["articulos_tallas"][articulo] = {
+                "articulo": articulo,
+                "vendida": {},
+                "cortada": {},
+            }
+        for item in r.get("tallas_items") or []:
+            talla = int(item.get("talla") or 0)
+            cantidad = int(item.get("cantidad") or 0)
+            if talla > 0:
+                ventas_por_familia[familia]["tallas_corte"][talla] = (
+                    int(ventas_por_familia[familia]["tallas_corte"].get(talla) or 0) + cantidad
+                )
+                ventas_por_familia[familia]["articulos_tallas"][articulo]["cortada"][talla] = (
+                    int(ventas_por_familia[familia]["articulos_tallas"][articulo]["cortada"].get(talla) or 0)
+                    + cantidad
+                )
+
+    def _sort_sufijo_keys(keys):
+        prioridad = {"00": 0, "01": 1, "60": 2}
+
+        def _key(suf):
+            s = str(suf or "")
+            if s in prioridad:
+                return (0, prioridad[s], 0, s)
+            if s.isdigit():
+                return (1, 0, int(s), s)
+            return (2, 0, 0, s)
+
+        return sorted(keys, key=_key)
+
+    def _sort_sufijos_saldo(items):
+        prioridad = {"00": 0, "01": 1, "60": 2}
+
+        def _item_key(s):
+            suf = str(s.get("sufijo") or "")
+            if suf in prioridad:
+                return (0, prioridad[suf], 0, suf)
+            if suf.isdigit():
+                return (1, 0, int(suf), suf)
+            return (2, 0, 0, suf)
+
+        return sorted(items, key=_item_key)
+
+    def _build_sufijos_comp(g):
+        pedidos_by_sufijo = {}
+        saldo_by_sufijo = {}
+        for s in g["sufijos"].values():
+            suf = str(s.get("sufijo") or "")
+            pedidos_by_sufijo[suf] = pedidos_by_sufijo.get(suf, 0) + int(s.get("total") or 0)
+        for s in g["sufijos_saldo"].values():
+            suf = str(s.get("sufijo") or "")
+            saldo_by_sufijo[suf] = saldo_by_sufijo.get(suf, 0) + int(s.get("total") or 0)
+        sufijos_ordenados = _sort_sufijo_keys(set(pedidos_by_sufijo.keys()) | set(saldo_by_sufijo.keys()))
+        return [
+            {"sufijo": suf, "pedidos_total": pedidos_by_sufijo.get(suf, 0), "saldo_total": saldo_by_sufijo.get(suf, 0)}
+            for suf in sufijos_ordenados
+        ]
+
+    ventas_grouped = sorted(
+        [
+            {
+                "familia": g["familia"],
+                "total": g["total"],
+                "saldo_total": g["saldo_total"],
+                "cortado_total": sum(int(v) for v in (g.get("tallas_corte") or {}).values()),
+                "articulos": sorted(g["articulos"].values(), key=lambda v: v["total"], reverse=True),
+                "sufijos": sorted(g["sufijos"].values(), key=lambda s: s["total"], reverse=True),
+                "sufijos_saldo": _sort_sufijos_saldo(list(g["sufijos_saldo"].values())),
+                "sufijos_comp": _build_sufijos_comp(g),
+                "tallas": sorted(
+                    [
+                        {
+                            "talla": talla,
+                            "vendida": int((g.get("tallas") or {}).get(talla) or 0),
+                            "cortada": int((g.get("tallas_corte") or {}).get(talla) or 0),
+                        }
+                        for talla in sorted(set((g.get("tallas") or {}).keys()) | set((g.get("tallas_corte") or {}).keys()))
+                    ],
+                    key=lambda x: x["talla"],
+                ),
+                "articulos_tallas": sorted(
+                    [
+                        {
+                            "articulo": a.get("articulo"),
+                            "total": int((((g.get("articulos") or {}).get(a.get("articulo")) or {}).get("total")) or 0),
+                            "tallas": [
+                                {
+                                    "talla": talla,
+                                    "vendida": int((a.get("vendida") or {}).get(talla) or 0),
+                                    "cortada": int((a.get("cortada") or {}).get(talla) or 0),
+                                }
+                                for talla in sorted(set((a.get("vendida") or {}).keys()) | set((a.get("cortada") or {}).keys()))
+                            ],
+                        }
+                        for a in (g.get("articulos_tallas") or {}).values()
+                    ],
+                    key=lambda x: str(x.get("articulo") or ""),
+                ),
+            }
+            for g in ventas_por_familia.values()
+        ],
+        key=lambda g: g["total"],
+        reverse=True,
+    )
+    ventas_tallas = sorted(
+        [{"talla": talla, "total": total} for talla, total in ventas_por_talla.items()],
+        key=lambda x: x["talla"],
+    )
+    ventas_top_articulos = sorted(
+        [{"articulo": articulo, "total": int(total)} for articulo, total in ventas_por_articulo.items()],
+        key=lambda x: x["total"],
+        reverse=True,
+    )
+    ventas_top_familia = ventas_grouped[0] if ventas_grouped else None
+    ventas_top_talla = max(ventas_tallas, key=lambda x: x["total"]) if ventas_tallas else None
+    ventas_top_articulo = ventas_top_articulos[0] if ventas_top_articulos else None
+    return {
+        "ventas_rows": ventas_rows,
+        "ventas_total": ventas_total,
+        "ventas_grouped": ventas_grouped,
+        "ventas_tallas": ventas_tallas,
+        "ventas_top_familia": ventas_top_familia,
+        "ventas_top_talla": ventas_top_talla,
+        "ventas_top_articulo": ventas_top_articulo,
+        "ventas_top_articulos": ventas_top_articulos,
+    }
+
+
 @app.get("/")
 def index():
     assistant_provider = os.environ.get("ADECOM_ASSISTANT_PROVIDER", "local").strip().lower()
@@ -5220,6 +5497,9 @@ def index():
         assistant_provider = "local"
     programas_month = str(request.args.get("programas_month") or "").strip()
     open_modal = str(request.args.get("open_modal") or "").strip()
+    pedidos_collection = str(request.args.get("pedidos_collection") or "42").strip().lower()
+    if pedidos_collection not in {"42", "43", "all"}:
+        pedidos_collection = "42"
     if not ASSISTANT_ENABLED:
         assistant_provider = "off"
     filters = {
@@ -5244,15 +5524,15 @@ def index():
         search_success = "Encontrado"
     ventas_rows = [
         row for row in pedidos_sections.get("ventas", [])
-        if _is_collection_42_article(row.get("articulo"))
+        if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
     ]
     saldo_rows = [
         row for row in pedidos_sections.get("saldo", [])
-        if _is_collection_42_article(row.get("articulo"))
+        if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
     ]
     corte_rows = [
         row for row in pedidos_sections.get("corte", [])
-        if _is_collection_42_article(row.get("articulo"))
+        if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
     ]
     ventas_total = sum(int(r.get("total") or 0) for r in ventas_rows)
     ventas_por_articulo: dict[str, int] = {}
@@ -5596,6 +5876,18 @@ def index():
     excel_preview_dashboards = _build_excel_preview_dashboards_bundle()
     local_preview_enabled = _is_local_request()
     ventas_docs_summary = _load_ventas_docs_summary()
+    pedidos_collection_views = {
+        key: _build_pedidos_collection_view(pedidos_sections, key)
+        for key in ("42", "43", "all")
+    }
+    selected_pedidos_view = pedidos_collection_views.get(pedidos_collection) or pedidos_collection_views["42"]
+    ventas_total = int(selected_pedidos_view.get("ventas_total") or 0)
+    ventas_grouped = selected_pedidos_view.get("ventas_grouped") or []
+    ventas_tallas = selected_pedidos_view.get("ventas_tallas") or []
+    ventas_top_familia = selected_pedidos_view.get("ventas_top_familia")
+    ventas_top_talla = selected_pedidos_view.get("ventas_top_talla")
+    ventas_top_articulo = selected_pedidos_view.get("ventas_top_articulo")
+    ventas_top_articulos = selected_pedidos_view.get("ventas_top_articulos") or []
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
@@ -5615,6 +5907,13 @@ def index():
         ventas_top_talla=ventas_top_talla,
         ventas_top_articulo=ventas_top_articulo,
         ventas_top_articulos=ventas_top_articulos,
+        pedidos_collection=pedidos_collection,
+        pedidos_collection_options=[
+            {"key": "42", "label": "Cole 42"},
+            {"key": "43", "label": "Cole 43"},
+            {"key": "all", "label": "42 y 43"},
+        ],
+        pedidos_collection_views=pedidos_collection_views,
         disponibles_summary=disponibles_summary,
         ventas_trazabilidad_por_articulo=trazabilidad_por_articulo,
         exs_summary=exs_summary,
