@@ -1479,7 +1479,7 @@
             </tr>
             {% endfor %}
             <tr class="reporte-venta-total-row">
-              <td>Totales</td>
+              <td><span class="reporte-venta-total-label">Totales</span></td>
               <td class="num">{{ report_view.summary_totals.count|miles }}</td>
               <td class="num">${{ report_view.summary_totals.net|miles }}</td>
               <td class="num">${{ report_view.summary_totals.iva|miles }}</td>
