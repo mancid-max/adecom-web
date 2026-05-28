@@ -26,16 +26,16 @@
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 4388.0,
-      "daily_avg": 4388.0
+      "actual": 5148.0,
+      "daily_avg": 5148.0
     },
     "urrutia": {
       "name": "Urrutia",
       "meta_day": 300.0,
       "meta_month": 6000.0,
       "projected": 300.0,
-      "actual": 2634.0,
-      "daily_avg": 2634.0
+      "actual": 2932.0,
+      "daily_avg": 2932.0
     },
     "tierra_fuego": {
       "name": "Tierra del Fuego",
@@ -50,16 +50,16 @@
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 3768.0,
-      "daily_avg": 3768.0
+      "actual": 4107.0,
+      "daily_avg": 4107.0
     },
     "terminacion": {
       "name": "Terminación",
       "meta_day": 500.0,
       "meta_month": 10000.0,
       "projected": 500.0,
-      "actual": 5886.0,
-      "daily_avg": 5886.0
+      "actual": 6088.0,
+      "daily_avg": 6088.0
     }
   },
   "weeks": [
@@ -368,28 +368,28 @@
           "name": "Corte",
           "values": [
             480,
-            null,
-            null,
+            370,
+            390,
             null,
             null,
             null,
             null
           ],
-          "total": 480
+          "total": 1240
         },
         {
           "key": "urrutia",
           "name": "Urrutia",
           "values": [
             200,
-            null,
+            298,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 200
+          "total": 498
         },
         {
           "key": "sur",
@@ -410,28 +410,28 @@
           "name": "Lavanderia",
           "values": [
             null,
-            null,
+            339,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 0
+          "total": 339
         },
         {
           "key": "terminacion",
           "name": "Terminacion",
           "values": [
             362,
-            null,
+            202,
             null,
             null,
             null,
             null,
             null
           ],
-          "total": 362
+          "total": 564
         }
       ]
     },
