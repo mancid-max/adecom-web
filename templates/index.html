@@ -1246,6 +1246,16 @@
       <div class="modal-head">
         <div>
           <h3>Venta/despacho</h3>
+          <div class="table-tools pedidos-collection-form">
+            <label for="ventaDespachoCollectionSelect">
+              <span>Temporada</span>
+              <select id="ventaDespachoCollectionSelect">
+                {% for option in pedidos_collection_options %}
+                <option value="{{ option.key }}" {% if pedidos_collection == option.key %}selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
         </div>
         <div class="venta-despacho-head-actions">
           <button type="button" id="openVentaDespachoRankingModal" class="venta-despacho-head-btn">Clientes por menor despacho</button>
@@ -1256,23 +1266,23 @@
       <div class="modal-kpis venta-despacho-kpis">
         <article>
           <h4>Solicitado</h4>
-          <p>{{ venta_despacho_dashboard.totals.solicitado|miles }}</p>
-          <small>${{ venta_despacho_dashboard.totals.valor_solicitado|miles }}</small>
+          <p id="ventaDespachoKpiSolicitado">{{ venta_despacho_dashboard.totals.solicitado|miles }}</p>
+          <small id="ventaDespachoKpiValorSolicitado">${{ venta_despacho_dashboard.totals.valor_solicitado|miles }}</small>
         </article>
         <article>
           <h4>Despachado</h4>
-          <p>{{ venta_despacho_dashboard.totals.despachado|miles }}</p>
-          <small>${{ venta_despacho_dashboard.totals.valor_despachado|miles }}</small>
+          <p id="ventaDespachoKpiDespachado">{{ venta_despacho_dashboard.totals.despachado|miles }}</p>
+          <small id="ventaDespachoKpiValorDespachado">${{ venta_despacho_dashboard.totals.valor_despachado|miles }}</small>
         </article>
         <article>
           <h4>Avance</h4>
-          <p>{{ venta_despacho_dashboard.totals.pct_despacho }}%</p>
-          <small>{{ venta_despacho_dashboard.clientes_count|miles }} clientes</small>
+          <p id="ventaDespachoKpiAvance">{{ venta_despacho_dashboard.totals.pct_despacho }}%</p>
+          <small id="ventaDespachoKpiClientes">{{ venta_despacho_dashboard.clientes_count|miles }} clientes</small>
         </article>
         <article>
           <h4>Falta</h4>
-          <p>{{ venta_despacho_dashboard.totals.saldo|miles }}</p>
-          <small>${{ venta_despacho_dashboard.totals.valor_saldo|miles }}</small>
+          <p id="ventaDespachoKpiFalta">{{ venta_despacho_dashboard.totals.saldo|miles }}</p>
+          <small id="ventaDespachoKpiValorFalta">${{ venta_despacho_dashboard.totals.valor_saldo|miles }}</small>
         </article>
       </div>
 
@@ -1589,6 +1599,7 @@
       </section>
     </dialog>
     <script id="ventaDespachoData" type="application/json">{{ venta_despacho_dashboard|tojson }}</script>
+    <script id="ventaDespachoViewsData" type="application/json">{{ venta_despacho_dashboard_views|tojson }}</script>
     <script id="uiStateData" type="application/json">{{ ui_state|tojson }}</script>
 
     <section class="ventas-block" id="sectionPedidos">
@@ -1617,7 +1628,7 @@
             <h3>Total pedidos</h3>
             <div class="table-tools pedidos-collection-form">
               <label for="pedidosCollectionSelect">
-                <span>Coleccion</span>
+                <span>Temporada</span>
                 <select id="pedidosCollectionSelect">
                   {% for option in pedidos_collection_options %}
                   <option value="{{ option.key }}" {% if pedidos_collection == option.key %}selected{% endif %}>{{ option.label }}</option>
@@ -2675,6 +2686,8 @@
       const openRankingBtn = document.getElementById("openVentaDespachoRankingModal");
       const closeRankingBtn = document.getElementById("closeVentaDespachoRankingModal");
       const dataNode = document.getElementById("ventaDespachoData");
+      const viewsNode = document.getElementById("ventaDespachoViewsData");
+      const collectionSelect = document.getElementById("ventaDespachoCollectionSelect");
       const list = document.getElementById("ventaDespachoClientList");
       const countEl = document.getElementById("ventaDespachoClientCount");
       const vendorFilter = document.getElementById("ventaDespachoVendorFilter");
@@ -2689,16 +2702,30 @@
       const despachadoEl = document.getElementById("ventaDespachoClienteDespachado");
       const saldoEl = document.getElementById("ventaDespachoClienteSaldo");
       const valorSaldoEl = document.getElementById("ventaDespachoClienteValorSaldo");
+      const kpiSolicitado = document.getElementById("ventaDespachoKpiSolicitado");
+      const kpiValorSolicitado = document.getElementById("ventaDespachoKpiValorSolicitado");
+      const kpiDespachado = document.getElementById("ventaDespachoKpiDespachado");
+      const kpiValorDespachado = document.getElementById("ventaDespachoKpiValorDespachado");
+      const kpiAvance = document.getElementById("ventaDespachoKpiAvance");
+      const kpiClientes = document.getElementById("ventaDespachoKpiClientes");
+      const kpiFalta = document.getElementById("ventaDespachoKpiFalta");
+      const kpiValorFalta = document.getElementById("ventaDespachoKpiValorFalta");
       const rankingCountEl = document.getElementById("ventaDespachoRankingCount");
       const rankingBody = document.getElementById("ventaDespachoRankingBody");
       if (!modal || !dataNode || !list || !body || !nameEl || !metaEl) return;
       let data = {};
+      let collectionViews = {};
       try {
         data = JSON.parse(dataNode.textContent || "{}");
       } catch (_) {
         data = {};
       }
-      const clients = Array.isArray(data.clientes) ? data.clientes : [];
+      try {
+        collectionViews = JSON.parse(viewsNode?.textContent || "{}");
+      } catch (_) {
+        collectionViews = {};
+      }
+      let clients = Array.isArray(data.clientes) ? data.clientes : [];
       let visibleClients = clients.slice();
       let activeClientIndex = clients.length ? 0 : -1;
       const fmt = (value) => Number(value || 0).toLocaleString("es-CL");
@@ -2768,6 +2795,39 @@
         || Number(b.valor_saldo || 0) - Number(a.valor_saldo || 0)
         || String(a.articulo || "").localeCompare(String(b.articulo || ""), "es")
       );
+      const renderDashboardKpis = () => {
+        const totals = data?.totals || {};
+        if (kpiSolicitado) kpiSolicitado.textContent = fmt(totals.solicitado);
+        if (kpiValorSolicitado) kpiValorSolicitado.textContent = money(totals.valor_solicitado);
+        if (kpiDespachado) kpiDespachado.textContent = fmt(totals.despachado);
+        if (kpiValorDespachado) kpiValorDespachado.textContent = money(totals.valor_despachado);
+        if (kpiAvance) kpiAvance.textContent = pct(totals.pct_despacho);
+        if (kpiClientes) kpiClientes.textContent = `${fmt(data?.clientes_count || 0)} clientes`;
+        if (kpiFalta) kpiFalta.textContent = fmt(totals.saldo);
+        if (kpiValorFalta) kpiValorFalta.textContent = money(totals.valor_saldo);
+      };
+      const renderVendorOptions = () => {
+        if (!vendorFilter) return;
+        const vendors = Array.isArray(data?.vendedores) ? data.vendedores : [];
+        vendorFilter.innerHTML = [
+          '<option value="">Todos</option>',
+          ...vendors.map((vendor) => `<option value="${escapeHtml(vendor)}">${escapeHtml(vendor)}</option>`),
+        ].join("");
+      };
+      const setDashboardCollection = (collectionKey) => {
+        const key = String(collectionKey || "42");
+        data = collectionViews[key] || collectionViews["42"] || data || {};
+        clients = Array.isArray(data.clientes) ? data.clientes : [];
+        visibleClients = clients.slice();
+        activeClientIndex = clients.length ? 0 : -1;
+        if (clientFilter) clientFilter.value = "";
+        if (clientSearch) clientSearch.value = "";
+        renderDashboardKpis();
+        renderVendorOptions();
+        renderClientList();
+        if (visibleClients.length) renderClient(activeClientIndex);
+        renderRanking();
+      };
       const getRankingClients = () => sortClients(
         clients.filter((client) => Number(client.saldo || 0) > 0),
         "pct_asc"
@@ -2946,6 +3006,11 @@
           }
         });
       }
+      if (collectionSelect) {
+        collectionSelect.addEventListener("change", () => {
+          setDashboardCollection(collectionSelect.value);
+        });
+      }
       if (closeBtn) {
         closeBtn.addEventListener("click", () => modal.close());
       }
@@ -2963,9 +3028,7 @@
           if (event.target === rankingModal) rankingModal.close();
         });
       }
-      renderClientList();
-      if (visibleClients.length) renderClient(activeClientIndex);
-      renderRanking();
+      setDashboardCollection(collectionSelect?.value || data.collection || "42");
     })();
 
     (function () {

@@ -183,7 +183,7 @@ def _pedidos_collection_matches(value: object, selected: str) -> bool:
         return code == "42"
     if selected_key == "43":
         return code == "43"
-    return True
+    return code in {"42", "43"}
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -4986,7 +4986,10 @@ def _build_trazabilidad_lookup(rows: list[dict[str, object]]) -> dict[str, dict[
     return lookup
 
 
-def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | None = None) -> dict[str, object]:
+def _load_venta_despacho_dashboard(
+    trazabilidad_rows: list[dict[str, object]] | None = None,
+    pedidos_collection: str = "42",
+) -> dict[str, object]:
     path = SEED_PEDIDOS_DETALLE
     empty_totals = {
         "solicitado": 0,
@@ -5030,7 +5033,7 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
         rut = str(raw.get("RUT") or "").strip()
         if not pedido and not articulo and not cliente_nombre:
             continue
-        if articulo and not _is_collection_42_article(articulo):
+        if articulo and not _pedidos_collection_matches(articulo, pedidos_collection):
             continue
 
         solicitado = _pedidos_detalle_int(raw.get("SOLICITADO"))
@@ -5230,6 +5233,7 @@ def _load_venta_despacho_dashboard(trazabilidad_rows: list[dict[str, object]] | 
     return {
         "available": True,
         "file_name": path.name,
+        "collection": pedidos_collection,
         "clientes": clientes_rows,
         "top_client": clientes_rows[0] if clientes_rows else None,
         "totals": totals,
@@ -5892,7 +5896,11 @@ def index():
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
-    venta_despacho_dashboard = _load_venta_despacho_dashboard(rows)
+    venta_despacho_dashboard_views = {
+        key: _load_venta_despacho_dashboard(rows, key)
+        for key in ("42", "43", "all")
+    }
+    venta_despacho_dashboard = venta_despacho_dashboard_views.get(pedidos_collection) or venta_despacho_dashboard_views["42"]
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     return render_template(
         "index.html",
@@ -5909,9 +5917,9 @@ def index():
         ventas_top_articulos=ventas_top_articulos,
         pedidos_collection=pedidos_collection,
         pedidos_collection_options=[
-            {"key": "42", "label": "Cole 42"},
-            {"key": "43", "label": "Cole 43"},
-            {"key": "all", "label": "42 y 43"},
+            {"key": "42", "label": "Temporada 42"},
+            {"key": "43", "label": "Temporada 43"},
+            {"key": "all", "label": "Temporadas 42 y 43"},
         ],
         pedidos_collection_views=pedidos_collection_views,
         disponibles_summary=disponibles_summary,
@@ -5950,6 +5958,7 @@ def index():
         full_table_totals=full_table_totals,
         full_table_temporadas=full_table_temporadas,
         venta_despacho_dashboard=venta_despacho_dashboard,
+        venta_despacho_dashboard_views=venta_despacho_dashboard_views,
         ui_state={"open_modal": open_modal, "programas_month": programas_month},
     )
 
