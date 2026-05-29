@@ -126,6 +126,7 @@ ASSISTANT_ENABLED = os.environ.get("ADECOM_ASSISTANT_ENABLED", "0").strip() == "
 NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() == "1"
 OTHER_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_OTHER_SECTION", "1").strip() == "1"
 ENABLE_SEED = os.environ.get("ADECOM_ENABLE_SEED", "1").strip() == "1"
+STATIC_EXPORT_MODE = os.environ.get("ADECOM_STATIC_EXPORT", "0").strip() == "1"
 PROYECCION_STATE_PATH = BASE_DIR / "data" / "proyeccion_personas.json"
 AREA_WEIGHTS = {
     "CORTE": 600,
@@ -5945,6 +5946,7 @@ def index():
         can_upload=_can_upload(),
         inventory_manage_enabled=inventory_manage_enabled,
         admin_key_enabled=bool(_admin_key()),
+        static_export_mode=STATIC_EXPORT_MODE,
         assistant_enabled=ASSISTANT_ENABLED,
         assistant_provider=assistant_provider,
         ventas_docs_summary=ventas_docs_summary,

@@ -18,6 +18,7 @@ if BUILD_DB.exists():
 os.environ["ADECOM_DB_PATH"] = str(BUILD_DB)
 os.environ["ADECOM_AUTO_REFRESH_WEB_ON_START"] = "0"
 os.environ["ADECOM_AUTO_REFRESH_WEB_BACKGROUND"] = "0"
+os.environ["ADECOM_STATIC_EXPORT"] = "1"
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

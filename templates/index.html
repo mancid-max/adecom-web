@@ -60,6 +60,9 @@
           <span class="top-nav-user-label">Equipo</span>
           <strong>ADECOM</strong>
         </div>
+        {% if static_export_mode %}
+        <span class="top-admin-btn top-admin-btn-locked" aria-label="Modo solo lectura">Solo visualizacion</span>
+        {% else %}
         {% if can_upload %}
         <form method="post" action="{{ url_for('upload_refresh_local') }}" class="top-refresh-form">
           <button type="submit" class="top-refresh-btn" id="refreshDataBtn">Actualizar seed</button>
@@ -74,6 +77,7 @@
         >
           {% if can_upload %}Admin activo{% else %}Admin bloqueado{% endif %}
         </button>
+        {% endif %}
       </div>
     </header>
 
@@ -226,6 +230,7 @@
       </section>
     </section>
 
+    {% if not static_export_mode %}
     <dialog id="adminAccessModal" class="modal modal-production-goals">
       <div class="modal-head">
         <div>
@@ -286,6 +291,7 @@
         </div>
       </section>
     </dialog>
+    {% endif %}
 
     <dialog id="productionGoalsModal" class="modal modal-production-goals">
       <div class="modal-head">
