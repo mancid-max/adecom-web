@@ -301,6 +301,10 @@ def _can_upload() -> bool:
     return bool(session.get("can_upload"))
 
 
+def _can_refresh_local_seed() -> bool:
+    return _can_upload() or _is_local_request()
+
+
 @app.get("/login")
 def login():
     if _is_authenticated():
@@ -5944,6 +5948,7 @@ def index():
         excel_preview_dashboards=excel_preview_dashboards,
         local_preview_enabled=local_preview_enabled,
         can_upload=_can_upload(),
+        can_refresh_local_seed=_can_refresh_local_seed(),
         inventory_manage_enabled=inventory_manage_enabled,
         admin_key_enabled=bool(_admin_key()),
         static_export_mode=STATIC_EXPORT_MODE,
@@ -6151,7 +6156,7 @@ def upload_refresh_web():
 
 @app.post("/upload/refresh-local")
 def upload_refresh_local():
-    if not _can_upload():
+    if not _can_refresh_local_seed():
         flash("Acceso denegado para cargar archivos.", "error")
         return redirect(url_for("index"))
     try:

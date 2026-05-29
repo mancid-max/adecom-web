@@ -63,7 +63,7 @@
         {% if static_export_mode %}
         <span class="top-admin-btn top-admin-btn-locked" aria-label="Modo solo lectura">Solo visualizacion</span>
         {% else %}
-        {% if can_upload %}
+        {% if can_refresh_local_seed %}
         <form method="post" action="{{ url_for('upload_refresh_local') }}" class="top-refresh-form">
           <button type="submit" class="top-refresh-btn" id="refreshDataBtn">Actualizar seed</button>
         </form>
@@ -267,6 +267,12 @@
                 <button type="submit">Cerrar sesion admin</button>
               </form>
             {% else %}
+              {% if can_refresh_local_seed %}
+              <p class="production-goals-copy">Entorno local detectado. Puedes recargar toda la data de seed con un clic.</p>
+              <form method="post" action="{{ url_for('upload_refresh_local') }}" class="inventory-manage-actions">
+                <button type="submit">Recargar datos desde seed</button>
+              </form>
+              {% endif %}
               <form method="post" action="{{ url_for('admin_login') }}" class="inventory-manage-form">
                 <div class="inventory-manage-grid">
                   <label for="adminKeyInput">Clave de administrador
