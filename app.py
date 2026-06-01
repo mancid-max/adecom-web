@@ -4911,6 +4911,72 @@ def _pedidos_detalle_base_desc(value: object) -> str:
     return text.strip()
 
 
+def _pedidos_detalle_rows(text: str) -> list[dict[str, str]]:
+    raw_rows = list(csv.reader(io.StringIO(text), delimiter=";"))
+    if len(raw_rows) <= 1:
+        return []
+
+    header = [str(cell or "").strip() for cell in raw_rows[0]]
+    fieldnames: list[str] = []
+    seen: dict[str, int] = {}
+    for idx, name in enumerate(header):
+        clean = re.sub(r"\s+", " ", name).strip()
+        if not clean:
+            clean = f"COL_{idx}"
+        if clean.lower() == "despacho $":
+            clean = "DESPACHO_VALOR"
+        elif clean == "PEDIDO" and seen.get("PEDIDO", 0) >= 1:
+            clean = "SOLICITADO"
+        elif clean == "DESPACHO" and seen.get("DESPACHO", 0) >= 1:
+            clean = "DESPACHADO"
+        count = seen.get(clean, 0)
+        if count:
+            clean = f"{clean}_{count + 1}"
+        seen[clean if count == 0 else clean.rsplit("_", 1)[0]] = count + 1
+        fieldnames.append(clean)
+
+    rows: list[dict[str, str]] = []
+    for raw in raw_rows[1:]:
+        if not raw or not any(str(cell or "").strip() for cell in raw):
+            continue
+        row: dict[str, str] = {}
+        for idx, key in enumerate(fieldnames):
+            row[key] = str(raw[idx] if idx < len(raw) else "").strip()
+        rows.append(row)
+    return rows
+
+
+def _pedidos_detalle_pick(raw: dict[str, object], *keys: str) -> str:
+    for key in keys:
+        value = raw.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _pedidos_talla_totals_for_collection(collection: str) -> dict[str, int]:
+    totals = {"solicitado": 0, "despachado": 0, "saldo": 0}
+    files = []
+    if collection in {"42", "all"} and SEED_PEDIDOS.exists():
+        files.append(SEED_PEDIDOS)
+    if collection in {"43", "all"} and SEED_PEDIDOS_43.exists():
+        files.append(SEED_PEDIDOS_43)
+    for path in files:
+        for row in parse_pedidos_talla_txt(path.read_bytes()):
+            tipo = str(row.get("tipo") or "").strip().lower()
+            total = int(row.get("total") or 0)
+            if tipo == "ventas":
+                totals["solicitado"] += total
+            elif tipo == "despacho":
+                totals["despachado"] += total
+            elif tipo == "saldo":
+                totals["saldo"] += total
+    return totals
+
+
 def _pct_despacho(despachado: int, solicitado: int) -> float:
     if solicitado <= 0:
         return 0.0
@@ -5017,31 +5083,35 @@ def _load_venta_despacho_dashboard(
     inventory_lookup = _build_inventory_stock_lookup(query_inventory_stock_rows(DB_PATH))
     trazabilidad_lookup = _build_trazabilidad_lookup(trazabilidad_rows or [])
     text = _pedidos_detalle_decode(path.read_bytes())
-    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    reader = _pedidos_detalle_rows(text)
     clientes: dict[str, dict[str, object]] = {}
     fechas: list[str] = []
     pedidos_unicos: set[str] = set()
     articulos_unicos: set[str] = set()
+    source_has_articulo = False
 
     for raw in reader:
         if not raw:
             continue
-        pedido = str(raw.get("PEDIDO") or "").strip()
-        articulo = str(raw.get("ARTICULO") or "").strip()
-        cliente_nombre = str(raw.get("CLIENTE") or "").strip()
-        rut = str(raw.get("RUT") or "").strip()
+        pedido = _pedidos_detalle_pick(raw, "PEDIDO")
+        articulo = _pedidos_detalle_pick(raw, "ARTICULO")
+        descripcion = _pedidos_detalle_pick(raw, "DESCRIPCION")
+        cliente_nombre = _pedidos_detalle_pick(raw, "CLIENTE", "NOMBRE")
+        rut = _pedidos_detalle_pick(raw, "RUT")
         if not pedido and not articulo and not cliente_nombre:
             continue
+        if articulo:
+            source_has_articulo = True
         if articulo and not _pedidos_collection_matches(articulo, pedidos_collection):
             continue
 
         solicitado = _pedidos_detalle_int(raw.get("SOLICITADO"))
-        despachado = _pedidos_detalle_int(raw.get("DESPACHADO"))
+        despachado = _pedidos_detalle_int(raw.get("DESPACHADO") or raw.get("DESPACHO"))
         saldo = _pedidos_detalle_int(raw.get("saldo") or raw.get("SALDO"))
         precio = _pedidos_detalle_int(raw.get("PRECIO"))
-        valor_solicitado = solicitado * precio
-        valor_despachado = despachado * precio
-        valor_saldo = saldo * precio
+        valor_solicitado = _pedidos_detalle_int(raw.get("VALOR")) or (solicitado * precio)
+        valor_despachado = _pedidos_detalle_int(raw.get("DESPACHO_VALOR")) or (despachado * precio)
+        valor_saldo = max(valor_solicitado - valor_despachado, 0) if (valor_solicitado or valor_despachado) else (saldo * precio)
         fecha_iso = _pedidos_detalle_date(raw.get("FECHA"))
         if fecha_iso:
             fechas.append(fecha_iso)
@@ -5057,8 +5127,8 @@ def _load_venta_despacho_dashboard(
                 "key": cliente_key,
                 "rut": rut,
                 "cliente": cliente_nombre or "-",
-                "ciudad": str(raw.get("CIUDAD") or "").strip(),
-                "vendedor": str(raw.get("VENDEDOR") or "").strip(),
+                "ciudad": _pedidos_detalle_pick(raw, "CIUDAD"),
+                "vendedor": _pedidos_detalle_pick(raw, "VENDEDOR"),
                 "solicitado": 0,
                 "despachado": 0,
                 "saldo": 0,
@@ -5069,8 +5139,8 @@ def _load_venta_despacho_dashboard(
                 "articulos_map": {},
             },
         )
-        cliente["ciudad"] = cliente.get("ciudad") or str(raw.get("CIUDAD") or "").strip()
-        cliente["vendedor"] = cliente.get("vendedor") or str(raw.get("VENDEDOR") or "").strip()
+        cliente["ciudad"] = cliente.get("ciudad") or _pedidos_detalle_pick(raw, "CIUDAD")
+        cliente["vendedor"] = cliente.get("vendedor") or _pedidos_detalle_pick(raw, "VENDEDOR")
         cliente["solicitado"] = int(cliente["solicitado"]) + solicitado
         cliente["despachado"] = int(cliente["despachado"]) + despachado
         cliente["saldo"] = int(cliente["saldo"]) + saldo
@@ -5081,12 +5151,12 @@ def _load_venta_despacho_dashboard(
             cliente["pedidos"].add(pedido)
 
         articulos_map = cliente["articulos_map"]
-        art_key = articulo or str(raw.get("DESCRIPCION") or "").strip() or "SIN ARTICULO"
+        art_key = articulo or descripcion or "RESUMEN"
         articulo_row = articulos_map.setdefault(
             art_key,
             {
                 "articulo": articulo or "-",
-                "descripcion": _pedidos_detalle_base_desc(raw.get("DESCRIPCION")) or "-",
+                "descripcion": _pedidos_detalle_base_desc(descripcion) or ("Resumen cliente" if not articulo else "-"),
                 "solicitado": 0,
                 "despachado": 0,
                 "saldo": 0,
@@ -5102,7 +5172,7 @@ def _load_venta_despacho_dashboard(
         articulo_row["valor_solicitado"] = int(articulo_row["valor_solicitado"]) + valor_solicitado
         articulo_row["valor_despachado"] = int(articulo_row["valor_despachado"]) + valor_despachado
         articulo_row["valor_saldo"] = int(articulo_row["valor_saldo"]) + valor_saldo
-        talla = _pedidos_detalle_talla(raw.get("DESCRIPCION"))
+        talla = _pedidos_detalle_talla(descripcion)
         if talla:
             tallas_map = articulo_row["tallas_map"]
             talla_row = tallas_map.setdefault(talla, {"talla": talla, "solicitado": 0, "despachado": 0, "saldo": 0})
@@ -5215,6 +5285,13 @@ def _load_venta_despacho_dashboard(
         clientes_rows.append(cliente_row)
         for key in ("solicitado", "despachado", "saldo", "valor_solicitado", "valor_despachado", "valor_saldo"):
             totals[key] = int(totals[key]) + int(cliente_row[key])
+
+    if not source_has_articulo:
+        season_totals = _pedidos_talla_totals_for_collection(pedidos_collection)
+        if any(season_totals.values()):
+            totals["solicitado"] = season_totals["solicitado"]
+            totals["despachado"] = season_totals["despachado"]
+            totals["saldo"] = season_totals["saldo"]
 
     totals["pct_despacho"] = _pct_despacho(int(totals["despachado"]), int(totals["solicitado"]))
     clientes_rows.sort(
