@@ -1225,7 +1225,7 @@
         
         <div class="table-tools production-month-form">
           <label for="productionExcelMonthSelect">Mes con datos:</label>
-          <select id="productionExcelMonthSelect" name="programas_month">
+          <select id="productionExcelMonthSelect" name="programas_month" onchange="window.__renderProductionExcelMonth && window.__renderProductionExcelMonth(this.value)">
             
               <option value="Mayo 2026" >Mayo 2026</option>
             
@@ -46535,16 +46535,24 @@
         gridEl.innerHTML = html;
       };
 
-      select.addEventListener("change", () => {
-        const key = String(select.value || "").trim();
-        if (!key || !dashboards[key]) return;
+      const renderByKey = (rawKey) => {
+        const key = String(rawKey || "").trim();
+        if (!key || !dashboards[key]) return false;
+        if (String(select.value || "").trim() !== key) {
+          select.value = key;
+        }
         renderDashboard(dashboards[key]);
+        return true;
+      };
+
+      window.__renderProductionExcelMonth = renderByKey;
+
+      select.addEventListener("change", () => {
+        renderByKey(select.value);
       });
 
       const initialKey = String(select.value || payload.selected_month_key || "").trim();
-      if (initialKey && dashboards[initialKey]) {
-        renderDashboard(dashboards[initialKey]);
-      }
+      renderByKey(initialKey);
     })();
 
     (function () {
