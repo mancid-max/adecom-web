@@ -44,6 +44,24 @@ def build_snapshot(excel_path: Path) -> dict[str, object]:
         11: "noviembre",
         12: "diciembre",
     }
+    month_entries: list[dict[str, object]] = []
+    for name in wb.sheetnames:
+        norm = _norm_text(name)
+        year_match = re.search(r"(20\d{2})", norm)
+        year_num = int(year_match.group(1)) if year_match else 0
+        month_num = next((k for k, v in month_aliases.items() if v in norm), 0)
+        if year_num and month_num:
+            month_entries.append(
+                {
+                    "key": name,
+                    "sheet_name": name,
+                    "label": name,
+                    "month_num": month_num,
+                    "year_num": year_num,
+                }
+            )
+    month_entries.sort(key=lambda item: (int(item.get("year_num") or 0), int(item.get("month_num") or 0)))
+
     current_label = f"{month_aliases.get(date.today().month, '')} {date.today().year}".strip()
     sheet_name = None
     for name in wb.sheetnames:
@@ -167,6 +185,8 @@ def build_snapshot(excel_path: Path) -> dict[str, object]:
 
     return {
         "sheet_name": sheet_name,
+        "month_options": month_entries,
+        "selected_month_key": sheet_name,
         "days_month": days_month,
         "days_elapsed": days_elapsed,
         "days_remaining": days_remaining,

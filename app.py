@@ -1641,7 +1641,7 @@ def _load_programas_mhc_month_options() -> list[dict[str, object]]:
     except Exception:
         return []
     entries = _programas_month_sheet_entries(list(wb.sheetnames))
-    return entries[-2:] if len(entries) > 2 else entries
+    return entries
 
 
 def _load_programas_mhc_snapshot(selected_sheet: str = "") -> dict[str, object] | None:
@@ -1662,7 +1662,6 @@ def _load_programas_mhc_snapshot(selected_sheet: str = "") -> dict[str, object] 
         if isinstance(month_options, list):
             month_options = [dict(item) for item in month_options if isinstance(item, dict)]
             month_options.sort(key=lambda item: (int(item.get("year_num") or 0), int(item.get("month_num") or 0)))
-            month_options = month_options[-2:] if len(month_options) > 2 else month_options
             raw["month_options"] = month_options
             selected_key = str(raw.get("selected_month_key") or raw.get("sheet_name") or "").strip()
             if month_options and all(str(item.get("key") or "").strip() != selected_key for item in month_options):
@@ -1684,7 +1683,6 @@ def _load_programas_mhc_snapshot(selected_sheet: str = "") -> dict[str, object] 
     month_aliases = _programas_month_aliases()
     current_label = f"{month_aliases.get(date.today().month, '')} {date.today().year}".strip()
     month_entries = _programas_month_sheet_entries(list(wb.sheetnames))
-    month_entries = month_entries[-2:] if len(month_entries) > 2 else month_entries
     sheet_name = None
     selected_sheet = str(selected_sheet or "").strip()
     if selected_sheet:

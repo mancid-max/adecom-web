@@ -2,6 +2,34 @@
   "sheet_name": "Junio 2026",
   "month_options": [
     {
+      "key": "Enero 2026",
+      "sheet_name": "Enero 2026",
+      "label": "Enero 2026",
+      "month_num": 1,
+      "year_num": 2026
+    },
+    {
+      "key": "Febrero 2026",
+      "sheet_name": "Febrero 2026",
+      "label": "Febrero 2026",
+      "month_num": 2,
+      "year_num": 2026
+    },
+    {
+      "key": "Marzo 2026",
+      "sheet_name": "Marzo 2026",
+      "label": "Marzo 2026",
+      "month_num": 3,
+      "year_num": 2026
+    },
+    {
+      "key": "Abril 2026",
+      "sheet_name": "Abril 2026",
+      "label": "Abril 2026",
+      "month_num": 4,
+      "year_num": 2026
+    },
+    {
       "key": "Mayo 2026",
       "sheet_name": "Mayo 2026",
       "label": "Mayo 2026",
