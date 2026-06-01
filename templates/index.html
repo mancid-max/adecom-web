@@ -2860,10 +2860,27 @@
           if (dlg && dlg.open) dlg.close();
         });
       };
+      const syncProductionModalMonth = (modalId) => {
+        if (modalId === "productionGoalsModal" && window.__renderProductionGoalsMonth) {
+          const select = document.getElementById("productionGoalsMonthSelect");
+          window.__renderProductionGoalsMonth(String(select?.value || "").trim());
+          return;
+        }
+        if (modalId === "productionGoalsDailyModal" && window.__renderProductionDailyMonth) {
+          const select = document.getElementById("productionDailyMonthSelect");
+          window.__renderProductionDailyMonth(String(select?.value || "").trim());
+          return;
+        }
+        if (modalId === "productionExcelModal" && window.__renderProductionExcelMonth) {
+          const select = document.getElementById("productionExcelMonthSelect");
+          window.__renderProductionExcelMonth(String(select?.value || "").trim());
+        }
+      };
       const showDashboardModal = (modalId) => {
         const modal = document.getElementById(modalId);
         if (!modal) return;
         if (!modal.open) modal.showModal();
+        syncProductionModalMonth(modalId);
       };
       const bindExclusiveTrigger = (btn, modalId) => {
         if (!btn || !modalId) return;
@@ -2912,6 +2929,9 @@
         if (!dlg) return;
         dlg.addEventListener("click", (event) => {
           if (event.target === dlg) dlg.close();
+        });
+        dlg.addEventListener("toggle", () => {
+          if (dlg.open) syncProductionModalMonth(modalId);
         });
         dlg.addEventListener("close", () => {
           const hasOpenDashboardModal = exclusiveModalIds.some((id) => {
