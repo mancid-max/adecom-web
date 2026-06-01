@@ -2509,6 +2509,46 @@ def _build_excel_preview_dashboards_bundle() -> dict[str, object]:
     }
 
 
+def _build_production_goals_dashboards_bundle() -> dict[str, object]:
+    default_dashboard = _build_production_goals_summary()
+    month_options = [dict(item) for item in (default_dashboard.get("month_options") or [])]
+    dashboards_by_month: dict[str, dict[str, object]] = {}
+    if month_options:
+        for option in month_options:
+            key = str(option.get("key") or "").strip()
+            if not key:
+                continue
+            dashboards_by_month[key] = _build_production_goals_summary(key)
+    else:
+        key = str(default_dashboard.get("selected_month_key") or "Abril 2026")
+        dashboards_by_month[key] = default_dashboard
+    return {
+        "month_options": month_options,
+        "selected_month_key": str(default_dashboard.get("selected_month_key") or ""),
+        "dashboards": dashboards_by_month,
+    }
+
+
+def _build_production_daily_dashboards_bundle() -> dict[str, object]:
+    default_dashboard = _build_new_section_dashboard()
+    month_options = [dict(item) for item in (default_dashboard.get("month_options") or [])]
+    dashboards_by_month: dict[str, dict[str, object]] = {}
+    if month_options:
+        for option in month_options:
+            key = str(option.get("key") or "").strip()
+            if not key:
+                continue
+            dashboards_by_month[key] = _build_new_section_dashboard(key)
+    else:
+        key = str(default_dashboard.get("selected_month_key") or "Abril 2026")
+        dashboards_by_month[key] = default_dashboard
+    return {
+        "month_options": month_options,
+        "selected_month_key": str(default_dashboard.get("selected_month_key") or ""),
+        "dashboards": dashboards_by_month,
+    }
+
+
 def _is_local_request() -> bool:
     host = str(request.host or "").strip().lower()
     server = str(request.environ.get("SERVER_NAME") or "").strip().lower()
@@ -5952,6 +5992,8 @@ def index():
     proyeccion_state = _load_proyeccion_state()
     production_goals = _build_production_goals_summary(programas_month)
     production_daily_dashboard = _build_new_section_dashboard(programas_month)
+    production_goals_dashboards = _build_production_goals_dashboards_bundle()
+    production_daily_dashboards = _build_production_daily_dashboards_bundle()
     excel_preview_dashboard = _build_excel_preview_dashboard(programas_month)
     excel_preview_dashboards = _build_excel_preview_dashboards_bundle()
     local_preview_enabled = _is_local_request()
@@ -6019,6 +6061,8 @@ def index():
         proyeccion_state=proyeccion_state,
         production_goals=production_goals,
         production_daily_dashboard=production_daily_dashboard,
+        production_goals_dashboards=production_goals_dashboards,
+        production_daily_dashboards=production_daily_dashboards,
         excel_preview_dashboard=excel_preview_dashboard,
         excel_preview_dashboards=excel_preview_dashboards,
         local_preview_enabled=local_preview_enabled,
