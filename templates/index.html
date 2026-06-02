@@ -517,21 +517,36 @@
             onclick="(function(btn){const dlg=btn.closest('dialog'); if(!dlg) return; try { dlg.close(); } catch(_) { dlg.removeAttribute('open'); }})(this)"
           >Cerrar</button>
         </div>
-        {% if excel_preview_dashboard.month_options %}
-        <div class="table-tools production-month-form" id="productionExcelMonthToolbar" data-default-month-key="{{ excel_preview_dashboard.selected_month_key }}">
-          <span class="production-month-label">Mes con datos:</span>
-          <div id="productionExcelMonthButtons" class="comparativo-toolbar production-month-toolbar" aria-label="Mes metas excel">
+        <div
+          class="production-month-tabs"
+          id="productionExcelMonthToolbar"
+          data-default-month-key="{{ excel_preview_dashboard.selected_month_key }}"
+        >
+          {% if excel_preview_dashboard.month_options %}
             {% for option in excel_preview_dashboard.month_options %}
-            <button
-              type="button"
-              class="comparativo-toggle {% if option.key == excel_preview_dashboard.selected_month_key %}is-active{% endif %}"
-              data-month-key="{{ option.key }}"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
-            >{{ option.label }}</button>
+            <input
+              type="radio"
+              class="production-month-radio"
+              name="productionExcelMonth"
+              id="productionExcelMonth{{ loop.index }}"
+              value="{{ option.key }}"
+              {% if option.key == excel_preview_dashboard.selected_month_key %}checked{% endif %}
+            />
             {% endfor %}
+          <div class="table-tools production-month-form">
+            <span class="production-month-label">Mes con datos:</span>
+            <div class="comparativo-toolbar production-month-toolbar" aria-label="Mes metas excel">
+              {% for option in excel_preview_dashboard.month_options %}
+              <label
+                for="productionExcelMonth{{ loop.index }}"
+                class="comparativo-toggle production-month-chip"
+                data-month-key="{{ option.key }}"
+                onclick="(function(lbl){const key=String(lbl.dataset.monthKey||'').trim(); if(!key) return; const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key; document.querySelectorAll('#productionExcelMonthToolbar .production-month-chip').forEach((item)=>item.classList.toggle('is-active', item===lbl)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';});})(this)"
+              >{{ option.label }}</label>
+              {% endfor %}
+            </div>
           </div>
-        </div>
-        {% endif %}
+          {% endif %}
 
         <section class="excel-preview-shell">
           <div class="excel-preview-frame">
@@ -540,7 +555,11 @@
               {% for option in excel_preview_dashboard.month_options %}
                 {% set dashboard = excel_dashboards_map.get(option.key) %}
                 {% if dashboard %}
-                <section class="excel-month-block" data-month-key="{{ option.key }}" {% if option.key != excel_preview_dashboard.selected_month_key %}hidden{% endif %} style="{% if option.key != excel_preview_dashboard.selected_month_key %}display:none;{% else %}display:block;{% endif %}">
+                <section
+                  id="productionExcelSheet{{ loop.index }}"
+                  class="excel-month-block"
+                  data-month-key="{{ option.key }}"
+                >
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">{{ dashboard.title or 'MES DE PROCESO' }}</div>
                     <div class="excel-abr-days-note">{{ dashboard.days_note or '' }}</div>
@@ -622,7 +641,40 @@
             </div>
           </div>
         </section>
+        </div>
       </dialog>
+      {% if excel_preview_dashboard.month_options %}
+      <style>
+        #productionExcelMonthToolbar .production-month-radio {
+          position: absolute;
+          inline-size: 1px;
+          block-size: 1px;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        #productionExcelMonthToolbar .production-month-chip {
+          cursor: pointer;
+        }
+
+        #productionExcelMonthToolbar .excel-month-block {
+          display: none;
+        }
+
+        {% for option in excel_preview_dashboard.month_options %}
+        #productionExcelMonth{{ loop.index }}:checked ~ .production-month-form label[for="productionExcelMonth{{ loop.index }}"] {
+          background: linear-gradient(180deg, var(--reskin-blue) 0%, var(--reskin-blue-deep) 100%) !important;
+          border-color: var(--reskin-blue-deep) !important;
+          color: #f5f7fb !important;
+          box-shadow: 0 10px 24px rgba(31, 92, 176, 0.22);
+        }
+
+        #productionExcelMonth{{ loop.index }}:checked ~ .excel-preview-shell #productionExcelSheet{{ loop.index }} {
+          display: block;
+        }
+        {% endfor %}
+      </style>
+      {% endif %}
       <script id="productionExcelDashboardsData" type="application/json">{{ excel_preview_dashboards|tojson }}</script>
       <script id="productionGoalsDashboardsData" type="application/json">{{ production_goals_dashboards|tojson }}</script>
       <script id="productionDailyDashboardsData" type="application/json">{{ production_daily_dashboards|tojson }}</script>
@@ -2842,9 +2894,10 @@
           return;
         }
         if (modalId === "productionExcelModal" && window.__renderProductionExcelMonth) {
-          const activeBtn = document.querySelector("#productionExcelMonthButtons .comparativo-toggle.is-active");
+          const activeRadio = document.querySelector("#productionExcelMonthToolbar .production-month-radio:checked");
+          const activeBtn = document.querySelector("#productionExcelMonthToolbar .production-month-chip.is-active");
           const toolbar = document.getElementById("productionExcelMonthToolbar");
-          window.__renderProductionExcelMonth(String(activeBtn?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim());
+          window.__renderProductionExcelMonth(String(activeRadio?.value || activeBtn?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim());
         }
       };
       const showDashboardModal = (modalId) => {
@@ -5769,9 +5822,10 @@
     (function () {
       const modal = document.getElementById("productionExcelModal");
       const toolbar = document.getElementById("productionExcelMonthToolbar");
-      const monthButtons = Array.from(document.querySelectorAll("#productionExcelMonthButtons .comparativo-toggle"));
+      const monthRadios = Array.from(document.querySelectorAll("#productionExcelMonthToolbar .production-month-radio"));
+      const monthLabels = Array.from(document.querySelectorAll("#productionExcelMonthToolbar .production-month-chip"));
       const monthBlocks = Array.from(document.querySelectorAll("#productionExcelSheets .excel-month-block"));
-      if (!modal || !monthButtons.length || !monthBlocks.length) return;
+      if (!modal || !monthBlocks.length) return;
       const renderByKey = (rawKey) => {
         const key = String(rawKey || "").trim();
         if (!key) return false;
@@ -5782,27 +5836,40 @@
           block.style.display = active ? "block" : "none";
           if (active) matched = true;
         });
-        monthButtons.forEach((button) => {
-          button.classList.toggle("is-active", String(button.dataset.monthKey || "").trim() === key);
+        monthLabels.forEach((label) => {
+          label.classList.toggle("is-active", String(label.dataset.monthKey || "").trim() === key);
+        });
+        monthRadios.forEach((radio) => {
+          radio.checked = String(radio.value || "").trim() === key;
         });
         return matched;
       };
 
       window.__renderProductionExcelMonth = renderByKey;
       const ensureExcelMonthSync = () => {
-        const activeButton = monthButtons.find((button) => button.classList.contains("is-active"));
-        const key = String(activeButton?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim();
+        const activeRadio = monthRadios.find((radio) => radio.checked);
+        const activeLabel = monthLabels.find((label) => label.classList.contains("is-active"));
+        const key = String(activeRadio?.value || activeLabel?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim();
         if (!key) return;
         const activeBlock = monthBlocks.find((block) => !block.hidden);
         if (String(activeBlock?.dataset.monthKey || "").trim() === key) return;
         renderByKey(key);
       };
 
-      monthButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-          const key = String(button.dataset.monthKey || "").trim();
+      monthRadios.forEach((radio) => {
+        radio.addEventListener("change", () => {
+          const key = String(radio.value || "").trim();
           if (!key) return;
+          if (toolbar) toolbar.dataset.defaultMonthKey = key;
           renderByKey(key);
+        });
+      });
+      monthLabels.forEach((label) => {
+        label.addEventListener("click", () => {
+          const key = String(label.dataset.monthKey || "").trim();
+          if (!key) return;
+          if (toolbar) toolbar.dataset.defaultMonthKey = key;
+          window.setTimeout(() => renderByKey(key), 0);
         });
       });
       if (modal) {
@@ -5819,8 +5886,9 @@
           const dailySelect = document.getElementById("productionDailyMonthSelect");
           window.__renderProductionDailyMonth(String(dailySelect?.value || "").trim());
         }
-        const activeButton = monthButtons.find((button) => button.classList.contains("is-active"));
-        renderByKey(String(activeButton?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim());
+        const activeRadio = monthRadios.find((radio) => radio.checked);
+        const activeLabel = monthLabels.find((label) => label.classList.contains("is-active"));
+        renderByKey(String(activeRadio?.value || activeLabel?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim());
       };
       syncProductionMonthViews();
       window.addEventListener("pageshow", syncProductionMonthViews);
