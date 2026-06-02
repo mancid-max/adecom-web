@@ -47206,6 +47206,7 @@
         event.preventDefault();
         renderByKey(select.value);
       });
+      window.__renderProductionGoalsMonth = renderByKey;
       renderByKey(String(select.value || payload.selected_month_key || "").trim());
     })();
 
@@ -47300,6 +47301,7 @@
         event.preventDefault();
         renderByKey(select.value);
       });
+      window.__renderProductionDailyMonth = renderByKey;
       renderByKey(String(select.value || payload.selected_month_key || "").trim());
     })();
 
@@ -47394,8 +47396,24 @@
         renderByKey(select.value);
       });
 
-      const initialKey = String(select.value || payload.selected_month_key || "").trim();
-      renderByKey(initialKey);
+      const syncProductionMonthViews = () => {
+        if (window.__renderProductionGoalsMonth) {
+          const goalsSelect = document.getElementById("productionGoalsMonthSelect");
+          window.__renderProductionGoalsMonth(String(goalsSelect?.value || "").trim());
+        }
+        if (window.__renderProductionDailyMonth) {
+          const dailySelect = document.getElementById("productionDailyMonthSelect");
+          window.__renderProductionDailyMonth(String(dailySelect?.value || "").trim());
+        }
+        renderByKey(String(select.value || payload.selected_month_key || "").trim());
+      };
+      syncProductionMonthViews();
+      window.addEventListener("pageshow", syncProductionMonthViews);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) syncProductionMonthViews();
+      });
+      window.setTimeout(syncProductionMonthViews, 0);
+      window.setTimeout(syncProductionMonthViews, 250);
     })();
 
     (function () {
