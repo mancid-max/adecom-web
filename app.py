@@ -1330,7 +1330,7 @@ def _refresh_directory_data() -> dict:
 def _refresh_seed_data() -> dict[str, dict[str, int]]:
     stats: dict[str, dict[str, int]] = {}
 
-    saldos_files = _seed_saldos_files({"42", "43"})
+    saldos_files = _seed_saldos_files()
     saldos_rows: list[dict] = []
     for seed_file in saldos_files:
         saldos_rows.extend(parse_saldos_txt(seed_file.read_bytes()))
@@ -3202,10 +3202,10 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
     temporadas_seen: set[str] = set()
     seen_rows: set[tuple] = set()
 
-    saldos_seed_paths = _seed_saldos_files({"42", "43"})
+    saldos_seed_paths = _seed_saldos_files()
     for path in saldos_seed_paths:
         temporada = _temporada_from_seed_saldos(path)
-        if temporada not in {"42", "43"}:
+        if not temporada or not str(temporada).isdigit():
             continue
         try:
             parsed_rows = parse_saldos_txt(path.read_bytes())
@@ -3251,7 +3251,7 @@ def ensure_seed_data() -> None:
         init_db(DB_PATH)
         return
     init_db(DB_PATH)
-    seed_saldos_files = _seed_saldos_files({"42", "43"})
+    seed_saldos_files = _seed_saldos_files()
     if seed_saldos_files and _table_count("saldos_seccion") == 0:
         saldos_rows: list[dict] = []
         for seed_file in seed_saldos_files:
@@ -3321,7 +3321,7 @@ def _seed_upload_target(filename: str) -> Path | None:
         return INVENTORY_BOOK_SEED_PATH
     if normalized.startswith("SALDOS-SECCI") and normalized.endswith(".TXT"):
         temporada = _temporada_from_seed_saldos(Path(raw_name))
-        if temporada in {"42", "43"}:
+        if temporada and str(temporada).isdigit():
             return SEED_DIR / raw_name
     return None
 
