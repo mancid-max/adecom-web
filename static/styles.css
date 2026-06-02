@@ -7685,6 +7685,15 @@ body.theme-gentelella,
   font-weight: 800;
 }
 
+.production-month-label {
+  color: #35516d;
+  font-weight: 800;
+}
+
+.production-month-toolbar {
+  margin: 0;
+}
+
 .production-month-form select {
   min-width: 220px;
   min-height: 42px;

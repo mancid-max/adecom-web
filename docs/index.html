@@ -1239,23 +1239,47 @@
           >Cerrar</button>
         </div>
         
-        <div class="table-tools production-month-form">
-          <label for="productionExcelMonthSelect">Mes con datos:</label>
-          <select id="productionExcelMonthSelect" name="programas_month" onchange="window.__renderProductionExcelMonth && window.__renderProductionExcelMonth(this.value)">
+        <div class="table-tools production-month-form" id="productionExcelMonthToolbar" data-default-month-key="Junio 2026">
+          <span class="production-month-label">Mes con datos:</span>
+          <div id="productionExcelMonthButtons" class="comparativo-toolbar production-month-toolbar" aria-label="Mes metas excel">
             
-              <option value="Enero 2026" >Enero 2026</option>
+            <button
+              type="button"
+              class="comparativo-toggle "
+              data-month-key="Enero 2026"
+            >Enero 2026</button>
             
-              <option value="Febrero 2026" >Febrero 2026</option>
+            <button
+              type="button"
+              class="comparativo-toggle "
+              data-month-key="Febrero 2026"
+            >Febrero 2026</button>
             
-              <option value="Marzo 2026" >Marzo 2026</option>
+            <button
+              type="button"
+              class="comparativo-toggle "
+              data-month-key="Marzo 2026"
+            >Marzo 2026</button>
             
-              <option value="Abril 2026" >Abril 2026</option>
+            <button
+              type="button"
+              class="comparativo-toggle "
+              data-month-key="Abril 2026"
+            >Abril 2026</button>
             
-              <option value="Mayo 2026" >Mayo 2026</option>
+            <button
+              type="button"
+              class="comparativo-toggle "
+              data-month-key="Mayo 2026"
+            >Mayo 2026</button>
             
-              <option value="Junio 2026" selected>Junio 2026</option>
+            <button
+              type="button"
+              class="comparativo-toggle is-active"
+              data-month-key="Junio 2026"
+            >Junio 2026</button>
             
-          </select>
+          </div>
         </div>
         
 
@@ -48981,8 +49005,9 @@
           return;
         }
         if (modalId === "productionExcelModal" && window.__renderProductionExcelMonth) {
-          const select = document.getElementById("productionExcelMonthSelect");
-          window.__renderProductionExcelMonth(String(select?.value || "").trim());
+          const activeBtn = document.querySelector("#productionExcelMonthButtons .comparativo-toggle.is-active");
+          const toolbar = document.getElementById("productionExcelMonthToolbar");
+          window.__renderProductionExcelMonth(String(activeBtn?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim());
         }
       };
       const showDashboardModal = (modalId) => {
@@ -51906,9 +51931,10 @@
 
     (function () {
       const modal = document.getElementById("productionExcelModal");
-      const select = document.getElementById("productionExcelMonthSelect");
+      const toolbar = document.getElementById("productionExcelMonthToolbar");
+      const monthButtons = Array.from(document.querySelectorAll("#productionExcelMonthButtons .comparativo-toggle"));
       const monthBlocks = Array.from(document.querySelectorAll("#productionExcelSheets .excel-month-block"));
-      if (!modal || !select || !monthBlocks.length) return;
+      if (!modal || !monthButtons.length || !monthBlocks.length) return;
       const renderByKey = (rawKey) => {
         const key = String(rawKey || "").trim();
         if (!key) return false;
@@ -51918,29 +51944,29 @@
           block.hidden = !active;
           if (active) matched = true;
         });
-        if (matched && String(select.value || "").trim() !== key) {
-          select.value = key;
-        }
+        monthButtons.forEach((button) => {
+          button.classList.toggle("is-active", String(button.dataset.monthKey || "").trim() === key);
+        });
         return matched;
       };
 
       window.__renderProductionExcelMonth = renderByKey;
       const ensureExcelMonthSync = () => {
-        const key = String(select.value || "").trim();
+        const activeButton = monthButtons.find((button) => button.classList.contains("is-active"));
+        const key = String(activeButton?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim();
         if (!key) return;
         const activeBlock = monthBlocks.find((block) => !block.hidden);
         if (String(activeBlock?.dataset.monthKey || "").trim() === key) return;
         renderByKey(key);
       };
 
-      select.addEventListener("change", () => {
-        renderByKey(select.value);
+      monthButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = String(button.dataset.monthKey || "").trim();
+          if (!key) return;
+          renderByKey(key);
+        });
       });
-      select.addEventListener("input", ensureExcelMonthSync);
-      select.addEventListener("click", ensureExcelMonthSync);
-      select.addEventListener("pointerup", ensureExcelMonthSync);
-      select.addEventListener("keyup", ensureExcelMonthSync);
-      select.addEventListener("focus", ensureExcelMonthSync);
       if (modal) {
         modal.addEventListener("click", ensureExcelMonthSync);
         modal.addEventListener("toggle", ensureExcelMonthSync);
@@ -51955,7 +51981,8 @@
           const dailySelect = document.getElementById("productionDailyMonthSelect");
           window.__renderProductionDailyMonth(String(dailySelect?.value || "").trim());
         }
-        renderByKey(String(select.value || "").trim());
+        const activeButton = monthButtons.find((button) => button.classList.contains("is-active"));
+        renderByKey(String(activeButton?.dataset.monthKey || toolbar?.dataset.defaultMonthKey || "").trim());
       };
       syncProductionMonthViews();
       window.addEventListener("pageshow", syncProductionMonthViews);
@@ -51963,9 +51990,6 @@
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) syncProductionMonthViews();
       });
-      window.setInterval(() => {
-        if (modal.open) ensureExcelMonthSync();
-      }, 200);
       window.setTimeout(syncProductionMonthViews, 0);
       window.setTimeout(syncProductionMonthViews, 250);
       window.setTimeout(syncProductionMonthViews, 1000);
