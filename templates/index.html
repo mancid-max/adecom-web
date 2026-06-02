@@ -532,71 +532,11 @@
           <div class="excel-preview-frame">
             <div class="excel-preview-sheet">
               <div class="excel-abr-title-row">
-                <div class="excel-abr-title" id="productionExcelTitle">{{ excel_preview_dashboard.title }}</div>
-                <div class="excel-abr-days-note" id="productionExcelDaysNote">{{ excel_preview_dashboard.days_note }}</div>
+                <div class="excel-abr-title" id="productionExcelTitle">Metas de produccion</div>
+                <div class="excel-abr-days-note" id="productionExcelDaysNote"></div>
               </div>
 
-              <div class="excel-abr-grid" id="productionExcelGrid" style="grid-template-columns: 78px 50px{% for _ in excel_preview_dashboard.columns %} repeat(2, 62px){% endfor %};">
-                <div class="excel-abr-cell excel-abr-head">AREA</div>
-                <div class="excel-abr-cell excel-abr-head"></div>
-                {% for col in excel_preview_dashboard.columns %}
-                  <div class="excel-abr-cell excel-abr-head excel-abr-area" style="grid-column: span 2;">{{ col.name }}</div>
-                {% endfor %}
-
-                <div class="excel-abr-cell excel-abr-subhead">TIPO</div>
-                <div class="excel-abr-cell excel-abr-subhead"></div>
-                {% for col in excel_preview_dashboard.columns %}
-                  <div class="excel-abr-cell excel-abr-subhead">PROD</div>
-                  <div class="excel-abr-cell excel-abr-subhead">MUES</div>
-                {% endfor %}
-
-                <div class="excel-abr-cell excel-abr-meta">META FIJA DIA</div>
-                <div class="excel-abr-cell excel-abr-meta"></div>
-                {% for col in excel_preview_dashboard.columns %}
-                  <div class="excel-abr-cell excel-abr-meta">{{ col.meta }}</div>
-                  <div class="excel-abr-cell excel-abr-meta">0</div>
-                {% endfor %}
-
-                {% for week in excel_preview_dashboard.weeks %}
-                  {% for row in week.rows %}
-                    <div class="excel-abr-cell">{{ row.day }}</div>
-                    <div class="excel-abr-cell">{{ row.weekday }}</div>
-                    {% for cell in row.cells %}
-                      <div class="excel-abr-cell {% if cell.prod %}excel-abr-value{% endif %}">{{ cell.prod if cell.prod is not none else "" }}</div>
-                      <div class="excel-abr-cell">{{ cell.mues if cell.mues is not none else "" }}</div>
-                    {% endfor %}
-                  {% endfor %}
-                  <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">{{ week.label }}</div>
-                  {% for total in week.totals %}
-                    <div class="excel-abr-cell excel-abr-total">{{ total }}</div>
-                    <div class="excel-abr-cell excel-abr-total">0</div>
-                  {% endfor %}
-                {% endfor %}
-
-                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">PROD. ACUM</div>
-                {% for row in excel_preview_dashboard.summary_rows %}
-                  <div class="excel-abr-cell excel-abr-total">{{ row.actual }}</div>
-                  <div class="excel-abr-cell excel-abr-total">0</div>
-                {% endfor %}
-
-                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">META MES</div>
-                {% for row in excel_preview_dashboard.summary_rows %}
-                  <div class="excel-abr-cell excel-abr-meta">{{ row.meta_month }}</div>
-                  <div class="excel-abr-cell excel-abr-meta">0</div>
-                {% endfor %}
-
-                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">DIFERENCIAS</div>
-                {% for row in excel_preview_dashboard.summary_rows %}
-                  <div class="excel-abr-cell excel-abr-diff">{{ row.diff }}</div>
-                  <div class="excel-abr-cell excel-abr-diff">0</div>
-                {% endfor %}
-
-                <div class="excel-abr-cell excel-abr-progress-label" style="grid-column: span 2;">% AVANCE REAL v/s AVANCE ESPERADO</div>
-                {% for row in excel_preview_dashboard.summary_rows %}
-                  <div class="excel-abr-cell excel-abr-progress {% if row.advance_vs_projection_pct >= 100 %}excel-abr-progress-green{% elif row.advance_vs_projection_pct >= 50 %}excel-abr-progress-yellow{% else %}excel-abr-progress-red{% endif %}">{{ row.advance_vs_projection_pct }}%</div>
-                  <div class="excel-abr-cell excel-abr-progress excel-abr-progress-empty">-</div>
-                {% endfor %}
-              </div>
+              <div class="excel-abr-grid" id="productionExcelGrid"></div>
             </div>
           </div>
         </section>
