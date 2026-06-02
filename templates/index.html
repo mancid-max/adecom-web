@@ -530,13 +530,90 @@
 
         <section class="excel-preview-shell">
           <div class="excel-preview-frame">
-            <div class="excel-preview-sheet">
-              <div class="excel-abr-title-row">
-                <div class="excel-abr-title" id="productionExcelTitle">Metas de produccion</div>
-                <div class="excel-abr-days-note" id="productionExcelDaysNote"></div>
-              </div>
+            <div class="excel-preview-sheet" id="productionExcelSheets">
+              {% set excel_dashboards_map = excel_preview_dashboards.dashboards if excel_preview_dashboards and excel_preview_dashboards.dashboards else {} %}
+              {% for option in excel_preview_dashboard.month_options %}
+                {% set dashboard = excel_dashboards_map.get(option.key) %}
+                {% if dashboard %}
+                <section class="excel-month-block" data-month-key="{{ option.key }}" {% if option.key != excel_preview_dashboard.selected_month_key %}hidden{% endif %}>
+                  <div class="excel-abr-title-row">
+                    <div class="excel-abr-title">{{ dashboard.title or 'MES DE PROCESO' }}</div>
+                    <div class="excel-abr-days-note">{{ dashboard.days_note or '' }}</div>
+                  </div>
 
-              <div class="excel-abr-grid" id="productionExcelGrid"></div>
+                  <div class="excel-abr-grid" style="grid-template-columns: 78px 50px{% for _ in dashboard.columns %} repeat(2, 62px){% endfor %}">
+                    <div class="excel-abr-cell excel-abr-head">AREA</div>
+                    <div class="excel-abr-cell excel-abr-head"></div>
+                    {% for col in dashboard.columns %}
+                    <div class="excel-abr-cell excel-abr-head excel-abr-area" style="grid-column: span 2;">{{ col.name or '' }}</div>
+                    {% endfor %}
+
+                    <div class="excel-abr-cell excel-abr-subhead">TIPO</div>
+                    <div class="excel-abr-cell excel-abr-subhead"></div>
+                    {% for _ in dashboard.columns %}
+                    <div class="excel-abr-cell excel-abr-subhead">PROD</div>
+                    <div class="excel-abr-cell excel-abr-subhead">MUES</div>
+                    {% endfor %}
+
+                    <div class="excel-abr-cell excel-abr-meta">META FIJA DIA</div>
+                    <div class="excel-abr-cell excel-abr-meta"></div>
+                    {% for col in dashboard.columns %}
+                    <div class="excel-abr-cell excel-abr-meta">{{ col.meta or '' }}</div>
+                    <div class="excel-abr-cell excel-abr-meta">0</div>
+                    {% endfor %}
+
+                    {% for week in dashboard.weeks %}
+                      {% for row in week.rows %}
+                      <div class="excel-abr-cell">{{ row.day or '' }}</div>
+                      <div class="excel-abr-cell">{{ row.weekday or '' }}</div>
+                        {% for cell in row.cells %}
+                        <div class="excel-abr-cell {% if cell and cell.prod %}excel-abr-value{% endif %}">{{ cell.prod if cell and cell.prod is not none else '' }}</div>
+                        <div class="excel-abr-cell">{{ cell.mues if cell and cell.mues is not none else '' }}</div>
+                        {% endfor %}
+                      {% endfor %}
+
+                      <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">{{ week.label or '' }}</div>
+                      {% for total in week.totals %}
+                      <div class="excel-abr-cell excel-abr-total">{{ total if total is not none else '' }}</div>
+                      <div class="excel-abr-cell excel-abr-total">0</div>
+                      {% endfor %}
+                    {% endfor %}
+
+                    <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">PROD. ACUM</div>
+                    {% for row in dashboard.summary_rows %}
+                    <div class="excel-abr-cell excel-abr-total">{{ row.actual if row.actual is not none else '' }}</div>
+                    <div class="excel-abr-cell excel-abr-total">0</div>
+                    {% endfor %}
+
+                    <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">META MES</div>
+                    {% for row in dashboard.summary_rows %}
+                    <div class="excel-abr-cell excel-abr-meta">{{ row.meta_month if row.meta_month is not none else '' }}</div>
+                    <div class="excel-abr-cell excel-abr-meta">0</div>
+                    {% endfor %}
+
+                    <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">DIFERENCIAS</div>
+                    {% for row in dashboard.summary_rows %}
+                    <div class="excel-abr-cell excel-abr-diff">{{ row.diff if row.diff is not none else '' }}</div>
+                    <div class="excel-abr-cell excel-abr-diff">0</div>
+                    {% endfor %}
+
+                    <div class="excel-abr-cell excel-abr-progress-label" style="grid-column: span 2;">% AVANCE REAL v/s AVANCE ESPERADO</div>
+                    {% for row in dashboard.summary_rows %}
+                      {% set pct = row.advance_vs_projection_pct|float %}
+                      {% if pct >= 100 %}
+                        {% set tone = 'excel-abr-progress-green' %}
+                      {% elif pct >= 50 %}
+                        {% set tone = 'excel-abr-progress-yellow' %}
+                      {% else %}
+                        {% set tone = 'excel-abr-progress-red' %}
+                      {% endif %}
+                    <div class="excel-abr-cell excel-abr-progress {{ tone }}">{{ row.advance_vs_projection_pct if row.advance_vs_projection_pct is not none else '' }}%</div>
+                    <div class="excel-abr-cell excel-abr-progress excel-abr-progress-empty">-</div>
+                    {% endfor %}
+                  </div>
+                </section>
+                {% endif %}
+              {% endfor %}
             </div>
           </div>
         </section>
@@ -697,72 +774,9 @@
           };
           window.__renderProductionDailyMonth(String((dailySelect && dailySelect.value) || dailyPayload.selected_month_key || "").trim());
 
-          const excelSelect = document.getElementById("productionExcelMonthSelect");
-          const excelPayload = parsePayload("productionExcelDashboardsData");
-          const excelDashboards = excelPayload && typeof excelPayload.dashboards === "object" && excelPayload.dashboards ? excelPayload.dashboards : {};
-          window.__renderProductionExcelMonth = (rawKey) => {
-            const key = String(rawKey || "").trim();
-            const dashboard = excelDashboards[key];
-            if (!dashboard) return false;
-            if (excelSelect && String(excelSelect.value || "").trim() !== key) excelSelect.value = key;
-            const titleEl = document.getElementById("productionExcelTitle");
-            const daysNoteEl = document.getElementById("productionExcelDaysNote");
-            const gridEl = document.getElementById("productionExcelGrid");
-            if (!titleEl || !daysNoteEl || !gridEl) return false;
-            const columns = Array.isArray(dashboard.columns) ? dashboard.columns : [];
-            const weeks = Array.isArray(dashboard.weeks) ? dashboard.weeks : [];
-            const summaryRows = Array.isArray(dashboard.summary_rows) ? dashboard.summary_rows : [];
-            titleEl.textContent = String(dashboard.title || "MES DE PROCESO");
-            daysNoteEl.textContent = String(dashboard.days_note || "");
-            gridEl.style.gridTemplateColumns = `78px 50px${columns.map(() => " repeat(2, 62px)").join("")}`;
-            let html = `
-              <div class="excel-abr-cell excel-abr-head">AREA</div>
-              <div class="excel-abr-cell excel-abr-head"></div>
-              ${columns.map((col) => `<div class="excel-abr-cell excel-abr-head excel-abr-area" style="grid-column: span 2;">${escapeHtml(col.name || "")}</div>`).join("")}
-              <div class="excel-abr-cell excel-abr-subhead">TIPO</div>
-              <div class="excel-abr-cell excel-abr-subhead"></div>
-              ${columns.map(() => '<div class="excel-abr-cell excel-abr-subhead">PROD</div><div class="excel-abr-cell excel-abr-subhead">MUES</div>').join("")}
-              <div class="excel-abr-cell excel-abr-meta">META FIJA DIA</div>
-              <div class="excel-abr-cell excel-abr-meta"></div>
-              ${columns.map((col) => `<div class="excel-abr-cell excel-abr-meta">${escapeHtml(col.meta ?? "")}</div><div class="excel-abr-cell excel-abr-meta">0</div>`).join("")}
-            `;
-            weeks.forEach((week) => {
-              (Array.isArray(week.rows) ? week.rows : []).forEach((row) => {
-                html += `
-                  <div class="excel-abr-cell">${escapeHtml(row.day ?? "")}</div>
-                  <div class="excel-abr-cell">${escapeHtml(row.weekday ?? "")}</div>
-                  ${(Array.isArray(row.cells) ? row.cells : []).map((cell) => `
-                    <div class="excel-abr-cell ${cell && cell.prod ? "excel-abr-value" : ""}">${escapeHtml(cell?.prod ?? "")}</div>
-                    <div class="excel-abr-cell">${escapeHtml(cell?.mues ?? "")}</div>
-                  `).join("")}
-                `;
-              });
-              html += `
-                <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">${escapeHtml(week.label || "")}</div>
-                ${(Array.isArray(week.totals) ? week.totals : []).map((total) => `<div class="excel-abr-cell excel-abr-total">${escapeHtml(total ?? "")}</div><div class="excel-abr-cell excel-abr-total">0</div>`).join("")}
-              `;
-            });
-            html += `
-              <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">PROD. ACUM</div>
-              ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-total">${escapeHtml(row.actual ?? "")}</div><div class="excel-abr-cell excel-abr-total">0</div>`).join("")}
-              <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">META MES</div>
-              ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-meta">${escapeHtml(row.meta_month ?? "")}</div><div class="excel-abr-cell excel-abr-meta">0</div>`).join("")}
-              <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">DIFERENCIAS</div>
-              ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-diff">${escapeHtml(row.diff ?? "")}</div><div class="excel-abr-cell excel-abr-diff">0</div>`).join("")}
-              <div class="excel-abr-cell excel-abr-progress-label" style="grid-column: span 2;">% AVANCE REAL v/s AVANCE ESPERADO</div>
-              ${summaryRows.map((row) => {
-                const pct = Number(row.advance_vs_projection_pct || 0);
-                const tone = pct >= 100 ? "excel-abr-progress-green" : (pct >= 50 ? "excel-abr-progress-yellow" : "excel-abr-progress-red");
-                return `<div class="excel-abr-cell excel-abr-progress ${tone}">${escapeHtml(row.advance_vs_projection_pct ?? "")}%</div><div class="excel-abr-cell excel-abr-progress excel-abr-progress-empty">-</div>`;
-              }).join("")}
-            `;
-            gridEl.innerHTML = html;
-            return true;
-          };
           const syncAllProductionMonthViews = () => {
             window.__renderProductionGoalsMonth(String((goalsSelect && goalsSelect.value) || goalsPayload.selected_month_key || "").trim());
             window.__renderProductionDailyMonth(String((dailySelect && dailySelect.value) || dailyPayload.selected_month_key || "").trim());
-            window.__renderProductionExcelMonth(String((excelSelect && excelSelect.value) || excelPayload.selected_month_key || "").trim());
           };
           syncAllProductionMonthViews();
           window.addEventListener("pageshow", syncAllProductionMonthViews);
@@ -5749,94 +5763,29 @@
     (function () {
       const modal = document.getElementById("productionExcelModal");
       const select = document.getElementById("productionExcelMonthSelect");
-      const dataNode = document.getElementById("productionExcelDashboardsData");
-      const titleEl = document.getElementById("productionExcelTitle");
-      const daysNoteEl = document.getElementById("productionExcelDaysNote");
-      const gridEl = document.getElementById("productionExcelGrid");
-      if (!modal || !select || !dataNode || !titleEl || !daysNoteEl || !gridEl) return;
-
-      let payload = {};
-      try {
-        payload = JSON.parse(dataNode.textContent || "{}");
-      } catch (_) {
-        payload = {};
-      }
-      const dashboards = payload && typeof payload.dashboards === "object" && payload.dashboards ? payload.dashboards : {};
-      const escapeHtml = (value) => String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-
-      const renderDashboard = (dashboard) => {
-        if (!dashboard) return;
-        const columns = Array.isArray(dashboard.columns) ? dashboard.columns : [];
-        const weeks = Array.isArray(dashboard.weeks) ? dashboard.weeks : [];
-        const summaryRows = Array.isArray(dashboard.summary_rows) ? dashboard.summary_rows : [];
-        gridEl.dataset.monthKey = String(dashboard.selected_month_key || dashboard.title || "");
-        titleEl.textContent = String(dashboard.title || "MES DE PROCESO");
-        daysNoteEl.textContent = String(dashboard.days_note || "");
-        gridEl.style.gridTemplateColumns = `78px 50px${columns.map(() => " repeat(2, 62px)").join("")}`;
-        let html = `
-          <div class="excel-abr-cell excel-abr-head">AREA</div>
-          <div class="excel-abr-cell excel-abr-head"></div>
-          ${columns.map((col) => `<div class="excel-abr-cell excel-abr-head excel-abr-area" style="grid-column: span 2;">${escapeHtml(col.name || "")}</div>`).join("")}
-          <div class="excel-abr-cell excel-abr-subhead">TIPO</div>
-          <div class="excel-abr-cell excel-abr-subhead"></div>
-          ${columns.map(() => '<div class="excel-abr-cell excel-abr-subhead">PROD</div><div class="excel-abr-cell excel-abr-subhead">MUES</div>').join("")}
-          <div class="excel-abr-cell excel-abr-meta">META FIJA DIA</div>
-          <div class="excel-abr-cell excel-abr-meta"></div>
-          ${columns.map((col) => `<div class="excel-abr-cell excel-abr-meta">${escapeHtml(col.meta ?? "")}</div><div class="excel-abr-cell excel-abr-meta">0</div>`).join("")}
-        `;
-        weeks.forEach((week) => {
-          (Array.isArray(week.rows) ? week.rows : []).forEach((row) => {
-            html += `
-              <div class="excel-abr-cell">${escapeHtml(row.day ?? "")}</div>
-              <div class="excel-abr-cell">${escapeHtml(row.weekday ?? "")}</div>
-              ${(Array.isArray(row.cells) ? row.cells : []).map((cell) => `
-                <div class="excel-abr-cell ${cell && cell.prod ? "excel-abr-value" : ""}">${escapeHtml(cell?.prod ?? "")}</div>
-                <div class="excel-abr-cell">${escapeHtml(cell?.mues ?? "")}</div>
-              `).join("")}
-            `;
-          });
-          html += `
-            <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">${escapeHtml(week.label || "")}</div>
-            ${(Array.isArray(week.totals) ? week.totals : []).map((total) => `<div class="excel-abr-cell excel-abr-total">${escapeHtml(total ?? "")}</div><div class="excel-abr-cell excel-abr-total">0</div>`).join("")}
-          `;
-        });
-        html += `
-          <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">PROD. ACUM</div>
-          ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-total">${escapeHtml(row.actual ?? "")}</div><div class="excel-abr-cell excel-abr-total">0</div>`).join("")}
-          <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">META MES</div>
-          ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-meta">${escapeHtml(row.meta_month ?? "")}</div><div class="excel-abr-cell excel-abr-meta">0</div>`).join("")}
-          <div class="excel-abr-cell excel-abr-total-label" style="grid-column: span 2;">DIFERENCIAS</div>
-          ${summaryRows.map((row) => `<div class="excel-abr-cell excel-abr-diff">${escapeHtml(row.diff ?? "")}</div><div class="excel-abr-cell excel-abr-diff">0</div>`).join("")}
-          <div class="excel-abr-cell excel-abr-progress-label" style="grid-column: span 2;">% AVANCE REAL v/s AVANCE ESPERADO</div>
-          ${summaryRows.map((row) => {
-            const pct = Number(row.advance_vs_projection_pct || 0);
-            const tone = pct >= 100 ? "excel-abr-progress-green" : (pct >= 50 ? "excel-abr-progress-yellow" : "excel-abr-progress-red");
-            return `<div class="excel-abr-cell excel-abr-progress ${tone}">${escapeHtml(row.advance_vs_projection_pct ?? "")}%</div><div class="excel-abr-cell excel-abr-progress excel-abr-progress-empty">-</div>`;
-          }).join("")}
-        `;
-        gridEl.innerHTML = html;
-      };
-
+      const monthBlocks = Array.from(document.querySelectorAll("#productionExcelSheets .excel-month-block"));
+      if (!modal || !select || !monthBlocks.length) return;
       const renderByKey = (rawKey) => {
         const key = String(rawKey || "").trim();
-        if (!key || !dashboards[key]) return false;
-        if (String(select.value || "").trim() !== key) {
+        if (!key) return false;
+        let matched = false;
+        monthBlocks.forEach((block) => {
+          const active = String(block.dataset.monthKey || "").trim() === key;
+          block.hidden = !active;
+          if (active) matched = true;
+        });
+        if (matched && String(select.value || "").trim() !== key) {
           select.value = key;
         }
-        renderDashboard(dashboards[key]);
-        return true;
+        return matched;
       };
 
       window.__renderProductionExcelMonth = renderByKey;
       const ensureExcelMonthSync = () => {
-        const key = String(select.value || payload.selected_month_key || "").trim();
+        const key = String(select.value || "").trim();
         if (!key) return;
-        if (String(gridEl.dataset.monthKey || "").trim() === key) return;
+        const activeBlock = monthBlocks.find((block) => !block.hidden);
+        if (String(activeBlock?.dataset.monthKey || "").trim() === key) return;
         renderByKey(key);
       };
 
@@ -5860,7 +5809,7 @@
           const dailySelect = document.getElementById("productionDailyMonthSelect");
           window.__renderProductionDailyMonth(String(dailySelect?.value || "").trim());
         }
-        renderByKey(String(select.value || payload.selected_month_key || "").trim());
+        renderByKey(String(select.value || "").trim());
       };
       syncProductionMonthViews();
       window.addEventListener("pageshow", syncProductionMonthViews);
