@@ -5834,6 +5834,7 @@
         const columns = Array.isArray(dashboard.columns) ? dashboard.columns : [];
         const weeks = Array.isArray(dashboard.weeks) ? dashboard.weeks : [];
         const summaryRows = Array.isArray(dashboard.summary_rows) ? dashboard.summary_rows : [];
+        gridEl.dataset.monthKey = String(dashboard.selected_month_key || dashboard.title || "");
         titleEl.textContent = String(dashboard.title || "MES DE PROCESO");
         daysNoteEl.textContent = String(dashboard.days_note || "");
         gridEl.style.gridTemplateColumns = `78px 50px${columns.map(() => " repeat(2, 62px)").join("")}`;
@@ -5892,10 +5893,23 @@
       };
 
       window.__renderProductionExcelMonth = renderByKey;
+      const ensureExcelMonthSync = () => {
+        const key = String(select.value || payload.selected_month_key || "").trim();
+        if (!key) return;
+        if (String(gridEl.dataset.monthKey || "").trim() === key) return;
+        renderByKey(key);
+      };
 
       select.addEventListener("change", () => {
         renderByKey(select.value);
       });
+      select.addEventListener("input", ensureExcelMonthSync);
+      select.addEventListener("click", ensureExcelMonthSync);
+      select.addEventListener("focus", ensureExcelMonthSync);
+      if (modal) {
+        modal.addEventListener("click", ensureExcelMonthSync);
+        modal.addEventListener("toggle", ensureExcelMonthSync);
+      }
 
       const syncProductionMonthViews = () => {
         if (window.__renderProductionGoalsMonth) {
@@ -5910,11 +5924,14 @@
       };
       syncProductionMonthViews();
       window.addEventListener("pageshow", syncProductionMonthViews);
+      window.addEventListener("load", syncProductionMonthViews);
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) syncProductionMonthViews();
       });
       window.setTimeout(syncProductionMonthViews, 0);
       window.setTimeout(syncProductionMonthViews, 250);
+      window.setTimeout(syncProductionMonthViews, 1000);
+      window.setTimeout(syncProductionMonthViews, 2500);
     })();
 
     (function () {
