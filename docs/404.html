@@ -1247,36 +1247,42 @@
               type="button"
               class="comparativo-toggle "
               data-month-key="Enero 2026"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Enero 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Febrero 2026"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Febrero 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Marzo 2026"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Marzo 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Abril 2026"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Abril 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Mayo 2026"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Mayo 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle is-active"
               data-month-key="Junio 2026"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Junio 2026</button>
             
           </div>

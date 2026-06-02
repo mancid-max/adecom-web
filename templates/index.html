@@ -526,6 +526,7 @@
               type="button"
               class="comparativo-toggle {% if option.key == excel_preview_dashboard.selected_month_key %}is-active{% endif %}"
               data-month-key="{{ option.key }}"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >{{ option.label }}</button>
             {% endfor %}
           </div>
