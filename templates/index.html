@@ -819,7 +819,18 @@
             gridEl.innerHTML = html;
             return true;
           };
-          window.__renderProductionExcelMonth(String((excelSelect && excelSelect.value) || excelPayload.selected_month_key || "").trim());
+          const syncAllProductionMonthViews = () => {
+            window.__renderProductionGoalsMonth(String((goalsSelect && goalsSelect.value) || goalsPayload.selected_month_key || "").trim());
+            window.__renderProductionDailyMonth(String((dailySelect && dailySelect.value) || dailyPayload.selected_month_key || "").trim());
+            window.__renderProductionExcelMonth(String((excelSelect && excelSelect.value) || excelPayload.selected_month_key || "").trim());
+          };
+          syncAllProductionMonthViews();
+          window.addEventListener("pageshow", syncAllProductionMonthViews);
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) syncAllProductionMonthViews();
+          });
+          window.setTimeout(syncAllProductionMonthViews, 0);
+          window.setTimeout(syncAllProductionMonthViews, 250);
         })();
       </script>
 

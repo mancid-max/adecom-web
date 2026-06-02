@@ -2406,7 +2406,18 @@
             gridEl.innerHTML = html;
             return true;
           };
-          window.__renderProductionExcelMonth(String((excelSelect && excelSelect.value) || excelPayload.selected_month_key || "").trim());
+          const syncAllProductionMonthViews = () => {
+            window.__renderProductionGoalsMonth(String((goalsSelect && goalsSelect.value) || goalsPayload.selected_month_key || "").trim());
+            window.__renderProductionDailyMonth(String((dailySelect && dailySelect.value) || dailyPayload.selected_month_key || "").trim());
+            window.__renderProductionExcelMonth(String((excelSelect && excelSelect.value) || excelPayload.selected_month_key || "").trim());
+          };
+          syncAllProductionMonthViews();
+          window.addEventListener("pageshow", syncAllProductionMonthViews);
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) syncAllProductionMonthViews();
+          });
+          window.setTimeout(syncAllProductionMonthViews, 0);
+          window.setTimeout(syncAllProductionMonthViews, 250);
         })();
       </script>
 
@@ -4171,7 +4182,7 @@
                         <strong>Taller</strong>
                         04/05/2026 -> -
                         | cant. 1
-                        | Lleva 29 dias
+                        | Lleva 30 dias
                       </span>
                       
                     </div>
@@ -4272,7 +4283,7 @@
                         <strong>Terminacion</strong>
                         19/05/2026 -> -
                         | cant. 1
-                        | Lleva 14 dias
+                        | Lleva 15 dias
                       </span>
                       
                     </div>
@@ -4308,7 +4319,7 @@
                         <strong>Taller</strong>
                         25/05/2026 -> -
                         | cant. 480
-                        | Lleva 8 dias
+                        | Lleva 9 dias
                       </span>
                       
                     </div>
@@ -4402,7 +4413,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 15
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -4459,7 +4470,7 @@
                         <strong>Terminacion</strong>
                         28/05/2026 -> -
                         | cant. 498
-                        | Lleva 5 dias
+                        | Lleva 6 dias
                       </span>
                       
                     </div>
@@ -4539,7 +4550,7 @@
                         <strong>Corte</strong>
                         26/05/2026 -> -
                         | cant. 1
-                        | Lleva 7 dias
+                        | Lleva 8 dias
                       </span>
                       
                     </div>
@@ -4601,7 +4612,7 @@
                         <strong>Corte</strong>
                         26/05/2026 -> -
                         | cant. 1
-                        | Lleva 7 dias
+                        | Lleva 8 dias
                       </span>
                       
                     </div>
@@ -4663,7 +4674,7 @@
                         <strong>Corte</strong>
                         28/05/2026 -> -
                         | cant. 1
-                        | Lleva 5 dias
+                        | Lleva 6 dias
                       </span>
                       
                     </div>
@@ -4746,7 +4757,7 @@
                         <strong>Terminacion</strong>
                         15/05/2026 -> -
                         | cant. 1
-                        | Lleva 18 dias
+                        | Lleva 19 dias
                       </span>
                       
                     </div>
@@ -4800,7 +4811,7 @@
                         <strong>Taller</strong>
                         26/05/2026 -> -
                         | cant. 1
-                        | Lleva 7 dias
+                        | Lleva 8 dias
                       </span>
                       
                     </div>
@@ -4876,7 +4887,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 1
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -4930,7 +4941,7 @@
                         <strong>Taller</strong>
                         26/05/2026 -> -
                         | cant. 1
-                        | Lleva 7 dias
+                        | Lleva 8 dias
                       </span>
                       
                     </div>
@@ -4966,7 +4977,7 @@
                         <strong>Taller</strong>
                         26/03/2026 -> -
                         | cant. 1
-                        | Lleva 68 dias
+                        | Lleva 69 dias
                       </span>
                       
                     </div>
@@ -5093,7 +5104,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 5
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -5129,7 +5140,7 @@
                         <strong>Taller</strong>
                         26/05/2026 -> -
                         | cant. 370
-                        | Lleva 7 dias
+                        | Lleva 8 dias
                       </span>
                       
                     </div>
@@ -5198,7 +5209,7 @@
                         <strong>Taller</strong>
                         23/02/2026 -> -
                         | cant. 1
-                        | Lleva 99 dias
+                        | Lleva 100 dias
                       </span>
                       
                     </div>
@@ -5292,7 +5303,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 15
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -5328,7 +5339,7 @@
                         <strong>Taller</strong>
                         26/05/2026 -> -
                         | cant. 380
-                        | Lleva 7 dias
+                        | Lleva 8 dias
                       </span>
                       
                     </div>
@@ -5683,7 +5694,7 @@
                         <strong>Terminacion</strong>
                         27/02/2026 -> -
                         | cant. 1
-                        | Lleva 95 dias
+                        | Lleva 96 dias
                       </span>
                       
                     </div>
@@ -5733,7 +5744,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -5769,7 +5780,7 @@
                         <strong>Taller Ext.</strong>
                         12/05/2026 -> -
                         | cant. 498
-                        | Lleva 21 dias
+                        | Lleva 22 dias
                       </span>
                       
                     </div>
@@ -5838,7 +5849,7 @@
                         <strong>Taller</strong>
                         19/05/2026 -> -
                         | cant. 604
-                        | Lleva 14 dias
+                        | Lleva 15 dias
                       </span>
                       
                     </div>
@@ -5925,7 +5936,7 @@
                         <strong>Taller</strong>
                         10/04/2026 -> -
                         | cant. 1
-                        | Lleva 53 dias
+                        | Lleva 54 dias
                       </span>
                       
                     </div>
@@ -6001,7 +6012,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 1
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -6163,7 +6174,7 @@
                         <strong>Terminacion</strong>
                         08/04/2026 -> -
                         | cant. 1
-                        | Lleva 55 dias
+                        | Lleva 56 dias
                       </span>
                       
                     </div>
@@ -6217,7 +6228,7 @@
                         <strong>Taller</strong>
                         12/05/2026 -> -
                         | cant. 200
-                        | Lleva 21 dias
+                        | Lleva 22 dias
                       </span>
                       
                     </div>
@@ -6372,7 +6383,7 @@
                         <strong>Taller</strong>
                         07/04/2026 -> -
                         | cant. 1
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -6408,7 +6419,7 @@
                         <strong>Taller Ext.</strong>
                         18/05/2026 -> -
                         | cant. 600
-                        | Lleva 15 dias
+                        | Lleva 16 dias
                       </span>
                       
                     </div>
@@ -6491,7 +6502,7 @@
                         <strong>Terminacion</strong>
                         26/02/2026 -> -
                         | cant. 1
-                        | Lleva 96 dias
+                        | Lleva 97 dias
                       </span>
                       
                     </div>
@@ -6541,7 +6552,7 @@
                         <strong>Terminacion</strong>
                         25/04/2026 -> -
                         | cant. 1
-                        | Lleva 38 dias
+                        | Lleva 39 dias
                       </span>
                       
                     </div>
@@ -6595,7 +6606,7 @@
                         <strong>Taller</strong>
                         12/05/2026 -> -
                         | cant. 498
-                        | Lleva 21 dias
+                        | Lleva 22 dias
                       </span>
                       
                     </div>
@@ -6714,7 +6725,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -6764,7 +6775,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -6840,7 +6851,7 @@
                         <strong>Lavanderia</strong>
                         08/04/2026 -> -
                         | cant. 1
-                        | Lleva 55 dias
+                        | Lleva 56 dias
                       </span>
                       
                     </div>
@@ -6908,7 +6919,7 @@
                         <strong>Terminacion</strong>
                         27/02/2026 -> -
                         | cant. 1
-                        | Lleva 95 dias
+                        | Lleva 96 dias
                       </span>
                       
                     </div>
@@ -7035,7 +7046,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 5
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -7161,7 +7172,7 @@
                         <strong>Taller</strong>
                         04/05/2026 -> -
                         | cant. 1
-                        | Lleva 29 dias
+                        | Lleva 30 dias
                       </span>
                       
                     </div>
@@ -7230,7 +7241,7 @@
                         <strong>Taller</strong>
                         04/05/2026 -> -
                         | cant. 1
-                        | Lleva 29 dias
+                        | Lleva 30 dias
                       </span>
                       
                     </div>
@@ -7320,7 +7331,7 @@
                         <strong>Terminacion</strong>
                         27/05/2026 -> -
                         | cant. 132
-                        | Lleva 6 dias
+                        | Lleva 7 dias
                       </span>
                       
                     </div>
@@ -7396,7 +7407,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 5
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -7496,7 +7507,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 5
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -7673,7 +7684,7 @@
                         <strong>Taller</strong>
                         28/04/2026 -> -
                         | cant. 1
-                        | Lleva 35 dias
+                        | Lleva 36 dias
                       </span>
                       
                     </div>
@@ -7756,7 +7767,7 @@
                         <strong>Terminacion</strong>
                         12/05/2026 -> -
                         | cant. 5
-                        | Lleva 21 dias
+                        | Lleva 22 dias
                       </span>
                       
                     </div>
@@ -7832,7 +7843,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 5
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -7915,7 +7926,7 @@
                         <strong>Terminacion</strong>
                         20/04/2026 -> -
                         | cant. 5
-                        | Lleva 43 dias
+                        | Lleva 44 dias
                       </span>
                       
                     </div>
@@ -7958,7 +7969,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 5
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -8091,7 +8102,7 @@
                         <strong>Taller</strong>
                         05/03/2026 -> -
                         | cant. 1
-                        | Lleva 89 dias
+                        | Lleva 90 dias
                       </span>
                       
                     </div>
@@ -8127,7 +8138,7 @@
                         <strong>Taller</strong>
                         24/04/2026 -> -
                         | cant. 5
-                        | Lleva 39 dias
+                        | Lleva 40 dias
                       </span>
                       
                     </div>
@@ -8196,7 +8207,7 @@
                         <strong>Taller</strong>
                         24/04/2026 -> -
                         | cant. 1
-                        | Lleva 39 dias
+                        | Lleva 40 dias
                       </span>
                       
                     </div>
@@ -8354,7 +8365,7 @@
                         <strong>Terminacion</strong>
                         30/04/2026 -> -
                         | cant. 1
-                        | Lleva 33 dias
+                        | Lleva 34 dias
                       </span>
                       
                     </div>
@@ -8404,7 +8415,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -8544,7 +8555,7 @@
                         <strong>Terminacion</strong>
                         23/02/2026 -> -
                         | cant. 1
-                        | Lleva 99 dias
+                        | Lleva 100 dias
                       </span>
                       
                     </div>
@@ -8598,7 +8609,7 @@
                         <strong>Taller</strong>
                         26/02/2026 -> -
                         | cant. 1
-                        | Lleva 96 dias
+                        | Lleva 97 dias
                       </span>
                       
                     </div>
@@ -8648,7 +8659,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -8731,7 +8742,7 @@
                         <strong>Terminacion</strong>
                         20/03/2026 -> -
                         | cant. 1
-                        | Lleva 74 dias
+                        | Lleva 75 dias
                       </span>
                       
                     </div>
@@ -8774,7 +8785,7 @@
                         <strong>Lavanderia</strong>
                         07/05/2026 -> -
                         | cant. 5
-                        | Lleva 26 dias
+                        | Lleva 27 dias
                       </span>
                       
                     </div>
@@ -8857,7 +8868,7 @@
                         <strong>Terminacion</strong>
                         23/02/2026 -> -
                         | cant. 1
-                        | Lleva 99 dias
+                        | Lleva 100 dias
                       </span>
                       
                     </div>
@@ -8925,7 +8936,7 @@
                         <strong>Terminacion</strong>
                         12/03/2026 -> -
                         | cant. 1
-                        | Lleva 82 dias
+                        | Lleva 83 dias
                       </span>
                       
                     </div>
@@ -8975,7 +8986,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 5
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -9018,7 +9029,7 @@
                         <strong>Lavanderia</strong>
                         25/05/2026 -> -
                         | cant. 606
-                        | Lleva 8 dias
+                        | Lleva 9 dias
                       </span>
                       
                     </div>
@@ -9278,7 +9289,7 @@
                         <strong>Terminacion</strong>
                         30/03/2026 -> -
                         | cant. 1
-                        | Lleva 64 dias
+                        | Lleva 65 dias
                       </span>
                       
                     </div>
@@ -9328,7 +9339,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -9468,7 +9479,7 @@
                         <strong>Terminacion</strong>
                         30/03/2026 -> -
                         | cant. 1
-                        | Lleva 64 dias
+                        | Lleva 65 dias
                       </span>
                       
                     </div>
@@ -9536,7 +9547,7 @@
                         <strong>Terminacion</strong>
                         27/02/2026 -> -
                         | cant. 1
-                        | Lleva 95 dias
+                        | Lleva 96 dias
                       </span>
                       
                     </div>
@@ -9676,7 +9687,7 @@
                         <strong>Terminacion</strong>
                         16/03/2026 -> -
                         | cant. 1
-                        | Lleva 78 dias
+                        | Lleva 79 dias
                       </span>
                       
                     </div>
@@ -9744,7 +9755,7 @@
                         <strong>Terminacion</strong>
                         26/02/2026 -> -
                         | cant. 1
-                        | Lleva 96 dias
+                        | Lleva 97 dias
                       </span>
                       
                     </div>
@@ -9794,7 +9805,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -10164,7 +10175,7 @@
                         <strong>Corte</strong>
                         27/03/2026 -> -
                         | cant. 1
-                        | Lleva 67 dias
+                        | Lleva 68 dias
                       </span>
                       
                     </div>
@@ -10290,7 +10301,7 @@
                         <strong>Taller</strong>
                         10/04/2026 -> -
                         | cant. 1
-                        | Lleva 53 dias
+                        | Lleva 54 dias
                       </span>
                       
                     </div>
@@ -10373,7 +10384,7 @@
                         <strong>Terminacion</strong>
                         16/02/2026 -> -
                         | cant. 1
-                        | Lleva 106 dias
+                        | Lleva 107 dias
                       </span>
                       
                     </div>
@@ -10423,7 +10434,7 @@
                         <strong>Terminacion</strong>
                         12/03/2026 -> -
                         | cant. 1
-                        | Lleva 82 dias
+                        | Lleva 83 dias
                       </span>
                       
                     </div>
@@ -10459,7 +10470,7 @@
                         <strong>Taller</strong>
                         07/04/2026 -> -
                         | cant. 5
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -10495,7 +10506,7 @@
                         <strong>Taller</strong>
                         09/04/2026 -> -
                         | cant. 5
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -10578,7 +10589,7 @@
                         <strong>Terminacion</strong>
                         16/02/2026 -> -
                         | cant. 1
-                        | Lleva 106 dias
+                        | Lleva 107 dias
                       </span>
                       
                     </div>
@@ -10628,7 +10639,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -10678,7 +10689,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -10785,7 +10796,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -10868,7 +10879,7 @@
                         <strong>Terminacion</strong>
                         26/02/2026 -> -
                         | cant. 1
-                        | Lleva 96 dias
+                        | Lleva 97 dias
                       </span>
                       
                     </div>
@@ -10968,7 +10979,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -11037,7 +11048,7 @@
                         <strong>Taller</strong>
                         07/04/2026 -> -
                         | cant. 1
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -11120,7 +11131,7 @@
                         <strong>Terminacion</strong>
                         27/02/2026 -> -
                         | cant. 1
-                        | Lleva 95 dias
+                        | Lleva 96 dias
                       </span>
                       
                     </div>
@@ -11156,7 +11167,7 @@
                         <strong>Taller</strong>
                         07/04/2026 -> -
                         | cant. 1
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -11275,7 +11286,7 @@
                         <strong>Taller</strong>
                         07/04/2026 -> -
                         | cant. 1
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -11408,7 +11419,7 @@
                         <strong>Terminacion</strong>
                         20/05/2026 -> -
                         | cant. 1
-                        | Lleva 13 dias
+                        | Lleva 14 dias
                       </span>
                       
                     </div>
@@ -11444,7 +11455,7 @@
                         <strong>Taller</strong>
                         07/04/2026 -> -
                         | cant. 1
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -11628,7 +11639,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -11895,7 +11906,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 1
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -12021,7 +12032,7 @@
                         <strong>Lavanderia</strong>
                         07/04/2026 -> -
                         | cant. 1
-                        | Lleva 56 dias
+                        | Lleva 57 dias
                       </span>
                       
                     </div>
@@ -12277,7 +12288,7 @@
                         <strong>Lavanderia</strong>
                         27/03/2026 -> -
                         | cant. 1
-                        | Lleva 67 dias
+                        | Lleva 68 dias
                       </span>
                       
                     </div>
@@ -12353,7 +12364,7 @@
                         <strong>Lavanderia</strong>
                         27/03/2026 -> -
                         | cant. 1
-                        | Lleva 67 dias
+                        | Lleva 68 dias
                       </span>
                       
                     </div>
@@ -12436,7 +12447,7 @@
                         <strong>Terminacion</strong>
                         16/02/2026 -> -
                         | cant. 1
-                        | Lleva 106 dias
+                        | Lleva 107 dias
                       </span>
                       
                     </div>
@@ -12486,7 +12497,7 @@
                         <strong>Terminacion</strong>
                         08/04/2026 -> -
                         | cant. 1
-                        | Lleva 55 dias
+                        | Lleva 56 dias
                       </span>
                       
                     </div>
@@ -12536,7 +12547,7 @@
                         <strong>Terminacion</strong>
                         12/03/2026 -> -
                         | cant. 1
-                        | Lleva 82 dias
+                        | Lleva 83 dias
                       </span>
                       
                     </div>
@@ -12662,7 +12673,7 @@
                         <strong>Taller</strong>
                         25/03/2026 -> -
                         | cant. 1
-                        | Lleva 69 dias
+                        | Lleva 70 dias
                       </span>
                       
                     </div>
@@ -13849,7 +13860,7 @@
                         <strong>Terminacion</strong>
                         09/04/2026 -> -
                         | cant. 6
-                        | Lleva 54 dias
+                        | Lleva 55 dias
                       </span>
                       
                     </div>
@@ -14076,7 +14087,7 @@
                         <strong>Taller</strong>
                         14/01/2026 -> -
                         | cant. 1
-                        | Lleva 139 dias
+                        | Lleva 140 dias
                       </span>
                       
                     </div>
@@ -14112,7 +14123,7 @@
                         <strong>Taller</strong>
                         26/03/2026 -> -
                         | cant. 1
-                        | Lleva 68 dias
+                        | Lleva 69 dias
                       </span>
                       
                     </div>
@@ -14797,7 +14808,7 @@
                         <strong>Taller</strong>
                         20/01/2026 -> -
                         | cant. 1
-                        | Lleva 133 dias
+                        | Lleva 134 dias
                       </span>
                       
                     </div>
@@ -15193,7 +15204,7 @@
                         <strong>Taller</strong>
                         07/01/2026 -> -
                         | cant. 1
-                        | Lleva 146 dias
+                        | Lleva 147 dias
                       </span>
                       
                     </div>
@@ -15319,7 +15330,7 @@
                         <strong>Taller</strong>
                         16/01/2026 -> -
                         | cant. 1
-                        | Lleva 137 dias
+                        | Lleva 138 dias
                       </span>
                       
                     </div>
@@ -15495,7 +15506,7 @@
                         <strong>Taller</strong>
                         16/01/2026 -> -
                         | cant. 1
-                        | Lleva 137 dias
+                        | Lleva 138 dias
                       </span>
                       
                     </div>
@@ -15538,7 +15549,7 @@
                         <strong>Lavanderia</strong>
                         12/01/2026 -> -
                         | cant. 4
-                        | Lleva 141 dias
+                        | Lleva 142 dias
                       </span>
                       
                     </div>
@@ -15952,7 +15963,7 @@
                         <strong>Taller</strong>
                         09/01/2026 -> -
                         | cant. 1
-                        | Lleva 144 dias
+                        | Lleva 145 dias
                       </span>
                       
                     </div>
@@ -16078,7 +16089,7 @@
                         <strong>Taller</strong>
                         13/01/2025 -> -
                         | cant. 1
-                        | Lleva 505 dias
+                        | Lleva 506 dias
                       </span>
                       
                     </div>
@@ -16114,7 +16125,7 @@
                         <strong>Taller</strong>
                         16/01/2026 -> -
                         | cant. 1
-                        | Lleva 137 dias
+                        | Lleva 138 dias
                       </span>
                       
                     </div>
@@ -16183,7 +16194,7 @@
                         <strong>Taller</strong>
                         14/01/2026 -> -
                         | cant. 1
-                        | Lleva 139 dias
+                        | Lleva 140 dias
                       </span>
                       
                     </div>
@@ -16252,7 +16263,7 @@
                         <strong>Taller</strong>
                         14/01/2026 -> -
                         | cant. 1
-                        | Lleva 139 dias
+                        | Lleva 140 dias
                       </span>
                       
                     </div>
@@ -16321,7 +16332,7 @@
                         <strong>Taller</strong>
                         12/01/2026 -> -
                         | cant. 1
-                        | Lleva 141 dias
+                        | Lleva 142 dias
                       </span>
                       
                     </div>
@@ -16501,7 +16512,7 @@
                         <strong>Terminacion</strong>
                         24/03/2026 -> -
                         | cant. 17
-                        | Lleva 70 dias
+                        | Lleva 71 dias
                       </span>
                       
                     </div>
@@ -16757,7 +16768,7 @@
                         <strong>Terminacion</strong>
                         16/02/2026 -> -
                         | cant. 1
-                        | Lleva 106 dias
+                        | Lleva 107 dias
                       </span>
                       
                     </div>
