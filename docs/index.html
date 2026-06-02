@@ -1247,42 +1247,42 @@
               type="button"
               class="comparativo-toggle "
               data-month-key="Enero 2026"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Enero 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Febrero 2026"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Febrero 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Marzo 2026"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Marzo 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Abril 2026"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Abril 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle "
               data-month-key="Mayo 2026"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Mayo 2026</button>
             
             <button
               type="button"
               class="comparativo-toggle is-active"
               data-month-key="Junio 2026"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >Junio 2026</button>
             
           </div>
@@ -1296,7 +1296,7 @@
               
                 
                 
-                <section class="excel-month-block" data-month-key="Enero 2026" hidden>
+                <section class="excel-month-block" data-month-key="Enero 2026" hidden style="display:none;">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">MES DE PROCESO ENERO 2026</div>
                     <div class="excel-abr-days-note">Dias habiles del mes: 21</div>
@@ -2275,7 +2275,7 @@
               
                 
                 
-                <section class="excel-month-block" data-month-key="Febrero 2026" hidden>
+                <section class="excel-month-block" data-month-key="Febrero 2026" hidden style="display:none;">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">MES DE PROCESO FEBRERO 2026</div>
                     <div class="excel-abr-days-note">Dias habiles del mes: 15</div>
@@ -3166,7 +3166,7 @@
               
                 
                 
-                <section class="excel-month-block" data-month-key="Marzo 2026" hidden>
+                <section class="excel-month-block" data-month-key="Marzo 2026" hidden style="display:none;">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">MES DE PROCESO MARZO 2026</div>
                     <div class="excel-abr-days-note">Dias habiles del mes: 15</div>
@@ -4123,7 +4123,7 @@
               
                 
                 
-                <section class="excel-month-block" data-month-key="Abril 2026" hidden>
+                <section class="excel-month-block" data-month-key="Abril 2026" hidden style="display:none;">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">MES DE PROCESO ABRIL 2026</div>
                     <div class="excel-abr-days-note">Dias habiles del mes: 21</div>
@@ -5080,7 +5080,7 @@
               
                 
                 
-                <section class="excel-month-block" data-month-key="Mayo 2026" hidden>
+                <section class="excel-month-block" data-month-key="Mayo 2026" hidden style="display:none;">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">MES DE PROCESO MAYO 2026</div>
                     <div class="excel-abr-days-note">Dias habiles del mes: 20</div>
@@ -5993,7 +5993,7 @@
               
                 
                 
-                <section class="excel-month-block" data-month-key="Junio 2026" >
+                <section class="excel-month-block" data-month-key="Junio 2026"  style="display:block;">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">MES DE PROCESO JUNIO 2026</div>
                     <div class="excel-abr-days-note">Dias habiles del mes: 22</div>
@@ -51948,6 +51948,7 @@
         monthBlocks.forEach((block) => {
           const active = String(block.dataset.monthKey || "").trim() === key;
           block.hidden = !active;
+          block.style.display = active ? "block" : "none";
           if (active) matched = true;
         });
         monthButtons.forEach((button) => {

@@ -526,7 +526,7 @@
               type="button"
               class="comparativo-toggle {% if option.key == excel_preview_dashboard.selected_month_key %}is-active{% endif %}"
               data-month-key="{{ option.key }}"
-              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{block.hidden=String(block.dataset.monthKey||'').trim()!==key;}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
+              onclick="(function(btn){const key=String(btn.dataset.monthKey||'').trim(); if(!key) return; document.querySelectorAll('#productionExcelMonthButtons .comparativo-toggle').forEach((item)=>item.classList.toggle('is-active', item===btn)); document.querySelectorAll('#productionExcelSheets .excel-month-block').forEach((block)=>{const active=String(block.dataset.monthKey||'').trim()===key; block.hidden=!active; block.style.display=active?'block':'none';}); const toolbar=document.getElementById('productionExcelMonthToolbar'); if(toolbar) toolbar.dataset.defaultMonthKey=key;})(this)"
             >{{ option.label }}</button>
             {% endfor %}
           </div>
@@ -540,7 +540,7 @@
               {% for option in excel_preview_dashboard.month_options %}
                 {% set dashboard = excel_dashboards_map.get(option.key) %}
                 {% if dashboard %}
-                <section class="excel-month-block" data-month-key="{{ option.key }}" {% if option.key != excel_preview_dashboard.selected_month_key %}hidden{% endif %}>
+                <section class="excel-month-block" data-month-key="{{ option.key }}" {% if option.key != excel_preview_dashboard.selected_month_key %}hidden{% endif %} style="{% if option.key != excel_preview_dashboard.selected_month_key %}display:none;{% else %}display:block;{% endif %}">
                   <div class="excel-abr-title-row">
                     <div class="excel-abr-title">{{ dashboard.title or 'MES DE PROCESO' }}</div>
                     <div class="excel-abr-days-note">{{ dashboard.days_note or '' }}</div>
@@ -5779,6 +5779,7 @@
         monthBlocks.forEach((block) => {
           const active = String(block.dataset.monthKey || "").trim() === key;
           block.hidden = !active;
+          block.style.display = active ? "block" : "none";
           if (active) matched = true;
         });
         monthButtons.forEach((button) => {
