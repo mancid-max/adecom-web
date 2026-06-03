@@ -1504,8 +1504,8 @@
             <label for="ventaDespachoCollectionSelect">
               <span>Temporada</span>
               <select id="ventaDespachoCollectionSelect">
-                {% for option in pedidos_collection_options %}
-                <option value="{{ option.key }}" {% if pedidos_collection == option.key %}selected{% endif %}>{{ option.label }}</option>
+                {% for option in venta_despacho_collection_options %}
+                <option value="{{ option.key }}" {% if venta_despacho_collection == option.key %}selected{% endif %}>{{ option.label }}</option>
                 {% endfor %}
               </select>
             </label>

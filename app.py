@@ -6147,14 +6147,23 @@ def index():
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
+    venta_despacho_collection_keys = [key for key in available_pedidos_collections if key.isdigit()]
+    if not venta_despacho_collection_keys:
+        venta_despacho_collection_keys = ["42", "43"]
+    venta_despacho_view_keys = list(venta_despacho_collection_keys)
+    if len(venta_despacho_collection_keys) > 1:
+        venta_despacho_view_keys.append("all")
+    venta_despacho_selected = pedidos_collection
+    if venta_despacho_selected not in venta_despacho_view_keys:
+        venta_despacho_selected = "42" if "42" in venta_despacho_collection_keys else venta_despacho_collection_keys[0]
     venta_despacho_dashboard_views = {
         key: _load_venta_despacho_dashboard(rows, key)
-        for key in pedidos_collection_view_keys
+        for key in venta_despacho_view_keys
     }
     venta_despacho_dashboard = (
-        venta_despacho_dashboard_views.get(pedidos_collection)
+        venta_despacho_dashboard_views.get(venta_despacho_selected)
         or venta_despacho_dashboard_views.get("42")
-        or venta_despacho_dashboard_views[available_pedidos_collections[0]]
+        or venta_despacho_dashboard_views[venta_despacho_collection_keys[0]]
     )
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     return render_template(
@@ -6172,6 +6181,8 @@ def index():
         ventas_top_articulos=ventas_top_articulos,
         pedidos_collection=pedidos_collection,
         pedidos_collection_options=_pedidos_collection_options(available_pedidos_collections),
+        venta_despacho_collection_options=_pedidos_collection_options(venta_despacho_collection_keys),
+        venta_despacho_collection=venta_despacho_selected,
         pedidos_collection_views=pedidos_collection_views,
         disponibles_summary=disponibles_summary,
         ventas_trazabilidad_por_articulo=trazabilidad_por_articulo,
