@@ -1936,6 +1936,12 @@
               placeholder="Ej: 01436104"
             />
           </label>
+          <label for="pedidosModeloFilter" style="display:grid; gap:6px; min-width:min(100%, 240px);">
+            <span>Filtrar por modelo</span>
+            <select id="pedidosModeloFilter">
+              <option value="">Todos los modelos</option>
+            </select>
+          </label>
           <button type="button" id="pedidosArticuloExactBtn" class="search-submit-btn">Buscar</button>
           <button type="button" id="pedidosArticuloResetBtn" class="search-reset-btn">Limpiar</button>
         </section>
@@ -3717,6 +3723,7 @@
       const topFamiliaBtn = document.getElementById("openTopFamiliaModal");
       const topArticulosBtn = document.getElementById("openTopArticulosModal");
       const articuloInput = document.getElementById("pedidosArticuloExactInput");
+      const modeloFilter = document.getElementById("pedidosModeloFilter");
       const articuloBtn = document.getElementById("pedidosArticuloExactBtn");
       const articuloResetBtn = document.getElementById("pedidosArticuloResetBtn");
       const articuloResult = document.getElementById("pedidosArticuloResult");
@@ -3740,6 +3747,49 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+      const buildFilteredFamilies = (familias, modelo) => {
+        const selectedModelo = String(modelo || "").trim();
+        if (!selectedModelo) return Array.isArray(familias) ? familias : [];
+        return (Array.isArray(familias) ? familias : []).map((family) => {
+          const familyArticles = Array.isArray(family.articulos_tallas) ? family.articulos_tallas : [];
+          const matchedArticles = familyArticles.filter((item) => String(item.modelo || "").trim() === selectedModelo);
+          if (!matchedArticles.length) return null;
+          const articleCodes = new Set(matchedArticles.map((item) => String(item.articulo || "").trim()));
+          const articleTotals = (Array.isArray(family.articulos) ? family.articulos : []).filter((item) => articleCodes.has(String(item.articulo || "").trim()));
+          const total = articleTotals.reduce((sum, item) => sum + Number(item.total || 0), 0);
+          const suffixTotals = {};
+          articleTotals.forEach((item) => {
+            const code = String(item.articulo || "").trim();
+            const suffix = code.length >= 2 ? code.slice(-2) : code;
+            suffixTotals[suffix] = (suffixTotals[suffix] || 0) + Number(item.total || 0);
+          });
+          return {
+            ...family,
+            total,
+            articulos: articleTotals,
+            articulos_tallas: matchedArticles,
+            modelos: [selectedModelo],
+            sufijos_comp: Object.entries(suffixTotals)
+              .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+              .map(([sufijo, pedidosTotal]) => ({
+                sufijo,
+                pedidos_total: Number(pedidosTotal || 0),
+                saldo_total: 0,
+              })),
+          };
+        }).filter(Boolean).sort((a, b) => Number(b.total || 0) - Number(a.total || 0));
+      };
+      const updateModeloOptions = (view) => {
+        if (!modeloFilter) return;
+        const modelos = Array.isArray(view?.ventas_modelos) ? view.ventas_modelos : [];
+        const previous = String(modeloFilter.value || "");
+        modeloFilter.innerHTML = '<option value="">Todos los modelos</option>' + modelos.map((item) => (
+          `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`
+        )).join("");
+        if (previous && modelos.includes(previous)) {
+          modeloFilter.value = previous;
+        }
+      };
       const renderArticuloResult = (articleCode) => {
         const code = String(articleCode || "").trim().toUpperCase();
         if (!articuloResult || !articuloResultTitle || !articuloResultMeta || !articuloResultTotal || !articuloResultFamilia || !articuloResultTallas) return;
@@ -3775,7 +3825,7 @@
           return;
         }
         articuloResultTitle.textContent = code;
-        articuloResultMeta.textContent = `Familia ${matchFamily?.familia || "-"} · ${fmt(match.total || 0)} unidades vendidas`;
+        articuloResultMeta.textContent = `${match.modelo || "Sin clasificar"} · ${match.descripcion || "Sin descripcion"} · Familia ${matchFamily?.familia || "-"} · ${fmt(match.total || 0)} unidades vendidas`;
         articuloResultTotal.textContent = fmt(match.total || 0);
         articuloResultFamilia.textContent = matchFamily?.familia || "-";
         const tallas = Array.isArray(match.tallas) ? match.tallas : [];
@@ -3794,13 +3844,17 @@
         const key = String(collectionKey || "42");
         const view = pedidosViews[key] || pedidosViews["42"] || {};
         currentPedidosView = view;
-        const familias = Array.isArray(view.ventas_grouped) ? view.ventas_grouped : [];
+        updateModeloOptions(view);
+        const familias = buildFilteredFamilies(view.ventas_grouped, modeloFilter?.value || "");
         window.currentPedidosFamilias = familias;
-        if (totalKpi) totalKpi.textContent = fmt(view.ventas_total || 0);
-        if (familiaKpi) familiaKpi.textContent = view.ventas_top_familia?.familia || "-";
-        if (modelosKpi) modelosKpi.textContent = `${fmt((view.ventas_top_articulos || []).length)} modelos`;
-        if (topFamiliaBtn) topFamiliaBtn.disabled = !view.ventas_top_familia;
-        if (topArticulosBtn) topArticulosBtn.disabled = !(view.ventas_top_articulos || []).length;
+        const totalFiltrado = familias.reduce((sum, item) => sum + Number(item.total || 0), 0);
+        const topFamiliaFiltrada = familias[0] || null;
+        const modelosFiltrados = familias.reduce((sum, item) => sum + (Array.isArray(item.articulos_tallas) ? item.articulos_tallas.length : 0), 0);
+        if (totalKpi) totalKpi.textContent = fmt(totalFiltrado);
+        if (familiaKpi) familiaKpi.textContent = topFamiliaFiltrada?.familia || "-";
+        if (modelosKpi) modelosKpi.textContent = `${fmt(modelosFiltrados)} modelos`;
+        if (topFamiliaBtn) topFamiliaBtn.disabled = !topFamiliaFiltrada;
+        if (topArticulosBtn) topArticulosBtn.disabled = !modelosFiltrados;
         if (!familiasBody) return;
         if (!familias.length) {
           familiasBody.innerHTML = '<tr><td colspan="3" class="empty">Sin pedidos con los filtros actuales.</td></tr>';
@@ -3839,6 +3893,9 @@
       if (collectionSelect) {
         renderPedidosView(collectionSelect.value);
         collectionSelect.addEventListener("change", () => renderPedidosView(collectionSelect.value));
+      }
+      if (modeloFilter) {
+        modeloFilter.addEventListener("change", () => renderPedidosView(collectionSelect?.value || "42"));
       }
       if (articuloBtn && articuloInput) {
         articuloBtn.addEventListener("click", () => renderArticuloResult(articuloInput.value));

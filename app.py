@@ -151,19 +151,32 @@ DEFAULT_LAVANDERIA_BOTAS = [
 
 
 def _seed_pedidos_talla_files() -> list[Path]:
-    preferred = [SEED_PEDIDOS, SEED_PEDIDOS_43]
-    files: list[Path] = []
-    seen: set[str] = set()
-    for path in preferred:
-        key = str(path).strip().lower()
-        if path.exists() and key not in seen:
-            files.append(path)
-            seen.add(key)
-    for path in sorted(SEED_DIR.glob("PEDIDOSXTALLA*.TXT")):
-        key = str(path).strip().lower()
-        if key not in seen:
-            files.append(path)
-            seen.add(key)
+    discovered = sorted(
+        {p.resolve(): p for p in SEED_DIR.glob("PEDIDOSXTALLA*.TXT")}.values(),
+        key=lambda p: p.name.lower(),
+    )
+    explicit_by_collection: dict[str, Path] = {}
+    generic_files: list[Path] = []
+
+    for path in discovered:
+        match = re.search(r"PEDIDOSXTALLA\s*(\d{2})", path.name.upper())
+        if match:
+            explicit_by_collection[match.group(1)] = path
+        else:
+            generic_files.append(path)
+
+    files: list[Path] = [explicit_by_collection[key] for key in sorted(explicit_by_collection, key=int)]
+
+    for path in generic_files:
+        # El archivo generico historicamente corresponde a temporada 42.
+        # Si ya existe PEDIDOSXTALLA 42.TXT, no debemos duplicar esa data.
+        if path.resolve() == SEED_PEDIDOS.resolve() and "42" in explicit_by_collection:
+            continue
+        files.append(path)
+
+    if not files:
+        fallback = [path for path in (SEED_PEDIDOS, SEED_PEDIDOS_43) if path.exists()]
+        return fallback
     return files
 
 
@@ -205,6 +218,55 @@ def _pedidos_collection_options(keys: list[str]) -> list[dict[str, str]]:
             label = f"Todas las temporadas ({', '.join(keys)})"
         options.append({"key": "all", "label": label})
     return options
+
+
+def _normalize_pedidos_modelo_label(value: object) -> str:
+    text = " ".join(str(value or "").upper().split())
+    if not text:
+        return "Sin clasificar"
+    mapping = [
+        ("WIDE", "Wide Leg"),
+        ("OXF", "Oxford"),
+        ("PALAZZO", "Palazzo"),
+        ("CARGO", "Cargo"),
+        ("RECT", "Recto"),
+        ("PIT", "Pitillo"),
+        ("FLA", "Flare"),
+        ("TOB", "Tobillero"),
+        ("BOTA", "Bota"),
+        ("SHORT", "Short"),
+        ("FALDA", "Falda"),
+        ("GUILLETTE", "Guillette"),
+        ("BERMUDA", "Bermuda"),
+        ("BLUSA", "Blusa"),
+    ]
+    for token, label in mapping:
+        if token in text:
+            return label
+    short_mapping = [
+        (" PI", "Pitillo"),
+        (" FL", "Flare"),
+        (" OX", "Oxford"),
+        (" TOB", "Tobillero"),
+        (" WI", "Wide Leg"),
+        (" PAL", "Palazzo"),
+    ]
+    for token, label in short_mapping:
+        if token in text:
+            return label
+    if text.endswith(" P"):
+        return "Pitillo"
+    if text.endswith(" F"):
+        return "Flare"
+    if text.endswith(" R"):
+        return "Recto"
+    if text.endswith(" T"):
+        return "Tobillero"
+    if text.endswith(" O"):
+        return "Oxford"
+    if text.endswith(" W"):
+        return "Wide Leg"
+    return text.title()
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -5407,12 +5469,19 @@ def _build_pedidos_collection_view(
     ventas_por_articulo: dict[str, int] = {}
     ventas_por_familia: dict[str, dict] = {}
     ventas_por_talla: dict[int, int] = {}
+    descripcion_por_articulo: dict[str, str] = {}
+    modelo_por_articulo: dict[str, str] = {}
 
     for r in ventas_rows:
         articulo = str(r.get("articulo") or "").strip()
+        descripcion = str(r.get("descripcion") or "").strip()
+        modelo_label = _normalize_pedidos_modelo_label(descripcion)
         total = int(r.get("total") or 0)
         if not articulo:
             continue
+        if descripcion:
+            descripcion_por_articulo[articulo] = descripcion
+        modelo_por_articulo[articulo] = modelo_label
         ventas_por_articulo[articulo] = ventas_por_articulo.get(articulo, 0) + total
         familia = articulo[2:6] if len(articulo) >= 6 else articulo
         if familia not in ventas_por_familia:
@@ -5426,13 +5495,17 @@ def _build_pedidos_collection_view(
                 "tallas": {},
                 "tallas_corte": {},
                 "articulos_tallas": {},
+                "modelos": set(),
             }
         if articulo not in ventas_por_familia[familia]["articulos_tallas"]:
             ventas_por_familia[familia]["articulos_tallas"][articulo] = {
                 "articulo": articulo,
+                "descripcion": descripcion,
+                "modelo": modelo_label,
                 "vendida": {},
                 "cortada": {},
             }
+        ventas_por_familia[familia]["modelos"].add(modelo_label)
         for item in r.get("tallas_items") or []:
             talla = int(item.get("talla") or 0)
             cantidad = int(item.get("cantidad") or 0)
@@ -5447,7 +5520,12 @@ def _build_pedidos_collection_view(
                 )
         ventas_por_familia[familia]["total"] += total
         if articulo not in ventas_por_familia[familia]["articulos"]:
-            ventas_por_familia[familia]["articulos"][articulo] = {"articulo": articulo, "total": 0}
+            ventas_por_familia[familia]["articulos"][articulo] = {
+                "articulo": articulo,
+                "descripcion": descripcion,
+                "modelo": modelo_label,
+                "total": 0,
+            }
         ventas_por_familia[familia]["articulos"][articulo]["total"] += total
         prefijo = articulo[:2] if len(articulo) >= 2 else ""
         sufijo = articulo[-2:] if len(articulo) >= 2 else articulo
@@ -5473,6 +5551,7 @@ def _build_pedidos_collection_view(
                 "tallas": {},
                 "tallas_corte": {},
                 "articulos_tallas": {},
+                "modelos": set(),
             }
         ventas_por_familia[familia]["saldo_total"] += total
         prefijo = articulo[:2] if len(articulo) >= 2 else ""
@@ -5498,10 +5577,13 @@ def _build_pedidos_collection_view(
                 "tallas": {},
                 "tallas_corte": {},
                 "articulos_tallas": {},
+                "modelos": set(),
             }
         if articulo not in ventas_por_familia[familia]["articulos_tallas"]:
             ventas_por_familia[familia]["articulos_tallas"][articulo] = {
                 "articulo": articulo,
+                "descripcion": descripcion_por_articulo.get(articulo, ""),
+                "modelo": modelo_por_articulo.get(articulo, "Sin clasificar"),
                 "vendida": {},
                 "cortada": {},
             }
@@ -5566,6 +5648,10 @@ def _build_pedidos_collection_view(
                 "saldo_total": g["saldo_total"],
                 "cortado_total": sum(int(v) for v in (g.get("tallas_corte") or {}).values()),
                 "articulos": sorted(g["articulos"].values(), key=lambda v: v["total"], reverse=True),
+                "modelos": sorted(
+                    item for item in g.get("modelos", set())
+                    if str(item or "").strip()
+                ),
                 "sufijos": sorted(g["sufijos"].values(), key=lambda s: s["total"], reverse=True),
                 "sufijos_saldo": _sort_sufijos_saldo(list(g["sufijos_saldo"].values())),
                 "sufijos_comp": _build_sufijos_comp(g),
@@ -5584,6 +5670,8 @@ def _build_pedidos_collection_view(
                     [
                         {
                             "articulo": a.get("articulo"),
+                            "descripcion": a.get("descripcion") or descripcion_por_articulo.get(a.get("articulo"), ""),
+                            "modelo": a.get("modelo") or modelo_por_articulo.get(a.get("articulo"), "Sin clasificar"),
                             "total": int((((g.get("articulos") or {}).get(a.get("articulo")) or {}).get("total")) or 0),
                             "tallas": [
                                 {
@@ -5609,7 +5697,15 @@ def _build_pedidos_collection_view(
         key=lambda x: x["talla"],
     )
     ventas_top_articulos = sorted(
-        [{"articulo": articulo, "total": int(total)} for articulo, total in ventas_por_articulo.items()],
+        [
+            {
+                "articulo": articulo,
+                "descripcion": descripcion_por_articulo.get(articulo, ""),
+                "modelo": modelo_por_articulo.get(articulo, "Sin clasificar"),
+                "total": int(total),
+            }
+            for articulo, total in ventas_por_articulo.items()
+        ],
         key=lambda x: x["total"],
         reverse=True,
     )
@@ -5625,6 +5721,13 @@ def _build_pedidos_collection_view(
         "ventas_top_talla": ventas_top_talla,
         "ventas_top_articulo": ventas_top_articulo,
         "ventas_top_articulos": ventas_top_articulos,
+        "ventas_modelos": sorted(
+            {
+                modelo
+                for modelo in modelo_por_articulo.values()
+                if str(modelo or "").strip()
+            }
+        ),
     }
 
 
