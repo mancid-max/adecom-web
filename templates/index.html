@@ -1925,6 +1925,51 @@
           </article>
         </div>
 
+        <section class="table-tools pedidos-collection-form" style="display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin-bottom:14px;">
+          <label for="pedidosArticuloExactInput" style="display:grid; gap:6px; min-width:min(100%, 320px);">
+            <span>Buscar codigo exacto</span>
+            <input
+              type="text"
+              id="pedidosArticuloExactInput"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="Ej: 01436104"
+            />
+          </label>
+          <button type="button" id="pedidosArticuloExactBtn" class="search-submit-btn">Buscar</button>
+          <button type="button" id="pedidosArticuloResetBtn" class="search-reset-btn">Limpiar</button>
+        </section>
+
+        <section
+          id="pedidosArticuloResult"
+          class="table-wrap"
+          style="display:none; margin-bottom:14px; padding:16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,0.82);"
+        >
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between;">
+            <div>
+              <h4 id="pedidosArticuloResultTitle" style="margin:0 0 6px;">Articulo</h4>
+              <p id="pedidosArticuloResultMeta" class="table-hint" style="margin:0;">Sin resultado.</p>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <article class="kpi-clickable" style="min-width:180px;">
+                <div class="kpi-open-btn" style="cursor:default;">
+                  <h4>Vendido</h4>
+                  <p id="pedidosArticuloResultTotal">0</p>
+                  <small class="kpi-hint">Temporada seleccionada</small>
+                </div>
+              </article>
+              <article class="kpi-clickable" style="min-width:180px;">
+                <div class="kpi-open-btn" style="cursor:default;">
+                  <h4>Familia</h4>
+                  <p id="pedidosArticuloResultFamilia">-</p>
+                  <small class="kpi-hint">Codigo base</small>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div id="pedidosArticuloResultTallas" class="variante-pair-grid" style="margin-top:12px;"></div>
+        </section>
+
         <section class="table-wrap bodega-wrap">
           <p class="table-hint">Clic en encabezado para ordenar</p>
           <table class="bodega-table" id="ventasFamiliasTable">
@@ -3671,8 +3716,18 @@
       const modelosKpi = document.getElementById("ventasTotalKpiModelos");
       const topFamiliaBtn = document.getElementById("openTopFamiliaModal");
       const topArticulosBtn = document.getElementById("openTopArticulosModal");
+      const articuloInput = document.getElementById("pedidosArticuloExactInput");
+      const articuloBtn = document.getElementById("pedidosArticuloExactBtn");
+      const articuloResetBtn = document.getElementById("pedidosArticuloResetBtn");
+      const articuloResult = document.getElementById("pedidosArticuloResult");
+      const articuloResultTitle = document.getElementById("pedidosArticuloResultTitle");
+      const articuloResultMeta = document.getElementById("pedidosArticuloResultMeta");
+      const articuloResultTotal = document.getElementById("pedidosArticuloResultTotal");
+      const articuloResultFamilia = document.getElementById("pedidosArticuloResultFamilia");
+      const articuloResultTallas = document.getElementById("pedidosArticuloResultTallas");
       if (!modal || !openBtn || !closeBtn) return;
       let pedidosViews = {};
+      let currentPedidosView = {};
       try {
         pedidosViews = JSON.parse(dataNode?.textContent || "{}");
       } catch (_) {
@@ -3685,9 +3740,60 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+      const renderArticuloResult = (articleCode) => {
+        const code = String(articleCode || "").trim().toUpperCase();
+        if (!articuloResult || !articuloResultTitle || !articuloResultMeta || !articuloResultTotal || !articuloResultFamilia || !articuloResultTallas) return;
+        if (!code) {
+          articuloResult.style.display = "none";
+          articuloResultTitle.textContent = "Articulo";
+          articuloResultMeta.textContent = "Sin resultado.";
+          articuloResultTotal.textContent = "0";
+          articuloResultFamilia.textContent = "-";
+          articuloResultTallas.innerHTML = "";
+          return;
+        }
+        const familias = Array.isArray(currentPedidosView.ventas_grouped) ? currentPedidosView.ventas_grouped : [];
+        let match = null;
+        let matchFamily = null;
+        familias.some((family) => {
+          const articles = Array.isArray(family.articulos_tallas) ? family.articulos_tallas : [];
+          const found = articles.find((item) => String(item.articulo || "").trim().toUpperCase() === code);
+          if (found) {
+            match = found;
+            matchFamily = family;
+            return true;
+          }
+          return false;
+        });
+        articuloResult.style.display = "block";
+        if (!match) {
+          articuloResultTitle.textContent = code;
+          articuloResultMeta.textContent = "No hay ventas para ese codigo exacto en la temporada seleccionada.";
+          articuloResultTotal.textContent = "0";
+          articuloResultFamilia.textContent = "-";
+          articuloResultTallas.innerHTML = '<span class="variante-chip variante-chip-empty">Sin detalle por talla.</span>';
+          return;
+        }
+        articuloResultTitle.textContent = code;
+        articuloResultMeta.textContent = `Familia ${matchFamily?.familia || "-"} · ${fmt(match.total || 0)} unidades vendidas`;
+        articuloResultTotal.textContent = fmt(match.total || 0);
+        articuloResultFamilia.textContent = matchFamily?.familia || "-";
+        const tallas = Array.isArray(match.tallas) ? match.tallas : [];
+        articuloResultTallas.innerHTML = tallas.length
+          ? tallas.map((item) => `
+              <span class="variante-chip">
+                <span class="variante-chip-prefix">Talla</span>
+                <span class="variante-chip-code">${escapeHtml(item.talla ?? "-")}</span>
+                <span class="variante-chip-sep"> : </span>
+                <span class="variante-chip-total">${fmt(item.vendida || 0)}</span>
+              </span>
+            `).join("")
+          : '<span class="variante-chip variante-chip-empty">Sin detalle por talla.</span>';
+      };
       const renderPedidosView = (collectionKey) => {
         const key = String(collectionKey || "42");
         const view = pedidosViews[key] || pedidosViews["42"] || {};
+        currentPedidosView = view;
         const familias = Array.isArray(view.ventas_grouped) ? view.ventas_grouped : [];
         window.currentPedidosFamilias = familias;
         if (totalKpi) totalKpi.textContent = fmt(view.ventas_total || 0);
@@ -3723,11 +3829,30 @@
             </tr>
           `;
         }).join("");
+        if (articuloInput && String(articuloInput.value || "").trim()) {
+          renderArticuloResult(articuloInput.value);
+        } else {
+          renderArticuloResult("");
+        }
       };
       openBtn.addEventListener("click", () => modal.showModal());
       if (collectionSelect) {
         renderPedidosView(collectionSelect.value);
         collectionSelect.addEventListener("change", () => renderPedidosView(collectionSelect.value));
+      }
+      if (articuloBtn && articuloInput) {
+        articuloBtn.addEventListener("click", () => renderArticuloResult(articuloInput.value));
+        articuloInput.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          renderArticuloResult(articuloInput.value);
+        });
+      }
+      if (articuloResetBtn && articuloInput) {
+        articuloResetBtn.addEventListener("click", () => {
+          articuloInput.value = "";
+          renderArticuloResult("");
+        });
       }
       closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("click", (event) => {

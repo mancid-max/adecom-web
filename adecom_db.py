@@ -681,7 +681,38 @@ def import_rows(
 def import_pedidos_talla_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     init_db(db_path)
     conn = get_conn(db_path)
-    rows_list = list(rows)
+    merged_rows: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        articulo = str(row.get("articulo") or "").strip()
+        tipo = str(row.get("tipo") or "").strip()
+        if not articulo or not tipo:
+            continue
+        key = (articulo, tipo)
+        tallas = list(row.get("tallas") or [])
+        total = int(row.get("total") or 0)
+        if key not in merged_rows:
+            merged_rows[key] = {
+                "articulo": articulo,
+                "descripcion": row.get("descripcion", ""),
+                "tipo": tipo,
+                "tallas": tallas,
+                "total": total,
+            }
+            continue
+        existing = merged_rows[key]
+        if not existing.get("descripcion") and row.get("descripcion"):
+            existing["descripcion"] = row.get("descripcion", "")
+        existing["total"] = int(existing.get("total") or 0) + total
+        if tallas:
+            max_len = max(len(existing.get("tallas") or []), len(tallas))
+            current_tallas = list(existing.get("tallas") or [])
+            merged_tallas = []
+            for idx in range(max_len):
+                current_val = current_tallas[idx] if idx < len(current_tallas) else 0
+                incoming_val = tallas[idx] if idx < len(tallas) else 0
+                merged_tallas.append(int(current_val or 0) + int(incoming_val or 0))
+            existing["tallas"] = merged_tallas
+    rows_list = list(merged_rows.values())
     read = len(rows_list)
     if read == 0:
         conn.close()

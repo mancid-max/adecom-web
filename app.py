@@ -177,11 +177,34 @@ def _collection_code_from_article(value: object) -> str:
 def _pedidos_collection_matches(value: object, selected: str) -> bool:
     code = _collection_code_from_article(value)
     selected_key = str(selected or "42").strip().lower()
-    if selected_key in {"", "42"}:
+    if selected_key == "":
         return code == "42"
-    if selected_key == "43":
-        return code == "43"
-    return code in {"42", "43"}
+    if selected_key == "all":
+        return code.isdigit()
+    return code == selected_key
+
+
+def _discover_pedidos_collection_keys(
+    pedidos_sections: dict[str, list[dict[str, object]]],
+) -> list[str]:
+    keys: set[str] = set()
+    for section_rows in pedidos_sections.values():
+        for row in section_rows or []:
+            code = _collection_code_from_article(row.get("articulo"))
+            if code.isdigit():
+                keys.add(code)
+    return sorted(keys, key=lambda item: int(item))
+
+
+def _pedidos_collection_options(keys: list[str]) -> list[dict[str, str]]:
+    options = [{"key": key, "label": f"Temporada {key}"} for key in keys]
+    if len(keys) > 1:
+        if len(keys) == 2:
+            label = f"Temporadas {keys[0]} y {keys[1]}"
+        else:
+            label = f"Todas las temporadas ({', '.join(keys)})"
+        options.append({"key": "all", "label": label})
+    return options
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
@@ -4999,13 +5022,10 @@ def _pedidos_detalle_pick(raw: dict[str, object], *keys: str) -> str:
 
 def _pedidos_talla_totals_for_collection(collection: str) -> dict[str, int]:
     totals = {"solicitado": 0, "despachado": 0, "saldo": 0}
-    files = []
-    if collection in {"42", "all"} and SEED_PEDIDOS.exists():
-        files.append(SEED_PEDIDOS)
-    if collection in {"43", "all"} and SEED_PEDIDOS_43.exists():
-        files.append(SEED_PEDIDOS_43)
-    for path in files:
+    for path in _seed_pedidos_talla_files():
         for row in parse_pedidos_talla_txt(path.read_bytes()):
+            if not _pedidos_collection_matches(row.get("articulo"), collection):
+                continue
             tipo = str(row.get("tipo") or "").strip().lower()
             total = int(row.get("total") or 0)
             if tipo == "ventas":
@@ -5618,8 +5638,6 @@ def index():
     programas_month = str(request.args.get("programas_month") or "").strip()
     open_modal = str(request.args.get("open_modal") or "").strip()
     pedidos_collection = str(request.args.get("pedidos_collection") or "42").strip().lower()
-    if pedidos_collection not in {"42", "43", "all"}:
-        pedidos_collection = "42"
     if not ASSISTANT_ENABLED:
         assistant_provider = "off"
     filters = {
@@ -5998,11 +6016,23 @@ def index():
     excel_preview_dashboards = _build_excel_preview_dashboards_bundle()
     local_preview_enabled = _is_local_request()
     ventas_docs_summary = _load_ventas_docs_summary()
+    available_pedidos_collections = _discover_pedidos_collection_keys(pedidos_sections)
+    if not available_pedidos_collections:
+        available_pedidos_collections = ["42", "43"]
+    pedidos_collection_view_keys = list(available_pedidos_collections)
+    if len(available_pedidos_collections) > 1:
+        pedidos_collection_view_keys.append("all")
+    if pedidos_collection not in pedidos_collection_view_keys:
+        pedidos_collection = "42" if "42" in available_pedidos_collections else available_pedidos_collections[0]
     pedidos_collection_views = {
         key: _build_pedidos_collection_view(pedidos_sections, key)
-        for key in ("42", "43", "all")
+        for key in pedidos_collection_view_keys
     }
-    selected_pedidos_view = pedidos_collection_views.get(pedidos_collection) or pedidos_collection_views["42"]
+    selected_pedidos_view = (
+        pedidos_collection_views.get(pedidos_collection)
+        or pedidos_collection_views.get("42")
+        or pedidos_collection_views[available_pedidos_collections[0]]
+    )
     ventas_total = int(selected_pedidos_view.get("ventas_total") or 0)
     ventas_grouped = selected_pedidos_view.get("ventas_grouped") or []
     ventas_tallas = selected_pedidos_view.get("ventas_tallas") or []
@@ -6016,9 +6046,13 @@ def index():
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
     venta_despacho_dashboard_views = {
         key: _load_venta_despacho_dashboard(rows, key)
-        for key in ("42", "43", "all")
+        for key in pedidos_collection_view_keys
     }
-    venta_despacho_dashboard = venta_despacho_dashboard_views.get(pedidos_collection) or venta_despacho_dashboard_views["42"]
+    venta_despacho_dashboard = (
+        venta_despacho_dashboard_views.get(pedidos_collection)
+        or venta_despacho_dashboard_views.get("42")
+        or venta_despacho_dashboard_views[available_pedidos_collections[0]]
+    )
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     return render_template(
         "index.html",
@@ -6034,11 +6068,7 @@ def index():
         ventas_top_articulo=ventas_top_articulo,
         ventas_top_articulos=ventas_top_articulos,
         pedidos_collection=pedidos_collection,
-        pedidos_collection_options=[
-            {"key": "42", "label": "Temporada 42"},
-            {"key": "43", "label": "Temporada 43"},
-            {"key": "all", "label": "Temporadas 42 y 43"},
-        ],
+        pedidos_collection_options=_pedidos_collection_options(available_pedidos_collections),
         pedidos_collection_views=pedidos_collection_views,
         disponibles_summary=disponibles_summary,
         ventas_trazabilidad_por_articulo=trazabilidad_por_articulo,
