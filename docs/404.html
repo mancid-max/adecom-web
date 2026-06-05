@@ -44007,13 +44007,13 @@
 
         <section class="table-tools pedidos-collection-form" style="display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin-bottom:14px;">
           <label for="pedidosArticuloExactInput" style="display:grid; gap:6px; min-width:min(100%, 320px);">
-            <span>Buscar codigo exacto</span>
+            <span>Buscar codigo, base o familia</span>
             <input
               type="text"
               id="pedidosArticuloExactInput"
               inputmode="numeric"
               autocomplete="off"
-              placeholder="Ej: 01436104"
+              placeholder="Ej: 01436104 o 4361"
             />
           </label>
           <label for="pedidosModeloFilter" style="display:grid; gap:6px; min-width:min(100%, 240px);">
@@ -60212,12 +60212,20 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
-      const buildFilteredFamilies = (familias, modelo) => {
+      const buildFilteredFamilies = (familias, modelo, searchCode = "") => {
         const selectedModelo = String(modelo || "").trim();
-        if (!selectedModelo) return Array.isArray(familias) ? familias : [];
+        const normalizedSearch = normalizeCode(searchCode);
         return (Array.isArray(familias) ? familias : []).map((family) => {
           const familyArticles = Array.isArray(family.articulos_tallas) ? family.articulos_tallas : [];
-          const matchedArticles = familyArticles.filter((item) => String(item.modelo || "").trim() === selectedModelo);
+          const matchedArticles = familyArticles.filter((item) => {
+            const byModelo = !selectedModelo || String(item.modelo || "").trim() === selectedModelo;
+            if (!byModelo) return false;
+            if (!normalizedSearch) return true;
+            const articulo = normalizeCode(item.articulo || "");
+            const familia = normalizeCode(family.familia || "");
+            const modelo = normalizeCode(item.modelo || "");
+            return articulo.includes(normalizedSearch) || familia.includes(normalizedSearch) || modelo.includes(normalizedSearch);
+          });
           if (!matchedArticles.length) return null;
           const articleCodes = new Set(matchedArticles.map((item) => String(item.articulo || "").trim()));
           const articleTotals = (Array.isArray(family.articulos) ? family.articulos : []).filter((item) => articleCodes.has(String(item.articulo || "").trim()));
@@ -60255,8 +60263,24 @@
           modeloFilter.value = previous;
         }
       };
+      const normalizeCode = (value) => String(value || "").trim().toUpperCase();
+      const findArticuloMatch = (familias, code) => {
+        let match = null;
+        let matchFamily = null;
+        (Array.isArray(familias) ? familias : []).some((family) => {
+          const articles = Array.isArray(family.articulos_tallas) ? family.articulos_tallas : [];
+          const found = articles.find((item) => String(item.articulo || "").trim().toUpperCase() === code);
+          if (found) {
+            match = found;
+            matchFamily = family;
+            return true;
+          }
+          return false;
+        });
+        return { match, matchFamily };
+      };
       const renderArticuloResult = (articleCode) => {
-        const code = String(articleCode || "").trim().toUpperCase();
+        const code = normalizeCode(articleCode);
         if (!articuloResult || !articuloResultTitle || !articuloResultMeta || !articuloResultTotal || !articuloResultFamilia || !articuloResultTallas) return;
         if (!code) {
           articuloResult.style.display = "none";
@@ -60268,29 +60292,37 @@
           return;
         }
         const familias = Array.isArray(currentPedidosView.ventas_grouped) ? currentPedidosView.ventas_grouped : [];
-        let match = null;
-        let matchFamily = null;
-        familias.some((family) => {
-          const articles = Array.isArray(family.articulos_tallas) ? family.articulos_tallas : [];
-          const found = articles.find((item) => String(item.articulo || "").trim().toUpperCase() === code);
-          if (found) {
-            match = found;
-            matchFamily = family;
-            return true;
-          }
-          return false;
-        });
+        const familyMatch = familias.find((family) => normalizeCode(family.familia) === code);
+        const { match, matchFamily } = findArticuloMatch(familias, code);
         articuloResult.style.display = "block";
+        if (familyMatch) {
+          const articulos = Array.isArray(familyMatch.articulos_tallas) ? familyMatch.articulos_tallas : [];
+          articuloResultTitle.textContent = `Familia ${code}`;
+          articuloResultMeta.textContent = `${articulos.length} modelos en la temporada seleccionada.`;
+          articuloResultTotal.textContent = fmt(familyMatch.total || 0);
+          articuloResultFamilia.textContent = familyMatch.familia || "-";
+          articuloResultTallas.innerHTML = Array.isArray(familyMatch.sufijos_comp) && familyMatch.sufijos_comp.length
+            ? familyMatch.sufijos_comp.map((item) => `
+                <span class="variante-chip">
+                  <span class="variante-chip-prefix">Modelo</span>
+                  <span class="variante-chip-code">${escapeHtml(item.sufijo || "-")}</span>
+                  <span class="variante-chip-sep"> : </span>
+                  <span class="variante-chip-total">${fmt(item.pedidos_total || 0)}</span>
+                </span>
+              `).join("")
+            : '<span class="variante-chip variante-chip-empty">Sin detalle por modelo.</span>';
+          return;
+        }
         if (!match) {
           articuloResultTitle.textContent = code;
-          articuloResultMeta.textContent = "No hay ventas para ese codigo exacto en la temporada seleccionada.";
+          articuloResultMeta.textContent = "No hay ventas para ese codigo, base o familia en la temporada seleccionada.";
           articuloResultTotal.textContent = "0";
           articuloResultFamilia.textContent = "-";
           articuloResultTallas.innerHTML = '<span class="variante-chip variante-chip-empty">Sin detalle por talla.</span>';
           return;
         }
         articuloResultTitle.textContent = code;
-        articuloResultMeta.textContent = `${match.modelo || "Sin clasificar"} · ${match.descripcion || "Sin descripcion"} · Familia ${matchFamily?.familia || "-"} · ${fmt(match.total || 0)} unidades vendidas`;
+        articuloResultMeta.textContent = `${match.modelo || "Sin clasificar"} | ${match.descripcion || "Sin descripcion"} | Familia ${matchFamily?.familia || "-"} | ${fmt(match.total || 0)} unidades vendidas`;
         articuloResultTotal.textContent = fmt(match.total || 0);
         articuloResultFamilia.textContent = matchFamily?.familia || "-";
         const tallas = Array.isArray(match.tallas) ? match.tallas : [];
@@ -60310,7 +60342,7 @@
         const view = pedidosViews[key] || pedidosViews["42"] || {};
         currentPedidosView = view;
         updateModeloOptions(view);
-        const familias = buildFilteredFamilies(view.ventas_grouped, modeloFilter?.value || "");
+        const familias = buildFilteredFamilies(view.ventas_grouped, modeloFilter?.value || "", articuloInput?.value || "");
         window.currentPedidosFamilias = familias;
         const totalFiltrado = familias.reduce((sum, item) => sum + Number(item.total || 0), 0);
         const topFamiliaFiltrada = familias[0] || null;
@@ -60364,6 +60396,10 @@
       }
       if (articuloBtn && articuloInput) {
         articuloBtn.addEventListener("click", () => renderArticuloResult(articuloInput.value));
+        articuloInput.addEventListener("input", () => {
+          renderArticuloResult(articuloInput.value);
+          renderPedidosView(collectionSelect?.value || "42");
+        });
         articuloInput.addEventListener("keydown", (event) => {
           if (event.key !== "Enter") return;
           event.preventDefault();
@@ -60374,6 +60410,7 @@
         articuloResetBtn.addEventListener("click", () => {
           articuloInput.value = "";
           renderArticuloResult("");
+          renderPedidosView(collectionSelect?.value || "42");
         });
       }
       closeBtn.addEventListener("click", () => modal.close());
