@@ -197,6 +197,21 @@ def _pedidos_collection_matches(value: object, selected: str) -> bool:
     return code == selected_key
 
 
+def _pedidos_detalle_collection_matches(raw: dict[str, object], selected: str) -> bool:
+    selected_key = str(selected or "42").strip().lower()
+    if selected_key == "":
+        selected_key = "42"
+    if selected_key == "all":
+        return True
+
+    collection_value = str(raw.get("COLECCION") or "").strip()
+    if collection_value.isdigit():
+        return collection_value == selected_key
+
+    articulo = raw.get("ARTICULO") or raw.get("articulo")
+    return _pedidos_collection_matches(articulo, selected_key)
+
+
 def _discover_pedidos_collection_keys(
     pedidos_sections: dict[str, list[dict[str, object]]],
 ) -> list[str]:
@@ -5224,7 +5239,7 @@ def _load_venta_despacho_dashboard(
             continue
         if articulo:
             source_has_articulo = True
-        if articulo and not _pedidos_collection_matches(articulo, pedidos_collection):
+        if not _pedidos_detalle_collection_matches(raw, pedidos_collection):
             continue
 
         solicitado = _pedidos_detalle_int(raw.get("SOLICITADO"))
