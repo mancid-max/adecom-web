@@ -1696,6 +1696,8 @@ button.full-table-stage-card:hover,
   border-radius: 18px !important;
   background: #ffffff !important;
   box-shadow: 0 8px 24px rgba(17, 46, 91, 0.05) !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 #familiaDetalleModal .metas-subtitle {
@@ -1741,6 +1743,184 @@ button.full-table-stage-card:hover,
 #familiaDetalleModal .variante-chip-code,
 #familiaDetalleModal .variante-chip-total {
   color: #143965 !important;
+}
+
+.familia-media-wrap {
+  display: grid;
+  gap: 14px;
+}
+
+.familia-media-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.familia-media-actions {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.familia-media-search {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 240px);
+}
+
+.familia-media-search span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d6774;
+}
+
+.familia-media-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.familia-media-layout-fullscreen {
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+.familia-preview-card {
+  border: 1px solid rgba(18, 30, 48, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef4fb 100%);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+}
+
+.familia-image-only-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.familia-preview-card-image-only {
+  width: min(100%, 920px);
+  margin: 0 auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px;
+  position: static;
+}
+
+.familia-gallery-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.familia-gallery-counter {
+  min-width: 88px;
+  text-align: center;
+  font-weight: 800;
+  color: #2b4b70;
+}
+
+.familia-preview-image-wrap {
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(47, 117, 200, 0.22), transparent 40%),
+    linear-gradient(180deg, #dde8f6 0%, #f5f8fc 100%);
+  display: grid;
+  place-items: center;
+}
+
+.familia-preview-image-wrap-large {
+  aspect-ratio: auto;
+  min-height: 0;
+  max-height: none;
+  padding: 16px;
+}
+
+.familia-preview-image-wrap img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 760px);
+  max-height: min(82vh, 980px);
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.familia-preview-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: 10px;
+  color: #27496f;
+  padding: 18px;
+}
+
+.familia-preview-fallback strong {
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1;
+}
+
+.familia-preview-fallback span {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5d7592;
+}
+
+.familia-preview-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.familia-preview-copy h5 {
+  margin: 0;
+  font-size: 20px;
+  color: #193a61;
+}
+
+.familia-preview-copy p {
+  margin: 0;
+  color: #5d7592;
+}
+
+.familia-media-table {
+  min-width: 0;
+}
+
+.familia-media-table-fullscreen {
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.modal-familia-detalle-fullscreen {
+  width: min(1400px, 96vw);
+  max-width: 96vw;
+}
+
+@media (max-width: 640px) {
+  .familia-media-layout,
+  .familia-media-layout-fullscreen {
+    grid-template-columns: 1fr;
+  }
+
+  .familia-preview-card {
+    position: static;
+  }
 }
 
 #fullTableModal .full-table tbody td:first-child,
@@ -2633,6 +2813,11 @@ button.full-table-stage-card:hover,
 .familia-open-btn:hover {
   background: rgba(42, 54, 82, 0.2);
   border-color: rgba(42, 54, 82, 0.45);
+}
+
+.familia-open-static {
+  cursor: default;
+  pointer-events: none;
 }
 
 .variante-group {
