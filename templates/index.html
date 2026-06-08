@@ -36,7 +36,7 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openVentaDespachoModal">Venta/despacho</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openVentaDespachoModal">Venta vs Despacho</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openReporteVentaModal">Reporte Venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
@@ -203,7 +203,7 @@
 
     <section class="dashboard-section-block dashboard-section-block-venta-despacho">
       <header class="dashboard-section-title">
-        <h2>VENTA/DESPACHO</h2>
+        <h2>VENTA VS DESPACHO</h2>
       </header>
       <section class="summary dashboard-kpi-row">
         <article class="card-action summary-secondary">
@@ -214,7 +214,7 @@
             data-open-id="openVentaDespachoModal"
             {% if not venta_despacho_dashboard.available %}disabled{% endif %}
           >
-            <h2>%Venta</h2>
+            <h2>Venta vs Despacho</h2>
           </button>
         </article>
         <article class="card-action summary-secondary">
@@ -1499,7 +1499,7 @@
     <dialog id="ventaDespachoModal" class="modal modal-venta-despacho">
       <div class="modal-head">
         <div>
-          <h3>Venta/despacho</h3>
+          <h3>Venta vs Despacho</h3>
           <div class="table-tools pedidos-collection-form">
             <label for="ventaDespachoCollectionSelect">
               <span>Temporada</span>
@@ -1951,27 +1951,9 @@
           class="table-wrap"
           style="display:none; margin-bottom:14px; padding:16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,0.82);"
         >
-          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between;">
-            <div>
-              <h4 id="pedidosArticuloResultTitle" style="margin:0 0 6px;">Articulo</h4>
-              <p id="pedidosArticuloResultMeta" class="table-hint" style="margin:0;">Sin resultado.</p>
-            </div>
-            <div style="display:flex; gap:12px; flex-wrap:wrap;">
-              <article class="kpi-clickable" style="min-width:180px;">
-                <div class="kpi-open-btn" style="cursor:default;">
-                  <h4>Vendido</h4>
-                  <p id="pedidosArticuloResultTotal">0</p>
-                  <small class="kpi-hint">Temporada seleccionada</small>
-                </div>
-              </article>
-              <article class="kpi-clickable" style="min-width:180px;">
-                <div class="kpi-open-btn" style="cursor:default;">
-                  <h4>Familia</h4>
-                  <p id="pedidosArticuloResultFamilia">-</p>
-                  <small class="kpi-hint">Codigo base</small>
-                </div>
-              </article>
-            </div>
+          <div>
+            <h4 id="pedidosArticuloResultTitle" style="margin:0 0 6px;">Articulo</h4>
+            <p id="pedidosArticuloResultMeta" class="table-hint" style="margin:0;">Sin resultado.</p>
           </div>
           <div id="pedidosArticuloResultTallas" class="variante-pair-grid" style="margin-top:12px;"></div>
         </section>
@@ -1990,14 +1972,12 @@
               {% for g in ventas_grouped %}
               <tr data-familia="{{ g.familia }}" data-total="{{ g.total }}" data-detalle="{{ g.sufijos|length }}">
                 <td>
-                  <button
-                    type="button"
-                    class="familia-open-btn"
-                    data-open-familia="{{ g.familia }}"
-                    aria-label="Ver detalle familia {{ g.familia }}"
+                  <span
+                    class="familia-open-btn familia-open-static"
+                    aria-label="Familia {{ g.familia }}"
                   >
                     {{ g.familia }}
-                  </button>
+                  </span>
                 </td>
                 <td class="num">{{ g.total|miles }}</td>
                 <td>
@@ -2020,41 +2000,6 @@
                 <td colspan="3" class="empty">Sin pedidos con los filtros actuales.</td>
               </tr>
               {% endfor %}
-            </tbody>
-          </table>
-        </section>
-      </dialog>
-
-      <dialog id="familiaDetalleModal" class="modal modal-familia-detalle">
-        <div class="modal-head">
-          <h3 id="familiaDetalleTitle">Detalle familia</h3>
-          <button type="button" id="closeFamiliaDetalleModal" class="modal-close">Cerrar</button>
-        </div>
-        <section class="table-wrap">
-          <table class="bodega-table" id="familiaDetalleGridTable">
-            <thead>
-              <tr>
-                <th>Familia</th>
-                <th>Total familia</th>
-                <th>Detalle por familia</th>
-              </tr>
-            </thead>
-            <tbody id="familiaDetalleGridBody">
-              <tr><td colspan="3" class="empty">Sin datos.</td></tr>
-            </tbody>
-          </table>
-        </section>
-        <section class="table-wrap">
-          <h4 class="metas-subtitle">Vendido por talla</h4>
-          <table class="bodega-table" id="familiaTallasTable">
-            <thead>
-              <tr>
-                <th>Talla</th>
-                <th>Cantidad vendida</th>
-              </tr>
-            </thead>
-            <tbody id="familiaTallasBody">
-              <tr><td colspan="2" class="empty">Sin datos por talla.</td></tr>
             </tbody>
           </table>
         </section>
@@ -3729,8 +3674,6 @@
       const articuloResult = document.getElementById("pedidosArticuloResult");
       const articuloResultTitle = document.getElementById("pedidosArticuloResultTitle");
       const articuloResultMeta = document.getElementById("pedidosArticuloResultMeta");
-      const articuloResultTotal = document.getElementById("pedidosArticuloResultTotal");
-      const articuloResultFamilia = document.getElementById("pedidosArticuloResultFamilia");
       const articuloResultTallas = document.getElementById("pedidosArticuloResultTallas");
       if (!modal || !openBtn || !closeBtn) return;
       let pedidosViews = {};
@@ -3816,13 +3759,11 @@
       };
       const renderArticuloResult = (articleCode) => {
         const code = normalizeCode(articleCode);
-        if (!articuloResult || !articuloResultTitle || !articuloResultMeta || !articuloResultTotal || !articuloResultFamilia || !articuloResultTallas) return;
+        if (!articuloResult || !articuloResultTitle || !articuloResultMeta || !articuloResultTallas) return;
         if (!code) {
           articuloResult.style.display = "none";
           articuloResultTitle.textContent = "Articulo";
           articuloResultMeta.textContent = "Sin resultado.";
-          articuloResultTotal.textContent = "0";
-          articuloResultFamilia.textContent = "-";
           articuloResultTallas.innerHTML = "";
           return;
         }
@@ -3833,9 +3774,7 @@
         if (familyMatch) {
           const articulos = Array.isArray(familyMatch.articulos_tallas) ? familyMatch.articulos_tallas : [];
           articuloResultTitle.textContent = `Familia ${code}`;
-          articuloResultMeta.textContent = `${articulos.length} modelos en la temporada seleccionada.`;
-          articuloResultTotal.textContent = fmt(familyMatch.total || 0);
-          articuloResultFamilia.textContent = familyMatch.familia || "-";
+          articuloResultMeta.textContent = `${articulos.length} modelos en la temporada seleccionada. ${fmt(familyMatch.total || 0)} pedidos totales.`;
           articuloResultTallas.innerHTML = Array.isArray(familyMatch.sufijos_comp) && familyMatch.sufijos_comp.length
             ? familyMatch.sufijos_comp.map((item) => `
                 <span class="variante-chip">
@@ -3851,15 +3790,11 @@
         if (!match) {
           articuloResultTitle.textContent = code;
           articuloResultMeta.textContent = "No hay ventas para ese codigo, base o familia en la temporada seleccionada.";
-          articuloResultTotal.textContent = "0";
-          articuloResultFamilia.textContent = "-";
           articuloResultTallas.innerHTML = '<span class="variante-chip variante-chip-empty">Sin detalle por talla.</span>';
           return;
         }
         articuloResultTitle.textContent = code;
         articuloResultMeta.textContent = `${match.modelo || "Sin clasificar"} | ${match.descripcion || "Sin descripcion"} | Familia ${matchFamily?.familia || "-"} | ${fmt(match.total || 0)} unidades vendidas`;
-        articuloResultTotal.textContent = fmt(match.total || 0);
-        articuloResultFamilia.textContent = matchFamily?.familia || "-";
         const tallas = Array.isArray(match.tallas) ? match.tallas : [];
         articuloResultTallas.innerHTML = tallas.length
           ? tallas.map((item) => `
@@ -3906,9 +3841,9 @@
           return `
             <tr data-familia="${escapeHtml(g.familia || "")}" data-total="${Number(g.total || 0)}" data-detalle="${Array.isArray(g.sufijos) ? g.sufijos.length : 0}">
               <td>
-                <button type="button" class="familia-open-btn" data-open-familia="${escapeHtml(g.familia || "")}" aria-label="Ver detalle familia ${escapeHtml(g.familia || "")}">
+                <span class="familia-open-btn familia-open-static" aria-label="Familia ${escapeHtml(g.familia || "")}">
                   ${escapeHtml(g.familia || "-")}
-                </button>
+                </span>
               </td>
               <td class="num">${fmt(g.total || 0)}</td>
               <td><div class="variante-pair-grid">${chips}</div></td>
@@ -5571,151 +5506,6 @@
       setupHeaderSort("topArticulosTable");
       setupHeaderSort("comparativoClientesTable");
       setupHeaderSort("comparativoNoAtendidosTable", "proyeccion2026");
-    })();
-
-    (function () {
-      const modal = document.getElementById("familiaDetalleModal");
-      const closeBtn = document.getElementById("closeFamiliaDetalleModal");
-      const title = document.getElementById("familiaDetalleTitle");
-      const body = document.getElementById("familiaDetalleGridBody");
-      const tallasBody = document.getElementById("familiaTallasBody");
-      const articulosTallasBody = document.getElementById("familiaArticulosTallasBody");
-      const dataNode = document.getElementById("ventasFamiliasData");
-      if (!modal || !closeBtn || !title || !body || !tallasBody || !dataNode) return;
-
-      let familias = [];
-      try {
-        familias = JSON.parse(dataNode.textContent || "[]");
-      } catch (e) {
-        familias = [];
-      }
-      window.currentPedidosFamilias = window.currentPedidosFamilias || familias;
-      const getByFamilia = () => new Map((window.currentPedidosFamilias || familias).map((item) => [String(item.familia || ""), item]));
-
-      const fmt = (n) => {
-        const num = Number(n || 0);
-        if (Number.isNaN(num)) return "0";
-        return num.toLocaleString("es-CL");
-      };
-
-      const openFamilia = (familia) => {
-        const item = getByFamilia().get(String(familia || ""));
-        if (!item) return;
-        const comp = Array.isArray(item.sufijos_comp) ? item.sufijos_comp : [];
-        const tallas = Array.isArray(item.tallas) ? item.tallas : [];
-        const articulosTallas = Array.isArray(item.articulos_tallas) ? item.articulos_tallas : [];
-
-        title.textContent = `Detalle familia ${item.familia}`;
-
-        if (!comp.length) {
-          body.innerHTML = '<tr><td colspan="3" class="empty">Sin datos.</td></tr>';
-        } else {
-          const detalle = comp
-            .map((s) => {
-              const sufijo = String(s.sufijo || "-");
-              const pedidos = fmt(s.pedidos_total || 0);
-              return `
-                <span class="variante-chip">
-                  <span class="variante-chip-prefix">Pedidos</span>
-                  <span class="variante-chip-code">${sufijo}</span>
-                  <span class="variante-chip-sep"> : </span>
-                  <span class="variante-chip-total">${pedidos}</span>
-                </span>
-              `;
-            })
-            .join("");
-          body.innerHTML = `
-            <tr>
-              <td>${item.familia}</td>
-              <td class="num">${fmt(item.total || 0)}</td>
-              <td><div class="variante-pair-grid">${detalle}</div></td>
-            </tr>
-          `;
-        }
-        if (!tallas.length) {
-          tallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin datos por talla.</td></tr>';
-        } else {
-          tallasBody.innerHTML = tallas
-            .map((t) => {
-              const talla = Number(t.talla || 0);
-              const vendida = fmt(t.vendida || 0);
-              return `<tr><td>${talla}</td><td class="num">${vendida}</td></tr>`;
-            })
-            .join("");
-        }
-        if (articulosTallasBody) {
-          if (!articulosTallas.length) {
-            articulosTallasBody.innerHTML = '<tr><td colspan="2" class="empty">Sin detalle por articulo.</td></tr>';
-          } else {
-            articulosTallasBody.innerHTML = articulosTallas
-              .map((a) => {
-                const articuloRaw = String(a.articulo || "").trim();
-                const articulo = articuloRaw ? articuloRaw.slice(-2) : "-";
-                const total = fmt(a.total || 0);
-                const tallasList = Array.isArray(a.tallas) ? a.tallas : [];
-                const detalle = tallasList.length
-                  ? tallasList
-                      .map((t) => {
-                        const talla = Number(t.talla || 0);
-                        const vendida = fmt(t.vendida || 0);
-                        return `
-                          <span class="talla-chip talla-chip-grid">
-                            <span class="talla-label">T${talla}</span>
-                            <span class="talla-value">V ${vendida}</span>
-                          </span>
-                        `;
-                      })
-                      .join("")
-                  : '<span class="talla-empty">Sin tallas</span>';
-                return `
-                  <tr>
-                    <td>
-                      <button
-                        type="button"
-                        class="codigo-familia-tag codigo-familia-btn"
-                        data-open-articulo-traza="${articuloRaw}"
-                        data-total-pedidos="${a.total || 0}"
-                        aria-label="Ver trazabilidad del articulo ${articuloRaw}"
-                        title="Ver trazabilidad"
-                      >${articulo}</button>
-                    </td>
-                    <td class="tallas-cell">
-                      <div class="familia-articulo-cell-head">
-                        <span class="familia-articulo-code">${articuloRaw || "-"}</span>
-                        <span class="familia-articulo-total">${total} pedidos</span>
-                      </div>
-                      <div class="familia-tallas-grid">${detalle}</div>
-                    </td>
-                  </tr>
-                `;
-              })
-              .join("");
-          }
-        }
-        modal.showModal();
-      };
-
-      document.addEventListener("click", (event) => {
-        const btn = event.target.closest("[data-open-familia]");
-        if (!btn) return;
-        openFamilia(btn.getAttribute("data-open-familia") || "");
-      });
-
-      if (articulosTallasBody) {
-        articulosTallasBody.addEventListener("click", (event) => {
-          const trigger = event.target.closest("[data-open-articulo-traza]");
-          if (!trigger || typeof window.openTopArticuloTrace !== "function") return;
-          window.openTopArticuloTrace(
-            trigger.getAttribute("data-open-articulo-traza") || "",
-            trigger.getAttribute("data-total-pedidos") || "",
-          );
-        });
-      }
-
-      closeBtn.addEventListener("click", () => modal.close());
-      modal.addEventListener("click", (event) => {
-        if (event.target === modal) modal.close();
-      });
     })();
 
     (function () {
