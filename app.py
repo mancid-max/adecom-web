@@ -17,7 +17,7 @@ from difflib import SequenceMatcher
 from urllib import error as url_error
 from urllib import request as url_request
 
-from flask import Flask, Response, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
@@ -78,6 +78,7 @@ SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 SEED_PEDIDOS_43 = SEED_DIR / "PEDIDOSXTALLA 43.TXT"
 SEED_PEDIDOS_DETALLE = SEED_DIR / "PEDIDOS.Txt"
 SEED_PEDIDOS_COMPARAR = SEED_DIR / "PEDIDOSXCOMPARAR.Txt"
+SEED_ARCHIVO_CONTACTOS = SEED_DIR / "ARCHIVO.TXT"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_DETALLEV = SEED_DIR / "DETALLEV.TXT"
@@ -404,7 +405,71 @@ def _proyeccion_talla_from_text(value: object) -> str:
     return ""
 
 
+def _rut_normalizado(rut: str) -> str:
+    """Quita puntos, comas, espacios y guión; devuelve en minúsculas para comparar."""
+    import re as _re
+    return _re.sub(r"[\s.,\-]", "", str(rut or "")).lower()
+
+
+def _cargar_contactos() -> dict[str, dict[str, str]]:
+    """Retorna {rut_normalizado: {email, razon_social}} desde ARCHIVO.TXT."""
+    contactos: dict[str, dict[str, str]] = {}
+    path = SEED_ARCHIVO_CONTACTOS
+    if not path.exists():
+        return contactos
+    try:
+        with path.open("r", encoding="latin-1", errors="replace", newline="") as fh:
+            reader = csv.DictReader(fh, delimiter=";")
+            for row in reader:
+                rut_raw = str(row.get("RUT") or "").strip()
+                if not rut_raw:
+                    continue
+                rut_key = _rut_normalizado(rut_raw)
+                email = str(row.get("Mail") or "").strip()
+                razon = str(row.get("RAZON SOCIAL") or "").strip()
+                if rut_key:
+                    contactos[rut_key] = {"email": email, "razon_social": razon}
+    except Exception:
+        pass
+    return contactos
+
+
+def _rut_normalizado(rut: str) -> str:
+    import re as _re
+    return _re.sub(r"[\s.,\-]", "", str(rut or "")).lower()
+
+
+def _cargar_contactos() -> dict[str, dict[str, str]]:
+    """Retorna {rut_normalizado: {email, tipo_cliente}} desde ARCHIVO.TXT."""
+    contactos: dict[str, dict[str, str]] = {}
+    path = SEED_ARCHIVO_CONTACTOS
+    if not path.exists():
+        return contactos
+    try:
+        with path.open("r", encoding="latin-1", errors="replace", newline="") as fh:
+            reader = csv.DictReader(fh, delimiter=";")
+            for row in reader:
+                rut_raw = str(row.get("RUT") or "").strip()
+                if not rut_raw:
+                    continue
+                rut_key = _rut_normalizado(rut_raw)
+                email       = str(row.get("Mail") or "").strip()
+                tipo_raw    = str(row.get("TIPO cLIENTE") or row.get("Tipo") or "").strip()
+                tipo        = tipo_raw if tipo_raw.isdigit() else ""
+                razon       = str(row.get("RAZON SOCIAL") or "").strip()
+                if rut_key:
+                    contactos[rut_key] = {
+                        "email": email,
+                        "tipo_cliente": tipo,
+                        "razon_social": razon,
+                    }
+    except Exception:
+        pass
+    return contactos
+
+
 def _proyeccion_load_dashboard() -> dict[str, object]:
+    contactos = _cargar_contactos()
     path = SEED_PEDIDOS_COMPARAR
     empty = {
         "available": False,
@@ -711,6 +776,35 @@ def _proyeccion_load_dashboard() -> dict[str, object]:
         "total_42_43_clients": len(year_totals["2026"]["clients"]),
     }
 
+    # ── Clientes con T42 > 0 pero T43 == 0 ─────────────────────────────
+    not_in_t43: list[dict[str, object]] = []
+    for row in client_rows:
+        seasons_2026 = {item["season"]: int(item["qty"]) for item in row["years"]["2026"]["seasons"]}
+        qty_42 = seasons_2026.get("42", 0)
+        qty_43 = seasons_2026.get("43", 0)
+        if qty_42 > 0 and qty_43 == 0:
+            models_42 = row["years"]["2026"]["models"]
+            top_model = models_42[0] if models_42 else {}
+            rut_key = _rut_normalizado(row["rut"])
+            contacto = contactos.get(rut_key, {})
+            tipo_raw = str(contacto.get("tipo_cliente") or "")
+            not_in_t43.append({
+                "cliente":               row["cliente"],
+                "rut":                   row["rut"],
+                "ciudad":                row["ciudad"],
+                "vendedor":              row["vendedor"],
+                "email":                 contacto.get("email", ""),
+                "tipo_cliente":          tipo_raw,
+                "qty_t42":               qty_42,
+                "top_model":             top_model.get("name", "-"),
+                "top_model_sizes":       top_model.get("sizes", []),
+                "top_model_sizes_label": top_model.get("sizes_label", "-"),
+            })
+    not_in_t43.sort(key=lambda x: (
+        int(x.get("tipo_cliente") or 9),   # tipo 1 primero
+        -int(x["qty_t42"]),
+    ))
+
     out = {
         "available": True,
         "file_name": path.name,
@@ -732,6 +826,7 @@ def _proyeccion_load_dashboard() -> dict[str, object]:
             }
             for year, items in inactive_by_year.items()
         },
+        "not_in_t43": not_in_t43,
     }
     _PEDIDOSXCOMPARAR_CACHE["signature"] = signature
     _PEDIDOSXCOMPARAR_CACHE["data"] = out
@@ -6763,6 +6858,136 @@ def clear_proyeccion():
     except Exception as exc:
         flash(f"No se pudo limpiar la proyeccion: {exc}", "error")
     return redirect(url_for("index"))
+
+
+@app.get("/export-no-atendidos-t43")
+def export_no_atendidos_t43():
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        import io
+
+        dashboard = _proyeccion_load_dashboard()
+        rows = dashboard.get("not_in_t43", [])
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "No atendidos T43"
+        ws.sheet_view.showGridLines = False
+
+        # ── Estilos ──────────────────────────────────────────────────────
+        def side(): return Side(style="thin", color="C8D8E8")
+        def border(): return Border(left=side(), right=side(), top=side(), bottom=side())
+        hdr_fill  = PatternFill("solid", fgColor="1A4A70")
+        hdr_font  = Font(bold=True, color="FFFFFF", size=10)
+        hdr_align = Alignment(horizontal="center", vertical="center")
+        alt_fill  = PatternFill("solid", fgColor="F4F9FE")
+        tot_fill  = PatternFill("solid", fgColor="1A4A70")
+
+        TIPO_COLORS = {"1": "1A6B3A", "2": "1A4A70", "3": "6B4A1A", "4": "555555"}
+
+        # ── Título ────────────────────────────────────────────────────────
+        ws.merge_cells("A1:J1")
+        t = ws["A1"]
+        t.value = f"Clientes con T42 sin atender en T43  —  {len(rows)} clientes  —  ADECOM"
+        t.font = Font(bold=True, size=13, color="FFFFFF")
+        t.fill = PatternFill("solid", fgColor="17324A")
+        t.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        ws.row_dimensions[1].height = 30
+
+        # ── Encabezados ───────────────────────────────────────────────────
+        headers    = ["#", "Tipo", "Cliente", "RUT", "Ciudad",
+                      "Vendedor", "Email", "Uds. T42", "Top modelo T42", "Tallas T42"]
+        col_widths = [4, 7, 34, 15, 18, 22, 32, 10, 22, 45]
+        for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+            c = ws.cell(2, ci, h)
+            c.font = hdr_font
+            c.fill = hdr_fill
+            c.alignment = hdr_align
+            c.border = border()
+            ws.column_dimensions[get_column_letter(ci)].width = w
+        ws.row_dimensions[2].height = 22
+
+        # ── Datos ─────────────────────────────────────────────────────────
+        total_uds = 0
+        for ri, row in enumerate(rows, 3):
+            tipo = str(row.get("tipo_cliente") or "")
+            is_tipo1 = tipo == "1"
+            base_bg = "FFFDE7" if is_tipo1 else ("FFFFFF" if ri % 2 == 0 else "F4F9FE")
+            fill = PatternFill("solid", fgColor=base_bg)
+            sizes = row.get("top_model_sizes") or []
+            sizes_str = "  |  ".join(f"T{s['talla']}: {s['qty']}" for s in sizes) \
+                        if sizes else (row.get("top_model_sizes_label") or "-")
+            email = str(row.get("email") or "")
+
+            vals = [ri - 2, f"Tipo {tipo}" if tipo else "—", row["cliente"],
+                    row["rut"], row["ciudad"], row["vendedor"],
+                    email, row["qty_t42"], row["top_model"], sizes_str]
+
+            for ci, val in enumerate(vals, 1):
+                c = ws.cell(ri, ci, val)
+                c.fill = fill
+                c.border = border()
+                c.alignment = Alignment(
+                    horizontal="right" if ci == 8 else "center" if ci in [1, 2] else "left",
+                    vertical="center"
+                )
+                tipo_color = TIPO_COLORS.get(tipo, "444444")
+                if ci == 1:
+                    c.font = Font(color="888888", size=9)
+                elif ci == 2:
+                    c.font = Font(bold=True, size=10, color=tipo_color)
+                    c.fill = PatternFill("solid", fgColor=tipo_color + "22")
+                elif ci == 3:
+                    c.font = Font(bold=True, size=10,
+                                  color="92400E" if is_tipo1 else "17324A")
+                elif ci == 7:
+                    c.font = Font(size=9, color="1A5F9E")
+                    if val:
+                        c.hyperlink = f"mailto:{val}"
+                elif ci == 8:
+                    c.font = Font(bold=True, color="1A5F9E", size=11)
+                    c.number_format = "#,##0"
+                else:
+                    c.font = Font(size=10)
+            total_uds += int(row["qty_t42"])
+
+        # ── Fila total ────────────────────────────────────────────────────
+        tr = len(rows) + 3
+        ws.merge_cells(f"A{tr}:G{tr}")
+        tc = ws.cell(tr, 1, f"TOTAL  —  {len(rows)} clientes")
+        tc.font = Font(bold=True, color="FFFFFF", size=11)
+        tc.fill = tot_fill
+        tc.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        tc.border = border()
+        tq = ws.cell(tr, 8, total_uds)
+        tq.font = Font(bold=True, color="FFFFFF", size=12)
+        tq.fill = tot_fill
+        tq.alignment = Alignment(horizontal="right", vertical="center")
+        tq.number_format = "#,##0"
+        tq.border = border()
+        for ci in [9, 10]:
+            c = ws.cell(tr, ci)
+            c.fill = tot_fill
+            c.border = border()
+        ws.row_dimensions[tr].height = 24
+
+        ws.freeze_panes = "A3"
+        ws.auto_filter.ref = f"A2:J{tr - 1}"
+
+        # ── Enviar archivo ────────────────────────────────────────────────
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return send_file(
+            buf,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="no_atendidos_t43.xlsx",
+        )
+    except Exception as exc:
+        return f"Error generando Excel: {exc}", 500
 
 
 @app.post("/upload")
