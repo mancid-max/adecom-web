@@ -1851,8 +1851,8 @@ button.full-table-stage-card:hover,
   display: block;
   width: auto;
   height: auto;
-  max-width: min(100%, 760px);
-  max-height: min(82vh, 980px);
+  max-width: min(100%, 680px);
+  max-height: min(62vh, 680px);
   margin: 0 auto;
   object-fit: contain;
 }
@@ -10680,4 +10680,619 @@ body.theme-gentelella,
     display: none;
   }
 }
+
+/* ===== Proyeccion clientes — mejoras visuales ===== */
+
+/* Year cards ---------------------------------------------------------- */
+.proy-year-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.proy-year-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.proy-year-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #7a6d5f;
+}
+
+.proy-year-caidos-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #c0392b;
+  background: #fdecea;
+  border: 1px solid #f5c6c2;
+  border-radius: 20px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.proy-year-qty {
+  margin: 2px 0 !important;
+  font-size: 28px !important;
+  line-height: 1.1 !important;
+  font-weight: 700;
+  color: #1f2937 !important;
+}
+
+.proy-year-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-top: 1px solid #e8ddd3;
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.proy-year-card-footer span {
+  font-size: 11px;
+  color: #655b50;
+}
+
+.proy-year-card-footer b {
+  font-weight: 800;
+  color: #3b2f22;
+}
+
+.proy-year-top {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+  opacity: .8;
+}
+
+/* Recommendation cards ----------------------------------------------- */
+.proy-rec-card {
+  position: relative;
+  padding-top: 28px !important;
+}
+
+.proy-rec-tag {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #2d6a9f;
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+.proy-rec-tag--size {
+  background: #1e7a5a;
+}
+
+.proy-rec-size-card h4 {
+  color: #1e7a5a !important;
+}
+
+/* Client list items --------------------------------------------------- */
+.proy-client-subline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: .8rem;
+  margin-top: 2px;
+}
+
+.proy-client-model {
+  color: #4a6278;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+  font-style: italic;
+}
+
+.proy-client-value {
+  font-size: .78rem;
+  font-weight: 700;
+  color: #2e7d32;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Model table — size chips ------------------------------------------- */
+.proy-sizes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.proy-size-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: #eef4fb;
+  border: 1px solid #c3d9ee;
+  border-radius: 6px;
+  padding: 2px 6px;
+  min-width: 34px;
+  line-height: 1.2;
+}
+
+.proy-size-num {
+  font-size: 9px;
+  font-weight: 800;
+  color: #4a7fa8;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.proy-size-qty {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a3a52;
+}
+
+.proy-size-empty {
+  color: #aaa;
+  font-size: .8rem;
+}
+
+.proy-model-total {
+  font-weight: 700;
+  color: #17324a;
+  font-size: .95rem;
+}
+
+/* Section head + legend --------------------------------------------- */
+.proy-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.proy-section-head h4 { margin: 0 0 2px; font-size: 1rem; color: #17324a; }
+.proy-section-sub { color: #6b7f91; font-size: .8rem; }
+.proy-year-legend { display: flex; gap: 8px; align-items: center; }
+.proy-legend-chip {
+  font-size: 10px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; border-radius: 20px; padding: 3px 10px;
+}
+.proy-legend-chip--sold    { background: #eef6ff; border: 1px solid #b8d9f5; color: #1a5f9e; }
+.proy-legend-chip--pending { background: #fff7ed; border: 1px solid #fcd8a0; color: #9a5c00; }
+
+.proy-year-grid { gap: 12px !important; }
+
+/* Season attendance chips inside year card --------------------------- */
+.proy-season-attendance {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e8ddd3;
+}
+
+.proy-season-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: #eef6ff;
+  border: 1px solid #b8d9f5;
+  border-radius: 6px;
+  padding: 3px 7px;
+  min-width: 38px;
+  line-height: 1.2;
+  gap: 1px;
+}
+
+.proy-season-chip--empty {
+  background: #f5f5f5;
+  border-color: #ddd;
+  opacity: .6;
+}
+
+.proy-season-chip-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: #2d6a9f;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.proy-season-chip--empty .proy-season-chip-label {
+  color: #aaa;
+}
+
+.proy-season-chip-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #153d66;
+}
+
+.proy-season-chip--empty .proy-season-chip-val {
+  color: #bbb;
+}
+
+.proy-season-chip--pending {
+  background: #fff7ed;
+  border-color: #fcd8a0;
+}
+.proy-season-chip--pending .proy-season-chip-label { color: #9a5c00; }
+.proy-season-chip--pending .proy-season-chip-val   { color: #9a5c00; }
+
+.proy-season-chip-clients {
+  font-size: 9px;
+  color: #7a9ab8;
+  text-align: center;
+  margin-top: 1px;
+  line-height: 1;
+}
+
+/* Season badge in inactive table ------------------------------------ */
+.proy-season-badge {
+  display: inline-block;
+  background: #eef6ff;
+  border: 1px solid #b8d9f5;
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2d6a9f;
+}
+
+/* Export button */
+.proy-export-btn {
+  font-size: .78rem;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #b8d0e8;
+  background: #eaf3fd;
+  color: #1a5f9e;
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proy-export-btn:hover { background: #d0e8f9; }
+
+/* Production recommendation table ----------------------------------- */
+.proy-prod-section {
+  margin: 0 0 18px;
+  border: 1px solid #d8e9f5;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fcff;
+}
+
+.proy-prod-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #d8e9f5;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, #e8f4fd 0%, #f8fcff 100%);
+}
+
+.proy-prod-title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: #17324a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proy-prod-badge {
+  background: #1a5f9e;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+.proy-prod-sizes-legend {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.proy-prod-talla-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #b8d9f5;
+  border-radius: 8px;
+  padding: 4px 10px;
+  min-width: 44px;
+}
+
+.proy-prod-talla-num {
+  font-size: 9px; font-weight: 800; color: #1a5f9e;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+.proy-prod-talla-qty {
+  font-size: 12px; font-weight: 700; color: #153d66;
+}
+
+.proy-prod-table-wrap { overflow-x: auto; }
+
+.proy-prod-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+
+.proy-prod-table thead th {
+  background: #1a4a70;
+  color: #b8d9f5;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.proy-prod-row {
+  border-bottom: 1px solid #deeaf5;
+  transition: background .1s;
+}
+.proy-prod-row:hover { background: #eef6ff; }
+.proy-prod-row:nth-child(even) { background: #f4f9fe; }
+.proy-prod-row:nth-child(even):hover { background: #e4f0fb; }
+
+.proy-prod-rank {
+  width: 32px;
+  text-align: center;
+  font-weight: 800;
+  font-size: .85rem;
+  color: #4a7fa8;
+  padding: 10px 8px;
+}
+
+.proy-prod-name {
+  font-weight: 700;
+  color: #17324a;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+.proy-prod-qty {
+  text-align: right;
+  font-weight: 700;
+  color: #1a5f9e;
+  font-size: 1rem;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+.proy-prod-pct {
+  padding: 10px 14px;
+  white-space: nowrap;
+  min-width: 130px;
+}
+
+.proy-prod-bar-wrap {
+  height: 8px;
+  background: #dce8f5;
+  border-radius: 999px;
+  overflow: hidden;
+  display: inline-block;
+  width: 80px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.proy-prod-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #2d6a9f, #4a9fd4);
+  border-radius: 999px;
+}
+
+.proy-prod-pct span { font-size: .8rem; font-weight: 700; color: #4a7fa8; }
+
+.proy-prod-sizes { padding: 8px 14px; }
+
+/* Rank badge in client list ----------------------------------------- */
+.proy-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #e8eef5;
+  color: #4a6278;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+.proy-rank--gold   { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.proy-rank--silver { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+.proy-rank--bronze { background: #fef0e6; color: #9a3412; border: 1px solid #fed7aa; }
+
+/* Cross-year comparison strip --------------------------------------- */
+.proy-crossyear-strip {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0 14px;
+  border-bottom: 1px solid #e4eef5;
+  margin-bottom: 12px;
+  align-items: flex-end;
+}
+
+.proy-cy-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: default;
+  min-width: 0;
+}
+
+.proy-cy-bar-wrap {
+  width: 100%;
+  height: 52px;
+  display: flex;
+  align-items: flex-end;
+  background: #f0f6fb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.proy-cy-bar {
+  width: 100%;
+  background: linear-gradient(0deg, #2d6a9f, #6aafd4);
+  border-radius: 4px 4px 0 0;
+  transition: height .3s;
+  min-height: 2px;
+}
+
+.proy-cy-item--active .proy-cy-bar { background: linear-gradient(0deg, #1a4a70, #2d6a9f); }
+.proy-cy-item--active .proy-cy-bar-wrap { background: #dbeafe; border: 1px solid #93c5fd; }
+.proy-cy-item--zero .proy-cy-bar { background: #d1d5db; }
+
+.proy-cy-year {
+  font-size: 9px; font-weight: 800; color: #4a6278;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.proy-cy-qty  { font-size: 11px; font-weight: 700; color: #17324a; }
+.proy-cy-model{
+  font-size: 9px; color: #7a95ab; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%; width: 100%;
+}
+
+/* Inactive table — header layout ------------------------------------ */
+.proy-inactive-section { overflow: visible !important; }
+
+.proy-inactive-header {
+  padding: 16px 18px 0;
+  border-bottom: 1px solid #d8e6f0;
+  margin-bottom: 0;
+}
+
+.proy-inactive-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.proy-inactive-header-top h4 {
+  margin: 0 0 3px;
+  font-size: 1rem;
+  color: #17324a;
+}
+
+.proy-inactive-header-top small {
+  color: #6b7f91;
+  font-size: .8rem;
+}
+
+.proy-inactive-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+}
+
+.proy-inactive-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.proy-inactive-filter-group label {
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: #6b7f91;
+}
+
+.proy-filter-select,
+.proy-filter-input {
+  border: 1px solid #c8d8e8;
+  background: #f8fbfe;
+  color: #17324a;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: .88rem;
+  outline: none;
+  height: 34px;
+}
+.proy-filter-select { min-width: 190px; }
+.proy-filter-input  { min-width: 210px; }
+.proy-filter-select:focus,
+.proy-filter-input:focus { border-color: #4a9fd4; box-shadow: 0 0 0 2px #4a9fd420; }
+
+.proy-inactive-meta {
+  font-size: .8rem;
+  font-weight: 700;
+  color: #4a7fa8;
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+
+/* Inline size chips for inactive table ------------------------------ */
+.proy-inactive-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 120px;
+}
+
+.proy-inactive-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #eef4fb;
+  border: 1px solid #c3d9ee;
+  border-radius: 20px;
+  padding: 2px 8px 2px 6px;
+  font-size: 11px;
+  color: #4a7fa8;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.proy-inactive-chip b {
+  font-weight: 800;
+  color: #153d66;
+  font-size: 12px;
+}
+
+/* Table cell helpers */
+.proy-inactive-cliente strong { display: block; font-size: .88rem; color: #17324a; }
+.proy-inactive-rut { display: block; font-size: .72rem; color: #8fa3b3; margin-top: 1px; }
+.proy-inactive-center { text-align: center; color: #4a6278; }
+.proy-inactive-tipo { font-weight: 600; color: #17324a; white-space: nowrap; }
+.proy-inactive-vendor { color: #4a6278; font-size: .85rem; white-space: nowrap; }
+.proy-inactive-qty { font-weight: 700; color: #17324a; }
 

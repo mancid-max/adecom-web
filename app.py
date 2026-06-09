@@ -10,13 +10,14 @@ import re
 import threading
 import time
 import unicodedata
+from collections import Counter, defaultdict
 from datetime import date, datetime
 from pathlib import Path
 from difflib import SequenceMatcher
 from urllib import error as url_error
 from urllib import request as url_request
 
-from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from adecom_db import (
@@ -76,6 +77,7 @@ SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 SEED_PEDIDOS_43 = SEED_DIR / "PEDIDOSXTALLA 43.TXT"
 SEED_PEDIDOS_DETALLE = SEED_DIR / "PEDIDOS.Txt"
+SEED_PEDIDOS_COMPARAR = SEED_DIR / "PEDIDOSXCOMPARAR.Txt"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_DETALLEV = SEED_DIR / "DETALLEV.TXT"
@@ -148,6 +150,19 @@ DEFAULT_LAVANDERIA_BOTAS = [
     "Falda",
     "Falda/Short",
 ]
+
+PROYECCION_TEMPORADA_GROUPS = [
+    ("2023", ("30", "31", "32", "33")),
+    ("2024", ("34", "35", "36", "37")),
+    ("2025", ("38", "39", "40", "41")),
+    ("2026", ("42", "43", "44", "45")),
+]
+PROYECCION_SEASON_TO_YEAR = {
+    season: year
+    for year, seasons in PROYECCION_TEMPORADA_GROUPS
+    for season in seasons
+}
+_PEDIDOSXCOMPARAR_CACHE: dict[str, object] = {"signature": None, "data": None}
 
 
 def _seed_pedidos_talla_files() -> list[Path]:
@@ -235,6 +250,98 @@ def _pedidos_collection_options(keys: list[str]) -> list[dict[str, str]]:
     return options
 
 
+SEED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+def _seed_image_family_from_dir_name(name: str) -> str:
+    match = re.match(r"^\s*(\d{4})\b", str(name or "").strip())
+    return match.group(1) if match else ""
+
+
+def _seed_image_variant_from_dir_name(name: str) -> str:
+    match = re.match(r"^\s*\d{4}(?:[-_\s]+)(\d{2})\b", str(name or "").strip())
+    return match.group(1) if match else ""
+
+
+def _seed_image_relpath(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(SEED_DIR.resolve()).as_posix()
+    except ValueError:
+        return ""
+
+
+def _seed_image_files_in_dir(path: Path) -> list[Path]:
+    if not path.exists() or not path.is_dir():
+        return []
+    direct = sorted(
+        [
+            item
+            for item in path.iterdir()
+            if item.is_file() and item.suffix.lower() in SEED_IMAGE_EXTENSIONS
+        ],
+        key=lambda item: item.name.lower(),
+    )
+    nested = sorted(
+        [
+            item
+            for item in path.rglob("*")
+            if item.is_file()
+            and item.suffix.lower() in SEED_IMAGE_EXTENSIONS
+            and item.parent != path
+        ],
+        key=lambda item: item.as_posix().lower(),
+    )
+    return [*direct, *nested]
+
+
+def _seed_image_catalog_for_collection(collection: str) -> dict[str, dict[object, list[str]]]:
+    season = str(collection or "").strip()
+    catalog: dict[str, dict[object, list[str]]] = {"family": {}, "variant": {}}
+    if not season:
+        return catalog
+    season_dir = SEED_DIR / season
+    if not season_dir.exists() or not season_dir.is_dir():
+        return catalog
+
+    for child in sorted((item for item in season_dir.iterdir() if item.is_dir()), key=lambda item: item.name.lower()):
+        family = _seed_image_family_from_dir_name(child.name)
+        if not family:
+            continue
+        editar_dir = child / "editar"
+        relpaths = [item for item in (_seed_image_relpath(image) for image in _seed_image_files_in_dir(editar_dir)) if item]
+        if not relpaths:
+            continue
+        catalog["family"].setdefault(family, []).extend(relpaths)
+        variant = _seed_image_variant_from_dir_name(child.name)
+        if variant:
+            catalog["variant"].setdefault((family, variant), []).extend(relpaths)
+
+    return catalog
+
+
+def _seed_image_relpaths_for_article(
+    image_catalog: dict[str, dict[object, list[str]]],
+    collection: str,
+    articulo: object,
+) -> list[str]:
+    articulo_code = str(articulo or "").strip()
+    if not articulo_code:
+        return []
+    family = articulo_code[2:6] if len(articulo_code) >= 6 else articulo_code
+    suffix = articulo_code[-2:] if len(articulo_code) >= 2 else ""
+    variant_relpaths = list((image_catalog.get("variant") or {}).get((family, suffix), []))
+    family_relpaths = list((image_catalog.get("family") or {}).get(family, []))
+    ordered = [*variant_relpaths, *family_relpaths]
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for relpath in ordered:
+        if not relpath or relpath in seen:
+            continue
+        seen.add(relpath)
+        deduped.append(relpath)
+    return deduped[:24]
+
+
 def _normalize_pedidos_modelo_label(value: object) -> str:
     text = " ".join(str(value or "").upper().split())
     if not text:
@@ -283,6 +390,353 @@ def _normalize_pedidos_modelo_label(value: object) -> str:
         return "Wide Leg"
     return text.title()
 
+
+def _proyeccion_year_for_collection(collection: object) -> str:
+    value = str(collection or "").strip()
+    return PROYECCION_SEASON_TO_YEAR.get(value, "")
+
+
+def _proyeccion_talla_from_text(value: object) -> str:
+    text = " ".join(str(value or "").upper().split())
+    match = re.search(r"T/?\s*(\d{2})\b", text)
+    if match:
+        return match.group(1)
+    return ""
+
+
+def _proyeccion_load_dashboard() -> dict[str, object]:
+    path = SEED_PEDIDOS_COMPARAR
+    empty = {
+        "available": False,
+        "file_name": path.name,
+        "years": [],
+        "selected_year": "2026",
+        "clients": [],
+        "year_cards": [],
+        "season_groups": [
+            {"year": year, "seasons": list(seasons)}
+            for year, seasons in PROYECCION_TEMPORADA_GROUPS
+        ],
+        "top_client": None,
+        "recommendation_2026": {
+            "top_models": [],
+            "top_clients": [],
+            "top_sizes": [],
+            "total_42_43": 0,
+        },
+    }
+    if not path.exists() or not path.is_file():
+        return empty
+
+    stat = path.stat()
+    signature = (str(path.resolve()), int(stat.st_mtime), int(stat.st_size))
+    if _PEDIDOSXCOMPARAR_CACHE.get("signature") == signature and _PEDIDOSXCOMPARAR_CACHE.get("data"):
+        return dict(_PEDIDOSXCOMPARAR_CACHE["data"])  # type: ignore[arg-type]
+
+    clients: dict[str, dict[str, object]] = {}
+    year_totals = {
+        year: {
+            "qty": 0, "value": 0, "clients": set(), "model_counter": Counter(),
+            "season_clients": {s: set() for s in seasons},
+            "season_qty": {s: 0 for s in seasons},
+        }
+        for year, seasons in PROYECCION_TEMPORADA_GROUPS
+    }
+    recommendation_model_sizes: dict[str, Counter] = defaultdict(Counter)
+    recommendation_model_counter: Counter[str] = Counter()
+    recommendation_size_counter: Counter[str] = Counter()
+    recommendation_client_counter: Counter[str] = Counter()
+    season_year_index = {year: index for index, (year, _) in enumerate(PROYECCION_TEMPORADA_GROUPS)}
+
+    with path.open("r", encoding="utf-8", errors="replace", newline="") as fh:
+        reader = csv.DictReader(fh, delimiter=";")
+        for raw in reader:
+            collection = str(raw.get("COLECCION") or "").strip()
+            year = _proyeccion_year_for_collection(collection)
+            if not year:
+                continue
+            qty = _to_int(raw.get("SOLICITADO"))
+            if qty <= 0:
+                continue
+            price = _to_int(raw.get("PRECIO"))
+            value = qty * price
+            rut = str(raw.get("RUT") or "").strip()
+            client_name = " ".join(str(raw.get("CLIENTE") or "").split()) or "-"
+            client_key = rut or client_name
+            vendor = " ".join(str(raw.get("VENDEDOR") or "").split())
+            city = " ".join(str(raw.get("CIUDAD") or "").split())
+            article = str(raw.get("ARTICULO") or "").strip()
+            size = _proyeccion_talla_from_text(raw.get("DESCRIPCION"))
+            model_source = raw.get("SubCateg") or raw.get("DESCRIPCION") or ""
+            model = _normalize_pedidos_modelo_label(model_source)
+
+            client = clients.setdefault(
+                client_key,
+                {
+                    "key": client_key,
+                    "rut": rut,
+                    "cliente": client_name,
+                    "vendedor": vendor,
+                    "ciudad": city,
+                    "years": {
+                        y: {
+                            "qty": 0,
+                            "value": 0,
+                            "seasons": {season: 0 for season in seasons},
+                            "models": defaultdict(lambda: {"qty": 0, "sizes": Counter(), "articles": Counter()}),
+                        }
+                        for y, seasons in PROYECCION_TEMPORADA_GROUPS
+                    },
+                    "total_qty": 0,
+                    "total_value": 0,
+                    "last_purchase": {
+                        "year": "",
+                        "season": "",
+                        "season_num": -1,
+                        "year_index": -1,
+                        "qty": 0,
+                        "vendor": "",
+                    },
+                },
+            )
+            client["total_qty"] = int(client["total_qty"]) + qty
+            client["total_value"] = int(client["total_value"]) + value
+            year_bucket = client["years"][year]
+            year_bucket["qty"] += qty
+            year_bucket["value"] += value
+            year_bucket["seasons"][collection] = int(year_bucket["seasons"].get(collection) or 0) + qty
+            model_bucket = year_bucket["models"][model]
+            model_bucket["qty"] += qty
+            if size:
+                model_bucket["sizes"][size] += qty
+            if article:
+                model_bucket["articles"][article] += qty
+
+            collection_num = int(collection) if collection.isdigit() else -1
+            last_purchase = client["last_purchase"]
+            current_sort = (
+                int(last_purchase.get("year_index") or -1),
+                int(last_purchase.get("season_num") or -1),
+            )
+            next_sort = (season_year_index.get(year, -1), collection_num)
+            if next_sort >= current_sort:
+                last_purchase.update(
+                    {
+                        "year": year,
+                        "season": collection,
+                        "season_num": collection_num,
+                        "year_index": season_year_index.get(year, -1),
+                        "qty": qty,
+                        "vendor": vendor,
+                    }
+                )
+
+            year_totals[year]["qty"] += qty
+            year_totals[year]["value"] += value
+            year_totals[year]["clients"].add(client_key)
+            year_totals[year]["model_counter"][model] += qty
+            if collection in year_totals[year]["season_clients"]:
+                year_totals[year]["season_clients"][collection].add(client_key)
+                year_totals[year]["season_qty"][collection] = int(year_totals[year]["season_qty"].get(collection) or 0) + qty
+
+            if collection in {"42", "43"}:
+                recommendation_model_counter[model] += qty
+                if size:
+                    recommendation_size_counter[size] += qty
+                    recommendation_model_sizes[model][size] += qty
+                recommendation_client_counter[client_name] += qty
+
+    client_rows: list[dict[str, object]] = []
+    inactive_by_year: dict[str, list[dict[str, object]]] = {year: [] for year, _ in PROYECCION_TEMPORADA_GROUPS}
+    for client in clients.values():
+        year_entries: dict[str, dict[str, object]] = {}
+        for year, seasons in PROYECCION_TEMPORADA_GROUPS:
+            bucket = client["years"][year]
+            models_raw = bucket["models"]
+            models = []
+            for model_name, info in models_raw.items():
+                sizes = [
+                    {"talla": size, "qty": qty}
+                    for size, qty in sorted(info["sizes"].items(), key=lambda item: int(item[0]) if str(item[0]).isdigit() else 999)
+                ]
+                top_article = max(info["articles"].items(), key=lambda item: item[1])[0] if info["articles"] else ""
+                models.append(
+                    {
+                        "name": model_name,
+                        "qty": int(info["qty"]),
+                        "sizes": sizes,
+                        "sizes_label": " | ".join(f"{item['talla']}: {item['qty']}" for item in sizes) or "-",
+                        "top_article": top_article,
+                    }
+                )
+            models.sort(key=lambda item: (-int(item["qty"]), str(item["name"])))
+            year_entries[year] = {
+                "qty": int(bucket["qty"]),
+                "value": int(bucket["value"]),
+                "top_model": models[0]["name"] if models else "-",
+                "seasons": [
+                    {"season": season, "qty": int(bucket["seasons"].get(season) or 0)}
+                    for season in seasons
+                ],
+                "models": models,
+            }
+        top_year = max(
+            PROYECCION_TEMPORADA_GROUPS,
+            key=lambda item: int(year_entries[item[0]]["qty"]),
+        )[0]
+        client_rows.append(
+            {
+                "key": client["key"],
+                "rut": client["rut"],
+                "cliente": client["cliente"],
+                "vendedor": client["vendedor"],
+                "ciudad": client["ciudad"],
+                "years": year_entries,
+                "top_year": top_year,
+                "total_qty": int(client["total_qty"]),
+                "total_value": int(client["total_value"]),
+                "last_purchase": {
+                    "year": str((client.get("last_purchase") or {}).get("year") or ""),
+                    "season": str((client.get("last_purchase") or {}).get("season") or ""),
+                    "qty": int((client.get("last_purchase") or {}).get("qty") or 0),
+                    "vendor": str((client.get("last_purchase") or {}).get("vendor") or client.get("vendedor") or ""),
+                },
+            }
+        )
+
+    year_order = [year for year, _ in PROYECCION_TEMPORADA_GROUPS]
+    for row in client_rows:
+        for year, _ in PROYECCION_TEMPORADA_GROUPS:
+            current_qty = int(row["years"][year]["qty"])
+            if current_qty > 0:
+                continue
+            previous = None
+            current_index = year_order.index(year)
+            for prev_year in reversed(year_order[:current_index]):
+                prev_qty = int(row["years"][prev_year]["qty"])
+                if prev_qty <= 0:
+                    continue
+                prev_seasons = [item for item in row["years"][prev_year]["seasons"] if int(item["qty"]) > 0]
+                prev_models = row["years"][prev_year].get("models", [])
+                prev_top = prev_models[0] if prev_models else None
+                previous = {
+                    "year": prev_year,
+                    "qty": prev_qty,
+                    "season": prev_seasons[-1]["season"] if prev_seasons else "",
+                    "vendor": row.get("last_purchase", {}).get("vendor") or row.get("vendedor") or "",
+                    "top_model": prev_top["name"] if prev_top else row["years"][prev_year]["top_model"],
+                    "top_model_sizes": prev_top.get("sizes", []) if prev_top else [],
+                    "top_model_sizes_label": prev_top.get("sizes_label", "-") if prev_top else "-",
+                    "cliente": row["cliente"],
+                    "rut": row["rut"],
+                    "ciudad": row["ciudad"],
+                }
+                break
+            if previous:
+                inactive_by_year[year].append(previous)
+
+    selected_year = "2026"
+    client_rows.sort(
+        key=lambda item: (
+            -int(item["years"][selected_year]["qty"]),
+            -int(item["total_qty"]),
+            str(item["cliente"]),
+        )
+    )
+
+    year_cards = []
+    for year, seasons in PROYECCION_TEMPORADA_GROUPS:
+        top_models = year_totals[year]["model_counter"].most_common(3)
+        attended_total = len(year_totals[year]["clients"])
+        inactive_total = len(inactive_by_year.get(year) or [])
+        year_cards.append(
+            {
+                "year": year,
+                "seasons": list(seasons),
+                "qty": int(year_totals[year]["qty"]),
+                "value": int(year_totals[year]["value"]),
+                "clients": attended_total,
+                "top_model": top_models[0][0] if top_models else "-",
+                "inactive_clients": inactive_total,
+                "total_base": attended_total + inactive_total,
+                "seasons_attendance": [
+                    {
+                        "season": s,
+                        "clients": len(year_totals[year]["season_clients"].get(s, set())),
+                        "qty": int(year_totals[year]["season_qty"].get(s) or 0),
+                    }
+                    for s in seasons
+                ],
+            }
+        )
+
+    for year in inactive_by_year:
+        inactive_by_year[year].sort(
+            key=lambda item: (
+                -int(item.get("qty") or 0),
+                -(int(item.get("season") or 0) if str(item.get("season") or "").isdigit() else -1),
+                str(item.get("cliente") or ""),
+            )
+        )
+
+    rec_total_42_43 = int(year_totals["2026"]["qty"]) or 1
+    recommendation_2026 = {
+        "top_models": [
+            {
+                "name": name,
+                "qty": qty,
+                "pct": round(qty / rec_total_42_43 * 100, 1),
+                "sizes": [
+                    {"talla": t, "qty": q}
+                    for t, q in sorted(
+                        recommendation_model_sizes[name].items(),
+                        key=lambda x: (int(x[0]) if str(x[0]).isdigit() else 999),
+                    )
+                ],
+            }
+            for name, qty in recommendation_model_counter.most_common(10)
+        ],
+        "top_clients": [
+            {"cliente": name, "qty": qty}
+            for name, qty in recommendation_client_counter.most_common(8)
+        ],
+        "top_sizes": [
+            {"talla": talla, "qty": qty}
+            for talla, qty in sorted(
+                recommendation_size_counter.items(),
+                key=lambda item: (-(item[1]), int(item[0]) if str(item[0]).isdigit() else 999),
+            )[:8]
+        ],
+        "total_42_43": int(year_totals["2026"]["qty"]),
+        "total_42_43_clients": len(year_totals["2026"]["clients"]),
+    }
+
+    out = {
+        "available": True,
+        "file_name": path.name,
+        "years": [year for year, _ in PROYECCION_TEMPORADA_GROUPS],
+        "selected_year": selected_year,
+        "clients": client_rows,
+        "year_cards": year_cards,
+        "season_groups": [
+            {"year": year, "seasons": list(seasons)}
+            for year, seasons in PROYECCION_TEMPORADA_GROUPS
+        ],
+        "top_client": client_rows[0] if client_rows else None,
+        "recommendation_2026": recommendation_2026,
+        "inactive_by_year": inactive_by_year,
+        "inactive_summary": {
+            year: {
+                "count": len(items),
+                "top_vendor": Counter(str(item.get("vendor") or "-") for item in items).most_common(1)[0][0] if items else "-",
+            }
+            for year, items in inactive_by_year.items()
+        },
+    }
+    _PEDIDOSXCOMPARAR_CACHE["signature"] = signature
+    _PEDIDOSXCOMPARAR_CACHE["data"] = out
+    return dict(out)
+
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
     Path(DB_PATH).resolve().parent.mkdir(parents=True, exist_ok=True)
@@ -290,6 +744,20 @@ if not str(DB_PATH).startswith(("postgres://", "postgresql://")):
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
+
+
+@app.get("/seed-media/<path:asset_path>")
+def seed_media(asset_path: str):
+    seed_root = SEED_DIR.resolve()
+    try:
+        safe_relative = Path(asset_path)
+        target = (seed_root / safe_relative).resolve()
+        target.relative_to(seed_root)
+    except (ValueError, OSError):
+        return ("No encontrado", 404)
+    if not target.exists() or not target.is_file():
+        return ("No encontrado", 404)
+    return send_from_directory(str(seed_root), safe_relative.as_posix())
 PROYECCION_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 _refresh_lock = threading.Lock()
 _refresh_thread_started = False
@@ -5468,6 +5936,7 @@ def _build_pedidos_collection_view(
     pedidos_sections: dict[str, list[dict[str, object]]],
     pedidos_collection: str,
 ) -> dict[str, object]:
+    image_catalog = _seed_image_catalog_for_collection(pedidos_collection)
     ventas_rows = [
         row for row in pedidos_sections.get("ventas", [])
         if _pedidos_collection_matches(row.get("articulo"), pedidos_collection)
@@ -5688,6 +6157,11 @@ def _build_pedidos_collection_view(
                             "descripcion": a.get("descripcion") or descripcion_por_articulo.get(a.get("articulo"), ""),
                             "modelo": a.get("modelo") or modelo_por_articulo.get(a.get("articulo"), "Sin clasificar"),
                             "total": int((((g.get("articulos") or {}).get(a.get("articulo")) or {}).get("total")) or 0),
+                            "image_relpaths": _seed_image_relpaths_for_article(
+                                image_catalog,
+                                pedidos_collection,
+                                a.get("articulo"),
+                            ),
                             "tallas": [
                                 {
                                     "talla": talla,
@@ -5769,6 +6243,7 @@ def index():
     exs_summary = query_exs_balance_summary(DB_PATH, filters["q"])
     comparativo_summary = query_comparativo_clientes(DB_PATH, "")
     comparativo_summary["plan_comercial"] = _build_detailv_sales_report(comparativo_summary)
+    proyeccion_clientes_dashboard = _proyeccion_load_dashboard()
     pedidos_count = sum(len(section_rows) for section_rows in pedidos_sections.values())
     search_error = ""
     search_success = ""
@@ -6162,7 +6637,11 @@ def index():
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
-    venta_despacho_collection_keys = [key for key in available_pedidos_collections if key.isdigit()]
+    venta_despacho_allowed_keys = {"41", "42", "43"}
+    venta_despacho_collection_keys = [
+        key for key in available_pedidos_collections
+        if key in venta_despacho_allowed_keys
+    ]
     if not venta_despacho_collection_keys:
         venta_despacho_collection_keys = ["42", "43"]
     venta_despacho_view_keys = list(venta_despacho_collection_keys)
@@ -6203,6 +6682,7 @@ def index():
         ventas_trazabilidad_por_articulo=trazabilidad_por_articulo,
         exs_summary=exs_summary,
         comparativo_summary=comparativo_summary,
+        proyeccion_clientes_dashboard=proyeccion_clientes_dashboard,
         search_error=search_error,
         search_success=search_success,
         filters=filters,

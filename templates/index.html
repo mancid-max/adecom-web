@@ -41,6 +41,7 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionModal">Proyeccion semanal</button>
+            <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionClientesModal">Proyeccion clientes</button>
           </div>
         </div>
       </nav>
@@ -168,6 +169,11 @@
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openTopArticulosDashboardCard">
           <h2>TOP 10 Pedidos</h2>
+        </button>
+      </article>
+      <article class="card-action summary-secondary">
+        <button type="button" class="summary-open summary-open-centered" id="openProyeccionClientesDashboardCard" data-open-id="openProyeccionClientesDashboardCard">
+          <h2>Proyeccion</h2>
         </button>
       </article>
     </section>
@@ -2008,6 +2014,7 @@
       <script id="ventasFamiliasData" type="application/json">{{ ventas_grouped|tojson }}</script>
       <script id="pedidosCollectionData" type="application/json">{{ pedidos_collection_views|tojson }}</script>
       <script id="ventasTrazabilidadData" type="application/json">{{ ventas_trazabilidad_por_articulo|tojson }}</script>
+      <script id="proyeccionClientesData" type="application/json">{{ proyeccion_clientes_dashboard|tojson }}</script>
       {% if ventas_docs_summary.available %}
         <script id="ventasDocsSummaryData" type="application/json">{{ ventas_docs_summary|tojson }}</script>
       {% endif %}
@@ -2480,6 +2487,244 @@
         </section>
       </dialog>
 
+      <dialog id="proyeccionClientesModal" class="modal">
+        <div class="modal-head">
+          <div>
+            <h3>Proyeccion clientes por temporada</h3>
+            <p class="production-goals-copy">Comparativo comercial por cliente, temporadas y tipo de pantalon.</p>
+          </div>
+          <button type="button" id="closeProyeccionClientesModal" class="modal-close">Cerrar</button>
+        </div>
+        {% if proyeccion_clientes_dashboard.available %}
+        <section class="comparativo-panel">
+          <div class="proy-section-head">
+            <div>
+              <h4>Resumen por a&ntilde;o comercial</h4>
+              <small class="proy-section-sub">Unidades pedidas por a&ntilde;o y desglose por temporada</small>
+            </div>
+            <div class="proy-year-legend">
+              <span class="proy-legend-chip proy-legend-chip--sold">Vendido</span>
+              <span class="proy-legend-chip proy-legend-chip--pending">Por producir</span>
+            </div>
+          </div>
+          <div class="comparativo-year-grid proy-year-grid">
+            {% for item in proyeccion_clientes_dashboard.year_cards %}
+            <article class="comparativo-year-card proy-year-card">
+              <header class="proy-year-card-header">
+                <span class="proy-year-label">{{ item.year }}</span>
+                {% if item.inactive_clients > 0 %}
+                <span class="proy-year-caidos-badge">↓ {{ item.inactive_clients|miles }}</span>
+                {% endif %}
+              </header>
+              <p class="proy-year-qty">{{ item.qty|miles }}</p>
+              <footer class="proy-year-card-footer">
+                <span><b>{{ item.clients|miles }}</b> / {{ item.total_base|miles }} clientes</span>
+                <span class="proy-year-top" title="{{ item.top_model }}">{{ item.top_model }}</span>
+              </footer>
+              <div class="proy-season-attendance">
+                {% for sa in item.seasons_attendance %}
+                <span class="proy-season-chip {% if sa.qty == 0 %}proy-season-chip--empty{% elif item.year == '2026' and sa.season in ['44','45'] %}proy-season-chip--pending{% endif %}" title="{{ sa.clients }} clientes · {{ sa.qty|miles }} uds.">
+                  <span class="proy-season-chip-label">T{{ sa.season }}</span>
+                  <span class="proy-season-chip-val">{{ sa.qty|miles if sa.qty > 0 else '—' }}</span>
+                  <span class="proy-season-chip-clients">{{ sa.clients }} cli.</span>
+                </span>
+                {% endfor %}
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+          <div class="proy-prod-section">
+            <div class="proy-prod-header">
+              <div>
+                <h4 class="proy-prod-title">
+                  <span class="proy-prod-badge">Producción</span>
+                  Base sugerida para T44 y T45
+                </h4>
+                <small>Comportamiento real de {{ proyeccion_clientes_dashboard.recommendation_2026.total_42_43_clients }} clientes en T42/T43 &mdash; {{ proyeccion_clientes_dashboard.recommendation_2026.total_42_43|miles }} unidades totales</small>
+              </div>
+              <div class="proy-prod-sizes-legend">
+                {% for item in proyeccion_clientes_dashboard.recommendation_2026.top_sizes %}
+                <span class="proy-prod-talla-kpi">
+                  <span class="proy-prod-talla-num">T{{ item.talla }}</span>
+                  <span class="proy-prod-talla-qty">{{ item.qty|miles }}</span>
+                </span>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="proy-prod-table-wrap">
+              <table class="proy-prod-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tipo de pantalon</th>
+                    <th>Uds. T42/43</th>
+                    <th>% del total</th>
+                    <th>Desglose por talla</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in proyeccion_clientes_dashboard.recommendation_2026.top_models %}
+                  <tr class="proy-prod-row">
+                    <td class="proy-prod-rank">{{ loop.index }}</td>
+                    <td class="proy-prod-name">{{ item.name }}</td>
+                    <td class="proy-prod-qty">{{ item.qty|miles }}</td>
+                    <td class="proy-prod-pct">
+                      <div class="proy-prod-bar-wrap">
+                        <div class="proy-prod-bar" style="width:{{ item.pct }}%"></div>
+                      </div>
+                      <span>{{ item.pct }}%</span>
+                    </td>
+                    <td class="proy-prod-sizes">
+                      {% for s in item.sizes %}
+                      <span class="proy-inactive-chip">T{{ s.talla }}<b>{{ s.qty|miles }}</b></span>
+                      {% else %}
+                      <span class="proy-size-empty">—</span>
+                      {% endfor %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="comparativo-toolbar proyeccion-clientes-toolbar" id="proyeccionClientesYearToolbar" aria-label="Filtro anio comercial">
+            {% for year in proyeccion_clientes_dashboard.years %}
+            <button type="button" class="comparativo-toggle {% if year == proyeccion_clientes_dashboard.selected_year %}is-active{% endif %}" data-proyeccion-clientes-year="{{ year }}">{{ year }}</button>
+            {% endfor %}
+          </div>
+          <div class="venta-despacho-layout proyeccion-clientes-layout">
+            <aside class="venta-despacho-clientes-panel">
+              <div class="venta-despacho-panel-head">
+                <h4>Ranking clientes</h4>
+                <span id="proyeccionClientesCount">{{ proyeccion_clientes_dashboard.clients|length|miles }} clientes</span>
+              </div>
+              <div class="venta-despacho-toolbar">
+                <label>
+                  <span>Buscar cliente</span>
+                  <input type="text" id="proyeccionClientesSearch" placeholder="Escribe nombre cliente">
+                </label>
+              </div>
+              <div class="venta-despacho-client-list" id="proyeccionClientesList"></div>
+            </aside>
+            <section class="venta-despacho-detail-panel">
+              <div class="venta-despacho-client-head">
+                <div>
+                  <h4 id="proyeccionClienteNombre">-</h4>
+                  <p id="proyeccionClienteMeta">Sin datos.</p>
+                </div>
+                <div class="venta-despacho-progress">
+                  <span id="proyeccionClienteYearBadge" class="venta-despacho-progress-badge">{{ proyeccion_clientes_dashboard.selected_year }}</span>
+                  <small>a&ntilde;o comercial</small>
+                </div>
+              </div>
+              <div class="venta-despacho-client-kpis">
+                <article>
+                  <small>Total a&ntilde;o</small>
+                  <strong id="proyeccionClienteQty">0</strong>
+                </article>
+                <article>
+                  <small>$ a&ntilde;o</small>
+                  <strong id="proyeccionClienteValue">0</strong>
+                </article>
+                <article>
+                  <small>Top tipo</small>
+                  <strong id="proyeccionClienteTopModel">-</strong>
+                </article>
+                <article>
+                  <small>Temporadas</small>
+                  <strong id="proyeccionClienteSeasonTotal">-</strong>
+                </article>
+              </div>
+              <div class="venta-despacho-client-kpis">
+                <article>
+                  <small>Estado</small>
+                  <strong id="proyeccionClienteEstado">-</strong>
+                </article>
+                <article>
+                  <small>Ult. compra</small>
+                  <strong id="proyeccionClienteUltimaCompra">-</strong>
+                </article>
+                <article>
+                  <small>Vendedor</small>
+                  <strong id="proyeccionClienteUltimoVendedor">-</strong>
+                </article>
+                <article>
+                  <small>Top previo</small>
+                  <strong id="proyeccionClienteTopPrevio">-</strong>
+                </article>
+              </div>
+              <div class="proy-crossyear-strip" id="proyeccionClienteCrossYear"></div>
+              <section class="table-wrap bodega-wrap">
+                <p class="table-hint">Temporadas del a&ntilde;o seleccionado para este cliente.</p>
+                <div id="proyeccionClienteSeasons" class="variante-pair-grid"></div>
+              </section>
+              <section class="table-wrap bodega-wrap">
+                <p class="table-hint">Tipos de pantalon mas comprados y detalle por talla — a&ntilde;o seleccionado.</p>
+                <table class="bodega-table bodega-table-compact" id="proyeccionClienteModelTable">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Tipo</th>
+                      <th>Total</th>
+                      <th>Tallas</th>
+                    </tr>
+                  </thead>
+                  <tbody id="proyeccionClienteModelBody"></tbody>
+                </table>
+              </section>
+            </section>
+          </div>
+          <section class="table-wrap bodega-wrap proy-inactive-section" style="margin-top:18px;">
+            <div class="proy-inactive-header">
+              <div class="proy-inactive-header-top">
+                <div>
+                  <h4>Clientes no atendidos en el a&ntilde;o seleccionado</h4>
+                  <small>Compraron en a&ntilde;os anteriores pero no registran compra en el a&ntilde;o comercial actual.</small>
+                </div>
+                <button type="button" class="proy-export-btn" id="proyeccionExportInactiveBtn" title="Descargar CSV para envío de correos">
+                  &#11015; Exportar para correos
+                </button>
+              </div>
+              <div class="proy-inactive-filters">
+                <div class="proy-inactive-filter-group">
+                  <label for="proyeccionVendorFilter">Vendedor</label>
+                  <select id="proyeccionVendorFilter" class="proy-filter-select">
+                    <option value="">Todos los vendedores</option>
+                  </select>
+                </div>
+                <div class="proy-inactive-filter-group">
+                  <label for="proyeccionInactiveSearch">Buscar cliente</label>
+                  <input type="text" id="proyeccionInactiveSearch" class="proy-filter-input" placeholder="Nombre, RUT, tipo...">
+                </div>
+                <span class="proy-inactive-meta" id="proyeccionClientesInactiveMeta">
+                  {{ proyeccion_clientes_dashboard.inactive_summary[proyeccion_clientes_dashboard.selected_year].count|miles if proyeccion_clientes_dashboard.inactive_summary and proyeccion_clientes_dashboard.selected_year in proyeccion_clientes_dashboard.inactive_summary else 0 }}
+                  clientes
+                </span>
+              </div>
+            </div>
+            <table class="bodega-table bodega-table-compact" id="proyeccionClientesInactiveTable">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Ult. a&ntilde;o</th>
+                  <th>Ult. temp.</th>
+                  <th>Ult. tipo</th>
+                  <th>Tallas</th>
+                  <th>Vendedor</th>
+                  <th>Ult. compra</th>
+                </tr>
+              </thead>
+              <tbody id="proyeccionClientesInactiveBody"></tbody>
+            </table>
+          </section>
+        </section>
+        {% else %}
+        <section class="table-wrap bodega-wrap">
+          <p class="empty">No hay archivo PEDIDOSXCOMPARAR cargado.</p>
+        </section>
+        {% endif %}
+      </dialog>
+
       <dialog id="proyeccionModal" class="modal modal-metas">
         <div class="modal-metas-shell">
         <div class="modal-head">
@@ -2793,6 +3038,10 @@
       if (ventasTopBtn) {
         ventasTopBtn.addEventListener("click", () => openById("openVentasTotalModal"));
       }
+      const proyeccionClientesTopBtn = document.getElementById("openProyeccionClientesDashboardCard");
+      if (proyeccionClientesTopBtn) {
+        proyeccionClientesTopBtn.addEventListener("click", () => openById("openProyeccionClientesModal"));
+      }
       document.querySelectorAll(".dash-bodega-row[data-open-bodega-modal='1']").forEach((row) => {
         row.addEventListener("click", () => openById("openBodegaModal"));
       });
@@ -2843,6 +3092,8 @@
         openReporteVentaModal: "reporteVentaModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
+        openProyeccionClientesModal: "proyeccionClientesModal",
+        openProyeccionClientesDashboardCard: "proyeccionClientesModal",
         openProyeccionModal: "proyeccionModal",
       };
       const triggerToModal = {
@@ -2859,6 +3110,8 @@
         openReporteVentaModal: "reporteVentaModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
+        openProyeccionClientesModal: "proyeccionClientesModal",
+        openProyeccionClientesDashboardCard: "proyeccionClientesModal",
         openVentasTotalModalTop: "ventasTotalModal",
         openVentasDetalleDashboardCard: "ventasDetalleModal",
         openTopArticulosDashboardCard: "topArticulosModal",
@@ -4372,6 +4625,327 @@
           event.clientY <= rect.bottom;
         if (!clickedInside) modal.close();
       });
+    })();
+
+    (function () {
+      const modal = document.getElementById("proyeccionClientesModal");
+      const closeBtn = document.getElementById("closeProyeccionClientesModal");
+      const dataNode = document.getElementById("proyeccionClientesData");
+      if (!modal || !closeBtn || !dataNode) return;
+
+      let dashboard = {};
+      try {
+        dashboard = JSON.parse(dataNode.textContent || "{}");
+      } catch (_) {
+        dashboard = {};
+      }
+      if (!dashboard || !dashboard.available) return;
+
+      const fmt = (value) => Number(value || 0).toLocaleString("es-CL");
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+      const yearButtons = Array.from(modal.querySelectorAll("[data-proyeccion-clientes-year]"));
+      const searchInput = document.getElementById("proyeccionClientesSearch");
+      const list = document.getElementById("proyeccionClientesList");
+      const countNode = document.getElementById("proyeccionClientesCount");
+      const clientName = document.getElementById("proyeccionClienteNombre");
+      const clientMeta = document.getElementById("proyeccionClienteMeta");
+      const yearBadge = document.getElementById("proyeccionClienteYearBadge");
+      const qtyNode = document.getElementById("proyeccionClienteQty");
+      const valueNode = document.getElementById("proyeccionClienteValue");
+      const topModelNode = document.getElementById("proyeccionClienteTopModel");
+      const seasonTotalNode = document.getElementById("proyeccionClienteSeasonTotal");
+      const estadoNode = document.getElementById("proyeccionClienteEstado");
+      const ultimaCompraNode = document.getElementById("proyeccionClienteUltimaCompra");
+      const ultimoVendedorNode = document.getElementById("proyeccionClienteUltimoVendedor");
+      const topPrevioNode = document.getElementById("proyeccionClienteTopPrevio");
+      const seasonsNode = document.getElementById("proyeccionClienteSeasons");
+      const crossYearNode = document.getElementById("proyeccionClienteCrossYear");
+      const modelBody = document.getElementById("proyeccionClienteModelBody");
+      const inactiveMetaNode = document.getElementById("proyeccionClientesInactiveMeta");
+      const inactiveBody = document.getElementById("proyeccionClientesInactiveBody");
+
+      let activeYear = String(dashboard.selected_year || "2026");
+      let activeClientKey = String(dashboard.top_client?.key || "");
+      let activeVendorFilter = "";
+
+      const getClients = () => Array.isArray(dashboard.clients) ? [...dashboard.clients] : [];
+      const getFilteredClients = () => {
+        const term = String(searchInput?.value || "").trim().toLowerCase();
+        const rows = getClients().filter((item) => {
+          const haystack = `${item.cliente || ""} ${item.rut || ""} ${item.vendedor || ""} ${item.ciudad || ""}`.toLowerCase();
+          return !term || haystack.includes(term);
+        });
+        rows.sort((a, b) => {
+          const ay = Number(a?.years?.[activeYear]?.qty || 0);
+          const by = Number(b?.years?.[activeYear]?.qty || 0);
+          if (by !== ay) return by - ay;
+          return Number(b?.total_qty || 0) - Number(a?.total_qty || 0);
+        });
+        return rows;
+      };
+      const getFilteredInactive = () => {
+        const term = String(document.getElementById("proyeccionInactiveSearch")?.value || searchInput?.value || "").trim().toLowerCase();
+        const rows = Array.isArray(dashboard.inactive_by_year?.[activeYear]) ? [...dashboard.inactive_by_year[activeYear]] : [];
+        return rows.filter((item) => {
+          const haystack = `${item.cliente || ""} ${item.rut || ""} ${item.vendor || ""} ${item.ciudad || ""} ${item.top_model || ""}`.toLowerCase();
+          const matchTerm = !term || haystack.includes(term);
+          const matchVendor = !activeVendorFilter || (item.vendor || "") === activeVendorFilter;
+          return matchTerm && matchVendor;
+        });
+      };
+      const previousYearForClient = (client) => {
+        const years = Array.isArray(dashboard.years) ? dashboard.years : [];
+        const currentIndex = years.indexOf(activeYear);
+        if (currentIndex <= 0) return null;
+        for (let index = currentIndex - 1; index >= 0; index -= 1) {
+          const candidate = String(years[index] || "");
+          const candidateData = client?.years?.[candidate];
+          if (Number(candidateData?.qty || 0) > 0) {
+            return { year: candidate, data: candidateData };
+          }
+        }
+        return null;
+      };
+
+      const renderClientDetail = (client) => {
+        if (!client) {
+          clientName.textContent = "-";
+          clientMeta.textContent = "Sin datos.";
+          yearBadge.textContent = activeYear;
+          qtyNode.textContent = "0";
+          valueNode.textContent = "$0";
+          topModelNode.textContent = "-";
+          seasonTotalNode.textContent = "-";
+          if (estadoNode) estadoNode.textContent = "-";
+          if (ultimaCompraNode) ultimaCompraNode.textContent = "-";
+          if (ultimoVendedorNode) ultimoVendedorNode.textContent = "-";
+          if (topPrevioNode) topPrevioNode.textContent = "-";
+          seasonsNode.innerHTML = '<span class="variante-chip variante-chip-empty">Sin temporadas.</span>';
+          modelBody.innerHTML = '<tr><td colspan="3" class="empty">Sin detalle disponible.</td></tr>';
+          return;
+        }
+        const yearData = client.years?.[activeYear] || { qty: 0, value: 0, top_model: "-", seasons: [], models: [] };
+        const previous = previousYearForClient(client);
+        const hasCurrentSales = Number(yearData.qty || 0) > 0;
+        clientName.textContent = client.cliente || "-";
+        clientMeta.textContent = [client.rut, client.ciudad, client.vendedor].filter(Boolean).join(" - ") || "Sin datos.";
+        yearBadge.textContent = activeYear;
+        qtyNode.textContent = fmt(yearData.qty || 0);
+        valueNode.textContent = `$${fmt(yearData.value || 0)}`;
+        topModelNode.textContent = yearData.top_model || "-";
+        const _seasons = Array.isArray(yearData.seasons) ? yearData.seasons : [];
+        seasonTotalNode.textContent = _seasons.length ? `${_seasons.length} temp.` : "-";
+        if (estadoNode) {
+          estadoNode.textContent = hasCurrentSales ? "Activo" : (previous ? "No atendido" : "Sin historial");
+        }
+        if (ultimaCompraNode) {
+          const lastPurchase = client.last_purchase || {};
+          ultimaCompraNode.textContent = lastPurchase.season ? `Temp ${lastPurchase.season} (${lastPurchase.year || "-"})` : "-";
+        }
+        if (ultimoVendedorNode) {
+          ultimoVendedorNode.textContent = (client.last_purchase?.vendor || client.vendedor || "-");
+        }
+        if (topPrevioNode) {
+          topPrevioNode.textContent = previous?.data?.top_model || "-";
+        }
+        seasonsNode.innerHTML = (Array.isArray(yearData.seasons) ? yearData.seasons : []).filter(s => s.qty > 0).map((item) => `
+          <span class="variante-chip">
+            <span class="variante-chip-prefix">T</span>
+            <span class="variante-chip-code">${escapeHtml(item.season)}</span>
+            <span class="variante-chip-sep"> : </span>
+            <span class="variante-chip-total">${fmt(item.qty)}</span>
+          </span>
+        `).join("") || '<span class="variante-chip variante-chip-empty">Sin temporadas con compras.</span>';
+
+        // Cross-year comparison strip
+        if (crossYearNode) {
+          const years = Array.isArray(dashboard.years) ? dashboard.years : [];
+          const maxQty = Math.max(...years.map(y => Number(client.years?.[y]?.qty || 0)), 1);
+          crossYearNode.innerHTML = years.map(y => {
+            const yd = client.years?.[y] || {};
+            const q = Number(yd.qty || 0);
+            const pct = Math.round(q / maxQty * 100);
+            const isActive = y === activeYear;
+            const topM = yd.top_model || "-";
+            return `<div class="proy-cy-item${isActive ? " proy-cy-item--active" : ""}${q === 0 ? " proy-cy-item--zero" : ""}" title="${escapeHtml(y)}: ${fmt(q)} uds. | Top: ${escapeHtml(topM)}">
+              <div class="proy-cy-bar-wrap"><div class="proy-cy-bar" style="height:${pct}%"></div></div>
+              <span class="proy-cy-year">${escapeHtml(y)}</span>
+              <span class="proy-cy-qty">${q > 0 ? fmt(q) : "—"}</span>
+              <span class="proy-cy-model">${escapeHtml(topM)}</span>
+            </div>`;
+          }).join("");
+        }
+
+        const models = Array.isArray(yearData.models) ? yearData.models : [];
+        modelBody.innerHTML = models.length ? models.map((item, idx) => {
+          const sizes = Array.isArray(item.sizes) ? item.sizes : [];
+          const sizesHtml = sizes.length
+            ? sizes.map(s => `<span class="proy-inactive-chip">T${escapeHtml(String(s.talla))}<b>${fmt(s.qty)}</b></span>`).join("")
+            : `<span class="proy-size-empty">${escapeHtml(item.sizes_label || "-")}</span>`;
+          return `<tr>
+              <td class="proy-prod-rank">${idx + 1}</td>
+              <td style="font-weight:600">${escapeHtml(item.name || "-")}</td>
+              <td class="num proy-model-total">${fmt(item.qty || 0)}</td>
+              <td><div class="proy-sizes-row">${sizesHtml}</div></td>
+            </tr>`;
+        }).join("") : '<tr><td colspan="4" class="empty">Sin tipos registrados para este cliente en el a&ntilde;o seleccionado.</td></tr>';
+      };
+
+      const renderInactiveList = () => {
+        if (!inactiveBody) return;
+
+        // Repoblar select de vendedores con todos los del año actual
+        const vendorSelect = document.getElementById("proyeccionVendorFilter");
+        if (vendorSelect) {
+          const allRows = Array.isArray(dashboard.inactive_by_year?.[activeYear]) ? dashboard.inactive_by_year[activeYear] : [];
+          const vendors = [...new Set(allRows.map(r => r.vendor || "").filter(Boolean))].sort();
+          const prev = vendorSelect.value;
+          vendorSelect.innerHTML = '<option value="">Todos los vendedores</option>'
+            + vendors.map(v => `<option value="${escapeHtml(v)}"${v === prev ? " selected" : ""}>${escapeHtml(v)}</option>`).join("");
+          activeVendorFilter = vendorSelect.value;
+        }
+
+        const rows = getFilteredInactive();
+        const summary = dashboard.inactive_summary?.[activeYear] || {};
+        if (inactiveMetaNode) {
+          const vendorLabel = summary.top_vendor && summary.top_vendor !== "-" ? ` | Fuerte: ${summary.top_vendor}` : "";
+          inactiveMetaNode.textContent = `${fmt(rows.length)} clientes${vendorLabel}`;
+        }
+        if (!rows.length) {
+          inactiveBody.innerHTML = '<tr><td colspan="7" class="empty">Sin clientes no atendidos para el a&ntilde;o seleccionado.</td></tr>';
+          return;
+        }
+        inactiveBody.innerHTML = rows.map((item) => {
+          const sizes = Array.isArray(item.top_model_sizes) ? item.top_model_sizes : [];
+          const sizesHtml = sizes.length
+            ? sizes.map(s => `<span class="proy-inactive-chip">T${escapeHtml(String(s.talla))}<b>${fmt(s.qty)}</b></span>`).join("")
+            : `<span class="proy-size-empty">${escapeHtml(item.top_model_sizes_label || "-")}</span>`;
+          return `<tr>
+            <td class="proy-inactive-cliente">
+              <strong>${escapeHtml(item.cliente || "-")}</strong>
+              ${item.rut ? `<span class="proy-inactive-rut">${escapeHtml(item.rut)}</span>` : ""}
+            </td>
+            <td class="proy-inactive-center">${escapeHtml(item.year || "-")}</td>
+            <td class="proy-inactive-center"><span class="proy-season-badge">T${escapeHtml(item.season || "-")}</span></td>
+            <td class="proy-inactive-tipo">${escapeHtml(item.top_model || "-")}</td>
+            <td><div class="proy-inactive-sizes">${sizesHtml}</div></td>
+            <td class="proy-inactive-vendor">${escapeHtml(item.vendor || "-")}</td>
+            <td class="num proy-inactive-qty">${fmt(item.qty || 0)}</td>
+          </tr>`;
+        }).join("");
+      };
+
+      const renderClientList = () => {
+        const clients = getFilteredClients();
+        if (countNode) countNode.textContent = `${fmt(clients.length)} clientes`;
+        if (!clients.length) {
+          activeClientKey = "";
+          list.innerHTML = '<p class="empty">Sin clientes con los filtros actuales.</p>';
+          renderClientDetail(null);
+          renderInactiveList();
+          return;
+        }
+        if (!clients.some((item) => String(item.key) === activeClientKey)) {
+          activeClientKey = String(clients[0].key || "");
+        }
+        list.innerHTML = clients.map((item, idx) => {
+          const yearData = item.years?.[activeYear] || {};
+          const isActive = String(item.key) === activeClientKey;
+          const rank = idx + 1;
+          const rankClass = rank === 1 ? "proy-rank--gold" : rank === 2 ? "proy-rank--silver" : rank === 3 ? "proy-rank--bronze" : "";
+          return `
+            <button type="button" class="venta-despacho-client-btn ${isActive ? "is-active" : ""}" data-proyeccion-client-key="${escapeHtml(item.key || "")}">
+              <span class="venta-despacho-client-topline">
+                <span class="proy-rank-badge ${rankClass}">${rank}</span>
+                <strong>${escapeHtml(item.cliente || "-")}</strong>
+                <b class="venta-despacho-pct-badge">${fmt(yearData.qty || 0)}</b>
+              </span>
+              <span class="proy-client-subline">
+                <span class="proy-client-model">${escapeHtml(yearData.top_model || "-")}</span>
+                <span class="proy-client-value">$${fmt(yearData.value || 0)}</span>
+              </span>
+            </button>
+          `;
+        }).join("");
+        renderClientDetail(clients.find((item) => String(item.key) === activeClientKey) || clients[0]);
+        renderInactiveList();
+      };
+
+      const setYear = (year) => {
+        activeYear = String(year || dashboard.selected_year || "2026");
+        activeVendorFilter = "";
+        if (vendorFilterEl) vendorFilterEl.value = "";
+        if (inactiveSearchInput) inactiveSearchInput.value = "";
+        yearButtons.forEach((btn) => btn.classList.toggle("is-active", btn.getAttribute("data-proyeccion-clientes-year") === activeYear));
+        renderClientList();
+      };
+
+      yearButtons.forEach((btn) => {
+        btn.addEventListener("click", () => setYear(btn.getAttribute("data-proyeccion-clientes-year") || activeYear));
+      });
+      if (searchInput) searchInput.addEventListener("input", renderClientList);
+      if (list) {
+        list.addEventListener("click", (event) => {
+          const btn = event.target.closest("[data-proyeccion-client-key]");
+          if (!btn) return;
+          activeClientKey = btn.getAttribute("data-proyeccion-client-key") || "";
+          renderClientList();
+        });
+      }
+
+      const inactiveSearchInput = document.getElementById("proyeccionInactiveSearch");
+      const vendorFilterEl = document.getElementById("proyeccionVendorFilter");
+      if (inactiveSearchInput) {
+        inactiveSearchInput.addEventListener("input", () => renderInactiveList());
+      }
+      if (vendorFilterEl) {
+        vendorFilterEl.addEventListener("change", () => {
+          activeVendorFilter = vendorFilterEl.value;
+          renderInactiveList();
+        });
+      }
+
+      const exportBtn = document.getElementById("proyeccionExportInactiveBtn");
+      if (exportBtn) {
+        exportBtn.addEventListener("click", () => {
+          const rows = getFilteredInactive();
+          if (!rows.length) { alert("Sin clientes para exportar."); return; }
+          const header = ["Cliente","RUT","Ciudad","Vendedor","Ult.Año","Ult.Temporada","Ult.Tipo","Tallas","Ult.Compra(uds)"];
+          const lines = rows.map(r => {
+            const sizesLabel = Array.isArray(r.top_model_sizes) && r.top_model_sizes.length
+              ? r.top_model_sizes.map(s => `T${s.talla}:${s.qty}`).join(" / ")
+              : (r.top_model_sizes_label || "-");
+            return [r.cliente||"", r.rut||"", r.ciudad||"", r.vendor||"", r.year||"", r.season||"", r.top_model||"", sizesLabel, r.qty||0]
+              .map(v => `"${String(v).replace(/"/g,'""')}"`).join(";");
+          });
+          const csv = "﻿" + [header.join(";"), ...lines].join("\n");
+          const a = document.createElement("a");
+          a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+          a.download = `no_atendidos_${activeYear}.csv`;
+          a.click();
+        });
+      }
+
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("toggle", () => {
+        if (modal.open) setYear(activeYear);
+      });
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+      setYear(activeYear);
     })();
 
     (function () {
