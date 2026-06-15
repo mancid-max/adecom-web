@@ -66714,6 +66714,17 @@
       const dataNode = document.getElementById("proyeccionClientesData");
       if (!modal || !closeBtn || !dataNode) return;
 
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+
       let dashboard = {};
       try {
         dashboard = JSON.parse(dataNode.textContent || "{}");
@@ -67013,18 +67024,8 @@
         });
       }
 
-      closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("toggle", () => {
         if (modal.open) setYear(activeYear);
-      });
-      modal.addEventListener("click", (event) => {
-        const rect = modal.getBoundingClientRect();
-        const clickedInside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
       });
       setYear(activeYear);
     })();

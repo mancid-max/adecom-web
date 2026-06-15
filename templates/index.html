@@ -2674,6 +2674,88 @@
               </section>
             </section>
           </div>
+          <!-- ── No atendidos en T43 ────────────────────────────── -->
+          {% if proyeccion_clientes_dashboard.not_in_t43 %}
+          <section class="proy-t43-section">
+            <div class="proy-t43-header">
+              <div>
+                <h4 class="proy-t43-title">
+                  <span class="proy-t43-badge">T43</span>
+                  Clientes con T42 sin atender en T43
+                </h4>
+                <small>Compraron en T42 pero aún no registran pedido en T43 &mdash;
+                  <b>{{ proyeccion_clientes_dashboard.not_in_t43|length }}</b> clientes &middot;
+                  <b>{{ proyeccion_clientes_dashboard.not_in_t43|sum(attribute='qty_t42')|miles }}</b> uds. en T42
+                </small>
+              </div>
+              <a href="{{ url_for('export_no_atendidos_t43') }}" class="proy-t43-export-btn" download>
+                &#11015; Exportar Excel
+              </a>
+            </div>
+            <div class="proy-t43-table-wrap">
+              <table class="proy-prod-table proy-t43-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tipo</th>
+                    <th>Cliente</th>
+                    <th>RUT</th>
+                    <th>Vendedor</th>
+                    <th>Email</th>
+                    <th>Uds. T42</th>
+                    <th>Top modelo en T42</th>
+                    <th>Tallas T42</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in proyeccion_clientes_dashboard.not_in_t43 %}
+                  <tr class="proy-prod-row {% if item.tipo_cliente == '1' %}proy-t43-row--tipo1{% endif %}">
+                    <td class="proy-prod-rank">{{ loop.index }}</td>
+                    <td class="proy-t43-tipo-cell">
+                      {% if item.tipo_cliente %}
+                      <span class="proy-tipo-badge proy-tipo-badge--{{ item.tipo_cliente }}">T{{ item.tipo_cliente }}</span>
+                      {% else %}<span class="proy-size-empty">—</span>{% endif %}
+                    </td>
+                    <td class="proy-prod-name">
+                      {{ item.cliente }}
+                      {% if item.ciudad %}<span class="proy-t43-ciudad">{{ item.ciudad }}</span>{% endif %}
+                    </td>
+                    <td class="proy-t43-rut">{{ item.rut or '—' }}</td>
+                    <td class="proy-t43-vendor">{{ item.vendedor or '—' }}</td>
+                    <td class="proy-t43-email">
+                      {% if item.email %}
+                      <a href="mailto:{{ item.email }}" class="proy-t43-mailto">{{ item.email }}</a>
+                      {% else %}<span class="proy-size-empty">—</span>{% endif %}
+                    </td>
+                    <td class="proy-prod-qty">{{ item.qty_t42|miles }}</td>
+                    <td style="font-weight:600;color:#17324a;padding:10px 14px;white-space:nowrap;">{{ item.top_model }}</td>
+                    <td class="proy-prod-sizes">
+                      {% for s in item.top_model_sizes %}
+                      <span class="proy-inactive-chip">T{{ s.talla }}<b>{{ s.qty|miles }}</b></span>
+                      {% else %}
+                      <span class="proy-size-empty">{{ item.top_model_sizes_label }}</span>
+                      {% endfor %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr class="proy-t43-total-row">
+                    <td colspan="6" style="padding:10px 14px;font-weight:700;color:#fff;">
+                      TOTAL — {{ proyeccion_clientes_dashboard.not_in_t43|length }} clientes
+                    </td>
+                    <td class="proy-prod-qty" style="color:#fff;font-size:1.1rem;">
+                      {{ proyeccion_clientes_dashboard.not_in_t43|sum(attribute='qty_t42')|miles }}
+                    </td>
+                    <td colspan="2" style="background:#1a4a70;"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+          {% endif %}
+          <!-- ── / No atendidos en T43 ──────────────────────────── -->
+
           <section class="table-wrap bodega-wrap proy-inactive-section" style="margin-top:18px;">
             <div class="proy-inactive-header">
               <div class="proy-inactive-header-top">
@@ -4633,6 +4715,17 @@
       const dataNode = document.getElementById("proyeccionClientesData");
       if (!modal || !closeBtn || !dataNode) return;
 
+      closeBtn.addEventListener("click", () => modal.close());
+      modal.addEventListener("click", (event) => {
+        const rect = modal.getBoundingClientRect();
+        const clickedInside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!clickedInside) modal.close();
+      });
+
       let dashboard = {};
       try {
         dashboard = JSON.parse(dataNode.textContent || "{}");
@@ -4932,18 +5025,8 @@
         });
       }
 
-      closeBtn.addEventListener("click", () => modal.close());
       modal.addEventListener("toggle", () => {
         if (modal.open) setYear(activeYear);
-      });
-      modal.addEventListener("click", (event) => {
-        const rect = modal.getBoundingClientRect();
-        const clickedInside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-        if (!clickedInside) modal.close();
       });
       setYear(activeYear);
     })();
