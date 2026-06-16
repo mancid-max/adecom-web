@@ -103,6 +103,9 @@ def _postprocess_main_html(html: str) -> str:
 def _write_docs(main_html: str) -> None:
     DOCS_DIR.mkdir(exist_ok=True)
     shutil.copy2(STATIC_DIR / "styles.css", DOCS_DIR / "styles.css")
+    if (STATIC_DIR / "articulos").exists():
+        shutil.rmtree(DOCS_DIR / "articulos", ignore_errors=True)
+        shutil.copytree(STATIC_DIR / "articulos", DOCS_DIR / "articulos")
     (DOCS_DIR / "index.html").write_text(main_html, encoding="utf-8")
     (DOCS_DIR / "404.html").write_text(main_html, encoding="utf-8")
     (DOCS_DIR / ".nojekyll").write_text("", encoding="utf-8")
