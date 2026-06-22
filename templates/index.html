@@ -526,9 +526,10 @@
         <div
           class="production-month-tabs"
           id="productionExcelMonthToolbar"
-          data-default-month-key="{{ excel_preview_dashboard.selected_month_key }}"
+          data-default-month-key="{{ excel_preview_dashboards.selected_month_key or excel_preview_dashboard.selected_month_key }}"
         >
           {% if excel_preview_dashboard.month_options %}
+            {% set _active_excel_key = excel_preview_dashboards.selected_month_key or excel_preview_dashboard.selected_month_key %}
             {% for option in excel_preview_dashboard.month_options %}
             <input
               type="radio"
@@ -536,7 +537,7 @@
               name="productionExcelMonth"
               id="productionExcelMonth{{ loop.index }}"
               value="{{ option.key }}"
-              {% if option.key == excel_preview_dashboard.selected_month_key %}checked{% endif %}
+              {% if option.key == _active_excel_key %}checked{% endif %}
             />
             {% endfor %}
           <div class="table-tools production-month-form">

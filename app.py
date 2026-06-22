@@ -3165,9 +3165,22 @@ def _build_excel_preview_dashboards_bundle() -> dict[str, object]:
     else:
         key = str(default_dashboard.get("selected_month_key") or "Abril 2026")
         dashboards_by_month[key] = default_dashboard
+    # Si el mes por defecto no tiene actuals, usar el más reciente con datos
+    default_key = str(default_dashboard.get("selected_month_key") or "")
+    default_dash = dashboards_by_month.get(default_key) or {}
+    default_has_data = any(
+        int(r.get("actual") or 0) > 0 for r in (default_dash.get("summary_rows") or [])
+    )
+    if not default_has_data:
+        for option in reversed(month_options):
+            k = str(option.get("key") or "").strip()
+            d = dashboards_by_month.get(k) or {}
+            if any(int(r.get("actual") or 0) > 0 for r in (d.get("summary_rows") or [])):
+                default_key = k
+                break
     return {
         "month_options": month_options,
-        "selected_month_key": str(default_dashboard.get("selected_month_key") or ""),
+        "selected_month_key": default_key,
         "dashboards": dashboards_by_month,
     }
 
