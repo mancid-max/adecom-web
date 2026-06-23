@@ -4409,6 +4409,9 @@ def _load_ventas_docs_summary() -> dict:
 
     grouped: dict[str, dict] = {}
     for idx, row in enumerate(rows, start=1):
+        temp_raw = str(row.get("Temporada") or "").strip()
+        if temp_raw.isdigit() and not (MIN_DISPLAY_COLLECTION <= int(temp_raw) <= MAX_DISPLAY_COLLECTION):
+            continue
         raw_date = str(row.get("fecha") or "").strip()
         if not raw_date:
             continue
@@ -6786,7 +6789,7 @@ def index():
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
-    venta_despacho_allowed_keys = {"41", "42", "43"}
+    venta_despacho_allowed_keys = {str(k) for k in range(MIN_DISPLAY_COLLECTION, MAX_DISPLAY_COLLECTION + 1)}
     venta_despacho_collection_keys = [
         key for key in available_pedidos_collections
         if key in venta_despacho_allowed_keys
