@@ -239,7 +239,7 @@ def _discover_pedidos_collection_keys(
     for section_rows in pedidos_sections.values():
         for row in section_rows or []:
             code = _collection_code_from_article(row.get("articulo"))
-            if code.isdigit():
+            if code.isdigit() and int(code) >= MIN_DISPLAY_COLLECTION:
                 keys.add(code)
     return sorted(keys, key=lambda item: int(item))
 
@@ -863,6 +863,8 @@ _refresh_thread_started = False
 _last_sources_signature = ""
 _last_daily_refresh_date = ""
 _last_refresh_mode = ""
+_last_bi_signature = ""
+MIN_DISPLAY_COLLECTION = int(os.environ.get("ADECOM_MIN_COLLECTION", "41"))
 
 
 @app.after_request
@@ -2124,16 +2126,13 @@ def _refresh_if_sources_changed(force: bool = False) -> bool:
 
 
 def _auto_refresh_web_on_startup() -> None:
+    global _last_bi_signature
+    _last_bi_signature = _bi_dir_signature()
     if not AUTO_REFRESH_WEB_ON_START:
         app.logger.info("Auto refresh web al iniciar deshabilitado (ADECOM_AUTO_REFRESH_WEB_ON_START=0).")
         return
     if not _current_refresh_mode():
-        app.logger.warning(
-            "Auto refresh omitido: sin fuentes explicitas ni archivos validos en carpetas vigiladas (%s, %s).",
-            AUTOLOAD_DIR,
-            AUTOLOAD_DIR_FALLBACK,
-        )
-        return
+        app.logger.info("Auto refresh web al iniciar: sin fuentes de directorio, usando seed.")
     try:
         _refresh_if_sources_changed(force=True)
         app.logger.info("Auto refresh OK al iniciar.")
@@ -2151,6 +2150,35 @@ def _parse_daily_time(value: str) -> tuple[int, int] | None:
     return int(m.group(1)), int(m.group(2))
 
 
+def _bi_dir_signature() -> str:
+    if not BI_DIR.exists():
+        return ""
+    parts = []
+    for fname in ("ARCHIVO_TALLAS.CSV", "TRAZABILIDAD.CSV", "VENTAS-TOD-2026.CSV"):
+        p = BI_DIR / fname
+        if p.exists():
+            parts.append(f"{fname}:{int(p.stat().st_mtime)}")
+    return "|".join(parts)
+
+
+def _refresh_bi_if_changed() -> bool:
+    global _last_bi_signature
+    sig = _bi_dir_signature()
+    if not sig or sig == _last_bi_signature:
+        return False
+    with _refresh_lock:
+        if sig == _last_bi_signature:
+            return False
+        try:
+            _refresh_seed_data()
+            _last_bi_signature = sig
+            app.logger.info("Z:\\BI auto-refresh completado (archivos actualizados).")
+            return True
+        except Exception as exc:
+            app.logger.warning("Z:\\BI auto-refresh fallo: %s", exc)
+            return False
+
+
 def _auto_refresh_web_loop() -> None:
     daily_time = _parse_daily_time(AUTO_REFRESH_WEB_DAILY_TIME)
     if not daily_time and AUTO_REFRESH_WEB_DAILY_TIME:
@@ -2158,12 +2186,13 @@ def _auto_refresh_web_loop() -> None:
             "Hora diaria invalida en ADECOM_AUTO_REFRESH_WEB_DAILY_TIME=%s (usar HH:MM).",
             AUTO_REFRESH_WEB_DAILY_TIME,
         )
-    if AUTO_REFRESH_WEB_POLL_SECONDS <= 0 and not daily_time:
+    bi_available = BI_DIR.exists()
+    if AUTO_REFRESH_WEB_POLL_SECONDS <= 0 and not daily_time and not bi_available:
         app.logger.info(
-            "Auto refresh web en loop deshabilitado (ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS=0 sin hora diaria)."
+            "Auto refresh web en loop deshabilitado (ADECOM_AUTO_REFRESH_WEB_POLL_SECONDS=0 sin hora diaria ni Z:\\BI)."
         )
         return
-    sleep_seconds = AUTO_REFRESH_WEB_POLL_SECONDS if AUTO_REFRESH_WEB_POLL_SECONDS > 0 else 30
+    sleep_seconds = AUTO_REFRESH_WEB_POLL_SECONDS if AUTO_REFRESH_WEB_POLL_SECONDS > 0 else 1800
     app.logger.info(
         "Auto refresh web loop activo cada %ss. Hora diaria=%s. Solo diario=%s.",
         sleep_seconds,
@@ -2186,6 +2215,9 @@ def _auto_refresh_web_loop() -> None:
                 changed = _refresh_if_sources_changed(force=False)
                 if changed:
                     app.logger.info("Cambio detectado en fuentes. Data web actualizada automaticamente.")
+            bi_changed = _refresh_bi_if_changed()
+            if bi_changed:
+                app.logger.info("Z:\\BI actualizado automaticamente desde loop.")
         except Exception as exc:
             app.logger.warning("Auto refresh web loop: %s", exc)
 
