@@ -5320,8 +5320,76 @@ def _gross_to_net_iva(gross_total: int, raw_type: object) -> tuple[int, int]:
     return net_total, iva_total
 
 
+def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as fh:
+                rows = list(csv.DictReader(fh, delimiter=";"))
+            break
+        except Exception:
+            rows = []
+    if not rows:
+        return entries
+    docs: dict[str, dict[str, object]] = {}
+    for row in rows:
+        temp_raw = str(row.get("Temporada") or "").strip()
+        if temp_raw.isdigit() and not (MIN_DISPLAY_COLLECTION <= int(temp_raw) <= MAX_DISPLAY_COLLECTION):
+            continue
+        num = str(row.get("Numero") or "").strip()
+        if not num:
+            continue
+        raw_type = str(row.get("Tipo") or "").strip()
+        fecha_raw = str(row.get("fecha") or "").strip()
+        if num not in docs:
+            docs[num] = {
+                "type_code": raw_type,
+                "type_label": _ventas_tipo_label(raw_type),
+                "doc": num,
+                "date": _pedidos_detalle_date(fecha_raw),
+                "rut": str(row.get("Rut") or "").strip(),
+                "cliente": str(row.get("cliente") or "").strip() or "-",
+                "vendor": str(row.get("Vendedor") or "").strip() or "Sin vendedor",
+                "payment": str(row.get("Fpago") or "").strip() or "Sin forma de pago",
+                "cantidad": 0,
+                "gross": 0,
+            }
+        docs[num]["cantidad"] = int(docs[num]["cantidad"]) + _to_int(row.get("Cant"))
+        docs[num]["gross"] = int(docs[num]["gross"]) + _to_int(row.get("Total"))
+    for doc in docs.values():
+        date_iso = str(doc.get("date") or "")
+        if not date_iso:
+            continue
+        gross = int(doc["gross"])
+        net, iva = _gross_to_net_iva(gross, str(doc["type_code"]))
+        week_date = datetime.strptime(date_iso, "%Y-%m-%d").date()
+        week_key = f"{date_iso[:7]}-W{_week_of_month(week_date)}"
+        entries.append({
+            "type_code": doc["type_code"],
+            "type_label": doc["type_label"],
+            "doc": doc["doc"],
+            "date": date_iso,
+            "month": date_iso[:7],
+            "year": date_iso[:4],
+            "week": week_key,
+            "branch_code": "00",
+            "branch_label": "Todas",
+            "rut": doc["rut"],
+            "cliente": doc["cliente"],
+            "vendor": doc["vendor"],
+            "payment": doc["payment"],
+            "cantidad": doc["cantidad"],
+            "net": net,
+            "iva": iva,
+            "gross": gross,
+        })
+    return entries
+
+
 def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[str, object]:
-    path = SEED_DETALLEV if SEED_DETALLEV.exists() else (_ventas_docs_file() or SEED_VENTAS_DOCS)
+    bi_ventas = BI_DIR / "VENTAS-TOD-2026.CSV"
+    use_bi = bi_ventas.exists() and bi_ventas.stat().st_size > 0
+    path = bi_ventas if use_bi else (SEED_DETALLEV if SEED_DETALLEV.exists() else (_ventas_docs_file() or SEED_VENTAS_DOCS))
     base = {
         "available": False,
         "file_name": path.name,
@@ -5340,45 +5408,42 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
     if not path.exists() or not path.is_file() or path.stat().st_size <= 0:
         return base
 
-    raw_text = _detailv_decode(path)
-    raw_lines = [line for line in raw_text.splitlines() if str(line).strip()]
-    if len(raw_lines) <= 1:
-        return base
+    if use_bi:
+        entries = _parse_ventas_tod_entries(path)
+    else:
+        raw_text = _detailv_decode(path)
+        raw_lines = [line for line in raw_text.splitlines() if str(line).strip()]
+        if len(raw_lines) <= 1:
+            return base
+        header_parts = [str(item or "").strip() for item in raw_lines[0].split(";")]
+        header_index = {_commercial_norm(name): idx for idx, name in enumerate(header_parts)}
 
-    header_parts = [str(item or "").strip() for item in raw_lines[0].split(";")]
-    header_index = {_commercial_norm(name): idx for idx, name in enumerate(header_parts)}
+        def _detailv_part(parts: list[str], header: str, fallback_idx: int, default: str = "") -> str:
+            idx = header_index.get(_commercial_norm(header), fallback_idx)
+            if 0 <= idx < len(parts):
+                return str(parts[idx] or "").strip()
+            return default
 
-    def _detailv_part(parts: list[str], header: str, fallback_idx: int, default: str = "") -> str:
-        idx = header_index.get(_commercial_norm(header), fallback_idx)
-        if 0 <= idx < len(parts):
-            return str(parts[idx] or "").strip()
-        return default
-
-    entries: list[dict[str, object]] = []
-    dates: list[str] = []
-    for line in raw_lines[1:]:
-        parts = [str(item or "").strip() for item in line.split(";")]
-        if len(parts) < 8:
-            continue
-        raw_type = _detailv_part(parts, "Tipo", 0)
-        doc = _detailv_part(parts, "Dcto", 1)
-        fecha_iso = _pedidos_detalle_date(_detailv_part(parts, "Fecha", 2))
-        rut = _detailv_part(parts, "RUT", 3)
-        cliente = _detailv_part(parts, "Razon Social", 4) or "-"
-        vendor = _detailv_part(parts, "Vendedor", 5) or "Sin vendedor"
-        cantidad = _to_int(_detailv_part(parts, "prendas", 6))
-        gross_total = _to_int(_detailv_part(parts, "Total", 7))
-        payment = _detailv_part(parts, "F.Pago", 9)
-        if not doc or not fecha_iso:
-            continue
-        net_total, iva_total = _gross_to_net_iva(gross_total, raw_type)
-        week_key = ""
-        if fecha_iso:
+        entries = []
+        for line in raw_lines[1:]:
+            parts = [str(item or "").strip() for item in line.split(";")]
+            if len(parts) < 8:
+                continue
+            raw_type = _detailv_part(parts, "Tipo", 0)
+            doc = _detailv_part(parts, "Dcto", 1)
+            fecha_iso = _pedidos_detalle_date(_detailv_part(parts, "Fecha", 2))
+            rut = _detailv_part(parts, "RUT", 3)
+            cliente = _detailv_part(parts, "Razon Social", 4) or "-"
+            vendor = _detailv_part(parts, "Vendedor", 5) or "Sin vendedor"
+            cantidad = _to_int(_detailv_part(parts, "prendas", 6))
+            gross_total = _to_int(_detailv_part(parts, "Total", 7))
+            payment = _detailv_part(parts, "F.Pago", 9)
+            if not doc or not fecha_iso:
+                continue
+            net_total, iva_total = _gross_to_net_iva(gross_total, raw_type)
             week_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
             week_key = f"{fecha_iso[:7]}-W{_week_of_month(week_date)}"
-        dates.append(fecha_iso)
-        entries.append(
-            {
+            entries.append({
                 "type_code": raw_type,
                 "type_label": _ventas_tipo_label(raw_type),
                 "doc": doc,
@@ -5396,8 +5461,7 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
                 "net": net_total,
                 "iva": iva_total,
                 "gross": gross_total,
-            }
-        )
+            })
 
     if not entries:
         return base
@@ -5451,8 +5515,9 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
     base["branch_views"] = {"all": {"day": _aggregate([item for item in entries if str(item.get("date") or "") == latest_date], latest_label)}}
     base["latest_date"] = latest_date
     base["source_cutoff_label"] = latest_dt.strftime("%d/%m/%Y")
-    base["date_min"] = min(dates) if dates else ""
-    base["date_max"] = max(dates) if dates else ""
+    all_dates = [str(item.get("date") or "") for item in entries if str(item.get("date") or "")]
+    base["date_min"] = min(all_dates) if all_dates else ""
+    base["date_max"] = max(all_dates) if all_dates else ""
     base["default_from_date"] = latest_date
     base["default_to_date"] = latest_date
     base["range_entries"] = [
