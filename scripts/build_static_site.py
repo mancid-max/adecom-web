@@ -12,6 +12,8 @@ from flask import session
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
 STATIC_DIR = ROOT / "static"
+SEED_DIR = ROOT / "seed"
+BI_DIR = Path(os.environ.get("ADECOM_BI_DIR", r"Z:\BI"))
 BUILD_DB = ROOT / "data" / "static-build.db"
 if BUILD_DB.exists():
     BUILD_DB.unlink()
@@ -19,6 +21,22 @@ os.environ["ADECOM_DB_PATH"] = str(BUILD_DB)
 os.environ["ADECOM_AUTO_REFRESH_WEB_ON_START"] = "0"
 os.environ["ADECOM_AUTO_REFRESH_WEB_BACKGROUND"] = "0"
 os.environ["ADECOM_STATIC_EXPORT"] = "1"
+
+
+def _sync_bi_to_seed() -> None:
+    if not BI_DIR.exists():
+        print(f"Z:\\BI no disponible, usando seed existente.")
+        return
+    copies = [
+        ("VENTAS-TOD-2026.CSV", "VENTAS-TOD-2026.CSV"),
+        ("TRAZABILIDAD.CSV", "TRAZABILIDAD_OP.TXT"),
+    ]
+    for bi_name, seed_name in copies:
+        src = BI_DIR / bi_name
+        dst = SEED_DIR / seed_name
+        if src.exists() and src.stat().st_size > 0:
+            shutil.copy2(src, dst)
+            print(f"  Sync: {bi_name} -> seed/{seed_name}")
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -112,6 +130,8 @@ def _write_docs(main_html: str) -> None:
 
 
 def main() -> None:
+    print("Sincronizando desde Z:\\BI...")
+    _sync_bi_to_seed()
     main_html = _postprocess_main_html(_render_main_html())
     _write_docs(main_html)
     print(f"Static site generated in {DOCS_DIR}")

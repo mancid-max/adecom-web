@@ -116,6 +116,7 @@ AUTOLOAD_DIR = Path(
     )
 )
 AUTOLOAD_DIR_FALLBACK = Path(os.environ.get("ADECOM_AUTOLOAD_DIR_FALLBACK", r"Z:\\"))
+BI_DIR = Path(os.environ.get("ADECOM_BI_DIR", r"Z:\BI"))
 AUTOLOAD_SALDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_SALDOS_SOURCE", "").strip()
 AUTOLOAD_PEDIDOS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_PEDIDOS_SOURCE", "").strip()
 AUTOLOAD_ETAPAS_SOURCE = os.environ.get("ADECOM_AUTOLOAD_ETAPAS_SOURCE", "").strip()
@@ -167,6 +168,9 @@ _PEDIDOSXCOMPARAR_CACHE: dict[str, object] = {"signature": None, "data": None}
 
 
 def _seed_pedidos_talla_files() -> list[Path]:
+    bi_tallas = BI_DIR / "ARCHIVO_TALLAS.CSV"
+    if bi_tallas.exists() and bi_tallas.is_file() and bi_tallas.stat().st_size > 0:
+        return [bi_tallas]
     discovered = sorted(
         {p.resolve(): p for p in SEED_DIR.glob("PEDIDOSXTALLA*.TXT")}.values(),
         key=lambda p: p.name.lower(),
@@ -3829,6 +3833,9 @@ def _temporada_from_seed_saldos(path: Path) -> str:
 
 
 def _seed_saldos_files(preferred_temporadas: set[str] | None = None) -> list[Path]:
+    bi_archivo = BI_DIR / "ARCHIVO.CSV"
+    if bi_archivo.exists() and bi_archivo.is_file() and bi_archivo.stat().st_size > 0:
+        return [bi_archivo]
     paths = sorted(
         {p.resolve(): p for p in [*SEED_DIR.glob("SALDOS-SECCI*.TXT"), *SEED_DIR.glob("SALDOS-SECCI*.txt")]}.values(),
         key=lambda p: p.name.lower(),
@@ -3880,16 +3887,20 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
 
     saldos_seed_paths = _seed_saldos_files()
     for path in saldos_seed_paths:
-        temporada = _temporada_from_seed_saldos(path)
-        if not temporada or not str(temporada).isdigit():
-            continue
+        temporada_from_name = _temporada_from_seed_saldos(path)
         try:
             parsed_rows = parse_saldos_txt(path.read_bytes())
         except Exception:
             continue
-        temporadas_seen.add(temporada)
         for parsed in parsed_rows:
             row = dict(parsed)
+            if temporada_from_name and str(temporada_from_name).isdigit():
+                temporada = temporada_from_name
+            else:
+                art = str(row.get("articulo") or "").strip()
+                temporada = art[2:4] if len(art) >= 4 and art[2:4].isdigit() else ""
+            if not temporada or not str(temporada).isdigit():
+                continue
             row_key = (
                 temporada,
                 str(row.get("articulo") or "").strip(),
@@ -3900,6 +3911,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
             if row_key in seen_rows:
                 continue
             seen_rows.add(row_key)
+            temporadas_seen.add(temporada)
             for key in numeric_fields:
                 row[key] = int(row.get(key) or 0)
                 totals[key] += int(row[key] or 0)
@@ -3965,6 +3977,9 @@ def miles(value):
 
 
 def _ventas_docs_file() -> Path | None:
+    bi_ventas = BI_DIR / "VENTAS-TOD-2026.CSV"
+    if bi_ventas.exists() and bi_ventas.stat().st_size > 0:
+        return bi_ventas
     latest = _find_latest_autoload_file(
         "*VENTAS-TOD-*.CSV",
         "*VENTAS-TOD-*.csv",
@@ -4454,7 +4469,8 @@ def _load_ventas_docs_summary() -> dict:
 
 
 def _load_trazabilidad_op_dashboard() -> dict[str, object]:
-    path = SEED_DIR / "TRAZABILIDAD_OP.TXT"
+    bi_path = BI_DIR / "TRAZABILIDAD.CSV"
+    path = bi_path if (bi_path.exists() and bi_path.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
     base: dict[str, object] = {
         "available": False,
         "file_name": path.name,
