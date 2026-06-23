@@ -239,7 +239,7 @@ def _discover_pedidos_collection_keys(
     for section_rows in pedidos_sections.values():
         for row in section_rows or []:
             code = _collection_code_from_article(row.get("articulo"))
-            if code.isdigit() and int(code) >= MIN_DISPLAY_COLLECTION:
+            if code.isdigit() and MIN_DISPLAY_COLLECTION <= int(code) <= MAX_DISPLAY_COLLECTION:
                 keys.add(code)
     return sorted(keys, key=lambda item: int(item))
 
@@ -865,6 +865,7 @@ _last_daily_refresh_date = ""
 _last_refresh_mode = ""
 _last_bi_signature = ""
 MIN_DISPLAY_COLLECTION = int(os.environ.get("ADECOM_MIN_COLLECTION", "41"))
+MAX_DISPLAY_COLLECTION = int(os.environ.get("ADECOM_MAX_COLLECTION", "50"))
 
 
 @app.after_request
