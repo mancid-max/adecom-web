@@ -3915,12 +3915,12 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
     temporadas_seen: set[str] = set()
     seen_rows: set[tuple] = set()
 
-    # 1. TRAZABILIDAD.CSV de Z:\BI — fuente primaria (datos más actualizados)
+    # Fuente única: TRAZABILIDAD.CSV de Z:\BI (fallback: copia en seed/)
     bi_traz = BI_DIR / "TRAZABILIDAD.CSV"
-    seen_cortes: set[str] = set()
-    if bi_traz.exists() and bi_traz.stat().st_size > 0:
+    traz_path = bi_traz if (bi_traz.exists() and bi_traz.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
+    if traz_path.exists() and traz_path.stat().st_size > 0:
         try:
-            raw_text = _detailv_decode(bi_traz)
+            raw_text = _detailv_decode(traz_path)
             traz_reader = csv.reader(io.StringIO(raw_text), delimiter=";")
             traz_rows = list(traz_reader)
             for raw in traz_rows[1:]:
@@ -3937,10 +3937,12 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 if not (MIN_DISPLAY_COLLECTION <= int(temporada) <= MAX_DISPLAY_COLLECTION):
                     continue
                 oc = _tp(0)
+                if oc in seen_rows:
+                    continue
                 fecha_iso = _pedidos_detalle_date(_tp(3)) or ""
                 tipo_raw = _tp(1).upper()
-                programa = _to_int(_tp(5))
-                entrega = _to_int(_tp(7))
+                programa   = _to_int(_tp(5))
+                entrega    = _to_int(_tp(7))
                 corte_1    = _to_int(_tp(11))
                 taller_v   = _to_int(_tp(15))
                 t_externo  = _to_int(_tp(19))
@@ -3976,47 +3978,10 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 row["proceso_actual"] = _full_table_stage_label(row)
                 row["restante_detalle"] = _full_table_restante_detalle(row)
                 temporadas_seen.add(temporada)
-                seen_cortes.add(oc)
+                seen_rows.add(oc)
                 rows.append(row)
         except Exception as exc:
             app.logger.warning("TRAZABILIDAD -> full_table fallo: %s", exc)
-
-    # 2. SALDOS-SECCI manual — agrega solo OCs no cubiertas por TRAZABILIDAD
-    saldos_seed_paths = _seed_saldos_files()
-    for path in saldos_seed_paths:
-        temporada = _temporada_from_seed_saldos(path)
-        if not temporada or not str(temporada).isdigit():
-            continue
-        try:
-            parsed_rows = parse_saldos_txt(path.read_bytes())
-        except Exception:
-            continue
-        temporadas_seen.add(temporada)
-        for parsed in parsed_rows:
-            row = dict(parsed)
-            oc = str(row.get("corte") or "").strip()
-            if oc in seen_cortes:
-                continue
-            row_key = (
-                temporada,
-                str(row.get("articulo") or "").strip(),
-                oc,
-                str(row.get("fecha_iso") or "").strip(),
-                *[int(row.get(key) or 0) for key in numeric_fields],
-            )
-            if row_key in seen_rows:
-                continue
-            seen_rows.add(row_key)
-            for key in numeric_fields:
-                row[key] = int(row.get(key) or 0)
-                totals[key] += int(row[key] or 0)
-            row["temporada"] = temporada
-            row["tipo"] = _full_table_tipo_label(row)
-            row["fecha_display"] = _format_fecha_display(row.get("fecha_iso"))
-            row["proceso_actual"] = _full_table_stage_label(row)
-            row["restante_detalle"] = _full_table_restante_detalle(row)
-            seen_cortes.add(oc)
-            rows.append(row)
 
     rows.sort(
         key=lambda r: (
