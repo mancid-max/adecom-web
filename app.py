@@ -3947,7 +3947,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
             row["restante_detalle"] = _full_table_restante_detalle(row)
             rows.append(row)
 
-    # Complementar con TRAZABILIDAD.CSV de Z:\BI para OCs no cubiertas por SALDOS-SECCI
+    # Filas de TRAZABILIDAD.CSV de Z:\BI que no están cubiertas por SALDOS-SECCI
     bi_traz = BI_DIR / "TRAZABILIDAD.CSV"
     if bi_traz.exists() and bi_traz.stat().st_size > 0:
         seen_cortes = {str(r.get("corte") or "").strip() for r in rows}
@@ -3975,11 +3975,11 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 tipo_raw = _tp(1).upper()
                 programa = _to_int(_tp(5))
                 entrega = _to_int(_tp(7))
-                saldo_traz = _to_int(_tp(8))
-                corte_1 = _to_int(_tp(11))
-                taller_v = _to_int(_tp(15))
+                # Pendientes por etapa: si no salió de Programa a Proceso = todo 0
+                corte_1   = _to_int(_tp(11))
+                taller_v  = _to_int(_tp(15))
                 t_externo = _to_int(_tp(19))
-                limpiado = _to_int(_tp(23))
+                limpiado  = _to_int(_tp(23))
                 lavanderia = _to_int(_tp(27))
                 terminacion = _to_int(_tp(31))
                 proceso_val = corte_1 + taller_v + t_externo + limpiado + lavanderia + terminacion
@@ -4001,7 +4001,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                     "muestra": muestra_v,
                     "segunda": 0,
                     "temporada": temporada,
-                    "pendiente_en_trazabilidad": saldo_traz,
+                    "pendiente_en_trazabilidad": proceso_val,
                 }
                 for key in numeric_fields:
                     row[key] = int(row.get(key) or 0)
@@ -4014,7 +4014,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 seen_cortes.add(oc)
                 rows.append(row)
         except Exception as exc:
-            app.logger.warning("TRAZABILIDAD fallback para full_table fallo: %s", exc)
+            app.logger.warning("TRAZABILIDAD -> full_table fallo: %s", exc)
 
     rows.sort(
         key=lambda r: (
