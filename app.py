@@ -3976,14 +3976,13 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 programa = _to_int(_tp(5))
                 entrega = _to_int(_tp(7))
                 saldo_traz = _to_int(_tp(8))
-                proceso_val = saldo_traz
-                bodega_val = entrega
                 corte_1 = _to_int(_tp(11))
                 taller_v = _to_int(_tp(15))
                 t_externo = _to_int(_tp(19))
                 limpiado = _to_int(_tp(23))
                 lavanderia = _to_int(_tp(27))
                 terminacion = _to_int(_tp(31))
+                proceso_val = corte_1 + taller_v + t_externo + limpiado + lavanderia + terminacion
                 muestra_v = programa if "MUESTRA" in tipo_raw else 0
                 row: dict[str, object] = {
                     "articulo": articulo,
@@ -3991,8 +3990,8 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                     "fecha_iso": fecha_iso,
                     "programa": programa,
                     "proceso": proceso_val,
-                    "bodega": bodega_val,
-                    "saldo": programa - bodega_val,
+                    "bodega": entrega,
+                    "saldo": proceso_val,
                     "corte_1": corte_1,
                     "taller": taller_v,
                     "t_externo": t_externo,
