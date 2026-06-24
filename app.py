@@ -3947,6 +3947,76 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
             row["restante_detalle"] = _full_table_restante_detalle(row)
             rows.append(row)
 
+    # Complementar con TRAZABILIDAD.CSV de Z:\BI para OCs no cubiertas por SALDOS-SECCI
+    bi_traz = BI_DIR / "TRAZABILIDAD.CSV"
+    if bi_traz.exists() and bi_traz.stat().st_size > 0:
+        seen_cortes = {str(r.get("corte") or "").strip() for r in rows}
+        try:
+            raw_text = _detailv_decode(bi_traz)
+            traz_reader = csv.reader(io.StringIO(raw_text), delimiter=";")
+            traz_rows = list(traz_reader)
+            for raw in traz_rows[1:]:
+                if len(raw) < 32:
+                    continue
+                def _tp(idx: int) -> str:
+                    return str(raw[idx] if idx < len(raw) else "").strip()
+                articulo = _tp(4)
+                if len(articulo) < 4:
+                    continue
+                temporada = articulo[2:4]
+                if not temporada.isdigit():
+                    continue
+                if not (MIN_DISPLAY_COLLECTION <= int(temporada) <= MAX_DISPLAY_COLLECTION):
+                    continue
+                oc = _tp(0)
+                if oc in seen_cortes:
+                    continue
+                fecha_iso = _pedidos_detalle_date(_tp(3)) or ""
+                tipo_raw = _tp(1).upper()
+                programa = _to_int(_tp(5))
+                entrega = _to_int(_tp(7))
+                saldo_traz = _to_int(_tp(8))
+                proceso_val = saldo_traz
+                bodega_val = entrega
+                corte_1 = _to_int(_tp(11))
+                taller_v = _to_int(_tp(15))
+                t_externo = _to_int(_tp(19))
+                limpiado = _to_int(_tp(23))
+                lavanderia = _to_int(_tp(27))
+                terminacion = _to_int(_tp(31))
+                muestra_v = programa if "MUESTRA" in tipo_raw else 0
+                row: dict[str, object] = {
+                    "articulo": articulo,
+                    "corte": oc,
+                    "fecha_iso": fecha_iso,
+                    "programa": programa,
+                    "proceso": proceso_val,
+                    "bodega": bodega_val,
+                    "saldo": programa - bodega_val,
+                    "corte_1": corte_1,
+                    "taller": taller_v,
+                    "t_externo": t_externo,
+                    "limpiado": limpiado,
+                    "lavanderia": lavanderia,
+                    "terminacion": terminacion,
+                    "muestra": muestra_v,
+                    "segunda": 0,
+                    "temporada": temporada,
+                    "pendiente_en_trazabilidad": saldo_traz,
+                }
+                for key in numeric_fields:
+                    row[key] = int(row.get(key) or 0)
+                    totals[key] += int(row[key] or 0)
+                row["tipo"] = _full_table_tipo_label(row)
+                row["fecha_display"] = _format_fecha_display(fecha_iso)
+                row["proceso_actual"] = _full_table_stage_label(row)
+                row["restante_detalle"] = _full_table_restante_detalle(row)
+                temporadas_seen.add(temporada)
+                seen_cortes.add(oc)
+                rows.append(row)
+        except Exception as exc:
+            app.logger.warning("TRAZABILIDAD fallback para full_table fallo: %s", exc)
+
     rows.sort(
         key=lambda r: (
             str(r.get("fecha_iso") or ""),
