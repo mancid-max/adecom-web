@@ -23,20 +23,38 @@ os.environ["ADECOM_AUTO_REFRESH_WEB_BACKGROUND"] = "0"
 os.environ["ADECOM_STATIC_EXPORT"] = "1"
 
 
+ONEDRIVE_INVENTARIO = Path(
+    os.environ.get(
+        "ADECOM_INVENTARIO_XLSX_FALLBACK",
+        r"C:\Users\Lenovo\OneDrive - Mohicano Jeans\INVENTARIO 01-04 COMPLETO.xlsx",
+    )
+)
+SEED_INVENTARIO = SEED_DIR / "INVENTARIO 01-04 COMPLETO.xlsx"
+
+
 def _sync_bi_to_seed() -> None:
     if not BI_DIR.exists():
         print(f"Z:\\BI no disponible, usando seed existente.")
-        return
-    copies = [
-        ("VENTAS-TOD-2026.CSV", "VENTAS-TOD-2026.CSV"),
-        ("TRAZABILIDAD.CSV", "TRAZABILIDAD_OP.TXT"),
-    ]
-    for bi_name, seed_name in copies:
-        src = BI_DIR / bi_name
-        dst = SEED_DIR / seed_name
-        if src.exists() and src.stat().st_size > 0:
-            shutil.copy2(src, dst)
-            print(f"  Sync: {bi_name} -> seed/{seed_name}")
+    else:
+        copies = [
+            ("VENTAS-TOD-2026.CSV", "VENTAS-TOD-2026.CSV"),
+            ("TRAZABILIDAD.CSV", "TRAZABILIDAD_OP.TXT"),
+        ]
+        for bi_name, seed_name in copies:
+            src = BI_DIR / bi_name
+            dst = SEED_DIR / seed_name
+            if src.exists() and src.stat().st_size > 0:
+                shutil.copy2(src, dst)
+                print(f"  Sync: {bi_name} -> seed/{seed_name}")
+
+    # Sincronizar inventario desde OneDrive si es más nuevo
+    if ONEDRIVE_INVENTARIO.exists() and ONEDRIVE_INVENTARIO.stat().st_size > 0:
+        if (
+            not SEED_INVENTARIO.exists()
+            or ONEDRIVE_INVENTARIO.stat().st_mtime > SEED_INVENTARIO.stat().st_mtime
+        ):
+            shutil.copy2(ONEDRIVE_INVENTARIO, SEED_INVENTARIO)
+            print(f"  Sync: INVENTARIO 01-04 COMPLETO.xlsx -> seed/")
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
