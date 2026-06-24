@@ -1378,7 +1378,6 @@
               <th class="sortable-th full-table-num" data-sort-key="programa">Programa</th>
               <th class="sortable-th full-table-num" data-sort-key="proceso">Proceso</th>
               <th class="sortable-th full-table-num" data-sort-key="bodega">Bodega</th>
-              <th class="sortable-th full-table-num" data-sort-key="saldo">Saldo</th>
               <th class="sortable-th full-table-num" data-sort-key="corte1">Corte</th>
               <th class="sortable-th full-table-num" data-sort-key="taller">Costur</th>
               <th class="sortable-th full-table-num" data-sort-key="texterno">T. Exet</th>
@@ -1421,7 +1420,6 @@
               <td class="full-table-num">{{ row.programa }}</td>
               <td class="full-table-num">{{ row.proceso }}</td>
               <td class="full-table-num">{{ row.bodega }}</td>
-              <td class="full-table-num">{{ row.saldo }}</td>
               <td class="full-table-num">{{ row.corte_1 }}</td>
               <td class="full-table-num">{{ row.taller }}</td>
               <td class="full-table-num">{{ row.t_externo }}</td>
@@ -1431,7 +1429,7 @@
             </tr>
             {% else %}
             <tr>
-              <td colspan="13" class="empty">No hay datos cargados.</td>
+              <td colspan="12" class="empty">No hay datos cargados.</td>
             </tr>
             {% endfor %}
           </tbody>
