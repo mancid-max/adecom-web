@@ -4,6 +4,7 @@ import re
 import shutil
 import sys
 import os
+from datetime import datetime
 from pathlib import Path
 
 from flask import session
@@ -121,6 +122,18 @@ def _render_main_html() -> str:
         return str(rendered)
 
 
+def _data_timestamp() -> str:
+    candidates = [
+        SEED_DIR / "TRAZABILIDAD_OP.TXT",
+        SEED_DIR / "VENTAS-TOD-2026.CSV",
+    ]
+    mtimes = [p.stat().st_mtime for p in candidates if p.exists()]
+    if not mtimes:
+        return "—"
+    ts = datetime.fromtimestamp(max(mtimes))
+    return f"Datos al {ts.strftime('%d/%m/%Y %H:%M')}"
+
+
 def _postprocess_main_html(html: str) -> str:
     html = html.replace('href="/static/styles.css"', 'href="styles.css"')
     html = html.replace('<body class="theme-gentelella">', '<body class="theme-gentelella static-export">')
@@ -134,6 +147,7 @@ def _postprocess_main_html(html: str) -> str:
         count=1,
         flags=re.S,
     )
+    html = html.replace("__DATA_TIMESTAMP__", _data_timestamp())
     html = html.replace("</body>", f"{STATIC_BRIDGE_SCRIPT}\n</body>")
     return html
 def _write_docs(main_html: str) -> None:

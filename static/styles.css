@@ -7509,6 +7509,18 @@ body.theme-gentelella,
   font-size: 13px;
 }
 
+.theme-gentelella .top-data-ts {
+  font-size: 11px;
+  color: #8a9bb0;
+  background: #eef2f7;
+  border: 1px solid #d3dce6;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-top: 4px;
+  align-self: flex-start;
+  white-space: nowrap;
+}
+
 .theme-gentelella .top-nav-actions {
   display: flex;
   align-items: center;
