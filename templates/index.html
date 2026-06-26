@@ -5754,25 +5754,6 @@
           const fecha = String(row.dataset.fecha || "").trim();
           const tipo = String(row.dataset.tipo || "").trim();
           const processSnapshot = getProcessSnapshot(row);
-          const maxValue = observationNumericKeys.reduce((max, key) => {
-            return Math.max(max, Number(row.dataset[key] || 0));
-          }, 0);
-
-          if (tipo === "muestras" && maxValue > 10) {
-            issues.push({
-              id: `muestra-alta|${articulo}|${corte}`,
-              kind: "muestra-alta",
-              articulo,
-              corte,
-              fecha,
-              process: processSnapshot.stage,
-              quantity: processSnapshot.qty,
-              processSummary: processSnapshot.summary,
-              repeats: 1,
-              priority: 10,
-              text: `Muestra con valor alto (${format(maxValue)}). Revisar si ese corte esta bien clasificado o digitado.`,
-            });
-          }
 
           const hasKnownFormat = isAcceptedMuestraFormat(corte) || isProduccionFormat(corte);
           if (!hasKnownFormat || (tipo === "muestras" && !isStrictMuestraFormat(corte))) {
@@ -5787,64 +5768,15 @@
               processSummary: processSnapshot.summary,
               repeats: 1,
               priority: 20,
-              text: "Error de formato. Revisar escritura del codigo.",
+              text: "Error de formato en codigo de corte.",
             });
           }
-
-          if (articulo) {
-            if (!articleCutMap.has(articulo)) {
-              articleCutMap.set(articulo, []);
-            }
-            articleCutMap.get(articulo).push({
-              corte,
-              fecha,
-              tipo,
-              process: processSnapshot.stage,
-              quantity: processSnapshot.qty,
-              processSummary: processSnapshot.summary,
-            });
-          }
-        });
-
-        articleCutMap.forEach((entries, articulo) => {
-          const uniqueCuts = [...new Set(entries.map((item) => item.corte).filter(Boolean))];
-          if (uniqueCuts.length <= 1) return;
-          const muestrasCuts = entries
-            .filter((item) => item.tipo === "muestras")
-            .map((item) => item.corte)
-            .filter(Boolean);
-          const repeatedCuts = [...new Set((muestrasCuts.length ? muestrasCuts : uniqueCuts))];
-          if (repeatedCuts.length <= 1) return;
-          const repeatedEntries = entries.filter((item) => repeatedCuts.includes(item.corte));
-          issues.push({
-            id: `duplicado|${articulo}|${repeatedCuts.join("-")}`,
-            kind: "duplicado",
-            articulo,
-            corte: repeatedCuts.join(", "),
-            fecha: repeatedEntries
-              .map((item) => item.fecha)
-              .filter(Boolean)
-              .sort()
-              .join(" | "),
-            process: repeatedEntries
-              .map((item) => item.processSummary)
-              .filter(Boolean)
-              .join(" | "),
-            quantity: repeatedEntries.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-            processSummary: repeatedEntries
-              .map((item) => `${item.corte}: ${item.processSummary}`)
-              .filter(Boolean)
-              .join(" || "),
-            repeats: repeatedCuts.length,
-            priority: 100 + repeatedCuts.length,
-            text: `Se repite en distintos cortes (${repeatedCuts.length}). Revisar si ya se habia mandado a hacer muestra de este articulo.`,
-          });
         });
 
         if (!issues.length) {
           observationsMeta.textContent = "Sin observaciones";
           observationsToggle?.classList.remove("has-alert");
-          observationsList.innerHTML = '<article class="full-table-observation-card is-empty"><strong>Sin observaciones</strong><span>Con los filtros actuales no se detectaron errores de formato ni muestras fuera de rango.</span></article>';
+          observationsList.innerHTML = '<article class="full-table-observation-card is-empty"><strong>Sin errores de formato</strong><span>Con los filtros actuales no se detectaron errores de formato en codigos de corte.</span></article>';
           observationsDoneList.innerHTML = '<article class="full-table-observation-card is-empty"><strong>Sin listas</strong><span>Aun no hay observaciones marcadas como listas.</span></article>';
           observationsOpenMeta.textContent = "0";
           observationsDoneMeta.textContent = "0";
