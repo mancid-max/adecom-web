@@ -3950,12 +3950,14 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 lavanderia = _to_int(_tp(27))
                 terminacion = _to_int(_tp(31))
                 proceso_val = corte_1 + taller_v + t_externo + limpiado + lavanderia + terminacion
+                # Si ya entró en proceso o bodega, ya no está en programa
+                programa_display = 0 if (proceso_val > 0 or entrega > 0) else programa
                 muestra_v = programa if "MUESTRA" in tipo_raw else 0
                 row: dict[str, object] = {
                     "articulo": articulo,
                     "corte": oc,
                     "fecha_iso": fecha_iso,
-                    "programa": programa,
+                    "programa": programa_display,
                     "proceso": proceso_val,
                     "bodega": entrega,
                     "saldo": proceso_val,
