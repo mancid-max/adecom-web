@@ -40,7 +40,6 @@
             <button type="button" class="side-link side-action-btn" data-open-id="openReporteVentaModal">Reporte Venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
             <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openProyeccionesModal">Proyecciones</button>
           </div>
         </div>
       </nav>
@@ -2955,190 +2954,6 @@
       </dialog>
 
     </section>
-
-    <!-- ── PROYECCIONES ──────────────────────────────────────────── -->
-    <dialog id="proyeccionesModal" class="modal modal-full-table">
-      <div class="modal-head">
-        <h3>Proyecciones</h3>
-        <button type="button" id="closeProyeccionesModal" class="modal-close">Cerrar</button>
-      </div>
-
-      {% set py = proyecciones %}
-
-      <!-- KPIs rápidos -->
-      <div class="modal-kpis">
-        {% for p in py.produccion %}
-        <article class="sortable-kpi">
-          <h4>T{{ p.temporada }} Prog.</h4>
-          <p>{{ p.programado|miles }}</p>
-        </article>
-        <article class="sortable-kpi">
-          <h4>T{{ p.temporada }} Bodega</h4>
-          <p>{{ p.bodega|miles }}</p>
-        </article>
-        <article class="sortable-kpi">
-          <h4>T{{ p.temporada }} % Avance</h4>
-          <p>{{ p.pct_bodega }}%</p>
-        </article>
-        {% endfor %}
-        <article class="sortable-kpi">
-          <h4>T43 vs T42</h4>
-          <p>{{ py.pct_t43_vs_t42 }}%</p>
-        </article>
-        <article class="sortable-kpi">
-          <h4>Cobertura Stock</h4>
-          <p>{{ py.cobertura_pct }}%</p>
-        </article>
-      </div>
-
-      <!-- 1. Producción por temporada -->
-      <h4 class="proy-section-title">Producción por Temporada</h4>
-      <section class="table-wrap bodega-wrap">
-        <table class="bodega-table">
-          <thead>
-            <tr>
-              <th>Temporada</th>
-              <th class="num">Programado</th>
-              <th class="num">En Proceso</th>
-              <th class="num">En Bodega</th>
-              <th class="num">% Avance</th>
-              <th>Distribución Etapas</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for p in py.produccion %}
-          <tr>
-            <td><strong>T{{ p.temporada }}</strong></td>
-            <td class="num">{{ p.programado|miles }}</td>
-            <td class="num">{{ p.proceso|miles }}</td>
-            <td class="num">{{ p.bodega|miles }}</td>
-            <td class="num">
-              <div class="proy-bar-wrap">
-                <div class="proy-bar" style="width:{{ [p.pct_bodega,100]|min }}%"></div>
-                <span>{{ p.pct_bodega }}%</span>
-              </div>
-            </td>
-            <td class="proy-etapas">
-              {% for e in p.etapas %}{% if e.qty > 0 %}<span class="proy-etapa-chip">{{ e.label }}: {{ e.qty|miles }}</span>{% endif %}{% endfor %}
-            </td>
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </section>
-
-      <!-- 2. Pedidos por colección -->
-      <h4 class="proy-section-title">Cumplimiento de Pedidos por Colección</h4>
-      <section class="table-wrap bodega-wrap">
-        <table class="bodega-table">
-          <thead>
-            <tr>
-              <th>Colección</th>
-              <th class="num">Solicitado</th>
-              <th class="num">Despachado</th>
-              <th class="num">Saldo</th>
-              <th class="num">% Cumplimiento</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for p in py.pedidos %}
-          <tr>
-            <td><strong>C{{ p.coleccion }}</strong></td>
-            <td class="num">{{ p.solicitado|miles }}</td>
-            <td class="num">{{ p.despachado|miles }}</td>
-            <td class="num {% if p.saldo > 0 %}valor-warning{% endif %}">{{ p.saldo|miles }}</td>
-            <td class="num">
-              <div class="proy-bar-wrap">
-                <div class="proy-bar" style="width:{{ [p.pct_cumpl,100]|min }}%"></div>
-                <span>{{ p.pct_cumpl }}%</span>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </section>
-
-      <!-- 3. Ventas comparativo -->
-      <h4 class="proy-section-title">Ventas por Temporada</h4>
-      <section class="table-wrap bodega-wrap">
-        <table class="bodega-table">
-          <thead>
-            <tr>
-              <th>Temporada</th>
-              <th class="num">Total $</th>
-              <th class="num">Prendas</th>
-              <th class="num">Clientes</th>
-              <th class="num">Documentos</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for v in py.ventas %}
-          <tr>
-            <td><strong>T{{ v.temporada }}</strong></td>
-            <td class="num">{{ v.total|miles }}</td>
-            <td class="num">{{ v.prendas|miles }}</td>
-            <td class="num">{{ v.clientes|miles }}</td>
-            <td class="num">{{ v.docs|miles }}</td>
-          </tr>
-          {% endfor %}
-          {% if py.t42_total > 0 %}
-          <tr class="proy-projection-row">
-            <td><strong>T43 Proyección</strong></td>
-            <td class="num">{{ py.proyeccion_t43|miles }}</td>
-            <td class="num" colspan="3">Basado en {{ py.pct_t43_vs_t42 }}% del ritmo de T42</td>
-          </tr>
-          {% endif %}
-          </tbody>
-        </table>
-      </section>
-
-      <!-- 4. Top artículos con mayor saldo pendiente -->
-      {% if py.top_saldo %}
-      <h4 class="proy-section-title">Top Artículos con Mayor Saldo Pendiente</h4>
-      <section class="table-wrap bodega-wrap">
-        <table class="bodega-table">
-          <thead>
-            <tr>
-              <th>Artículo</th>
-              <th>Descripción</th>
-              <th class="num">Solicitado</th>
-              <th class="num">Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for a in py.top_saldo %}
-          <tr>
-            <td>{{ a.articulo }}</td>
-            <td>{{ a.descripcion }}</td>
-            <td class="num">{{ a.solicitado|miles }}</td>
-            <td class="num valor-warning">{{ a.saldo|miles }}</td>
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </section>
-      {% endif %}
-
-      <!-- 5. Cobertura stock vs pedidos -->
-      <h4 class="proy-section-title">Cobertura: Stock vs Saldo Pedidos</h4>
-      <div class="modal-kpis">
-        <article class="sortable-kpi">
-          <h4>Stock Total</h4>
-          <p>{{ py.stock_total|miles }}</p>
-        </article>
-        <article class="sortable-kpi">
-          <h4>Saldo Pedidos</h4>
-          <p>{{ py.saldo_total|miles }}</p>
-        </article>
-        <article class="sortable-kpi">
-          <h4>Cobertura</h4>
-          <p>{{ py.cobertura_pct }}%</p>
-        </article>
-      </div>
-
-    </dialog>
-
   </main>
 
     {% if assistant_enabled %}
@@ -3353,7 +3168,6 @@
         openProyeccionClientesModal: "proyeccionClientesModal",
         openProyeccionClientesDashboardCard: "proyeccionClientesModal",
         openProyeccionModal: "proyeccionModal",
-        openProyeccionesModal: "proyeccionesModal",
       };
       const triggerToModal = {
         openAdminAccessModal: "adminAccessModal",
@@ -3371,7 +3185,6 @@
         openComparativoClientesModal: "comparativoClientesModal",
         openProyeccionClientesModal: "proyeccionClientesModal",
         openProyeccionClientesDashboardCard: "proyeccionClientesModal",
-        openProyeccionesModal: "proyeccionesModal",
         openVentasTotalModalTop: "ventasTotalModal",
         openVentasDetalleDashboardCard: "ventasDetalleModal",
         openTopArticulosDashboardCard: "topArticulosModal",

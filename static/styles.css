@@ -11437,13 +11437,3 @@ body.theme-gentelella,
 .proy-inactive-vendor { color: #4a6278; font-size: .85rem; white-space: nowrap; }
 .proy-inactive-qty { font-weight: 700; color: #17324a; }
 
-
-/* ── Proyecciones modal ── */
-.proy-section-title { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #5a7a95; margin: 1.5rem 0 .5rem; padding: 0 2px; }
-.proy-bar-wrap { display: flex; align-items: center; gap: .5rem; min-width: 120px; }
-.proy-bar { height: 6px; background: #2a7fba; border-radius: 3px; min-width: 2px; }
-.proy-bar-wrap span { font-size: .8rem; color: #555; white-space: nowrap; }
-.proy-etapas { display: flex; flex-wrap: wrap; gap: 4px; }
-.proy-etapa-chip { background: #e8f0f7; color: #2a5070; border-radius: 4px; padding: 1px 7px; font-size: .75rem; }
-.proy-projection-row td { background: #f0f7ee; color: #2a6b3a; font-weight: 600; }
-.valor-warning { color: #c05000 !important; }
