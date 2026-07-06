@@ -5823,6 +5823,49 @@ def _pedidos_detalle_pick(raw: dict[str, object], *keys: str) -> str:
     return ""
 
 
+def _seed_pedidos_talla_files_local() -> list[Path]:
+    """Igual que _seed_pedidos_talla_files() pero siempre usa archivos locales (no ARCHIVO_TALLAS.CSV)."""
+    discovered = sorted(
+        {p.resolve(): p for p in SEED_DIR.glob("PEDIDOSXTALLA*.TXT")}.values(),
+        key=lambda p: p.name.lower(),
+    )
+    explicit_by_collection: dict[str, Path] = {}
+    generic_files: list[Path] = []
+    for path in discovered:
+        m = re.search(r"PEDIDOSXTALLA\s*(\d{2})", path.name.upper())
+        if m:
+            explicit_by_collection[m.group(1)] = path
+        else:
+            generic_files.append(path)
+    files: list[Path] = [explicit_by_collection[k] for k in sorted(explicit_by_collection, key=int)]
+    for path in generic_files:
+        if path.resolve() == SEED_PEDIDOS.resolve() and "42" in explicit_by_collection:
+            continue
+        files.append(path)
+    return files or [p for p in (SEED_PEDIDOS, SEED_PEDIDOS_43) if p.exists()]
+
+
+def _build_talla_despacho_lookup(collection: str) -> dict[str, dict[str, int]]:
+    """Devuelve {articulo: {ventas, despacho}} desde los archivos PEDIDOSXTALLA locales."""
+    lookup: dict[str, dict[str, int]] = {}
+    # Usar archivos locales directamente: ARCHIVO_TALLAS.CSV tiene despacho=0 en temporadas actuales
+    for path in _seed_pedidos_talla_files_local():
+        for row in parse_pedidos_talla_txt(path.read_bytes()):
+            if not _pedidos_collection_matches(row.get("articulo"), collection):
+                continue
+            articulo = str(row.get("articulo") or "").strip()
+            if not articulo:
+                continue
+            tipo = str(row.get("tipo") or "").strip().lower()
+            total = int(row.get("total") or 0)
+            bucket = lookup.setdefault(articulo, {"ventas": 0, "despacho": 0})
+            if tipo == "ventas":
+                bucket["ventas"] += total
+            elif tipo == "despacho":
+                bucket["despacho"] += total
+    return lookup
+
+
 def _pedidos_talla_totals_for_collection(collection: str) -> dict[str, int]:
     totals = {"solicitado": 0, "despachado": 0, "saldo": 0}
     for path in _seed_pedidos_talla_files():
@@ -5945,6 +5988,7 @@ def _load_venta_despacho_dashboard(
 
     inventory_lookup = _build_inventory_stock_lookup(query_inventory_stock_rows(DB_PATH))
     trazabilidad_lookup = _build_trazabilidad_lookup(trazabilidad_rows or [])
+    talla_despacho_lookup = _build_talla_despacho_lookup(pedidos_collection)
     text = _pedidos_detalle_decode(path.read_bytes())
     reader = _pedidos_detalle_rows(text)
     clientes: dict[str, dict[str, object]] = {}
@@ -5970,6 +6014,11 @@ def _load_venta_despacho_dashboard(
 
         solicitado = _pedidos_detalle_int(raw.get("SOLICITADO"))
         despachado = _pedidos_detalle_int(raw.get("DESPACHADO") or raw.get("DESPACHO"))
+        # Si DESPACHADO es 0 en PEDIDOS.Txt, estimarlo desde PEDIDOSXTALLA (rate por artículo)
+        if despachado == 0 and articulo and solicitado > 0 and articulo in talla_despacho_lookup:
+            art = talla_despacho_lookup[articulo]
+            if art["ventas"] > 0:
+                despachado = round(solicitado * art["despacho"] / art["ventas"])
         saldo = _pedidos_detalle_int(raw.get("saldo") or raw.get("SALDO"))
         precio = _pedidos_detalle_int(raw.get("PRECIO"))
         valor_solicitado = _pedidos_detalle_int(raw.get("VALOR")) or (solicitado * precio)
