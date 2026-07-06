@@ -77,7 +77,6 @@ SEED_SALDOS = SEED_DIR / "SALDOS-SECCI.TXT"
 SEED_PEDIDOS = SEED_DIR / "PEDIDOSXTALLA.TXT"
 SEED_PEDIDOS_43 = SEED_DIR / "PEDIDOSXTALLA 43.TXT"
 SEED_PEDIDOS_DETALLE = SEED_DIR / "PEDIDOS.Txt"
-SEED_PEDIDOS_BI = SEED_DIR / "PEDIDOS.CSV"
 SEED_PEDIDOS_COMPARAR = SEED_DIR / "PEDIDOSXCOMPARAR.Txt"
 SEED_ARCHIVO_CONTACTOS = SEED_DIR / "ARCHIVO.TXT"
 SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
@@ -228,16 +227,6 @@ def _pedidos_detalle_collection_matches(raw: dict[str, object], selected: str) -
     collection_value = str(raw.get("COLECCION") or "").strip()
     if collection_value.isdigit():
         return collection_value == selected_key
-
-    # Fallback para PEDIDOS.CSV de Z:\BI (sin columna COLECCION): filtrar por año de FECHA
-    fecha = str(raw.get("FECHA") or "").strip()
-    if fecha and not collection_value and not (raw.get("ARTICULO") or raw.get("articulo")):
-        year = fecha[6:10] if len(fecha) >= 10 else ""
-        _year_map = {"42": "2025", "43": "2026", "44": "2026", "45": "2026"}
-        target_year = _year_map.get(selected_key)
-        if target_year:
-            return year == target_year
-        return True
 
     articulo = raw.get("ARTICULO") or raw.get("articulo")
     return _pedidos_collection_matches(articulo, selected_key)
@@ -5929,7 +5918,7 @@ def _load_venta_despacho_dashboard(
     trazabilidad_rows: list[dict[str, object]] | None = None,
     pedidos_collection: str = "42",
 ) -> dict[str, object]:
-    path = SEED_PEDIDOS_BI if SEED_PEDIDOS_BI.exists() and SEED_PEDIDOS_BI.stat().st_size > 0 else SEED_PEDIDOS_DETALLE
+    path = SEED_PEDIDOS_DETALLE
     empty_totals = {
         "solicitado": 0,
         "despachado": 0,
