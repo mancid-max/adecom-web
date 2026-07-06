@@ -40,6 +40,7 @@ def _sync_bi_to_seed() -> None:
         copies = [
             ("VENTAS-TOD-2026.CSV", "VENTAS-TOD-2026.CSV"),
             ("TRAZABILIDAD.CSV", "TRAZABILIDAD_OP.TXT"),
+            ("PEDIDOS.CSV", "PEDIDOS.CSV"),
         ]
         for bi_name, seed_name in copies:
             src = BI_DIR / bi_name
@@ -147,7 +148,9 @@ def _postprocess_main_html(html: str) -> str:
         count=1,
         flags=re.S,
     )
-    html = html.replace("__DATA_TIMESTAMP__", _data_timestamp())
+    ts = _data_timestamp()
+    html = html.replace("__DATA_TIMESTAMP__", ts)
+    html = html.replace("{{ now.strftime('%d/%m/%Y %H:%M') }}", ts)
     html = html.replace("</body>", f"{STATIC_BRIDGE_SCRIPT}\n</body>")
     return html
 def _write_docs(main_html: str) -> None:
