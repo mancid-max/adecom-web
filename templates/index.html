@@ -8,7 +8,7 @@
   <title>ADECOM WEB</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body class="theme-gentelella">
@@ -25,23 +25,9 @@
         <button type="button" id="sideToggleBtn" class="side-toggle" aria-label="Contraer menu">&lt;</button>
       </div>
       <nav class="side-menu">
-        <div class="side-group">
-          <button type="button" class="side-group-toggle" data-side-group-toggle aria-expanded="false">Opciones</button>
-          <div class="side-group-body" hidden>
-            <button type="button" class="side-link side-action-btn" data-open-id="openProductionGoalsModal">Metas produccion</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openProductionExcelModal">Modelo Excel metas</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openInventoryBookModal">Stock bodega</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openTrazabilidadOpModal">Trazabilidad OP</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openBodegaModal">Bodega</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openFullTableModal">Tabla completa</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openDisponiblesModal">Disponibles</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openVentasTotalModal">Pedidos</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openVentaDespachoModal">Venta vs Despacho</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openReporteVentaModal">Reporte Venta</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openVentasDocsModal">Documentos venta</button>
-            <button type="button" class="side-link side-action-btn" data-open-id="openComparativoClientesModal">Clientes atendidos</button>
-          </div>
-        </div>
+        <a href="/crm" class="side-link side-crm-btn">
+          <span class="side-crm-icon">⚡</span> CRM
+        </a>
       </nav>
     </aside>
     <button type="button" id="sideToggleFloatingBtn" class="side-toggle side-toggle-floating" aria-label="Desplegar menu" aria-expanded="false">></button>
@@ -53,7 +39,7 @@
           <strong>Dashboard ejecutivo</strong>
           <small>Operacion, pedidos y seguimiento</small>
         </div>
-        <span class="top-data-ts" id="dataTimestamp">__DATA_TIMESTAMP__</span>
+        <span class="top-data-ts" id="dataTimestamp">Datos al {{ now.strftime('%d/%m/%Y %H:%M') }}</span>
       </div>
       <div class="top-nav-actions">
         <div class="top-nav-user">
@@ -1895,7 +1881,6 @@
             <button type="button" id="openVentasDetalleModal" class="kpi-open-btn">
               <h4>Total pedidos</h4>
               <p id="ventasTotalKpiTotal">{{ ventas_total|miles }}</p>
-              <small class="kpi-hint">Ver detalle</small>
             </button>
           </article>
           <article class="kpi-clickable">
@@ -1903,7 +1888,6 @@
               <h4>Familia con mas pedidos</h4>
               {% if ventas_top_familia %}
               <p id="ventasTotalKpiFamilia">{{ ventas_top_familia.familia }}</p>
-              <small class="kpi-hint">Ver detalle</small>
               {% else %}
               <p id="ventasTotalKpiFamilia">-</p>
               {% endif %}
@@ -1914,7 +1898,6 @@
               <h4>Total modelos</h4>
               {% if ventas_top_articulo %}
               <p id="ventasTotalKpiModelos">{{ ventas_top_articulos|length|miles }} modelos</p>
-              <small class="kpi-hint">Ver detalle</small>
               {% else %}
               <p id="ventasTotalKpiModelos">-</p>
               {% endif %}
