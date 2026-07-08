@@ -39,7 +39,7 @@
           <strong>Dashboard ejecutivo</strong>
           <small>Operacion, pedidos y seguimiento</small>
         </div>
-        <span class="top-data-ts" id="dataTimestamp">Datos al 08/07/2026 08:20</span>
+        <span class="top-data-ts" id="dataTimestamp">Datos al 08/07/2026 09:38</span>
       </div>
       <div class="top-nav-actions">
         <div class="top-nav-user">
@@ -112432,7 +112432,10 @@
       const tbody = table.querySelector("tbody");
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr[data-clickable="1"]'));
-      const originalOrder = [...rows];
+      const originalOrder = [...rows].sort((a, b) =>
+        String(b.dataset.fecha || "").localeCompare(String(a.dataset.fecha || ""))
+      );
+      originalOrder.forEach(r => tbody.appendChild(r));
       const muestraSubFiltro = document.getElementById("muestraSubFiltro");
       const muestraButtons = muestraSubFiltro
         ? Array.from(muestraSubFiltro.querySelectorAll("[data-muestra-value]"))
@@ -112449,19 +112452,7 @@
       let articleQuery = "";
       let cutQuery = "";
 
-      const sortMuestras = () => {
-        const muestrasRows = originalOrder.filter(r => String(r.dataset.tipo || "") === "muestras");
-        const otherRows    = originalOrder.filter(r => String(r.dataset.tipo || "") !== "muestras");
-        muestrasRows.sort((a, b) => {
-          const artA = String(a.dataset.articulo || "").trim();
-          const artB = String(b.dataset.articulo || "").trim();
-          if (artA !== artB) return artA.localeCompare(artB);
-          const numA = parseInt(String(a.dataset.muestranum || "").replace("M", "")) || 99;
-          const numB = parseInt(String(b.dataset.muestranum || "").replace("M", "")) || 99;
-          return numA - numB;
-        });
-        [...muestrasRows, ...otherRows].forEach(r => tbody.appendChild(r));
-      };
+      const sortMuestras = () => restoreOrder();
 
       const restoreOrder = () => {
         originalOrder.forEach(r => tbody.appendChild(r));
