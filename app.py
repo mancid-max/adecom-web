@@ -2158,7 +2158,7 @@ def _bi_dir_signature() -> str:
     if not BI_DIR.exists():
         return ""
     parts = []
-    for fname in ("ARCHIVO_TALLAS.CSV", "TRAZABILIDAD.CSV", "VENTAS-TOD-2026.CSV"):
+    for fname in ("ARCHIVO_TALLAS.CSV", "TRAZABILIDAD2.CSV", "VENTAS-TOD-2026.CSV"):
         p = BI_DIR / fname
         if p.exists():
             parts.append(f"{fname}:{int(p.stat().st_mtime)}")
@@ -3893,8 +3893,11 @@ def _is_muestra_corte(value: object) -> bool:
 
 
 def _full_table_tipo_label(row: dict[str, object]) -> str:
-    if _is_muestra_corte(row.get("corte")):
+    raw = str(row.get("tipo_raw", "")).upper()
+    if "MUESTRAS" in raw:
         return "muestras"
+    if raw == "SET":
+        return "set"
     return "produccion"
 
 
@@ -3918,8 +3921,8 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
     temporadas_seen: set[str] = set()
     seen_rows: set[tuple] = set()
 
-    # Fuente única: TRAZABILIDAD.CSV de Z:\BI (fallback: copia en seed/)
-    bi_traz = BI_DIR / "TRAZABILIDAD.CSV"
+    # Fuente única: TRAZABILIDAD2.CSV de Z:\BI (fallback: copia en seed/)
+    bi_traz = BI_DIR / "TRAZABILIDAD2.CSV"
     traz_path = bi_traz if (bi_traz.exists() and bi_traz.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
     if traz_path.exists() and traz_path.stat().st_size > 0:
         try:
@@ -3944,6 +3947,7 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                     continue
                 fecha_iso = _pedidos_detalle_date(_tp(3)) or ""
                 tipo_raw = _tp(1).upper()
+                muestra_num = _tp(2).upper().strip()
                 programa   = _to_int(_tp(5))
                 entrega    = _to_int(_tp(7))
                 corte_1    = _to_int(_tp(11))
@@ -3960,6 +3964,8 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                     "articulo": articulo,
                     "corte": oc,
                     "fecha_iso": fecha_iso,
+                    "tipo_raw": tipo_raw,
+                    "muestra_num": muestra_num,
                     "programa": programa_display,
                     "proceso": proceso_val,
                     "bodega": entrega,
@@ -4538,7 +4544,7 @@ def _load_ventas_docs_summary() -> dict:
 
 
 def _load_trazabilidad_op_dashboard() -> dict[str, object]:
-    bi_path = BI_DIR / "TRAZABILIDAD.CSV"
+    bi_path = BI_DIR / "TRAZABILIDAD2.CSV"
     path = bi_path if (bi_path.exists() and bi_path.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
     base: dict[str, object] = {
         "available": False,
@@ -6019,7 +6025,7 @@ def _load_venta_despacho_dashboard(
             art = talla_despacho_lookup[articulo]
             if art["ventas"] > 0:
                 despachado = round(solicitado * art["despacho"] / art["ventas"])
-        saldo = _pedidos_detalle_int(raw.get("saldo") or raw.get("SALDO"))
+        saldo = max(solicitado - despachado, 0)
         precio = _pedidos_detalle_int(raw.get("PRECIO"))
         valor_solicitado = _pedidos_detalle_int(raw.get("VALOR")) or (solicitado * precio)
         valor_despachado = _pedidos_detalle_int(raw.get("DESPACHO_VALOR")) or (despachado * precio)
