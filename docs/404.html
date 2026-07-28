@@ -39,7 +39,7 @@
           <strong>Dashboard ejecutivo</strong>
           <small>Operacion, pedidos y seguimiento</small>
         </div>
-        <span class="top-data-ts" id="dataTimestamp">Datos al 28/07/2026 14:20</span>
+        <span class="top-data-ts" id="dataTimestamp">Datos al 28/07/2026 14:45</span>
       </div>
       <div class="top-nav-actions">
         <div class="top-nav-user">
@@ -100223,7 +100223,6 @@
               </label>
             </div>
           </div>
-          <button type="button" id="printTopArticulosBtn" class="modal-close" style="margin-right:8px">Imprimir</button>
           <button type="button" id="closeTopArticulosModal" class="modal-close">Cerrar</button>
         </div>
         <section class="table-wrap bodega-wrap">
@@ -115064,89 +115063,6 @@
         table.querySelectorAll("tbody tr.is-selected").forEach((item) => item.classList.remove("is-selected"));
         modal.close();
       });
-
-      const printBtn = document.getElementById("printTopArticulosBtn");
-      if (printBtn) {
-        printBtn.addEventListener("click", () => {
-          const temporada = collectionSelect ? collectionSelect.options[collectionSelect.selectedIndex]?.text : "";
-          const key = collectionSelect ? collectionSelect.value : "42";
-          const view = pedidosViews[key] || pedidosViews["42"] || {};
-          const allArticulos = Array.isArray(view.ventas_top_articulos) ? view.ventas_top_articulos : [];
-          const rowsHtml = allArticulos.map((item, i) => {
-            const art = String(item.articulo || "");
-            const total = Number(item.total || 0).toLocaleString("es-CL");
-            return "<tr><td>" + (i+1) + "</td><td>" + art + "</td><td>" + total + "</td></tr>";
-          }).join("");
-          const css = "body{font-family:system-ui,sans-serif;padding:24px;color:#1b2236}"
-            + "h2{font-size:18px;margin-bottom:4px}"
-            + "p.sub{font-size:13px;color:#5a6880;margin-bottom:16px}"
-            + "table{width:100%;border-collapse:collapse;font-size:13px}"
-            + "th{background:#1a2742;color:#fff;padding:8px 12px;text-align:left}"
-            + "td{padding:7px 12px;border-bottom:1px solid #e0e6f0}"
-            + "tr:nth-child(even) td{background:#f5f7fb}"
-            + "td:first-child,th:first-child{width:48px;text-align:center}"
-            + "td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums}"
-            + "@media print{body{padding:0}}";
-          const html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Top Articulos " + temporada + "</title>"
-            + "<style>" + css + "</style></head><body>"
-            + "<h2>Top articulos con mas pedidos</h2>"
-            + "<p class='sub'>" + temporada + " &nbsp;&middot;&nbsp; " + allArticulos.length + " articulos</p>"
-            + "<table><thead><tr><th>#</th><th>Articulo</th><th>Cantidad de pedidos</th></tr></thead>"
-            + "<tbody>" + rowsHtml + "</tbody></table>"
-            + "
-<script>
-(() => {
-  document.querySelectorAll('form[action="#"]').forEach((form) => {
-    form.addEventListener("submit", (event) => event.preventDefault());
-  });
-
-  const form = document.getElementById("filtersForm");
-  const input = document.getElementById("articuloExactInput");
-  const resetLink = document.querySelector(".search-reset-btn");
-  const openFullTableBtn = document.getElementById("openFullTableModal");
-
-  if (resetLink) {
-    resetLink.setAttribute("href", "#");
-    resetLink.addEventListener("click", (event) => {
-      event.preventDefault();
-      if (input) input.value = "";
-    });
-  }
-
-  if (!form || !input) return;
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const query = (input.value || "").trim();
-    if (!query) return;
-
-    if (openFullTableBtn && typeof openFullTableBtn.click === "function") {
-      openFullTableBtn.click();
-    }
-
-    const rows = Array.from(document.querySelectorAll('[data-articulo][data-clickable="1"]'));
-    const target = rows.find((row) => (row.dataset.articulo || "").trim() === query);
-    if (!target) {
-      window.alert("Articulo no encontrado en esta version web.");
-      return;
-    }
-
-    setTimeout(() => {
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (typeof target.click === "function") target.click();
-    }, 120);
-  });
-})();
-</script>
-
-</body></html>";
-          const blob = new Blob([html], { type: "text/html" });
-          const url = URL.createObjectURL(blob);
-          const w = window.open(url, "_blank");
-          if (w) w.onload = () => { w.print(); URL.revokeObjectURL(url); };
-        });
-      }
-
       detailCloseBtn.addEventListener("click", () => detailModal.close());
       modal.addEventListener("click", (event) => {
         const rect = modal.getBoundingClientRect();
