@@ -175,11 +175,6 @@
           <h2>Tabla completa</h2>
         </button>
       </article>
-      <article class="card-action summary-secondary">
-        <button type="button" class="summary-open summary-open-centered" id="openTrazabilidadOpModal">
-          <h2>Trazabilidad OP</h2>
-        </button>
-      </article>
     </section>
     </section>
 
@@ -1261,7 +1256,19 @@
           <div id="tipoTablaFiltro" class="comparativo-toolbar full-table-toolbar-inline" aria-label="Filtro tipo tabla completa">
             <button type="button" class="comparativo-toggle is-active" data-type-value="todo">Todas</button>
             <button type="button" class="comparativo-toggle" data-type-value="muestras">Muestras</button>
+            <button type="button" class="comparativo-toggle" data-type-value="set">Set</button>
             <button type="button" class="comparativo-toggle" data-type-value="produccion">Produccion</button>
+          </div>
+        </div>
+        <div id="muestraSubFiltro" class="full-table-filter-stack" style="display:none">
+          <span class="full-table-filter-label">Muestra:</span>
+          <div class="comparativo-toolbar full-table-toolbar-inline">
+            <button type="button" class="comparativo-toggle is-active" data-muestra-value="todo">Todas</button>
+            <button type="button" class="comparativo-toggle" data-muestra-value="M1">M1</button>
+            <button type="button" class="comparativo-toggle" data-muestra-value="M2">M2</button>
+            <button type="button" class="comparativo-toggle" data-muestra-value="M3">M3</button>
+            <button type="button" class="comparativo-toggle" data-muestra-value="M4">M4</button>
+            <button type="button" class="comparativo-toggle" data-muestra-value="M5">M5</button>
           </div>
         </div>
         <div class="full-table-filter-stack full-table-search-stack">
@@ -1400,14 +1407,16 @@
               data-etapaactual="{{ row.proceso_actual }}"
               data-ubicacionactual="{{ row.restante_detalle }}"
               data-restantedetalle="{{ row.restante_detalle }}"
+              data-muestranum="{{ row.muestra_num }}"
               data-esmuestra="{% if row.tipo == 'muestras' %}1{% else %}0{% endif %}"
             >
               <td>{{ row.articulo }}</td>
               <td>{{ row.corte }}</td>
               <td>{{ row.fecha_display }}</td>
-              <td class="full-table-num">{{ row.programa }}</td>
-              <td class="full-table-num">{{ row.proceso }}</td>
-              <td class="full-table-num">{{ row.bodega }}</td>
+              {% set mn = row.muestra_num %}
+              <td class="full-table-num">{{ row.programa }}{% if mn and row.programa > 0 %} <span class="muestra-num-label" style="display:none;font-size:0.78em;opacity:0.7">({{ mn }})</span>{% endif %}</td>
+              <td class="full-table-num">{{ row.proceso }}{% if mn and row.programa == 0 and row.proceso > 0 %} <span class="muestra-num-label" style="display:none;font-size:0.78em;opacity:0.7">({{ mn }})</span>{% endif %}</td>
+              <td class="full-table-num">{{ row.bodega }}{% if mn and row.programa == 0 and row.proceso == 0 and row.bodega > 0 %} <span class="muestra-num-label" style="display:none;font-size:0.78em;opacity:0.7">({{ mn }})</span>{% endif %}</td>
               <td class="full-table-num">{{ row.saldo }}</td>
               <td class="full-table-num">{{ row.corte_1 }}</td>
               <td class="full-table-num">{{ row.taller }}</td>
@@ -5547,6 +5556,14 @@
       const tbody = table.querySelector("tbody");
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr[data-clickable="1"]'));
+      const originalOrder = [...rows].sort((a, b) =>
+        String(b.dataset.fecha || "").localeCompare(String(a.dataset.fecha || ""))
+      );
+      originalOrder.forEach(r => tbody.appendChild(r));
+      const muestraSubFiltro = document.getElementById("muestraSubFiltro");
+      const muestraButtons = muestraSubFiltro
+        ? Array.from(muestraSubFiltro.querySelectorAll("[data-muestra-value]"))
+        : [];
       const seasonButtons = temporadaFiltro
         ? Array.from(temporadaFiltro.querySelectorAll("[data-temporada-value]"))
         : [];
@@ -5555,8 +5572,15 @@
         : [];
       let season = "todo";
       let rowType = "todo";
+      let muestraNum = "todo";
       let articleQuery = "";
       let cutQuery = "";
+
+      const sortMuestras = () => restoreOrder();
+
+      const restoreOrder = () => {
+        originalOrder.forEach(r => tbody.appendChild(r));
+      };
       const observationsStorageKey = "adecom_full_table_observations_done_v1";
 
       const stageMeta = {
@@ -5877,6 +5901,9 @@
         if (visible && rowType !== "todo") {
           visible = currentType === rowType;
         }
+        if (visible && muestraNum !== "todo") {
+          visible = String(row.dataset.muestranum || "") === muestraNum;
+        }
         return visible;
       };
 
@@ -5922,6 +5949,25 @@
         btn.addEventListener("click", () => {
           rowType = String(btn.getAttribute("data-type-value") || "todo");
           typeButtons.forEach((item) => item.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          if (rowType === "muestras") {
+            if (muestraSubFiltro) muestraSubFiltro.style.display = "";
+            document.querySelectorAll(".muestra-num-label").forEach(el => el.style.display = "");
+            sortMuestras();
+          } else {
+            if (muestraSubFiltro) muestraSubFiltro.style.display = "none";
+            document.querySelectorAll(".muestra-num-label").forEach(el => el.style.display = "none");
+            muestraNum = "todo";
+            muestraButtons.forEach(b => b.classList.toggle("is-active", b.getAttribute("data-muestra-value") === "todo"));
+            restoreOrder();
+          }
+          applyFilter();
+        });
+      });
+      muestraButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          muestraNum = String(btn.getAttribute("data-muestra-value") || "todo");
+          muestraButtons.forEach(b => b.classList.remove("is-active"));
           btn.classList.add("is-active");
           applyFilter();
         });
