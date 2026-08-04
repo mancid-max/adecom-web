@@ -2175,6 +2175,7 @@ def _refresh_bi_if_changed() -> bool:
             return False
         try:
             _refresh_seed_data()
+            _index_cache.clear()
             _last_bi_signature = sig
             app.logger.info("Z:\\BI auto-refresh completado (archivos actualizados).")
             return True
@@ -4038,6 +4039,22 @@ ensure_seed_data()
 _auto_refresh_web_on_startup()
 _start_auto_refresh_web_loop()
 
+_index_cache: dict = {}
+
+
+def _index_cache_key(filters: dict, pedidos_collection: str, open_modal: str, programas_month: str) -> tuple:
+    _db_path = Path(DB_PATH) if not isinstance(DB_PATH, Path) else DB_PATH
+    db_mtime = _db_path.stat().st_mtime if _db_path.exists() else 0
+    return (
+        db_mtime,
+        filters["q"],
+        filters["fecha"],
+        filters["articulo_exact"],
+        pedidos_collection,
+        open_modal,
+        programas_month,
+    )
+
 
 @app.template_filter("miles")
 def miles(value):
@@ -5367,22 +5384,56 @@ def _gross_to_net_iva(gross_total: int, raw_type: object) -> tuple[int, int]:
     return net_total, iva_total
 
 
-def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
-    entries: list[dict[str, object]] = []
+_VENTAS_TOD_FIELDNAMES = [
+    "Tipo", "Numero", "fecha", "Articulo", "Cat1", "Cat2", "Cat3", "Cat4",
+    "Talla", "DescArt", "Col10", "Col11", "Vendedor", "Cant", "Precio", "Total",
+    "Col16", "Col17", "Col18", "Rut", "cliente", "Ciudad", "Canal", "Fpago", "Col24", "Col25",
+]
+
+
+def _load_ventas_tod_rows(path: Path) -> list[dict[str, object]]:
     for encoding in ("utf-8-sig", "cp1252", "latin-1"):
         try:
             with path.open("r", encoding=encoding, newline="") as fh:
-                rows = list(csv.DictReader(fh, delimiter=";"))
-            break
+                first = fh.readline()
+                fh.seek(0)
+                first_field = first.split(";")[0].strip().lower()
+                if first_field == "tipo":
+                    return list(csv.DictReader(fh, delimiter=";"))
+                else:
+                    return list(csv.DictReader(fh, delimiter=";", fieldnames=_VENTAS_TOD_FIELDNAMES))
         except Exception:
-            rows = []
+            continue
+    return []
+
+
+def _ventas_tod_source_path() -> Path:
+    bi_ventas = BI_DIR / "VENTAS-TOD-2026.CSV"
+    seed_ventas = SEED_DIR / "VENTAS-TOD-2026.CSV"
+    if bi_ventas.exists() and bi_ventas.stat().st_size > 0:
+        return bi_ventas
+    return seed_ventas
+
+
+def _ventas_tod_row_collection(row: dict[str, object]) -> str:
+    for key in ("Temporada", "temporada", "COLECCION", "coleccion"):
+        value = str(row.get(key) or "").strip()
+        if value.isdigit() and 30 <= int(value) <= 45:
+            return value
+    articulo = str(row.get("Articulo") or row.get("ARTICULO") or "").strip()
+    code = articulo[2:4] if len(articulo) >= 4 else ""
+    if code.isdigit() and 30 <= int(code) <= 45:
+        return code
+    return ""
+
+
+def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    rows = _load_ventas_tod_rows(path)
     if not rows:
         return entries
     docs: dict[str, dict[str, object]] = {}
     for row in rows:
-        temp_raw = str(row.get("Temporada") or "").strip()
-        if temp_raw.isdigit() and not (MIN_DISPLAY_COLLECTION <= int(temp_raw) <= MAX_DISPLAY_COLLECTION):
-            continue
         num = str(row.get("Numero") or "").strip()
         if not num:
             continue
@@ -5433,10 +5484,209 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
     return entries
 
 
+def _build_inactive_clients_dashboard() -> dict[str, object]:
+    path = SEED_PEDIDOS_DETALLE
+    base = {
+        "available": False,
+        "file_name": path.name,
+        "source_label": "PEDIDOS.Txt",
+        "source_cutoff_label": "",
+        "new_collection": "",
+        "legacy_collections_label": "40 y 41",
+        "clients_count": 0,
+        "legacy_units": 0,
+        "projected_curve_label": "-",
+        "projected_curve_rows": [],
+        "rows": [],
+    }
+    if not path.exists() or not path.is_file() or path.stat().st_size <= 0:
+        return base
+    clients: dict[str, dict[str, object]] = {}
+    season_pool: set[str] = set()
+    max_date = ""
+    projected_sizes: Counter[str] = Counter()
+
+    text = _pedidos_detalle_decode(path.read_bytes())
+    reader = _pedidos_detalle_rows(text)
+    for row in reader:
+        collection = str(row.get("COLECCION") or "").strip()
+        if not collection.isdigit():
+            continue
+        if not (30 <= int(collection) <= 45):
+            continue
+        qty = _pedidos_detalle_int(row.get("SOLICITADO"))
+        if qty <= 0:
+            continue
+
+        fecha_iso = _pedidos_detalle_date(str(row.get("FECHA") or "").strip())
+        if fecha_iso and fecha_iso > max_date:
+            max_date = fecha_iso
+
+        rut = str(row.get("RUT") or "").strip()
+        cliente = " ".join(str(row.get("CLIENTE") or "").split()) or "-"
+        if not rut and not cliente:
+            continue
+        if "GENERICA" in cliente.upper():
+            continue
+
+        key = _rut_normalizado(rut) or cliente.upper()
+        season_pool.add(collection)
+        client = clients.setdefault(
+            key,
+            {
+                "rut": rut,
+                "cliente": cliente,
+                "ciudad": " ".join(str(row.get("CIUDAD") or "").split()) or "-",
+                "vendedor": " ".join(str(row.get("VENDEDOR") or "").split()) or "-",
+                "season_qty": Counter(),
+                "legacy_articles": Counter(),
+                "legacy_sizes": Counter(),
+            },
+        )
+        client["season_qty"][collection] += qty
+
+        if collection in {"40", "41"}:
+            articulo = str(row.get("ARTICULO") or "").strip()
+            descripcion = " ".join(
+                str(row.get("SubCateg") or row.get("DESCRIPCION") or "").split()
+            )
+            label = articulo
+            if descripcion:
+                label = f"{articulo} · {descripcion}" if articulo else descripcion
+            client["legacy_articles"][label or "Sin artículo"] += qty
+            talla = _proyeccion_talla_from_text(row.get("DESCRIPCION"))
+            if talla:
+                client["legacy_sizes"][talla] += qty
+
+    new_collection_candidates = sorted(
+        [season for season in season_pool if season.isdigit() and 42 <= int(season) <= 45],
+        key=int,
+    )
+    if not new_collection_candidates:
+        return base
+    new_collection = new_collection_candidates[-1]
+
+    dashboard_rows: list[dict[str, object]] = []
+    legacy_units = 0
+
+    for client in clients.values():
+        season_qty: Counter = client["season_qty"]
+        qty_40 = int(season_qty.get("40") or 0)
+        qty_41 = int(season_qty.get("41") or 0)
+        qty_legacy = qty_40 + qty_41
+        qty_new = int(season_qty.get(new_collection) or 0)
+        if qty_legacy <= 0 or qty_new > 0:
+            continue
+
+        legacy_units += qty_legacy
+        legacy_sizes: Counter = client["legacy_sizes"]
+        projected_sizes.update(legacy_sizes)
+
+        top_articles = [
+            {"label": label, "qty": qty}
+            for label, qty in client["legacy_articles"].most_common(3)
+        ]
+        size_rows = [
+            {"talla": talla, "qty": qty}
+            for talla, qty in sorted(
+                legacy_sizes.items(),
+                key=lambda item: (int(item[0]) if str(item[0]).isdigit() else 999),
+            )
+        ]
+        size_total = sum(int(item["qty"]) for item in size_rows) or 1
+        projected_total = qty_legacy
+        projected_curve_rows: list[dict[str, int | str]] = []
+        raw_projected: list[dict[str, object]] = []
+        assigned = 0
+        for item in size_rows:
+            qty = int(item["qty"])
+            proportional = qty / size_total * projected_total
+            base_qty = int(proportional)
+            assigned += base_qty
+            raw_projected.append(
+                {
+                    "talla": item["talla"],
+                    "qty": base_qty,
+                    "remainder": proportional - base_qty,
+                }
+            )
+        remaining = max(projected_total - assigned, 0)
+        raw_projected.sort(key=lambda item: (-float(item["remainder"]), int(item["talla"]) if str(item["talla"]).isdigit() else 999))
+        for idx in range(remaining):
+            raw_projected[idx % len(raw_projected)]["qty"] = int(raw_projected[idx % len(raw_projected)]["qty"]) + 1
+        projected_curve_rows = [
+            {"talla": str(item["talla"]), "qty": int(item["qty"])}
+            for item in sorted(
+                raw_projected,
+                key=lambda item: (int(item["talla"]) if str(item["talla"]).isdigit() else 999),
+            )
+            if int(item["qty"]) > 0
+        ]
+        dashboard_rows.append(
+            {
+                "rut": client["rut"],
+                "cliente": client["cliente"],
+                "ciudad": client["ciudad"],
+                "vendedor": client["vendedor"],
+                "qty_legacy": qty_legacy,
+                "top_articles": top_articles,
+                "top_articles_label": " | ".join(
+                    f"{item['label']} ({item['qty']})" for item in top_articles
+                ) or "-",
+                "size_rows": size_rows,
+                "size_curve_label": " | ".join(
+                    f"{item['talla']}: {item['qty']}" for item in size_rows
+                ) or "-",
+                "projected_curve_rows": projected_curve_rows,
+                "projected_curve_label": " | ".join(
+                    f"{item['talla']}: {item['qty']}" for item in projected_curve_rows
+                ) or "-",
+            }
+        )
+
+    dashboard_rows.sort(key=lambda item: (-int(item["qty_legacy"]), str(item["cliente"])))
+    if max_date:
+        base["source_cutoff_label"] = datetime.strptime(max_date, "%Y-%m-%d").strftime("%d/%m/%Y")
+    projected_curve_rows = [
+        {"talla": talla, "qty": qty}
+        for talla, qty in sorted(
+            projected_sizes.items(),
+            key=lambda item: (int(item[0]) if str(item[0]).isdigit() else 999),
+        )
+    ]
+    base.update(
+        {
+            "available": bool(dashboard_rows),
+            "new_collection": new_collection,
+            "clients_count": len(dashboard_rows),
+            "legacy_units": legacy_units,
+            "projected_curve_rows": projected_curve_rows,
+            "projected_curve_label": " | ".join(
+                f"{item['talla']}: {item['qty']}" for item in projected_curve_rows
+            ) or "-",
+            "rows": dashboard_rows,
+        }
+    )
+    return base
+
+
 def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[str, object]:
+    # VENTAS-TOD-2026.CSV (Z:\BI o seed) tiene datos más actuales que DETALLEV.TXT.
+    # DETALLEV.TXT queda como último recurso si no hay VENTAS disponible.
     bi_ventas = BI_DIR / "VENTAS-TOD-2026.CSV"
-    use_bi = bi_ventas.exists() and bi_ventas.stat().st_size > 0
-    path = bi_ventas if use_bi else (SEED_DETALLEV if SEED_DETALLEV.exists() else (_ventas_docs_file() or SEED_VENTAS_DOCS))
+    seed_ventas = SEED_DIR / "VENTAS-TOD-2026.CSV"
+    if bi_ventas.exists() and bi_ventas.stat().st_size > 0:
+        path = bi_ventas
+        use_bi = True
+    elif seed_ventas.exists() and seed_ventas.stat().st_size > 0:
+        path = seed_ventas
+        use_bi = True
+    elif SEED_DETALLEV.exists() and SEED_DETALLEV.stat().st_size > 0:
+        path = SEED_DETALLEV
+        use_bi = False
+    else:
+        path = _ventas_docs_file() or SEED_VENTAS_DOCS
+        use_bi = False
     base = {
         "available": False,
         "file_name": path.name,
@@ -5961,6 +6211,152 @@ def _build_trazabilidad_lookup(rows: list[dict[str, object]]) -> dict[str, dict[
         bucket["etapa_label"] = ", ".join(f"{item['label']} {item['qty']}" for item in active) if active else "-"
         bucket["etapa_principal"] = str(active[0]["label"]) if active else "-"
     return lookup
+
+
+def _build_facturables_dashboard(
+    venta_despacho_views: dict[str, dict],
+    stock_sections: list[dict],
+) -> dict:
+    stock_lookup: dict[str, dict] = {}
+    for row in stock_sections:
+        art = str(row.get("articulo") or "").strip()
+        if not art:
+            continue
+        total = int(row.get("total") or 0)
+        sizes: dict[int, int] = {}
+        for t in row.get("tallas_items") or []:
+            talla = int(t.get("talla") or 0)
+            qty = int(t.get("cantidad") or 0)
+            if talla and qty > 0:
+                sizes[talla] = qty
+        stock_lookup[art] = {"total": total, "sizes": sizes}
+
+    items: list[dict] = []
+    # Acumula saldo total por talla a nivel artículo para calcular puede_entregar correcto
+    art_talla_saldos: dict[str, dict[int, int]] = {}
+
+    for collection, view in venta_despacho_views.items():
+        if not view.get("available"):
+            continue
+        for cliente in view.get("clientes") or []:
+            for art in cliente.get("articulos") or []:
+                saldo = int(art.get("saldo") or 0)
+                if saldo <= 0:
+                    continue
+                articulo_code = str(art.get("articulo") or "").strip()
+                stock_item = stock_lookup.get(articulo_code, {"total": 0, "sizes": {}})
+                stock_total = stock_item["total"]
+                stock_sizes = stock_item["sizes"]
+
+                if articulo_code not in art_talla_saldos:
+                    art_talla_saldos[articulo_code] = {}
+                for t in art.get("tallas") or []:
+                    talla = int(t.get("talla") or 0)
+                    t_saldo = int(t.get("saldo") or 0)
+                    if talla and t_saldo > 0:
+                        prev = art_talla_saldos[articulo_code].get(talla, 0)
+                        art_talla_saldos[articulo_code][talla] = prev + t_saldo
+
+                # Cruce por talla por cliente (para mostrar cuánto puede recibir si tuviera prioridad)
+                stock_match_qty = 0
+                for t in art.get("tallas") or []:
+                    talla = int(t.get("talla") or 0)
+                    t_saldo = int(t.get("saldo") or 0)
+                    if talla and t_saldo > 0:
+                        stock_match_qty += min(stock_sizes.get(talla, 0), t_saldo)
+
+                if stock_match_qty >= saldo:
+                    stock_status = "Disponible"
+                elif stock_match_qty > 0:
+                    stock_status = "Parcial"
+                elif stock_total > 0:
+                    stock_status = "Sin talla"
+                else:
+                    continue
+
+                items.append({
+                    "collection": collection,
+                    "cliente": cliente.get("cliente") or "",
+                    "rut": cliente.get("rut") or "",
+                    "vendedor": cliente.get("vendedor") or "",
+                    "articulo": articulo_code,
+                    "descripcion": art.get("descripcion") or "",
+                    "saldo": saldo,
+                    "valor_saldo": int(art.get("valor_saldo") or 0),
+                    "stock_bodega": stock_total,
+                    "stock_match_qty": stock_match_qty,
+                    "stock_status": stock_status,
+                })
+
+    articulos_dict: dict[str, dict] = {}
+    for item in items:
+        art = item["articulo"]
+        if art not in articulos_dict:
+            articulos_dict[art] = {
+                "articulo": art,
+                "stock_bodega": item["stock_bodega"],
+                "stock_status": item["stock_status"],
+                "total_saldo": 0,
+                "total_puede_entregar": 0,
+                "collections": set(),
+                "clientes": [],
+            }
+        puede_entregar_cliente = min(item["stock_match_qty"], item["saldo"])
+        articulos_dict[art]["total_saldo"] += item["saldo"]
+        articulos_dict[art]["collections"].add(item["collection"])
+        articulos_dict[art]["clientes"].append({
+            "cliente": item["cliente"],
+            "rut": item["rut"],
+            "vendedor": item["vendedor"],
+            "saldo": item["saldo"],
+            "puede_entregar": puede_entregar_cliente,
+            "collection": item["collection"],
+        })
+
+    for art_code, art_data in articulos_dict.items():
+        stock_sizes = stock_lookup.get(art_code, {}).get("sizes", {})
+        talla_saldos = art_talla_saldos.get(art_code, {})
+
+        # Puede entregar real: descuenta stock compartido entre clientes
+        true_puede_entregar = sum(
+            min(stock_sizes.get(talla, 0), t_saldo)
+            for talla, t_saldo in talla_saldos.items()
+        )
+        art_data["total_puede_entregar"] = true_puede_entregar
+
+        # Tallas: mostrar solo las que tienen entrega posible con cuántas unidades
+        all_tallas = sorted(set(list(stock_sizes.keys()) + list(talla_saldos.keys())))
+        parts = []
+        for t in all_tallas:
+            can_deliver = min(stock_sizes.get(t, 0), talla_saldos.get(t, 0))
+            if can_deliver > 0:
+                parts.append(f"{t}: {can_deliver}")
+        art_data["tallas_label"] = " | ".join(parts) if parts else "—"
+
+        art_data["clientes"].sort(key=lambda x: -x["saldo"])
+        art_data["collections"] = sorted(art_data["collections"])
+
+        if art_data["stock_bodega"] > 0 and true_puede_entregar == 0:
+            art_data["stock_status"] = "Sin talla"
+        elif true_puede_entregar >= art_data["total_saldo"]:
+            art_data["stock_status"] = "Disponible"
+        elif true_puede_entregar > 0:
+            art_data["stock_status"] = "Parcial"
+
+    articulos = sorted(articulos_dict.values(), key=lambda x: -x["total_saldo"])
+    total_unidades = sum(a["total_saldo"] for a in articulos)
+    total_puede_entregar = sum(a["total_puede_entregar"] for a in articulos)
+    clientes_set = {c["rut"] for a in articulos for c in a["clientes"]}
+    all_collections = sorted({c for a in articulos for c in a["collections"]})
+
+    return {
+        "articulos": articulos,
+        "articulos_count": len(articulos),
+        "clientes_count": len(clientes_set),
+        "total_unidades": total_unidades,
+        "total_puede_entregar": total_puede_entregar,
+        "collections": all_collections,
+    }
 
 
 def _load_venta_despacho_dashboard(
@@ -6543,6 +6939,14 @@ def index():
     programas_month = str(request.args.get("programas_month") or "").strip()
     open_modal = str(request.args.get("open_modal") or "").strip()
     pedidos_collection = str(request.args.get("pedidos_collection") or "42").strip().lower()
+    filters_early = {
+        "q": request.args.get("q", "").strip(),
+        "fecha": request.args.get("fecha", "").strip(),
+        "articulo_exact": request.args.get("articulo_exact", "").strip(),
+    }
+    _ck = _index_cache_key(filters_early, pedidos_collection, open_modal, programas_month)
+    if _ck in _index_cache:
+        return _index_cache[_ck]
     if not ASSISTANT_ENABLED:
         assistant_provider = "off"
     filters = {
@@ -6973,7 +7377,8 @@ def index():
         or venta_despacho_dashboard_views[venta_despacho_collection_keys[0]]
     )
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
-    return render_template(
+    inactive_clients_dashboard = _build_inactive_clients_dashboard()
+    _rendered = render_template(
         "index.html",
         rows=rows,
         totals=totals,
@@ -7033,9 +7438,12 @@ def index():
         full_table_temporadas=full_table_temporadas,
         venta_despacho_dashboard=venta_despacho_dashboard,
         venta_despacho_dashboard_views=venta_despacho_dashboard_views,
+        inactive_clients_dashboard=inactive_clients_dashboard,
         ui_state={"open_modal": open_modal, "programas_month": programas_month},
         now=datetime.now(),
     )
+    _index_cache[_ck] = _rendered
+    return _rendered
 
 
 @app.post("/upload-proyeccion")
@@ -7363,6 +7771,7 @@ def upload_refresh_local():
         return redirect(url_for("index"))
     try:
         stats = _refresh_seed_data()
+        _index_cache.clear()
         session.pop("upload_debug", None)
         flash(
             "Seed actualizado. "
@@ -7569,7 +7978,7 @@ if __name__ == "__main__":
     init_db(DB_PATH)
     debug_mode = os.environ.get("ADECOM_DEBUG", "1").strip() == "1"
     app.run(
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=int(os.environ.get("PORT", "5000")),
         debug=debug_mode,
         use_reloader=debug_mode,

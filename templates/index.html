@@ -180,7 +180,7 @@
 
     <section class="dashboard-section-block dashboard-section-block-venta-despacho">
       <header class="dashboard-section-title">
-        <h2>VENTA VS DESPACHO</h2>
+        <h2>VENTA</h2>
       </header>
       <section class="summary dashboard-kpi-row">
         <article class="card-action summary-secondary">
@@ -202,6 +202,16 @@
             data-open-id="openReporteVentaModal"
           >
             <h2>Reporte Venta</h2>
+          </button>
+        </article>
+        <article class="card-action summary-secondary">
+          <button
+            type="button"
+            id="openFacturablesModal"
+            class="summary-open summary-open-centered"
+            data-open-id="openFacturablesModal"
+          >
+            <h2>Clientes inactivos</h2>
           </button>
         </article>
       </section>
@@ -1668,6 +1678,115 @@
       </section>
     </dialog>
     {% set plan = comparativo_summary.plan_comercial %}
+    <dialog id="facturablesModal" class="modal modal-venta-despacho">
+      <div class="modal-head">
+        <div>
+          <h3>Clientes inactivos</h3>
+          <p class="venta-despacho-modal-copy">
+            Clientes con compra en colecciones 40 y 41 que aún no compran la colección nueva T{{ inactive_clients_dashboard.new_collection or "-" }}.
+            {% if inactive_clients_dashboard.source_cutoff_label %}
+            Corte pedidos: {{ inactive_clients_dashboard.source_cutoff_label }}.
+            {% endif %}
+          </p>
+        </div>
+        <button type="button" id="closeFacturablesModal" class="modal-close">Cerrar</button>
+      </div>
+
+      <div class="modal-kpis venta-despacho-kpis">
+        <article>
+          <h4>Clientes</h4>
+          <p>{{ inactive_clients_dashboard.clients_count|miles }}</p>
+          <small>sin compra en T{{ inactive_clients_dashboard.new_collection or "-" }}</small>
+        </article>
+        <article>
+          <h4>Compra 40/41</h4>
+          <p>{{ inactive_clients_dashboard.legacy_units|miles }}</p>
+          <small>unidades históricas compradas</small>
+        </article>
+        <article>
+          <h4>Colección nueva</h4>
+          <p>T{{ inactive_clients_dashboard.new_collection or "-" }}</p>
+          <small>detectada automáticamente desde pedidos</small>
+        </article>
+        <article>
+          <h4>Curva proyectada</h4>
+          <div class="curva-mini-wrap">
+            {% set _lbl = inactive_clients_dashboard.projected_curve_label %}
+            {% if _lbl and _lbl != '-' %}
+            <table class="curva-mini-table">
+              <tr>{% for _p in _lbl.split('|') %}{% set _kv = _p.strip().split(':') %}{% if _kv|length >= 2 %}<th>{{ _kv[0].strip() }}</th>{% endif %}{% endfor %}</tr>
+              <tr>{% for _p in _lbl.split('|') %}{% set _kv = _p.strip().split(':') %}{% if _kv|length >= 2 %}<td>{{ _kv[1].strip() }}</td>{% endif %}{% endfor %}</tr>
+            </table>
+            {% else %}-{% endif %}
+          </div>
+          <small>mezcla sugerida de tallas para reactivar</small>
+        </article>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="bodega-table" id="facturablesTable">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Total 40/41</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for client in inactive_clients_dashboard.rows %}
+            <tr class="facturables-client-row" style="cursor:pointer"
+                data-client='{{ client | tojson }}'>
+              <td><strong>{{ client.cliente }}</strong></td>
+              <td class="num"><strong>{{ client.qty_legacy|miles }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="empty">Sin clientes inactivos detectados con ese criterio.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </dialog>
+
+    <dialog id="facturablesDetalleModal" class="modal modal-top-familia">
+      <div class="modal-head">
+        <div>
+          <h3 id="facturablesDetalleCliente">Cliente</h3>
+          <p class="venta-despacho-modal-copy" id="facturablesDetalleMeta">Detalle comercial</p>
+        </div>
+        <button type="button" id="closeFacturablesDetalleModal" class="modal-close">Cerrar</button>
+      </div>
+      <div class="modal-kpis venta-despacho-kpis facturable-kpis-layout">
+        <article>
+          <h4>Total 40/41</h4>
+          <p id="facturablesDetalleTotal">0</p>
+          <small>unidades compradas</small>
+        </article>
+        <div class="facturable-curvas-stack">
+          <article>
+            <h4>Curva comprada</h4>
+            <div id="facturablesDetalleCurvaComprada" class="curva-mini-wrap">-</div>
+            <small>histórico 40/41</small>
+          </article>
+          <article>
+            <h4>Curva proyectada</h4>
+            <div id="facturablesDetalleCurvaProyectada" class="curva-mini-wrap">-</div>
+            <small>basado en su compra histórica</small>
+          </article>
+        </div>
+      </div>
+      <div class="table-wrap bodega-wrap">
+        <p class="table-hint">Top artículos históricos para volver a ofrecer.</p>
+        <table class="bodega-table bodega-table-compact">
+          <thead>
+            <tr>
+              <th>Artículo</th>
+              <th class="num">Unidades</th>
+            </tr>
+          </thead>
+          <tbody id="facturablesDetalleBody"></tbody>
+        </table>
+      </div>
+    </dialog>
+
     <dialog id="reporteVentaModal" class="modal modal-venta-despacho">
       <div class="modal-head">
         <div>
@@ -2109,6 +2228,7 @@
               </label>
             </div>
           </div>
+          <button type="button" id="printTopArticulos" class="modal-close">Imprimir</button>
           <button type="button" id="closeTopArticulosModal" class="modal-close">Cerrar</button>
         </div>
         <section class="table-wrap bodega-wrap">
@@ -2122,7 +2242,7 @@
               </tr>
             </thead>
             <tbody id="topArticulosBody">
-              {% for item in ventas_top_articulos[:10] %}
+              {% for item in ventas_top_articulos %}
               <tr data-rank="{{ loop.index }}" data-articulo="{{ item.articulo }}" data-total="{{ item.total }}">
                 <td class="num">{{ loop.index }}</td>
                 <td>{{ item.articulo }}</td>
@@ -3173,6 +3293,7 @@
         openVentasTotalModal: "ventasTotalModal",
         openVentaDespachoModal: "ventaDespachoModal",
         openReporteVentaModal: "reporteVentaModal",
+        openFacturablesModal: "facturablesModal",
         openVentasDocsModal: "ventasDocsModal",
         openComparativoClientesModal: "comparativoClientesModal",
         openProyeccionClientesModal: "proyeccionClientesModal",
@@ -3282,6 +3403,69 @@
     })();
 
     (function () {
+      (() => {
+        const m = document.getElementById("facturablesModal");
+        const closeBtn = document.getElementById("closeFacturablesModal");
+        if (closeBtn && m) closeBtn.addEventListener("click", () => m.close());
+
+        const detalleModal = document.getElementById("facturablesDetalleModal");
+        const closeDetalleBtn = document.getElementById("closeFacturablesDetalleModal");
+        if (closeDetalleBtn && detalleModal) closeDetalleBtn.addEventListener("click", () => detalleModal.close());
+
+        const detalleCliente = document.getElementById("facturablesDetalleCliente");
+        const detalleMeta = document.getElementById("facturablesDetalleMeta");
+        const detalleTotal = document.getElementById("facturablesDetalleTotal");
+        const detalleCurvaComprada = document.getElementById("facturablesDetalleCurvaComprada");
+        const detalleCurvaProyectada = document.getElementById("facturablesDetalleCurvaProyectada");
+        const detalleBody = document.getElementById("facturablesDetalleBody");
+
+        function curvaToHTML(label) {
+          if (!label || label === "-") return "-";
+          var pairs = label.split("|").map(function(s){ return s.trim(); }).filter(Boolean);
+          var items = pairs.map(function(p){
+            var m = p.match(/(\d+):\s*(\d+)/);
+            return m ? { talla: m[1], qty: m[2] } : null;
+          }).filter(Boolean);
+          if (!items.length) return label;
+          return '<table class="curva-mini-table">' +
+            '<tr>' + items.map(function(i){ return '<th>' + i.talla + '</th>'; }).join('') + '</tr>' +
+            '<tr>' + items.map(function(i){ return '<td>' + i.qty + '</td>'; }).join('') + '</tr>' +
+            '</table>';
+        }
+
+        const table = document.getElementById("facturablesTable");
+        if (table) {
+          table.addEventListener("click", (e) => {
+            const row = e.target.closest("tr[data-client]");
+            if (!row) return;
+            const client = JSON.parse(row.dataset.client || "{}");
+
+            if (detalleCliente) detalleCliente.textContent = client.cliente || "Cliente";
+            if (detalleMeta) {
+              const parts = [
+                client.rut || "-",
+                client.ciudad || "-",
+                client.vendedor || "-",
+              ];
+              detalleMeta.textContent = parts.join(" · ");
+            }
+            if (detalleTotal) detalleTotal.textContent = String(client.qty_legacy || 0);
+            if (detalleCurvaComprada) detalleCurvaComprada.innerHTML = curvaToHTML(client.size_curve_label);
+            if (detalleCurvaProyectada) detalleCurvaProyectada.innerHTML = curvaToHTML(client.projected_curve_label);
+            if (detalleBody) {
+              const topArticles = Array.isArray(client.top_articles) ? client.top_articles : [];
+              detalleBody.innerHTML = topArticles.map((c) =>
+                "<tr>" +
+                "<td>" + (c.label || "") + "</td>" +
+                "<td class='num'><strong>" + (c.qty || 0) + "</strong></td>" +
+                "</tr>"
+              ).join("") || "<tr><td colspan='2' class='empty'>Sin artículos históricos.</td></tr>";
+            }
+            if (detalleModal) detalleModal.showModal();
+          });
+        }
+      })();
+
       const modal = document.getElementById("ventaDespachoModal");
       const rankingModal = document.getElementById("ventaDespachoRankingModal");
       const closeBtn = document.getElementById("closeVentaDespachoModal");
@@ -4491,7 +4675,9 @@
       const renderTopArticulos = (collectionKey) => {
         const key = String(collectionKey || "42");
         const view = pedidosViews[key] || pedidosViews["42"] || {};
-        const articulos = Array.isArray(view.ventas_top_articulos) ? view.ventas_top_articulos.slice(0, 10) : [];
+        const articulosTodos = Array.isArray(view.ventas_top_articulos) ? view.ventas_top_articulos : [];
+        window._topArticulosAll = articulosTodos;
+        const articulos = articulosTodos.slice(0, 10);
         if (!articulos.length) {
           tableBody.innerHTML = '<tr><td colspan="3" class="empty">Sin articulos con pedidos.</td></tr>';
           return;
@@ -7008,6 +7194,7 @@
       });
     })();
   </script>
+  <script src="/static/js/print_modal.js"></script>
 </body>
 </html>
 

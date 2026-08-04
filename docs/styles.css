@@ -11811,3 +11811,73 @@ input[type="file"],
 .ta-badge-red    { background: #fee2e2; color: #991b1b; }
 .ta-badge-gray   { background: #f1f5f9; color: #475569; }
 
+
+/* Facturables modal */
+.stock-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.stock-badge-green  { background:#dcfce7; color:#166534; }
+.stock-badge-yellow { background:#fef9c3; color:#854d0e; }
+.facturables-row-deuda td { background:#fffbeb; }
+.facturables-deuda-alert { color:#b45309; font-weight:600; }
+
+/* Mini tabla talla/cantidad en curvas del modal de cliente inactivo */
+.curva-mini-wrap { margin: 4px 0; }
+.curva-mini-table {
+  border-collapse: collapse;
+  width: 100%;
+  background: transparent;
+}
+.curva-mini-table tr,
+.curva-mini-table th,
+.curva-mini-table td {
+  background: transparent !important;
+}
+.curva-mini-table th {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 6px 3px;
+  color: #888;
+  border-bottom: 2px solid #d0c8bf;
+  letter-spacing: 0.06em;
+}
+.curva-mini-table td {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  padding: 5px 6px 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #221c16);
+}
+.app-shell .curva-mini-table th { color: #9ca5ba; border-bottom-color: #3a3f4d; }
+.app-shell .curva-mini-table td { color: #f4f7ff; }
+
+/* Curvas apiladas verticalmente en modal de cliente inactivo */
+.facturable-kpis-layout,
+.app-shell .facturable-kpis-layout {
+  grid-template-columns: auto 1fr !important;
+  align-items: start;
+}
+.facturable-curvas-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+@media (max-width: 600px) {
+  .facturable-kpis-layout,
+  .app-shell .facturable-kpis-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Modal principal clientes inactivos: curva proyectada en fila completa */
+#facturablesModal .modal-kpis,
+.app-shell #facturablesModal .modal-kpis {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+#facturablesModal .modal-kpis article:last-child,
+.app-shell #facturablesModal .modal-kpis article:last-child {
+  grid-column: 1 / -1;
+}
+#facturablesModal .curva-mini-table td {
+  font-size: 22px;
+}

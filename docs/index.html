@@ -39,7 +39,7 @@
           <strong>Dashboard ejecutivo</strong>
           <small>Operacion, pedidos y seguimiento</small>
         </div>
-        <span class="top-data-ts" id="dataTimestamp">Datos al 04/08/2026 08:20</span>
+        <span class="top-data-ts" id="dataTimestamp">Datos al 04/08/2026 13:56</span>
       </div>
       <div class="top-nav-actions">
         <div class="top-nav-user">
@@ -99615,7 +99615,15 @@
         </article>
         <article>
           <h4>Curva proyectada</h4>
-          <p style="font-size:18px;line-height:1.25">35: 3 | 36: 4019 | 38: 6340 | 40: 7001 | 42: 6153 | 44: 3615 | 46: 2503</p>
+          <div class="curva-mini-wrap">
+            
+            
+            <table class="curva-mini-table">
+              <tr><th>35</th><th>36</th><th>38</th><th>40</th><th>42</th><th>44</th><th>46</th></tr>
+              <tr><td>3</td><td>4019</td><td>6340</td><td>7001</td><td>6153</td><td>3615</td><td>2503</td></tr>
+            </table>
+            
+          </div>
           <small>mezcla sugerida de tallas para reactivar</small>
         </article>
       </div>
@@ -100213,22 +100221,24 @@
         </div>
         <button type="button" id="closeFacturablesDetalleModal" class="modal-close">Cerrar</button>
       </div>
-      <div class="modal-kpis venta-despacho-kpis">
+      <div class="modal-kpis venta-despacho-kpis facturable-kpis-layout">
         <article>
           <h4>Total 40/41</h4>
           <p id="facturablesDetalleTotal">0</p>
           <small>unidades compradas</small>
         </article>
-        <article>
-          <h4>Curva comprada</h4>
-          <p id="facturablesDetalleCurvaComprada" style="font-size:18px;line-height:1.25">-</p>
-          <small>histórico 40/41</small>
-        </article>
-        <article>
-          <h4>Curva proyectada</h4>
-          <p id="facturablesDetalleCurvaProyectada" style="font-size:18px;line-height:1.25">-</p>
-          <small>basado en su compra histórica</small>
-        </article>
+        <div class="facturable-curvas-stack">
+          <article>
+            <h4>Curva comprada</h4>
+            <div id="facturablesDetalleCurvaComprada" class="curva-mini-wrap">-</div>
+            <small>histórico 40/41</small>
+          </article>
+          <article>
+            <h4>Curva proyectada</h4>
+            <div id="facturablesDetalleCurvaProyectada" class="curva-mini-wrap">-</div>
+            <small>basado en su compra histórica</small>
+          </article>
+        </div>
       </div>
       <div class="table-wrap bodega-wrap">
         <p class="table-hint">Top artículos históricos para volver a ofrecer.</p>
@@ -116414,6 +116424,20 @@
         const detalleCurvaProyectada = document.getElementById("facturablesDetalleCurvaProyectada");
         const detalleBody = document.getElementById("facturablesDetalleBody");
 
+        function curvaToHTML(label) {
+          if (!label || label === "-") return "-";
+          var pairs = label.split("|").map(function(s){ return s.trim(); }).filter(Boolean);
+          var items = pairs.map(function(p){
+            var m = p.match(/(\d+):\s*(\d+)/);
+            return m ? { talla: m[1], qty: m[2] } : null;
+          }).filter(Boolean);
+          if (!items.length) return label;
+          return '<table class="curva-mini-table">' +
+            '<tr>' + items.map(function(i){ return '<th>' + i.talla + '</th>'; }).join('') + '</tr>' +
+            '<tr>' + items.map(function(i){ return '<td>' + i.qty + '</td>'; }).join('') + '</tr>' +
+            '</table>';
+        }
+
         const table = document.getElementById("facturablesTable");
         if (table) {
           table.addEventListener("click", (e) => {
@@ -116431,8 +116455,8 @@
               detalleMeta.textContent = parts.join(" · ");
             }
             if (detalleTotal) detalleTotal.textContent = String(client.qty_legacy || 0);
-            if (detalleCurvaComprada) detalleCurvaComprada.textContent = client.size_curve_label || "-";
-            if (detalleCurvaProyectada) detalleCurvaProyectada.textContent = client.projected_curve_label || "-";
+            if (detalleCurvaComprada) detalleCurvaComprada.innerHTML = curvaToHTML(client.size_curve_label);
+            if (detalleCurvaProyectada) detalleCurvaProyectada.innerHTML = curvaToHTML(client.projected_curve_label);
             if (detalleBody) {
               const topArticles = Array.isArray(client.top_articles) ? client.top_articles : [];
               detalleBody.innerHTML = topArticles.map((c) =>
