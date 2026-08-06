@@ -845,8 +845,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("ADECOM_SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("ADECOM_MAX_UPLOAD_MB", "25")) * 1024 * 1024
 
-from crm import crm as crm_blueprint
-app.register_blueprint(crm_blueprint)
+try:
+    from crm import crm as crm_blueprint
+    app.register_blueprint(crm_blueprint)
+except ModuleNotFoundError:
+    pass
 
 
 @app.get("/seed-media/<path:asset_path>")
