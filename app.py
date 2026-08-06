@@ -242,6 +242,23 @@ def _discover_pedidos_collection_keys(
             code = _collection_code_from_article(row.get("articulo"))
             if code.isdigit() and MIN_DISPLAY_COLLECTION <= int(code) <= MAX_DISPLAY_COLLECTION:
                 keys.add(code)
+    # Also scan PEDIDOS.Txt directly (catches collections not in PEDIDOSXTALLA files)
+    if SEED_PEDIDOS_DETALLE.exists():
+        try:
+            text = SEED_PEDIDOS_DETALLE.read_bytes().decode("latin-1", errors="replace")
+            lines = text.splitlines()
+            if lines:
+                header = [h.strip() for h in lines[0].split(";")]
+                art_idx = header.index("ARTICULO") if "ARTICULO" in header else -1
+                if art_idx >= 0:
+                    for line in lines[1:]:
+                        parts = line.split(";")
+                        if len(parts) > art_idx:
+                            code = _collection_code_from_article(parts[art_idx])
+                            if code.isdigit() and MIN_DISPLAY_COLLECTION <= int(code) <= MAX_DISPLAY_COLLECTION:
+                                keys.add(code)
+        except Exception:
+            pass
     return sorted(keys, key=lambda item: int(item))
 
 
