@@ -99,8 +99,11 @@ def get_conn(db_path: str | Path):
         return connect(str(db_path), row_factory=dict_row)
 
     local_path = Path(db_path)
-    conn = sqlite3.connect(local_path)
+    conn = sqlite3.connect(local_path, timeout=15)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 15000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 
@@ -551,17 +554,26 @@ def init_db(db_path: str | Path) -> None:
                 """,
             )
 
-        # Semilla minima de reglas de negocio para el asistente.
-        default_values = [(k, t, int(p)) for k, t, p in DEFAULT_ASSISTANT_RULES]
-        _executemany(
-            conn,
-            """
-            INSERT INTO assistant_rules (rule_key, rule_text, priority)
-            VALUES (?, ?, ?)
-            ON CONFLICT(rule_key) DO NOTHING
-            """,
-            default_values,
-        )
+        # Evita intentar escribir en assistant_rules en cada request si la semilla ya existe.
+        existing_rules = {
+            str(row[0] or "")
+            for row in _execute(conn, "SELECT rule_key FROM assistant_rules").fetchall()
+        }
+        missing_rules = [
+            (k, t, int(p))
+            for k, t, p in DEFAULT_ASSISTANT_RULES
+            if k not in existing_rules
+        ]
+        if missing_rules:
+            _executemany(
+                conn,
+                """
+                INSERT INTO assistant_rules (rule_key, rule_text, priority)
+                VALUES (?, ?, ?)
+                ON CONFLICT(rule_key) DO NOTHING
+                """,
+                missing_rules,
+            )
     conn.close()
 
 
@@ -1671,11 +1683,19 @@ def replace_inventory_stock_rows(db_path: Path, rows: Iterable[dict]) -> dict:
     inserted = 0
     with conn:
         _execute(conn, "DELETE FROM inventory_stock")
-        values = []
+        dedup: dict[tuple, dict] = {}
         for row in rows_list:
             clean = _inventory_stock_clean_row(row)
             if not clean["articulo"]:
                 continue
+            key = (clean["coleccion"], clean["articulo"], clean["tiro"], clean["bota"], clean["color"])
+            if key in dedup:
+                for col in ("talla_36", "talla_38", "talla_40", "talla_42", "talla_44", "talla_46", "stock"):
+                    dedup[key][col] += clean[col]
+            else:
+                dedup[key] = clean
+        values = []
+        for clean in dedup.values():
             values.append(
                 (
                     clean["coleccion"],
@@ -1697,7 +1717,7 @@ def replace_inventory_stock_rows(db_path: Path, rows: Iterable[dict]) -> dict:
             _executemany(
                 conn,
                 """
-                INSERT INTO inventory_stock (
+                INSERT OR REPLACE INTO inventory_stock (
                     coleccion, articulo, tiro, bota, color,
                     talla_36, talla_38, talla_40, talla_42, talla_44, talla_46,
                     stock, fuente
