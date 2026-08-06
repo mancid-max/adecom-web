@@ -131,6 +131,7 @@ NEW_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_NEW_SECTION", "0").strip() =
 OTHER_SECTION_ENABLED = os.environ.get("ADECOM_ENABLE_OTHER_SECTION", "1").strip() == "1"
 ENABLE_SEED = os.environ.get("ADECOM_ENABLE_SEED", "1").strip() == "1"
 STATIC_EXPORT_MODE = os.environ.get("ADECOM_STATIC_EXPORT", "0").strip() == "1"
+PUBLIC_MODE = os.environ.get("ADECOM_PUBLIC_MODE", "0").strip() == "1"
 PROYECCION_STATE_PATH = BASE_DIR / "data" / "proyeccion_personas.json"
 AREA_WEIGHTS = {
     "CORTE": 600,
@@ -940,6 +941,10 @@ def _guard_portal_routes():
     public_endpoints = {"login", "login_post", "static"}
     if endpoint in public_endpoints:
         return
+
+    if PUBLIC_MODE and not session.get("portal_section"):
+        session["portal_section"] = "main"
+        session["can_upload"] = False
 
     section = _portal_section()
     if not section:
