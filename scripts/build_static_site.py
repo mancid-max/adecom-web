@@ -41,6 +41,7 @@ def _sync_bi_to_seed() -> None:
             ("VENTAS-TOD-2026.CSV", "VENTAS-TOD-2026.CSV"),
             ("TRAZABILIDAD2.CSV", "TRAZABILIDAD_OP.TXT"),
             ("PEDIDOS.CSV", "PEDIDOS.Txt"),
+            ("ARCHIVO_TALLAS.CSV", "PEDIDOSXTALLA.TXT"),
         ]
         for bi_name, seed_name in copies:
             src = BI_DIR / bi_name

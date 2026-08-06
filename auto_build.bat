@@ -26,6 +26,10 @@ if exist "%BI_DIR%\PEDIDOS.CSV" (
     xcopy /Y /Q "%BI_DIR%\PEDIDOS.CSV" "%SEED_DIR%\PEDIDOS.Txt*" >> %LOG% 2>&1
     echo [%date% %time%] Sync: PEDIDOS.CSV >> %LOG%
 )
+if exist "%BI_DIR%\ARCHIVO_TALLAS.CSV" (
+    xcopy /Y /Q "%BI_DIR%\ARCHIVO_TALLAS.CSV" "%SEED_DIR%\PEDIDOSXTALLA.TXT*" >> %LOG% 2>&1
+    echo [%date% %time%] Sync: ARCHIVO_TALLAS.CSV >> %LOG%
+)
 if exist "%ONEDRIVE_INV%" (
     xcopy /Y /Q "%ONEDRIVE_INV%" "%SEED_DIR%\INVENTARIO 01-04 COMPLETO.xlsx*" >> %LOG% 2>&1
     echo [%date% %time%] Sync: INVENTARIO >> %LOG%

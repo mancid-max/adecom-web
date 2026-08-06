@@ -189,10 +189,6 @@ def _seed_pedidos_talla_files() -> list[Path]:
     files: list[Path] = [explicit_by_collection[key] for key in sorted(explicit_by_collection, key=int)]
 
     for path in generic_files:
-        # El archivo generico historicamente corresponde a temporada 42.
-        # Si ya existe PEDIDOSXTALLA 42.TXT, no debemos duplicar esa data.
-        if path.resolve() == SEED_PEDIDOS.resolve() and "42" in explicit_by_collection:
-            continue
         files.append(path)
 
     if not files:
