@@ -5538,11 +5538,14 @@ def _build_inactive_clients_dashboard() -> dict[str, object]:
                 "cliente": cliente,
                 "ciudad": " ".join(str(row.get("CIUDAD") or "").split()) or "-",
                 "vendedor": " ".join(str(row.get("VENDEDOR") or "").split()) or "-",
+                "bloqueo": False,
                 "season_qty": Counter(),
                 "legacy_articles": Counter(),
                 "legacy_sizes": Counter(),
             },
         )
+        if str(row.get("BLOQUEO") or "").strip().upper() == "S":
+            client["bloqueo"] = True
         client["season_qty"][collection] += qty
 
         if collection in {"40", "41"}:
@@ -5628,6 +5631,7 @@ def _build_inactive_clients_dashboard() -> dict[str, object]:
                 "cliente": client["cliente"],
                 "ciudad": client["ciudad"],
                 "vendedor": client["vendedor"],
+                "bloqueo": bool(client.get("bloqueo")),
                 "qty_legacy": qty_legacy,
                 "top_articles": top_articles,
                 "top_articles_label": " | ".join(
@@ -7361,6 +7365,8 @@ def index():
     ]
     if not venta_despacho_collection_keys:
         venta_despacho_collection_keys = ["42", "43"]
+    if os.environ.get("ADECOM_STATIC_EXPORT") == "1" and len(venta_despacho_collection_keys) > 1:
+        venta_despacho_collection_keys = venta_despacho_collection_keys[-1:]
     venta_despacho_view_keys = list(venta_despacho_collection_keys)
     if len(venta_despacho_collection_keys) > 1:
         venta_despacho_view_keys.append("all")
