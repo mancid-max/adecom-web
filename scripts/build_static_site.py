@@ -165,7 +165,12 @@ def _write_docs(main_html: str) -> None:
         (DOCS_DIR / "js").mkdir(exist_ok=True)
         shutil.copy2(js_src, DOCS_DIR / "js" / "print_modal.js")
     (DOCS_DIR / "index.html").write_text(main_html, encoding="utf-8")
-    (DOCS_DIR / "404.html").write_text(main_html, encoding="utf-8")
+    (DOCS_DIR / "404.html").write_text(
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        '<meta http-equiv="refresh" content="0;url=/" />'
+        '</head><body></body></html>',
+        encoding="utf-8",
+    )
     (DOCS_DIR / ".nojekyll").write_text("", encoding="utf-8")
 
 
