@@ -7370,8 +7370,6 @@ def index():
     ]
     if not venta_despacho_collection_keys:
         venta_despacho_collection_keys = ["42", "43"]
-    if os.environ.get("ADECOM_STATIC_EXPORT") == "1" and len(venta_despacho_collection_keys) > 1:
-        venta_despacho_collection_keys = venta_despacho_collection_keys[-1:]
     venta_despacho_view_keys = list(venta_despacho_collection_keys)
     if len(venta_despacho_collection_keys) > 1:
         venta_despacho_view_keys.append("all")
