@@ -5505,6 +5505,204 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
     return entries
 
 
+def _build_cruce_colecciones() -> dict:
+    """Cruce de clientes por colección (cualquier par). Solo PEDIDOS.Txt (seed)."""
+    path = SEED_PEDIDOS_DETALLE
+    empty: dict = {"available": False, "all_cols": [], "clientes": {}}
+    if not path.exists() or path.stat().st_size <= 0:
+        return empty
+
+    def _norm(r: str) -> str:
+        return str(r or "").strip().replace(".", "").replace("-", "").upper().lstrip("0")
+
+    def _pf(s: str):
+        s = str(s or "").strip()[:10]
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(s, fmt)
+            except ValueError:
+                pass
+        return None
+
+    def _vc(v: str) -> str:
+        v = str(v or "").strip()
+        return v.split(" - ", 1)[1].strip() if " - " in v else v
+
+    all_cols: set = set()
+    clientes: dict = {}
+    art_cat: dict = {}  # articulo -> {cat, sub}
+
+    text = _pedidos_detalle_decode(path.read_bytes())
+    for row in _pedidos_detalle_rows(text):
+        rut = _norm(row.get("RUT") or "")
+        if not rut or rut in ("0000000019", ""):
+            continue
+        col = str(row.get("COLECCION") or "").strip()
+        if not col:
+            continue
+        all_cols.add(col)
+
+        nombre = str(row.get("CLIENTE") or "").strip()
+        ciudad = str(row.get("CIUDAD") or "").strip()
+        vendedor = _vc(row.get("VENDEDOR") or "")
+        fecha_dt = _pf(row.get("FECHA") or "")
+        fecha_str = fecha_dt.strftime("%d/%m/%Y") if fecha_dt else str(row.get("FECHA") or "").strip()
+        try:
+            sol = int(str(row.get("SOLICITADO") or 0).strip() or 0)
+            desp = int(str(row.get("DESPACHADO") or 0).strip() or 0)
+        except (ValueError, AttributeError):
+            sol = desp = 0
+
+        articulo = str(row.get("ARTICULO") or "").strip()
+        categ = str(row.get("Categ") or "").strip()
+        if articulo and categ and articulo not in art_cat:
+            art_cat[articulo] = {"cat": categ, "sub": str(row.get("SubCateg") or "").strip(), "desc": str(row.get("DESCRIPCION") or "").strip()}
+
+        if rut not in clientes:
+            clientes[rut] = {"r": nombre, "c": ciudad, "v": vendedor, "cols": {}}
+        rec = clientes[rut]
+        if not rec["r"] and nombre:
+            rec["r"] = nombre
+
+        if col not in rec["cols"]:
+            rec["cols"][col] = {"f": fecha_str, "s": 0, "d": 0, "cats": {}, "arts": {}}
+        rec["cols"][col]["s"] += sol
+        rec["cols"][col]["d"] += desp
+        if categ:
+            cmap = rec["cols"][col]["cats"]
+            if categ not in cmap:
+                cmap[categ] = 0
+            cmap[categ] += sol
+        if articulo:
+            amap = rec["cols"][col]["arts"]
+            if articulo not in amap:
+                amap[articulo] = {"desc": str(row.get("DESCRIPCION") or "").strip(), "s": 0, "d": 0}
+            amap[articulo]["s"] += sol
+            amap[articulo]["d"] += desp
+
+    # Enriquecer con contacto desde CLIENTE.Txt
+    cliente_txt = SEED_DIR / "CLIENTE.Txt"
+    contacts: dict = {}
+    if cliente_txt.exists():
+        try:
+            ct = cliente_txt.read_bytes().decode("cp1252", errors="replace")
+            for ln in ct.splitlines()[1:]:
+                if not ln.strip():
+                    continue
+                pp = [p.strip() for p in ln.split(";")]
+                if len(pp) < 7:
+                    continue
+                rk = _norm(pp[6])
+                if not rk:
+                    continue
+                tel = pp[5] if len(pp) > 5 else ""
+                if not tel and len(pp) > 20:
+                    tel = pp[20]
+                email = pp[10] if len(pp) > 10 else ""
+                if not email and len(pp) > 21:
+                    email = pp[21]
+                contacts[rk] = {"tel": tel.strip(), "email": email.strip().lower()}
+        except Exception:
+            pass
+    for rut_k, rec in clientes.items():
+        c = contacts.get(rut_k, {})
+        rec["tel"] = c.get("tel", "")
+        rec["email"] = c.get("email", "")
+
+    # Disponibilidad desde PEDIDOSXTALLA.TXT (stock en bodega + corte en producción)
+    art_avail: dict = {}
+    if SEED_PEDIDOS.exists():
+        try:
+            pt_text = SEED_PEDIDOS.read_bytes().decode("cp1252", errors="replace")
+            for ln in pt_text.splitlines():
+                ls = ln.strip()
+                if not ls or ls == ";":
+                    continue
+                pp = [p.strip() for p in ln.split(";")]
+                if len(pp) < 3:
+                    continue
+                art_a = pp[0].strip()
+                row_t = pp[2].strip().lower()
+                if not art_a or row_t not in ("ventas", "saldo", "stock", "corte"):
+                    continue
+                total_val = 0
+                for pv in reversed(pp):
+                    sv = pv.strip().replace(" ", "")
+                    if sv:
+                        try:
+                            total_val = int(sv)
+                        except ValueError:
+                            pass
+                        break
+                if art_a not in art_avail:
+                    art_avail[art_a] = {"ventas": 0, "saldo": 0, "stock": 0, "corte": 0}
+                if row_t in art_avail[art_a]:
+                    art_avail[art_a][row_t] = max(0, total_val)
+        except Exception:
+            pass
+
+    cat_avail: dict = {}
+    for art_a, av in art_avail.items():
+        cat = art_cat.get(art_a, {}).get("cat", "")
+        if not cat:
+            continue
+        if cat not in cat_avail:
+            cat_avail[cat] = {"stock": 0, "corte": 0, "saldo": 0}
+        cat_avail[cat]["stock"] += av.get("stock", 0)
+        cat_avail[cat]["corte"] += av.get("corte", 0)
+        cat_avail[cat]["saldo"] += av.get("saldo", 0)
+
+    # Lavandería + Terminación por artículo desde TRAZABILIDAD (BI > seed fallback)
+    # Solo filas PRODUCCION NORMAL; col 27=Lavander proceso, col 31=Terminacion proceso
+    # (col 28 y 32 son días tardados, no unidades — igual que Tabla Completa usa _tp(27) y _tp(31))
+    art_stages: dict = {}
+    _bi_traz = BI_DIR / "TRAZABILIDAD2.CSV"
+    _traz_path = _bi_traz if (_bi_traz.exists() and _bi_traz.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
+    if _traz_path.exists():
+        try:
+            tr_text = _traz_path.read_bytes().decode("cp1252", errors="replace")
+            for ln in tr_text.splitlines()[1:]:
+                if not ln.strip():
+                    continue
+                pp = ln.split(";")
+                if len(pp) < 32:
+                    continue
+                tipo_s = pp[1].strip().upper() if len(pp) > 1 else ""
+                if tipo_s != "PRODUCCION NORMAL":
+                    continue
+                art_s = pp[4].strip()
+                if not art_s:
+                    continue
+                try:
+                    lav = int((pp[27] or "0").strip() or "0")
+                    term = int((pp[31] or "0").strip() or "0")
+                except (ValueError, AttributeError):
+                    lav = term = 0
+                if art_s not in art_stages:
+                    art_stages[art_s] = {"lav": 0, "term": 0}
+                if lav > 0:
+                    art_stages[art_s]["lav"] += lav
+                if term > 0:
+                    art_stages[art_s]["term"] += term
+        except Exception:
+            pass
+
+    # Solo mostrar artículos con stock relevante en lavandería o terminación
+    art_stages = {k: v for k, v in art_stages.items() if v["lav"] >= 50 or v["term"] >= 50}
+
+    for art_s in art_stages:
+        art_stages[art_s]["desc"] = art_cat.get(art_s, {}).get("desc", "")
+
+    cols_sorted = sorted(all_cols, key=lambda x: int(x) if x.isdigit() else x)
+    return {
+        "available": bool(clientes),
+        "all_cols": cols_sorted,
+        "clientes": clientes,
+        "cat_avail": cat_avail,
+        "art_stages": art_stages,
+    }
+
+
 def _build_inactive_clients_dashboard() -> dict[str, object]:
     path = SEED_PEDIDOS_DETALLE
     base = {
@@ -7403,6 +7601,7 @@ def index():
     )
     inventory_manage_enabled = _can_upload() and _portal_section() == "web"
     inactive_clients_dashboard = _build_inactive_clients_dashboard()
+    cruce_cols = _build_cruce_colecciones()
     _rendered = render_template(
         "index.html",
         rows=rows,
@@ -7464,6 +7663,7 @@ def index():
         venta_despacho_dashboard=venta_despacho_dashboard,
         venta_despacho_dashboard_views=venta_despacho_dashboard_views,
         inactive_clients_dashboard=inactive_clients_dashboard,
+        cruce_cols=cruce_cols,
         ui_state={"open_modal": open_modal, "programas_month": programas_month},
         now=datetime.now(),
     )

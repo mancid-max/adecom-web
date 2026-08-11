@@ -1682,67 +1682,527 @@
       <div class="modal-head">
         <div>
           <h3>Clientes inactivos</h3>
-          <p class="venta-despacho-modal-copy">
-            Clientes con compra en colecciones 40 y 41 que aún no compran la colección nueva T{{ inactive_clients_dashboard.new_collection or "-" }}.
-            {% if inactive_clients_dashboard.source_cutoff_label %}
-            Corte pedidos: {{ inactive_clients_dashboard.source_cutoff_label }}.
-            {% endif %}
-          </p>
+          <p class="venta-despacho-modal-copy" id="icModalSubtitle">Seguimiento comercial por colección</p>
         </div>
         <button type="button" id="closeFacturablesModal" class="modal-close">Cerrar</button>
       </div>
 
+      <div class="ic-selector-row">
+        <div class="ic-selector-group">
+          <label class="ic-selector-label">Colección base</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <select id="icColA" class="ic-select"></select>
+            <span style="font-size:11px;color:#9ca3af;font-weight:600">+</span>
+            <select id="icColA2" class="ic-select" title="Segunda base (opcional)">
+              <option value="">—</option>
+            </select>
+          </div>
+        </div>
+        <div class="ic-selector-arrow">→</div>
+        <div class="ic-selector-group">
+          <label class="ic-selector-label">Comparar con</label>
+          <select id="icColB" class="ic-select"></select>
+        </div>
+      </div>
+
       <div class="modal-kpis venta-despacho-kpis">
         <article>
-          <h4>Clientes</h4>
-          <p>{{ inactive_clients_dashboard.clients_count|miles }}</p>
-          <small>sin compra en T{{ inactive_clients_dashboard.new_collection or "-" }}</small>
+          <h4 id="icKpiLabelA">Colección base</h4>
+          <p id="icTot">—</p>
+          <small id="icSubA">clientes</small>
         </article>
         <article>
-          <h4>Compra 40/41</h4>
-          <p>{{ inactive_clients_dashboard.legacy_units|miles }}</p>
-          <small>unidades históricas compradas</small>
+          <h4 id="icKpiLabelAt">Ya compraron</h4>
+          <p id="icAt" style="color:#10b981">—</p>
+          <small id="icAtPct"></small>
         </article>
-        <article>
-          <h4>Colección nueva</h4>
-          <p>T{{ inactive_clients_dashboard.new_collection or "-" }}</p>
-          <small>detectada automáticamente desde pedidos</small>
+        <article id="icPendientesCard" style="cursor:pointer" title="Ver lista de pendientes">
+          <h4>Pendientes</h4>
+          <p id="icNo" style="color:#f59e0b">—</p>
+          <small>sin compra aún</small>
         </article>
-        <article>
-          <h4>Curva proyectada</h4>
-          <div class="curva-mini-wrap">
-            {% set _lbl = inactive_clients_dashboard.projected_curve_label %}
-            {% if _lbl and _lbl != '-' %}
-            <table class="curva-mini-table">
-              <tr>{% for _p in _lbl.split('|') %}{% set _kv = _p.strip().split(':') %}{% if _kv|length >= 2 %}<th>{{ _kv[0].strip() }}</th>{% endif %}{% endfor %}</tr>
-              <tr>{% for _p in _lbl.split('|') %}{% set _kv = _p.strip().split(':') %}{% if _kv|length >= 2 %}<td>{{ _kv[1].strip() }}</td>{% endif %}{% endfor %}</tr>
-            </table>
-            {% else %}-{% endif %}
-          </div>
-          <small>mezcla sugerida de tallas para reactivar</small>
+        <article id="icNuevosCard" style="cursor:pointer" title="Ver lista de nuevos">
+          <h4>Nuevos</h4>
+          <p id="icNew">—</p>
+          <small id="icSubNew">no estaban en base</small>
         </article>
       </div>
 
-      <div style="overflow-x:auto">
-        <table class="bodega-table" id="facturablesTable">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Total 40/41</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for client in inactive_clients_dashboard.rows %}
-            <tr class="facturables-client-row" style="cursor:pointer"
-                data-client='{{ client | tojson }}'>
-              <td><strong>{{ client.cliente }}</strong></td>
-              <td class="num"><strong>{{ client.qty_legacy|miles }}</strong></td>
-            </tr>
-            {% else %}
-            <tr><td colspan="2" class="empty">Sin clientes inactivos detectados con ese criterio.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:12px 16px 16px;gap:12px">
+        <canvas id="icDonut" width="200" height="160" style="cursor:pointer;display:block"></canvas>
+        <div id="icLegend" class="inact-legend" style="justify-content:center"></div>
+        <div id="icVendResumen" style="font-size:11px;color:#9ca3af;text-align:center;max-width:600px;line-height:1.6"></div>
+      </div>
+
+
+      <script>
+      (function() {
+        var D = {{ cruce_cols | tojson }};
+        if (!D.available) return;
+        var ALL_COLS = D.all_cols || [];
+        var CLIENTES = D.clientes || {};
+        var selA  = document.getElementById('icColA');
+        var selA2 = document.getElementById('icColA2');
+        var selB  = document.getElementById('icColB');
+        ALL_COLS.forEach(function(c) {
+          selA.appendChild(new Option('T' + c, c));
+          selA2.appendChild(new Option('T' + c, c));
+          selB.appendChild(new Option('T' + c, c));
+        });
+        if (ALL_COLS.length >= 2) {
+          selA.value = ALL_COLS[0];
+          selB.value = ALL_COLS[ALL_COLS.length - 1];
+        }
+        var curGroup = null;
+        var _at = [], _no_at = [], _nuevos = [], _vend = {};
+        var _segs = [];
+        var CAT_AVAIL = D.cat_avail || {};
+        var ART_STAGES = D.art_stages || {};
+        var EXCL_KEY = 'ic_excl_v1';
+        var _excluded = new Set(JSON.parse(localStorage.getItem(EXCL_KEY) || '[]'));
+
+        function icRecompute() {
+          var colA = selA.value, colA2 = selA2.value, colB = selB.value;
+          var inA = {}, inB = {};
+          // inA: unión de colA y colA2 (si está seleccionada)
+          Object.keys(CLIENTES).forEach(function(rut) {
+            var cl = CLIENTES[rut];
+            if (cl.cols[colA])                    inA[rut] = cl;
+            if (colA2 && cl.cols[colA2])          inA[rut] = cl;
+            if (cl.cols[colB])                    inB[rut] = cl;
+          });
+          _at = []; _no_at = []; _nuevos = []; _vend = {};
+          Object.keys(inA).forEach(function(rut) {
+            var cl = inA[rut];
+            // Para los datos de base (fA, sA): preferir la colección con mayor sol
+            var dA1 = cl.cols[colA]  || null;
+            var dA2 = colA2 ? (cl.cols[colA2] || null) : null;
+            var dA  = (dA1 && dA2) ? (dA1.s >= dA2.s ? dA1 : dA2) : (dA1 || dA2);
+            var dB  = inB[rut] ? cl.cols[colB] : null;
+            var vk  = cl.v || '(sin vendedor)';
+            if (!_vend[vk]) _vend[vk] = {at:0, no:0};
+            if (dB) { _at.push({id:rut, r:cl.r, c:cl.c, v:cl.v, fA:dA.f, sA:dA.s, fB:dB.f, sB:dB.s, tel:cl.tel||'', email:cl.email||''}); _vend[vk].at++; }
+            else if (!_excluded.has(rut)) { _no_at.push({id:rut, r:cl.r, c:cl.c, v:cl.v, fA:dA.f, sA:dA.s, tel:cl.tel||'', email:cl.email||'', cats_a:dA.cats||{}, arts_a:dA.arts||{}}); _vend[vk].no++; }
+          });
+          Object.keys(inB).forEach(function(rut) {
+            if (!inA[rut]) {
+              var cl = inB[rut], dB = cl.cols[colB];
+              _nuevos.push({r:cl.r, c:cl.c, v:cl.v, fB:dB.f, sB:dB.s, tel:cl.tel||'', email:cl.email||''});
+            }
+          });
+          _at.sort(function(a,b){return b.sB-a.sB;});
+          _no_at.sort(function(a,b){return b.sA-a.sA;});
+          _nuevos.sort(function(a,b){return b.sB-a.sB;});
+          var tot = Object.keys(inA).length;
+          var pct = tot ? (_at.length/tot*100).toFixed(1) : '0.0';
+          var baseLabel = 'T' + colA + (colA2 ? '+T' + colA2 : '');
+          document.getElementById('icTot').textContent = tot;
+          document.getElementById('icAt').textContent  = _at.length;
+          document.getElementById('icNo').textContent  = _no_at.length;
+          document.getElementById('icNew').textContent = _nuevos.length;
+          document.getElementById('icAtPct').textContent = pct + '% del total';
+          document.getElementById('icKpiLabelA').textContent  = 'CLIENTES ' + baseLabel;
+          document.getElementById('icKpiLabelAt').textContent = 'YA COMPRARON T' + colB;
+          document.getElementById('icSubA').textContent    = 'compraron en ' + baseLabel;
+          document.getElementById('icSubNew').textContent  = 'no estaban en ' + baseLabel;
+          document.getElementById('icModalSubtitle').textContent = baseLabel + ' → T' + colB + ' · Seguimiento comercial';
+          icDrawDonut(_at.length, _no_at.length, colB);
+          icDrawBars();
+          if (curGroup) icSelectGroup(curGroup);
+        }
+
+        /* ── DONUT ──────────────────────────────────────── */
+        var cv = document.getElementById('icDonut');
+        var ctx = cv.getContext('2d');
+        var W=200, H=160, cxd=100, cyd=80, R=65, ri=40;
+
+        function icDrawDonut(nAt, nNo, colB) {
+          _segs = [
+            {val:nAt, color:'#10b981', g:'at',    lbl:'Ya compraron T'+colB},
+            {val:nNo, color:'#f59e0b', g:'no_at', lbl:'Pendientes T'+colB}
+          ];
+          var legEl = document.getElementById('icLegend');
+          legEl.innerHTML = '';
+          var legItems = _segs.slice();
+          if (_nuevos.length) legItems.push({val:_nuevos.length, color:'#6366f1', g:'nuevos', lbl:'Nuevos T'+colB});
+          legItems.forEach(function(x) {
+            var div = document.createElement('div');
+            div.className = 'inact-leg-item'; div.dataset.g = x.g;
+            div.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:20px;border:1px solid '+x.color+'50;background:'+x.color+'12;transition:background .15s';
+            div.innerHTML = '<span style="width:9px;height:9px;border-radius:50%;background:'+x.color+'"></span>'
+              +'<span>'+x.lbl+'</span>'
+              +'<strong style="color:'+x.color+'">'+x.val+'</strong>';
+            div.addEventListener('click', function(){ icSelectGroup(x.g); });
+            legEl.appendChild(div);
+          });
+          _drawDonut(null);
+          icDrawVendResumen();
+        }
+
+        function _drawDonut(hl) {
+          ctx.clearRect(0,0,W,H);
+          var tot = _segs.reduce(function(a,s){return a+s.val;},0);
+          if (!tot) return;
+          var ang = -Math.PI/2;
+          _segs.forEach(function(s){
+            var sw=(s.val/tot)*Math.PI*2, ishl=(s.g===hl);
+            ctx.beginPath(); ctx.moveTo(cxd,cyd);
+            ctx.arc(cxd,cyd,ishl?R+5:R,ang,ang+sw); ctx.closePath();
+            ctx.fillStyle = s.color+(ishl?'':'bb'); ctx.fill();
+            ctx.beginPath(); ctx.arc(cxd,cyd,ri,0,Math.PI*2);
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-bg-surface')||'#fff';
+            ctx.fill(); ang+=sw;
+          });
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text')||'#111';
+          ctx.font='bold 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+          var hs = _segs.find(function(s){return s.g===hl;});
+          ctx.fillText(hs?hs.val:tot, cxd, cyd-7);
+          ctx.font='10px system-ui'; ctx.fillStyle='#7a8aaa';
+          ctx.fillText(hs?hs.lbl:'Total', cxd, cyd+9);
+        }
+
+        cv.addEventListener('click', function(e) {
+          var rc=cv.getBoundingClientRect(), mx=e.clientX-rc.left, my=e.clientY-rc.top;
+          var dx=mx-cxd, dy=my-cyd, dist=Math.sqrt(dx*dx+dy*dy);
+          if(dist<ri||dist>R+8) return;
+          var ang=Math.atan2(dy,dx); if(ang<-Math.PI/2) ang+=Math.PI*2;
+          var tot=_segs.reduce(function(a,s){return a+s.val;},0), a=-Math.PI/2;
+          for(var i=0;i<_segs.length;i++){
+            var sw=(_segs[i].val/tot)*Math.PI*2;
+            if(ang>=a&&ang<a+sw){icSelectGroup(_segs[i].g);return;}
+            a+=sw;
+          }
+        });
+
+        /* ── RESUMEN VENDEDOR (texto compacto) ──────────── */
+        function icDrawBars() { icDrawVendResumen(); }
+        function icDrawVendResumen() {
+          var el = document.getElementById('icVendResumen');
+          if (!el) return;
+          var entries = Object.entries(_vend).sort(function(a,b){return (b[1].at+b[1].no)-(a[1].at+a[1].no);});
+          if (!entries.length) { el.innerHTML=''; return; }
+          var parts = entries.slice(0,8).map(function(e){
+            var n=e[0].split(' ')[0], d=e[1];
+            return '<span style="white-space:nowrap"><span style="color:#374151;font-weight:600">'+n+'</span> '
+              +'<span style="color:#10b981">'+d.at+'↑</span>'
+              +'<span style="color:#d1d5db"> / </span>'
+              +'<span style="color:#f59e0b">'+d.no+'⏳</span></span>';
+          });
+          if (entries.length > 8) parts.push('<span style="color:#d1d5db">+' + (entries.length-8) + ' más</span>');
+          el.innerHTML = '<span style="font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;font-size:10px">Por vendedor · </span>' + parts.join('<span style="color:#e5e7eb"> &nbsp;·&nbsp; </span>');
+        }
+
+        /* ── DETALLE ──────────────────────────────────────── */
+        function icSelectGroup(g) {
+          curGroup = g;
+          var colA=selA.value, colB=selB.value;
+          _drawDonut(g);
+          document.querySelectorAll('.inact-leg-item').forEach(function(el){
+            el.style.fontWeight=(el.dataset.g===g)?'700':'400';
+            el.style.background=(el.dataset.g===g)?'rgba(128,128,128,.1)':'';
+          });
+          var data, title;
+          if (g==='at') {
+            data=_at; title='Compraron T'+colA+' y T'+colB+' — '+_at.length+' clientes';
+            document.getElementById('icTh3').textContent='Fecha T'+colA;
+            document.getElementById('icTh4').textContent='Sol. T'+colA;
+            document.getElementById('icTh5').textContent='Fecha T'+colB;
+            document.getElementById('icTh6').textContent='Sol. T'+colB;
+          } else if (g==='no_at') {
+            data=_no_at; title='Compraron T'+colA+' pero NO T'+colB+' — '+_no_at.length+' clientes';
+            document.getElementById('icTh3').textContent='Fecha T'+colA;
+            document.getElementById('icTh4').textContent='Sol. T'+colA;
+            document.getElementById('icTh5').textContent='Estado';
+            document.getElementById('icTh6').textContent='';
+          } else {
+            data=_nuevos; title='Nuevos en T'+colB+' (no en T'+colA+') — '+_nuevos.length+' clientes';
+            document.getElementById('icTh3').textContent='Fecha T'+colB;
+            document.getElementById('icTh4').textContent='Sol. T'+colB;
+            document.getElementById('icTh5').textContent='';
+            document.getElementById('icTh6').textContent='';
+          }
+          document.getElementById('icDetailTitle').textContent=title;
+
+          var projEl = document.getElementById('icProjSummary');
+          if (g === 'no_at') {
+            projEl.style.display = 'flex';
+            var projTotals = {};
+            _no_at.forEach(function(r) {
+              Object.keys(r.cats_a || {}).forEach(function(cat) {
+                if (!projTotals[cat]) projTotals[cat] = 0;
+                projTotals[cat] += r.cats_a[cat];
+              });
+            });
+            var projEntries = Object.entries(projTotals).filter(function(e){return e[0].indexOf('JEANS')!==-1;}).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+            var projHtml = '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;width:100%;margin-bottom:2px">Proyección para '+_no_at.length+' pendientes</div>';
+            projEntries.forEach(function(e) {
+              var cat=e[0], proj=e[1];
+              var av = CAT_AVAIL[cat] || {stock:0, corte:0};
+              var disp = av.stock + av.corte;
+              var col3 = disp >= proj ? '#10b981' : disp > 0 ? '#f59e0b' : '#ef4444';
+              var avTxt = disp > 0 ? (av.stock.toLocaleString('es-CL')+' bod + '+av.corte.toLocaleString('es-CL')+' prod') : 'sin stock';
+              projHtml += '<div style="font-size:11px;background:'+col3+'12;border:1px solid '+col3+'40;border-radius:5px;padding:3px 9px;line-height:1.5">'
+                +'<strong style="color:'+col3+'">'+cat+'</strong> '
+                +'<span>~'+proj.toLocaleString('es-CL')+'u</span> '
+                +'<span style="color:#9ca3af;font-size:10px">· '+avTxt+'</span>'
+                +'</div>';
+            });
+            projEl.innerHTML = projHtml;
+          } else {
+            projEl.style.display = 'none';
+          }
+
+          renderTable(data, g);
+          _updateRestoreHint();
+          document.getElementById('icListModal').showModal();
+        }
+
+        function renderTable(data, group) {
+          var colA = selA.value;
+          var colB = selB.value;
+          var tb=document.getElementById('icDetailTbody');
+          if (!data.length){
+            tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888;padding:16px">Sin registros</td></tr>';
+            return;
+          }
+          tb.innerHTML=data.map(function(r,idx){
+            var f1,s1,c5='',c6='';
+            if(group==='at'){
+              f1=r.fA; s1=r.sA;
+              c5='<span style="color:#10b981">'+r.fB+'</span>';
+              c6='<span style="color:#10b981">'+r.sB.toLocaleString('es-CL')+'</span>';
+            } else if(group==='no_at'){
+              f1=r.fA; s1=r.sA;
+              c5='<span style="color:#f59e0b;font-size:11px">Sin pedido</span>';
+            } else {
+              f1=r.fB; s1=r.sB;
+            }
+            var contactHtml = '';
+            if (r.tel) contactHtml += '<a href="tel:'+r.tel+'" style="font-size:10px;color:#6366f1;text-decoration:none;margin-right:8px" title="Llamar">📞 '+r.tel+'</a>';
+            if (r.email) {
+              if (group === 'no_at') {
+                var landingUrl = 'https://mohicanojeans.netlify.app/cole-' + colB;
+                var sub = encodeURIComponent('Nueva Colección T'+colB+' — Mohicano Jeans');
+                var bod = encodeURIComponent('Hola,\n\nTe invitamos a conocer nuestra nueva colección T'+colB+'.\n\nRevísala en:\n'+landingUrl+'\n\nSaludos,\n'+r.v.split(' ')[0]);
+                contactHtml += '<a href="mailto:'+r.email+'?subject='+sub+'&body='+bod+'" style="font-size:10px;color:#2563eb;text-decoration:none" title="Enviar correo">✉ '+r.email+'</a>';
+              } else {
+                contactHtml += '<span style="font-size:10px;color:#6b7280">✉ '+r.email+'</span>';
+              }
+            }
+            // Chips de categoría JEANS para pendientes
+            var catsHtml = '';
+            if (group === 'no_at') {
+              var catEntries = Object.entries(r.cats_a || {}).filter(function(e){return e[0].indexOf('JEANS')!==-1;}).sort(function(a,b){return b[1]-a[1];}).slice(0,3);
+              if (catEntries.length) {
+                catsHtml = catEntries.map(function(e) {
+                  var cn=e[0], cv2=e[1];
+                  var av = CAT_AVAIL[cn] || {stock:0, corte:0};
+                  var disp = av.stock + av.corte;
+                  var cl2 = disp >= cv2 ? '#10b981' : disp > 0 ? '#f59e0b' : '#ef4444';
+                  var short = cn.split(' ').slice(0,2).join(' ');
+                  return '<span style="font-size:9px;background:'+cl2+'15;border:1px solid '+cl2+'50;border-radius:3px;padding:0 5px;color:'+cl2+';white-space:nowrap">'
+                    +short+' '+cv2.toLocaleString('es-CL')+'u'
+                    +(disp > 0 ? ' · '+(disp >= cv2 ? '✓' : '~')+disp.toLocaleString('es-CL')+' disp' : ' · sin stock')
+                    +'</span>';
+                }).join('');
+              }
+            }
+            var rowAttrs = group === 'no_at' ? ' style="cursor:pointer" data-ic-idx="'+idx+'"' : '';
+            var delBtn = group === 'no_at'
+              ? '<button data-del-id="'+r.id+'" style="float:right;background:none;border:1px solid #fecaca;color:#ef4444;border-radius:5px;font-size:10px;padding:2px 7px;cursor:pointer;line-height:1;white-space:nowrap;margin-left:8px" title="Ocultar cliente">✕</button>'
+              : '';
+            var mainRow = '<tr'+rowAttrs+'>'
+              +'<td>'+delBtn+'<strong>'+r.r+'</strong>'
+                +'<br><span style="font-size:10px;color:#aaa">'+r.c+'</span>'
+                +(contactHtml ? '<br><span style="line-height:1.8">'+contactHtml+'</span>' : '')
+                +(catsHtml ? '<br><span style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+catsHtml+'</span>' : '')
+              +'</td>'
+              +'<td><small>'+r.v.split(' ')[0]+'</small></td>'
+              +'<td class="num">'+f1+'</td>'
+              +'<td class="num">'+s1.toLocaleString('es-CL')+'</td>'
+              +'<td class="num">'+c5+'</td>'
+              +'<td class="num">'+c6+'</td>'
+              +'</tr>';
+
+            return mainRow;
+          }).join('');
+        }
+
+        function _updateRestoreHint() {
+          var hint = document.getElementById('icRestoreHint');
+          var countEl = document.getElementById('icRestoreCount');
+          if (!hint) return;
+          if (_excluded.size > 0) {
+            hint.style.display = 'block';
+            if (countEl) countEl.textContent = _excluded.size;
+          } else {
+            hint.style.display = 'none';
+          }
+        }
+        document.addEventListener('click', function(e) {
+          // Eliminar cliente
+          var delBtn = e.target.closest('[data-del-id]');
+          if (delBtn) {
+            e.stopPropagation();
+            var id = delBtn.getAttribute('data-del-id');
+            var tr = delBtn.closest('tr');
+            var nombre = tr ? tr.querySelector('strong') : null;
+            var label = nombre ? nombre.textContent.trim() : 'este cliente';
+            var dlg = document.getElementById('icConfirmDialog');
+            document.getElementById('icConfirmMsg').textContent = '¿Ocultar a ' + label + ' de esta lista?';
+            dlg.showModal();
+            document.getElementById('icConfirmCancel').onclick = function(){ dlg.close(); };
+            document.getElementById('icConfirmOk').onclick = function(){
+              dlg.close();
+              if (tr) { tr.style.transition='opacity .2s'; tr.style.opacity='0'; }
+              _excluded.add(id);
+              localStorage.setItem(EXCL_KEY, JSON.stringify(Array.from(_excluded)));
+              _no_at = _no_at.filter(function(r){ return r.id !== id; });
+              document.getElementById('icNo').textContent = _no_at.length;
+              setTimeout(function(){ if(tr) tr.remove(); _updateRestoreHint(); }, 220);
+            };
+            return;
+          }
+          // Restaurar todos
+          if (e.target && e.target.id === 'icRestoreBtn') {
+            _excluded.clear();
+            localStorage.removeItem(EXCL_KEY);
+            icRecompute();
+            if (curGroup) icSelectGroup(curGroup);
+            return;
+          }
+          // Abrir detalle cliente
+          var tb = document.getElementById('icDetailTbody');
+          if (!tb || !tb.contains(e.target)) return;
+          var tr = e.target.closest('tr[data-ic-idx]');
+          if (!tr) return;
+          var idx = parseInt(tr.getAttribute('data-ic-idx'));
+          var r = _no_at[idx];
+          if (!r) return;
+          // Header
+          document.getElementById('icdNombre').textContent = r.r;
+          document.getElementById('icdMeta').textContent = r.c + ' — ' + r.v.split(' ')[0];
+          // Contacto
+          var colB = selB.value;
+          var contactHtml = '';
+          if (r.tel) contactHtml += '<a href="tel:'+r.tel+'" style="color:#6366f1;text-decoration:none;margin-right:14px;font-size:13px">📞 '+r.tel+'</a>';
+          if (r.email) {
+            var landingUrl = 'https://mohicanojeans.netlify.app/cole-'+colB;
+            var sub = encodeURIComponent('Nueva Colección T'+colB+' — Mohicano Jeans');
+            var bod = encodeURIComponent('Hola,\n\nTe invitamos a ver la nueva colección T'+colB+'.\n\n'+landingUrl+'\n\nSaludos,\n'+r.v.split(' ')[0]);
+            contactHtml += '<a href="mailto:'+r.email+'?subject='+sub+'&body='+bod+'" style="color:#2563eb;text-decoration:none;font-size:13px">✉ '+r.email+'</a>';
+          }
+          document.getElementById('icdContact').innerHTML = contactHtml || '<span style="color:#9ca3af;font-size:12px">Sin contacto registrado</span>';
+          // Producción actual: todos los artículos con lav>0 o term>0, ordenados por cantidad total
+          var prodArts = Object.entries(ART_STAGES)
+            .filter(function(e){ return e[1].lav > 0 || e[1].term > 0; })
+            .map(function(e){
+              var art = e[0];
+              var cole = art.length >= 4 ? parseInt(art.substring(2,4), 10) : 0;
+              return {art:art, cole:cole, desc:e[1].desc||'', lav:e[1].lav, term:e[1].term, total:e[1].lav+e[1].term};
+            })
+            .sort(function(a,b){ return b.cole-a.cole || b.total-a.total; });
+          var tableHtml = '';
+          if (prodArts.length) {
+            tableHtml = '<table style="width:100%;border-collapse:collapse">'
+              +'<thead><tr style="background:#1e293b;color:#fff;position:sticky;top:0">'
+              +'<th style="text-align:center;padding:9px 10px;font-size:11px;font-weight:600">Cole</th>'
+              +'<th style="text-align:left;padding:9px 10px;font-size:11px;font-weight:600">Artículo</th>'
+              +'<th style="text-align:left;padding:9px 10px;font-size:11px;font-weight:600">Descripción</th>'
+              +'<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:600;color:#fbbf24">Lavandería</th>'
+              +'<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:600;color:#34d399">Terminación</th>'
+              +'<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:600">Total</th>'
+              +'</tr></thead><tbody>'
+              + prodArts.map(function(a, i){
+                var bg = i%2===0 ? '#ffffff' : '#f8fafc';
+                var coleColor = a.cole >= 44 ? '#6366f1' : a.cole >= 43 ? '#0ea5e9' : '#94a3b8';
+                return '<tr style="background:'+bg+';border-bottom:1px solid #f1f5f9">'
+                  +'<td style="text-align:center;padding:8px 10px"><span style="font-size:11px;font-weight:700;color:'+coleColor+'">T'+a.cole+'</span></td>'
+                  +'<td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#64748b">'+a.art+'</td>'
+                  +'<td style="padding:8px 10px;font-size:12px">'+a.desc+'</td>'
+                  +'<td style="text-align:right;padding:8px 10px;font-size:13px;font-weight:'+(a.lav>0?'700':'400')+';color:'+(a.lav>0?'#f59e0b':'#cbd5e1')+'">'+a.lav.toLocaleString('es-CL')+'</td>'
+                  +'<td style="text-align:right;padding:8px 10px;font-size:13px;font-weight:'+(a.term>0?'700':'400')+';color:'+(a.term>0?'#10b981':'#cbd5e1')+'">'+a.term.toLocaleString('es-CL')+'</td>'
+                  +'<td style="text-align:right;padding:8px 10px;font-size:13px;font-weight:700">'+a.total.toLocaleString('es-CL')+'</td>'
+                  +'</tr>';
+              }).join('')
+              +'</tbody></table>';
+          } else {
+            tableHtml = '<div style="padding:32px;text-align:center;color:#9ca3af">Sin artículos en lavandería o terminación actualmente</div>';
+          }
+          document.getElementById('icdProdTable').innerHTML = tableHtml;
+          document.getElementById('icClientDetail').showModal();
+        });
+
+        selA.addEventListener('change',  function(){ curGroup=null; icRecompute(); });
+        selA2.addEventListener('change', function(){ curGroup=null; icRecompute(); });
+        selB.addEventListener('change',  function(){ curGroup=null; icRecompute(); });
+        // Cerrar cualquier dialog al hacer clic en el backdrop (fuera del contenido)
+        document.addEventListener('click', function(e){ if(e.target&&e.target.tagName==='DIALOG') e.target.close(); });
+        // KPI cards clickables
+        document.getElementById('icPendientesCard').addEventListener('click', function(){ icSelectGroup('no_at'); });
+        document.getElementById('icNuevosCard').addEventListener('click', function(){ icSelectGroup('nuevos'); });
+
+        icRecompute();
+      })();
+      </script>
+    </dialog>
+
+    <dialog id="icListModal" class="modal" style="width:min(820px,96vw);padding:0;overflow:hidden;border-radius:10px">
+      <div style="display:flex;flex-direction:column;max-height:85vh">
+        <div class="modal-head" style="flex-shrink:0">
+          <strong id="icDetailTitle" style="font-size:15px;font-weight:700">—</strong>
+          <button class="modal-close" onclick="document.getElementById('icListModal').close()">Cerrar</button>
+        </div>
+        <div id="icProjSummary" style="display:none;padding:8px 16px;gap:5px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;flex-shrink:0"></div>
+        <div style="overflow-x:auto;flex:1;min-height:0;overflow-y:auto">
+          <table class="bodega-table">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Vendedor</th>
+                <th class="num" id="icTh3">Fecha</th>
+                <th class="num" id="icTh4">Sol.</th>
+                <th class="num" id="icTh5">—</th>
+                <th class="num" id="icTh6">—</th>
+              </tr>
+            </thead>
+            <tbody id="icDetailTbody"></tbody>
+          </table>
+        </div>
+        <div id="icRestoreHint" style="display:none;padding:8px 16px;font-size:11px;color:#9ca3af;text-align:center;border-top:1px solid #f1f5f9;flex-shrink:0">
+          <span id="icRestoreCount">0</span> clientes ocultos en esta vista ·
+          <button id="icRestoreBtn" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;padding:0;text-decoration:underline">Restaurar todos</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="icConfirmDialog" style="border:none;border-radius:14px;padding:0;max-width:360px;width:90vw;box-shadow:0 8px 40px rgba(0,0,0,0.22)">
+      <div style="padding:24px 24px 20px">
+        <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.04em">Confirmar acción</p>
+        <p id="icConfirmMsg" style="margin:0 0 20px;font-size:14px;color:#111827;line-height:1.5"></p>
+        <p style="margin:0 0 20px;font-size:12px;color:#9ca3af">Puedes restaurarlo luego desde "Restaurar todos".</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="icConfirmCancel" style="padding:8px 18px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
+          <button id="icConfirmOk" style="padding:8px 18px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Ocultar cliente</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="icClientDetail" class="modal" style="width:min(880px,96vw);padding:0;overflow:hidden;border-radius:10px">
+      <div style="display:flex;flex-direction:column;max-height:85vh">
+        <div class="modal-head" style="flex-shrink:0">
+          <div>
+            <h3 id="icdNombre" style="margin:0 0 2px">—</h3>
+            <p id="icdMeta" style="margin:0 0 4px;font-size:13px;color:#6b7280"></p>
+            <span id="icdContact"></span>
+          </div>
+          <button class="modal-close" onclick="document.getElementById('icClientDetail').close()">Cerrar</button>
+        </div>
+        <div style="padding:8px 16px 6px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-shrink:0">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6366f1">Producción actual — artículos en lavandería y terminación</span>
+          <span style="font-size:11px;color:#9ca3af;margin-left:8px">ordenados por cantidad total</span>
+        </div>
+        <div id="icdProdTable" style="overflow-y:auto;flex:1;min-height:0"></div>
       </div>
     </dialog>
 
@@ -1751,6 +2211,7 @@
         <div>
           <h3 id="facturablesDetalleCliente">Cliente</h3>
           <p class="venta-despacho-modal-copy" id="facturablesDetalleMeta">Detalle comercial</p>
+          <span id="facturablesDetalleBloqueoBadge" class="bloqueo-badge" style="display:none">Bloqueado</span>
         </div>
         <button type="button" id="closeFacturablesDetalleModal" class="modal-close">Cerrar</button>
       </div>
@@ -3433,6 +3894,23 @@
             '</table>';
         }
 
+        const searchInput = document.getElementById("facturablesSearch");
+        const searchCount = document.getElementById("facturablesSearchCount");
+        if (searchInput) {
+          searchInput.addEventListener("input", () => {
+            const q = searchInput.value.trim().toLowerCase();
+            const rows = document.querySelectorAll("#facturablesTable .facturables-client-row");
+            let visible = 0;
+            rows.forEach((row) => {
+              const name = (row.querySelector("td")?.textContent || "").toLowerCase();
+              const match = !q || name.includes(q);
+              row.style.display = match ? "" : "none";
+              if (match) visible++;
+            });
+            searchCount.textContent = q ? visible + " resultado" + (visible !== 1 ? "s" : "") : "";
+          });
+        }
+
         const table = document.getElementById("facturablesTable");
         if (table) {
           table.addEventListener("click", (e) => {
@@ -3452,6 +3930,8 @@
             if (detalleTotal) detalleTotal.textContent = String(client.qty_legacy || 0);
             if (detalleCurvaComprada) detalleCurvaComprada.innerHTML = curvaToHTML(client.size_curve_label);
             if (detalleCurvaProyectada) detalleCurvaProyectada.innerHTML = curvaToHTML(client.projected_curve_label);
+            const bloqueBadge = document.getElementById("facturablesDetalleBloqueoBadge");
+            if (bloqueBadge) bloqueBadge.style.display = client.bloqueo ? "inline-block" : "none";
             if (detalleBody) {
               const topArticles = Array.isArray(client.top_articles) ? client.top_articles : [];
               detalleBody.innerHTML = topArticles.map((c) =>
