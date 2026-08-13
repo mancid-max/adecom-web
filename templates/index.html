@@ -1981,6 +1981,8 @@
 
           renderTable(data, g);
           _updateRestoreHint();
+          var srch = document.getElementById('icSearchInput');
+          if (srch) { srch.value = ''; icFiltrarTabla(''); }
           var exportBtn = document.getElementById('icExportBtn');
           if (exportBtn) exportBtn.style.display = g === 'no_at' ? 'inline-block' : 'none';
           var emailBtn = document.getElementById('icEmailBtn');
@@ -2057,6 +2059,22 @@
 
             return mainRow;
           }).join('');
+        }
+
+        function icFiltrarTabla(q) {
+          q = (q || '').toLowerCase().trim();
+          var rows = document.querySelectorAll('#icDetailTbody tr[data-ic-idx]');
+          var visible = 0;
+          rows.forEach(function(tr) {
+            var nombre  = (tr.dataset.nombre    || '').toLowerCase();
+            var rut     = (tr.dataset.rutSearch || '').toLowerCase();
+            var email   = tr.querySelector('span[style*="color:#6b7280"]')
+                          ? (tr.querySelector('span[style*="color:#6b7280"]').textContent || '').toLowerCase()
+                          : '';
+            var match = !q || nombre.includes(q) || rut.includes(q) || email.includes(q);
+            tr.style.display = match ? '' : 'none';
+            if (match) visible++;
+          });
         }
 
         async function enviarCorreoIndividual(e, rut, nombre, email, vendedor) {
@@ -2281,6 +2299,11 @@
           <a id="icExportBtn" href="/export-pendientes-t44" download style="display:none;font-size:11px;padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;color:#16a34a;background:none;text-decoration:none;white-space:nowrap">⬇ Exportar ManyChat</a>
           <button id="icEmailBtn" onclick="enviarCorreosCampana()" style="display:none;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;color:#2563eb;background:none;cursor:pointer;white-space:nowrap">✉ Enviar correos T44</button>
           <button class="modal-close" onclick="document.getElementById('icListModal').close()">Cerrar</button>
+        </div>
+        <div style="padding:8px 16px;border-bottom:1px solid #e5e7eb;flex-shrink:0">
+          <input id="icSearchInput" type="text" placeholder="Buscar por nombre, RUT o correo…"
+            oninput="icFiltrarTabla(this.value)"
+            style="width:100%;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;outline:none;font-family:inherit;color:#1e293b">
         </div>
         <div id="icProjSummary" style="display:none;padding:8px 16px;gap:5px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;flex-shrink:0"></div>
         <div style="overflow-x:auto;flex:1;min-height:0;overflow-y:auto">
