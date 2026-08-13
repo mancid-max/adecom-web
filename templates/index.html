@@ -633,6 +633,23 @@
       </dialog>
       {% if excel_preview_dashboard.month_options %}
       <style>
+        /* Hover en tabla de clientes inactivos — texto blanco sobre fondo oscuro */
+        #icListModal tbody tr[data-ic-idx]:hover td,
+        #icListModal tbody tr[data-ic-idx]:hover td * {
+          background-color: #1e293b !important;
+          color: #ffffff !important;
+        }
+        #icListModal tbody tr[data-ic-idx]:hover td a,
+        #icListModal tbody tr[data-ic-idx]:hover td button {
+          color: #93c5fd !important;
+          border-color: #3b82f6 !important;
+        }
+        #icListModal tbody tr[data-ic-idx]:hover td span[style*="color:#ef4444"],
+        #icListModal tbody tr[data-ic-idx]:hover td span[style*="color:#f59e0b"],
+        #icListModal tbody tr[data-ic-idx]:hover td span[style*="color:#10b981"] {
+          background-color: transparent !important;
+        }
+
         #productionExcelMonthToolbar .production-month-radio {
           position: absolute;
           inline-size: 1px;
@@ -1379,7 +1396,7 @@
               <th class="sortable-th" data-sort-key="articulo">Articulo</th>
               <th class="sortable-th" data-sort-key="corte">Corte</th>
               <th class="sortable-th" data-sort-key="fecha">Fecha</th>
-              <th class="sortable-th full-table-num" data-sort-key="programa">Programa</th>
+              <th class="sortable-th full-table-num" data-sort-key="programa">Modelaje</th>
               <th class="sortable-th full-table-num" data-sort-key="proceso">Proceso</th>
               <th class="sortable-th full-table-num" data-sort-key="bodega">Bodega</th>
               <th class="sortable-th full-table-num" data-sort-key="saldo">Saldo</th>
@@ -1758,8 +1775,9 @@
         var _segs = [];
         var CAT_AVAIL = D.cat_avail || {};
         var ART_STAGES = D.art_stages || {};
-        var EXCL_KEY = 'ic_excl_v1';
-        var _excluded = new Set(JSON.parse(localStorage.getItem(EXCL_KEY) || '[]'));
+        var EXCL_KEY = 'ic_excl_v2';
+        var _excludedMap = JSON.parse(localStorage.getItem(EXCL_KEY) || '{}');
+        var _excluded = new Set(Object.keys(_excludedMap));
 
         function icRecompute() {
           var colA = selA.value, colA2 = selA2.value, colB = selB.value;
@@ -1954,6 +1972,10 @@
 
           renderTable(data, g);
           _updateRestoreHint();
+          var exportBtn = document.getElementById('icExportBtn');
+          if (exportBtn) exportBtn.style.display = g === 'no_at' ? 'inline-block' : 'none';
+          var emailBtn = document.getElementById('icEmailBtn');
+          if (emailBtn) emailBtn.style.display = g === 'no_at' ? 'inline-block' : 'none';
           document.getElementById('icListModal').showModal();
         }
 
@@ -1981,10 +2003,10 @@
             if (r.tel) contactHtml += '<a href="tel:'+r.tel+'" style="font-size:10px;color:#6366f1;text-decoration:none;margin-right:8px" title="Llamar">📞 '+r.tel+'</a>';
             if (r.email) {
               if (group === 'no_at') {
-                var landingUrl = 'https://mohicanojeans.netlify.app/cole-' + colB;
-                var sub = encodeURIComponent('Nueva Colección T'+colB+' — Mohicano Jeans');
-                var bod = encodeURIComponent('Hola,\n\nTe invitamos a conocer nuestra nueva colección T'+colB+'.\n\nRevísala en:\n'+landingUrl+'\n\nSaludos,\n'+r.v.split(' ')[0]);
-                contactHtml += '<a href="mailto:'+r.email+'?subject='+sub+'&body='+bod+'" style="font-size:10px;color:#2563eb;text-decoration:none" title="Enviar correo">✉ '+r.email+'</a>';
+                contactHtml += '<span style="font-size:10px;color:#6b7280">✉ '+r.email+'</span>'
+                  + ' <button onclick="enviarCorreoIndividual(event,\''+r.id+'\',\''+r.r.replace(/'/g,'')+'\',\''+r.email+'\',\''+r.v.replace(/'/g,'')+'\')" '
+                  + 'style="font-size:9px;padding:1px 7px;border:1px solid #bfdbfe;border-radius:4px;color:#2563eb;background:none;cursor:pointer;margin-left:4px" '
+                  + 'title="Enviar correo campaña T44">✉ Enviar</button>';
               } else {
                 contactHtml += '<span style="font-size:10px;color:#6b7280">✉ '+r.email+'</span>';
               }
@@ -2028,13 +2050,85 @@
           }).join('');
         }
 
+        async function enviarCorreoIndividual(e, rut, nombre, email, vendedor) {
+          e.stopPropagation();
+          var btn = e.target;
+          if (!email) { alert('Este cliente no tiene correo registrado.'); return; }
+          btn.disabled = true;
+          btn.textContent = '⏳';
+          try {
+            var resp = await fetch('/api/campana-t44/enviar-correos', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ clientes: [{ rut, nombre, email, vendedor }] })
+            });
+            var data = await resp.json();
+            if (data.ok && data.enviados > 0) {
+              btn.textContent = '✓';
+              btn.style.color = '#16a34a';
+              btn.style.borderColor = '#bbf7d0';
+            } else {
+              btn.textContent = '✉ Enviar';
+              btn.disabled = false;
+              alert('Error: ' + (data.error || (data.errores && data.errores[0] && data.errores[0].error) || 'desconocido'));
+            }
+          } catch(ex) {
+            btn.textContent = '✉ Enviar';
+            btn.disabled = false;
+            alert('Error de conexión');
+          }
+        }
+
+        async function enviarCorreosCampana() {
+          if (!_no_at.length) { alert('No hay clientes pendientes.'); return; }
+          var btn = document.getElementById('icEmailBtn');
+          btn.disabled = true;
+          btn.textContent = '⏳ Enviando...';
+          try {
+            var resp = await fetch('/api/campana-t44/enviar-correos', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                clientes: _no_at.map(function(r) {
+                  return { rut: r.id, nombre: r.r, email: r.email, vendedor: r.v };
+                })
+              })
+            });
+            var data = await resp.json();
+            if (data.ok) {
+              btn.textContent = '✓ ' + data.enviados + ' enviados';
+              btn.style.color = '#16a34a';
+              btn.style.borderColor = '#bbf7d0';
+            } else {
+              alert('Error: ' + (data.error || 'desconocido'));
+              btn.disabled = false;
+              btn.textContent = '✉ Enviar correos T44';
+            }
+          } catch(e) {
+            alert('Error de conexión');
+            btn.disabled = false;
+            btn.textContent = '✉ Enviar correos T44';
+          }
+        }
+
         function _updateRestoreHint() {
           var hint = document.getElementById('icRestoreHint');
-          var countEl = document.getElementById('icRestoreCount');
           if (!hint) return;
-          if (_excluded.size > 0) {
+          var ids = Object.keys(_excludedMap);
+          if (ids.length > 0) {
             hint.style.display = 'block';
-            if (countEl) countEl.textContent = _excluded.size;
+            var countEl = document.getElementById('icRestoreCount');
+            if (countEl) countEl.textContent = ids.length;
+            var list = document.getElementById('icRestoreList');
+            if (list) {
+              list.innerHTML = ids.map(function(rid) {
+                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f3f4f6">'
+                  + '<span style="font-size:12px;color:#374151;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">'
+                  + (_excludedMap[rid] || rid) + '</span>'
+                  + '<button data-restore-id="'+rid+'" style="flex-shrink:0;background:none;border:1px solid #bbf7d0;color:#16a34a;border-radius:5px;font-size:10px;padding:2px 8px;cursor:pointer;white-space:nowrap">Restaurar</button>'
+                  + '</div>';
+              }).join('');
+            }
           } else {
             hint.style.display = 'none';
           }
@@ -2055,16 +2149,40 @@
             document.getElementById('icConfirmOk').onclick = function(){
               dlg.close();
               if (tr) { tr.style.transition='opacity .2s'; tr.style.opacity='0'; }
+              _excludedMap[id] = label;
               _excluded.add(id);
-              localStorage.setItem(EXCL_KEY, JSON.stringify(Array.from(_excluded)));
+              localStorage.setItem(EXCL_KEY, JSON.stringify(_excludedMap));
               _no_at = _no_at.filter(function(r){ return r.id !== id; });
               document.getElementById('icNo').textContent = _no_at.length;
               setTimeout(function(){ if(tr) tr.remove(); _updateRestoreHint(); }, 220);
             };
             return;
           }
+          // Toggle lista ocultos
+          if (e.target && e.target.id === 'icRestoreToggle') {
+            var rList = document.getElementById('icRestoreList');
+            if (rList) {
+              var open = rList.style.display === 'none';
+              rList.style.display = open ? 'block' : 'none';
+              e.target.textContent = open ? 'Ocultar lista' : 'Ver lista';
+            }
+            return;
+          }
+          // Restaurar uno
+          var restoreOne = e.target.closest('[data-restore-id]');
+          if (restoreOne) {
+            var rid = restoreOne.getAttribute('data-restore-id');
+            delete _excludedMap[rid];
+            _excluded.delete(rid);
+            localStorage.setItem(EXCL_KEY, JSON.stringify(_excludedMap));
+            icRecompute();
+            if (curGroup) icSelectGroup(curGroup);
+            _updateRestoreHint();
+            return;
+          }
           // Restaurar todos
           if (e.target && e.target.id === 'icRestoreBtn') {
+            _excludedMap = {};
             _excluded.clear();
             localStorage.removeItem(EXCL_KEY);
             icRecompute();
@@ -2151,6 +2269,8 @@
       <div style="display:flex;flex-direction:column;max-height:85vh">
         <div class="modal-head" style="flex-shrink:0">
           <strong id="icDetailTitle" style="font-size:15px;font-weight:700">—</strong>
+          <a id="icExportBtn" href="/export-pendientes-t44" download style="display:none;font-size:11px;padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;color:#16a34a;background:none;text-decoration:none;white-space:nowrap">⬇ Exportar ManyChat</a>
+          <button id="icEmailBtn" onclick="enviarCorreosCampana()" style="display:none;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;color:#2563eb;background:none;cursor:pointer;white-space:nowrap">✉ Enviar correos T44</button>
           <button class="modal-close" onclick="document.getElementById('icListModal').close()">Cerrar</button>
         </div>
         <div id="icProjSummary" style="display:none;padding:8px 16px;gap:5px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;flex-shrink:0"></div>
@@ -2169,9 +2289,15 @@
             <tbody id="icDetailTbody"></tbody>
           </table>
         </div>
-        <div id="icRestoreHint" style="display:none;padding:8px 16px;font-size:11px;color:#9ca3af;text-align:center;border-top:1px solid #f1f5f9;flex-shrink:0">
-          <span id="icRestoreCount">0</span> clientes ocultos en esta vista ·
-          <button id="icRestoreBtn" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;padding:0;text-decoration:underline">Restaurar todos</button>
+        <div id="icRestoreHint" style="display:none;border-top:1px solid #f1f5f9;flex-shrink:0">
+          <div style="padding:7px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span style="font-size:11px;color:#9ca3af"><span id="icRestoreCount">0</span> clientes ocultos</span>
+            <div style="display:flex;gap:12px;align-items:center">
+              <button id="icRestoreToggle" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;padding:0;text-decoration:underline">Ver lista</button>
+              <button id="icRestoreBtn" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:11px;padding:0;text-decoration:underline">Restaurar todos</button>
+            </div>
+          </div>
+          <div id="icRestoreList" style="display:none;padding:0 16px 10px;max-height:160px;overflow-y:auto"></div>
         </div>
       </div>
     </dialog>
@@ -6261,7 +6387,7 @@
 
       const validStages = new Set(Object.keys(stageMeta));
       const summaryColumns = [
-        { key: "programa", label: "Programa" },
+        { key: "programa", label: "Modelaje" },
         { key: "proceso", label: "Proceso" },
         { key: "bodega", label: "Bodega", filterValue: "Bodega" },
         { key: "saldo", label: "Saldo" },

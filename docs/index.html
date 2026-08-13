@@ -39,7 +39,7 @@
           <strong>Dashboard ejecutivo</strong>
           <small>Operacion, pedidos y seguimiento</small>
         </div>
-        <span class="top-data-ts" id="dataTimestamp">Datos al 13/08/2026 14:21</span>
+        <span class="top-data-ts" id="dataTimestamp">Datos al 13/08/2026 15:11</span>
       </div>
       <div class="top-nav-actions">
         <div class="top-nav-user">
@@ -7027,6 +7027,23 @@
       </dialog>
       
       <style>
+        /* Hover en tabla de clientes inactivos — texto blanco sobre fondo oscuro */
+        #icListModal tbody tr[data-ic-idx]:hover td,
+        #icListModal tbody tr[data-ic-idx]:hover td * {
+          background-color: #1e293b !important;
+          color: #ffffff !important;
+        }
+        #icListModal tbody tr[data-ic-idx]:hover td a,
+        #icListModal tbody tr[data-ic-idx]:hover td button {
+          color: #93c5fd !important;
+          border-color: #3b82f6 !important;
+        }
+        #icListModal tbody tr[data-ic-idx]:hover td span[style*="color:#ef4444"],
+        #icListModal tbody tr[data-ic-idx]:hover td span[style*="color:#f59e0b"],
+        #icListModal tbody tr[data-ic-idx]:hover td span[style*="color:#10b981"] {
+          background-color: transparent !important;
+        }
+
         #productionExcelMonthToolbar .production-month-radio {
           position: absolute;
           inline-size: 1px;
@@ -86384,6 +86401,8 @@
           _updateRestoreHint();
           var exportBtn = document.getElementById('icExportBtn');
           if (exportBtn) exportBtn.style.display = g === 'no_at' ? 'inline-block' : 'none';
+          var emailBtn = document.getElementById('icEmailBtn');
+          if (emailBtn) emailBtn.style.display = g === 'no_at' ? 'inline-block' : 'none';
           document.getElementById('icListModal').showModal();
         }
 
@@ -86411,10 +86430,10 @@
             if (r.tel) contactHtml += '<a href="tel:'+r.tel+'" style="font-size:10px;color:#6366f1;text-decoration:none;margin-right:8px" title="Llamar">📞 '+r.tel+'</a>';
             if (r.email) {
               if (group === 'no_at') {
-                var landingUrl = 'https://mohicanojeans.netlify.app/cole-' + colB;
-                var sub = encodeURIComponent('Nueva Colección T'+colB+' — Mohicano Jeans');
-                var bod = encodeURIComponent('Hola,\n\nTe invitamos a conocer nuestra nueva colección T'+colB+'.\n\nRevísala en:\n'+landingUrl+'\n\nSaludos,\n'+r.v.split(' ')[0]);
-                contactHtml += '<a href="mailto:'+r.email+'?subject='+sub+'&body='+bod+'" style="font-size:10px;color:#2563eb;text-decoration:none" title="Enviar correo">✉ '+r.email+'</a>';
+                contactHtml += '<span style="font-size:10px;color:#6b7280">✉ '+r.email+'</span>'
+                  + ' <button onclick="enviarCorreoIndividual(event,\''+r.id+'\',\''+r.r.replace(/'/g,'')+'\',\''+r.email+'\',\''+r.v.replace(/'/g,'')+'\')" '
+                  + 'style="font-size:9px;padding:1px 7px;border:1px solid #bfdbfe;border-radius:4px;color:#2563eb;background:none;cursor:pointer;margin-left:4px" '
+                  + 'title="Enviar correo campaña T44">✉ Enviar</button>';
               } else {
                 contactHtml += '<span style="font-size:10px;color:#6b7280">✉ '+r.email+'</span>';
               }
@@ -86456,6 +86475,67 @@
 
             return mainRow;
           }).join('');
+        }
+
+        async function enviarCorreoIndividual(e, rut, nombre, email, vendedor) {
+          e.stopPropagation();
+          var btn = e.target;
+          if (!email) { alert('Este cliente no tiene correo registrado.'); return; }
+          btn.disabled = true;
+          btn.textContent = '⏳';
+          try {
+            var resp = await fetch('/api/campana-t44/enviar-correos', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ clientes: [{ rut, nombre, email, vendedor }] })
+            });
+            var data = await resp.json();
+            if (data.ok && data.enviados > 0) {
+              btn.textContent = '✓';
+              btn.style.color = '#16a34a';
+              btn.style.borderColor = '#bbf7d0';
+            } else {
+              btn.textContent = '✉ Enviar';
+              btn.disabled = false;
+              alert('Error: ' + (data.error || (data.errores && data.errores[0] && data.errores[0].error) || 'desconocido'));
+            }
+          } catch(ex) {
+            btn.textContent = '✉ Enviar';
+            btn.disabled = false;
+            alert('Error de conexión');
+          }
+        }
+
+        async function enviarCorreosCampana() {
+          if (!_no_at.length) { alert('No hay clientes pendientes.'); return; }
+          var btn = document.getElementById('icEmailBtn');
+          btn.disabled = true;
+          btn.textContent = '⏳ Enviando...';
+          try {
+            var resp = await fetch('/api/campana-t44/enviar-correos', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                clientes: _no_at.map(function(r) {
+                  return { rut: r.id, nombre: r.r, email: r.email, vendedor: r.v };
+                })
+              })
+            });
+            var data = await resp.json();
+            if (data.ok) {
+              btn.textContent = '✓ ' + data.enviados + ' enviados';
+              btn.style.color = '#16a34a';
+              btn.style.borderColor = '#bbf7d0';
+            } else {
+              alert('Error: ' + (data.error || 'desconocido'));
+              btn.disabled = false;
+              btn.textContent = '✉ Enviar correos T44';
+            }
+          } catch(e) {
+            alert('Error de conexión');
+            btn.disabled = false;
+            btn.textContent = '✉ Enviar correos T44';
+          }
         }
 
         function _updateRestoreHint() {
@@ -86617,6 +86697,7 @@
         <div class="modal-head" style="flex-shrink:0">
           <strong id="icDetailTitle" style="font-size:15px;font-weight:700">—</strong>
           <a id="icExportBtn" href="/export-pendientes-t44" download style="display:none;font-size:11px;padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;color:#16a34a;background:none;text-decoration:none;white-space:nowrap">⬇ Exportar ManyChat</a>
+          <button id="icEmailBtn" onclick="enviarCorreosCampana()" style="display:none;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;color:#2563eb;background:none;cursor:pointer;white-space:nowrap">✉ Enviar correos T44</button>
           <button class="modal-close" onclick="document.getElementById('icListModal').close()">Cerrar</button>
         </div>
         <div id="icProjSummary" style="display:none;padding:8px 16px;gap:5px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;flex-shrink:0"></div>

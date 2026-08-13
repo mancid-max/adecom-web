@@ -3970,8 +3970,14 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 fecha_iso = _pedidos_detalle_date(_tp(3)) or ""
                 tipo_raw = _tp(1).upper()
                 muestra_num = _tp(2).upper().strip()
+                es_modelaje = 1 if muestra_num else 0
                 programa   = _to_int(_tp(5))
+                cortado    = _to_int(_tp(6))
                 entrega    = _to_int(_tp(7))
+                saldo_col8 = _to_int(_tp(8))
+                # Excluir producción sin saldo y modelaje que ya llegó a bodega (entrega > 0)
+                if saldo_col8 == 0 and (not es_modelaje or entrega > 0):
+                    continue
                 corte_1    = _to_int(_tp(11))
                 taller_v   = _to_int(_tp(15))
                 t_externo  = _to_int(_tp(19))
@@ -3979,19 +3985,17 @@ def _load_full_table_rows_from_seed() -> tuple[list[dict[str, object]], dict[str
                 lavanderia = _to_int(_tp(27))
                 terminacion = _to_int(_tp(31))
                 proceso_val = corte_1 + taller_v + t_externo + limpiado + lavanderia + terminacion
-                # Si ya entró en proceso o bodega, ya no está en programa
-                programa_display = 0 if (proceso_val > 0 or entrega > 0) else programa
-                muestra_v = programa if "MUESTRA" in tipo_raw else 0
+                muestra_v = programa if es_modelaje else 0
                 row: dict[str, object] = {
                     "articulo": articulo,
                     "corte": oc,
                     "fecha_iso": fecha_iso,
                     "tipo_raw": tipo_raw,
                     "muestra_num": muestra_num,
-                    "programa": programa_display,
-                    "proceso": proceso_val,
+                    "programa": es_modelaje,
+                    "proceso": cortado,
                     "bodega": entrega,
-                    "saldo": proceso_val,
+                    "saldo": saldo_col8,
                     "corte_1": corte_1,
                     "taller": taller_v,
                     "t_externo": t_externo,
@@ -5460,6 +5464,9 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
             continue
         raw_type = str(row.get("Tipo") or "").strip()
         fecha_raw = str(row.get("fecha") or "").strip()
+        bod = str(row.get("Bod") or "").strip()
+        if bod and bod != "04":
+            continue
         if num not in docs:
             docs[num] = {
                 "type_code": raw_type,
@@ -5470,6 +5477,8 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
                 "cliente": str(row.get("cliente") or "").strip() or "-",
                 "vendor": str(row.get("Vendedor") or "").strip() or "Sin vendedor",
                 "payment": str(row.get("Fpago") or "").strip() or "Sin forma de pago",
+                "branch_code": bod,
+                "branch_label": f"Local {bod}" if bod else "Todas",
                 "cantidad": 0,
                 "gross": 0,
             }
@@ -5479,10 +5488,16 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
         date_iso = str(doc.get("date") or "")
         if not date_iso:
             continue
-        gross = int(doc["gross"])
-        net, iva = _gross_to_net_iva(gross, str(doc["type_code"]))
+        # VENTAS-TOD "Total" = P.Venta × Cant = neto (sin IVA). No dividir por 1.19.
+        net = int(doc["gross"])
+        type_upper = str(doc["type_code"]).strip().upper()
+        is_exento = type_upper in ("02", "BOLE")
+        iva = 0 if is_exento else int(round(abs(net) * 0.19)) * (1 if net >= 0 else -1)
+        gross = net + iva
         week_date = datetime.strptime(date_iso, "%Y-%m-%d").date()
         week_key = f"{date_iso[:7]}-W{_week_of_month(week_date)}"
+        branch_code = str(doc.get("branch_code") or "00")
+        branch_label = str(doc.get("branch_label") or "Todas")
         entries.append({
             "type_code": doc["type_code"],
             "type_label": doc["type_label"],
@@ -5491,8 +5506,8 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
             "month": date_iso[:7],
             "year": date_iso[:4],
             "week": week_key,
-            "branch_code": "00",
-            "branch_label": "Todas",
+            "branch_code": branch_code,
+            "branch_label": branch_label,
             "rut": doc["rut"],
             "cliente": doc["cliente"],
             "vendor": doc["vendor"],
@@ -7710,6 +7725,184 @@ def clear_proyeccion():
     except Exception as exc:
         flash(f"No se pudo limpiar la proyeccion: {exc}", "error")
     return redirect(url_for("index"))
+
+
+@app.get("/export-pendientes-t44")
+def export_pendientes_t44():
+    """Export clientes que compraron T43 pero NO T44, con teléfono y correo para ManyChat."""
+    import io, csv as csv_mod
+    from flask import Response
+    dashboard = _proyeccion_load_dashboard()
+    rows = list(dashboard.get("inactive_by_year", {}).get("2026", []))
+
+    output = io.StringIO()
+    writer = csv_mod.writer(output)
+    writer.writerow(["Nombre", "RUT", "Telefono", "Email", "Ciudad", "Vendedor",
+                     "Ultima_temporada", "Unidades_T43", "Top_modelo"])
+    for r in rows:
+        nombre  = str(r.get("name") or r.get("cliente") or "").strip()
+        rut     = str(r.get("rut") or "").strip()
+        tel     = str(r.get("tel") or "").strip()
+        email   = str(r.get("email") or "").strip()
+        ciudad  = str(r.get("city") or r.get("ciudad") or "").strip()
+        vendor  = str(r.get("vendor") or "").strip()
+        season  = str(r.get("season") or "").strip()
+        qty     = str(r.get("qty") or "").strip()
+        modelo  = str(r.get("top_model") or "").strip()
+        writer.writerow([nombre, rut, tel, email, ciudad, vendor, season, qty, modelo])
+
+    # Registrar en CRM campaña T44 (best-effort, no bloquea el export)
+    try:
+        import requests as _req
+        payload = {
+            "secret": "mohicano-crm-2026",
+            "clientes": [
+                {
+                    "rut":      str(r.get("rut") or "").strip(),
+                    "nombre":   str(r.get("name") or r.get("cliente") or "").strip(),
+                    "tel":      str(r.get("tel") or "").strip(),
+                    "email":    str(r.get("email") or "").strip(),
+                    "vendedor": str(r.get("vendor") or "").strip(),
+                }
+                for r in rows if str(r.get("rut") or "").strip()
+            ],
+        }
+        _req.post("http://localhost:5001/crm/api/campana-t44/registrar",
+                  json=payload, timeout=5)
+    except Exception:
+        pass  # CRM puede estar apagado, no afecta el export
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pendientes_t44_manychat.csv"}
+    )
+
+
+@app.post("/api/campana-t44/enviar-correos")
+def campana_t44_enviar_correos():
+    """Envía el email de campaña T44 a la lista de clientes recibida."""
+    import smtplib, ssl
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    data      = request.get_json(silent=True) or {}
+    clientes  = data.get("clientes", [])
+    if not clientes:
+        return jsonify({"ok": False, "error": "sin clientes"}), 400
+
+    SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    SMTP_PASS = os.environ.get("SMTP_PASS", "")
+    FROM_NAME = "Mohicano Jeans"
+    BASE_URL  = os.environ.get("ADECOM_BASE_URL", "http://localhost:5000")
+
+    if not SMTP_USER or not SMTP_PASS:
+        return jsonify({"ok": False, "error": "SMTP no configurado. Define SMTP_USER y SMTP_PASS en variables de entorno."}), 500
+
+    def _build_html(nombre: str, rut: str, vendedor: str) -> str:
+        pixel = f'{BASE_URL}/track/email-open/{rut}'
+        return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head><body style="margin:0;padding:0;background:#F0EDE8;font-family:system-ui,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)">
+  <!-- Header -->
+  <tr><td style="background:#0D1B2A;padding:28px 40px;text-align:center">
+    <div style="font-family:Georgia,serif;font-size:22px;letter-spacing:.12em;text-transform:uppercase;color:#fff">Mohicano Jeans</div>
+    <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:4px">Canal Mayorista</div>
+  </td></tr>
+  <!-- Hero -->
+  <tr><td style="background:#0D1B2A;padding:0 40px 36px;text-align:center;border-bottom:3px solid #C8922A">
+    <div style="display:inline-block;background:#C8922A;color:#fff;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 16px;border-radius:20px;margin-bottom:18px">Oferta exclusiva mayoristas · T44</div>
+    <h1 style="font-family:Georgia,serif;font-size:28px;font-weight:normal;color:#fff;line-height:1.25;margin:0 0 10px">Ofertas exclusivas para <em style="color:#E0A83A">clientes mayoristas</em></h1>
+    <p style="font-size:14px;color:rgba(255,255,255,.6);margin:0">Modelos seleccionados de la colección T44 con descuentos y condiciones especiales, solo para vos.</p>
+  </td></tr>
+  <!-- Body -->
+  <tr><td style="padding:36px 40px">
+    <p style="font-size:16px;margin:0 0 14px">Hola, <strong style="color:#0D1B2A">{nombre}</strong> 👋</p>
+    <p style="font-size:14px;color:#1A2535;line-height:1.65;margin:0 0 14px">Notamos que todavía no realizaste tu pedido de la temporada T44. Tenemos ofertas especiales preparadas para vos — descuentos en modelos clave que no queremos que te pierdas.</p>
+    <!-- Oferta box -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FDF3E3;border:1px solid #E8D8B0;border-left:4px solid #C8922A;border-radius:6px;margin:24px 0">
+      <tr><td style="padding:20px 22px">
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#C8922A;font-weight:700;margin-bottom:10px">Lo que tenemos para vos</div>
+        <p style="font-size:13px;color:#1A2535;margin:0 0 6px">✓ <strong>10% de descuento</strong> en modelos seleccionados T44</p>
+        <p style="font-size:13px;color:#1A2535;margin:0 0 6px">✓ Descuentos exclusivos en modelos seleccionados</p>
+        <p style="font-size:13px;color:#1A2535;margin:0">✓ Atención directa con {vendedor}</p>
+      </td></tr>
+    </table>
+    <!-- CTA -->
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 0 10px">
+      <a href="https://wa.me/56233990578?text=Hola%2C+quiero+ver+la+oferta+mayorista+T44" style="display:inline-block;background:#25D366;color:#fff;font-size:15px;font-weight:700;padding:15px 36px;border-radius:8px;text-decoration:none">💬 Ver oferta por WhatsApp</a>
+      <p style="font-size:11px;color:#6B7583;margin:10px 0 0">Abre WhatsApp directamente · Sin descargar nada</p>
+    </td></tr></table>
+    <hr style="border:none;border-top:1px solid #DDD8D0;margin:28px 0">
+    <p style="font-size:13px;margin:0"><strong style="color:#0D1B2A">Equipo Mohicano Jeans</strong><br><span style="color:#6B7583;font-size:12px">Canal Mayorista · {vendedor}</span></p>
+  </td></tr>
+  <!-- Footer -->
+  <tr><td style="background:#F5F2ED;border-top:1px solid #DDD8D0;padding:20px 40px;text-align:center">
+    <p style="font-size:11px;color:#6B7583;line-height:1.6;margin:0">Recibís este correo porque sos parte de nuestra red de clientes mayoristas.<br>Si no querés recibir más promociones, respondé con "BAJA".<br><br>Mohicano Jeans · Santiago, Chile</p>
+  </td></tr>
+</table>
+</td></tr></table>
+<!-- Pixel tracking -->
+<img src="{pixel}" width="1" height="1" style="display:none" alt="">
+</body></html>"""
+
+    enviados  = 0
+    errores   = []
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.ehlo()
+            server.starttls(context=ctx)
+            server.login(SMTP_USER, SMTP_PASS)
+            for c in clientes:
+                email   = str(c.get("email") or "").strip()
+                nombre  = str(c.get("nombre") or "Cliente").strip()
+                rut     = str(c.get("rut") or "").strip()
+                vendedor= str(c.get("vendedor") or "nuestro equipo").strip()
+                if not email:
+                    continue
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = f"{'✨'} {nombre}, tenemos ofertas exclusivas T44 para vos"
+                msg["From"]    = f"{FROM_NAME} <{SMTP_USER}>"
+                msg["To"]      = email
+                msg.attach(MIMEText(_build_html(nombre, rut, vendedor), "html"))
+                try:
+                    server.sendmail(SMTP_USER, email, msg.as_string())
+                    enviados += 1
+                except Exception as e:
+                    errores.append({"email": email, "error": str(e)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({"ok": True, "enviados": enviados, "errores": errores})
+
+
+@app.get("/track/email-open/<rut>")
+def track_email_open(rut: str):
+    """Pixel de tracking: registra apertura de correo en CRM."""
+    from flask import Response as _Resp
+    try:
+        import requests as _req
+        _req.post(
+            "http://localhost:5001/crm/api/campana-t44/evento",
+            json={"secret": "mohicano-crm-2026", "rut": rut,
+                  "evento": "interactuo", "detalle": "Abrió correo campaña T44"},
+            timeout=3,
+        )
+    except Exception:
+        pass
+    # GIF transparente 1x1
+    pixel = (b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00"
+             b"!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01"
+             b"\x00\x00\x02\x02D\x01\x00;")
+    return _Resp(pixel, mimetype="image/gif",
+                 headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
 @app.get("/export-no-atendidos-t43")

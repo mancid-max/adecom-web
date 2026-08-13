@@ -263,6 +263,86 @@
       font-weight: 600;
     }
 
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.24);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .summary-pill {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .summary-pill strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .summary-pill span {
+      color: rgba(255,255,255,.84);
+      font-size: 14px;
+    }
+
+    .decision-box {
+      background: linear-gradient(135deg, #f5fbf9 0%, #edf6ff 100%);
+      border: 1px solid #d7e6f5;
+      border-radius: 20px;
+      padding: 20px 22px;
+    }
+
+    .decision-box h3 {
+      margin: 0 0 10px;
+    }
+
+    .decision-box p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .mini-item {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+
+    .mini-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .mini-item span {
+      color: var(--muted);
+    }
+
     .footer-link {
       margin-top: 22px;
       text-align: center;
@@ -278,19 +358,336 @@
       .grid.two, .grid.three { grid-template-columns: 1fr; }
       .lane { grid-template-columns: 1fr; }
       .lane-track { grid-template-columns: 1fr; }
+      .summary-strip { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .summary-strip { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
+      <div class="hero-badge">Propuesta comercial automatizada</div>
       <h1>Flujo Visual ADECOM</h1>
-      <p>Mapa simple de cómo se mueve hoy la información entre ADECOM, los archivos que subes, la carga local, el procesamiento del proyecto y la publicación en la web estática.</p>
+      <p>Mapa simple del proceso actual de ADECOM y propuesta de recuperación comercial para clientes pendientes usando CRM, ManyChat y WhatsApp Business Platform, sin desarrollar una app nueva.</p>
       <div class="hero-links">
         <a href="./index.html">Volver al dashboard</a>
         <a href="./POSTGRESQL_VENTA_PRODUCCION_VISUAL.md">Vista PostgreSQL visual</a>
       </div>
+      <div class="summary-strip">
+        <div class="summary-pill">
+          <strong>53</strong>
+          <span>clientes pendientes a recuperar</span>
+        </div>
+        <div class="summary-pill">
+          <strong>47</strong>
+          <span>clientes ya convertidos</span>
+        </div>
+        <div class="summary-pill">
+          <strong>10%</strong>
+          <span>descuento gancho de entrada</span>
+        </div>
+        <div class="summary-pill">
+          <strong>10</strong>
+          <span>clientes sugeridos para piloto inicial</span>
+        </div>
+      </div>
     </section>
+
+    <div class="grid two">
+      <section class="card">
+        <h2>Decisión recomendada</h2>
+        <div class="decision-box">
+          <h3>No hacer una app nueva</h3>
+          <p>La forma correcta de recuperar esta base es usar WhatsApp con plantillas aprobadas por Meta y automatización en ManyChat. El objetivo es activar conversación, abrir la ventana de 24 horas, mostrar oferta, validar si el cliente es mayorista y derivar al vendedor cuando corresponda.</p>
+        </div>
+        <div class="mini-list">
+          <div class="mini-item">
+            <strong>Entrada</strong>
+            <span>Base segmentada, consentimiento comercial y plantilla de marketing aprobada.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Motor</strong>
+            <span>ManyChat + WhatsApp Business Platform + CRM comercial.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Salida</strong>
+            <span>Recuperación de clientes, aumento del ticket y trazabilidad de ventas.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Objetivo del flujo</h2>
+        <p class="muted">Recuperar automáticamente a los clientes que aún no compran, usando un artículo gancho para abrir conversación y luego empujar un pedido mayor con productos complementarios.</p>
+        <div class="flow">
+          <article class="step" data-step="A">
+            <h3>Activar el contacto</h3>
+            <p>Enviar plantilla de WhatsApp a la base pendiente, solo a contactos con consentimiento.</p>
+          </article>
+          <article class="step" data-step="B">
+            <h3>Abrir ventana comercial</h3>
+            <p>Cuando el cliente responde o presiona un botón, se abre la ventana de 24 horas para conversar sin restricciones.</p>
+          </article>
+          <article class="step" data-step="C">
+            <h3>Convertir y escalar</h3>
+            <p>Mostrar la oferta del pantalón con 10% y luego vender otros modelos a precio normal o derivar al vendedor.</p>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 24px;">
+      <h2>Flujo operativo para recuperar los 53 clientes</h2>
+      <p class="muted">Secuencia ejecutiva para presentar al jefe y ordenar la prueba comercial.</p>
+      <div class="flow">
+        <article class="step" data-step="1">
+          <h3>Preparar la base</h3>
+          <p>Separar en el CRM los 47 clientes con compra realizada y los 53 pendientes. Guardar nombre, teléfono, correo, vendedor, última compra y consentimiento comercial. Excluir automáticamente a quien ya compre.</p>
+        </article>
+        <article class="step" data-step="2">
+          <h3>Crear la plantilla de WhatsApp</h3>
+          <p>Enviar una plantilla de marketing aprobada por Meta con mensaje corto, artículo gancho, despacho inmediato y botones como `Ver oferta`, `Hablar con vendedor` y `No recibir promociones`.</p>
+        </article>
+        <article class="step" data-step="3">
+          <h3>Activar el bot en la respuesta</h3>
+          <p>Cuando el cliente hace clic o responde, ManyChat identifica el número, verifica si ya es mayorista y despliega el flujo correcto.</p>
+        </article>
+        <article class="step" data-step="4">
+          <h3>Validar cliente y mostrar oferta</h3>
+          <p>Si el cliente está aprobado, mostrar catálogo y stock correspondiente. Si no está aprobado, pedir RUT, tienda, región y volumen estimado.</p>
+        </article>
+        <article class="step" data-step="5">
+          <h3>Convertir el pedido</h3>
+          <p>La oferta con 10% es solo la entrada. El verdadero objetivo es sumar otros modelos a precio normal, reservar stock y cerrar el pedido con apoyo del vendedor.</p>
+        </article>
+        <article class="step" data-step="6">
+          <h3>Medir y detener secuencias</h3>
+          <p>Al comprar, se corta de inmediato la automatización y se activa seguimiento comercial. Todo debe quedar medido por apertura, clic, conversación y venta.</p>
+        </article>
+      </div>
+    </section>
+
+    <div class="grid two" style="margin-top: 24px;">
+      <section class="card">
+        <h2>Secuencia de recuperación</h2>
+        <div class="flow">
+          <article class="step" data-step="D1">
+            <h3>Día 1</h3>
+            <p>Enviar el pantalón gancho con 10% de descuento y despacho inmediato.</p>
+          </article>
+          <article class="step" data-step="D2">
+            <h3>Día 2</h3>
+            <p>Recordatorio solo a quienes abrieron o interactuaron y no compraron.</p>
+          </article>
+          <article class="step" data-step="D3">
+            <h3>Día 3</h3>
+            <p>Enviar segundo artículo o mensaje de cierre por stock limitado.</p>
+          </article>
+          <article class="step" data-step="D4">
+            <h3>Día 4</h3>
+            <p>Crear tarea automática para que el vendedor llame a los interesados que no cerraron.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Condiciones para que funcione</h2>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Elemento</th>
+              <th>Requisito</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Consentimiento</td>
+              <td>El cliente debe haber autorizado mensajes comerciales por WhatsApp.</td>
+            </tr>
+            <tr>
+              <td>Plantilla Meta</td>
+              <td>La primera salida debe ser una plantilla aprobada de marketing.</td>
+            </tr>
+            <tr>
+              <td>Catálogo</td>
+              <td>Mostrar solo la oferta y stock correspondiente al segmento mayorista.</td>
+            </tr>
+            <tr>
+              <td>CRM</td>
+              <td>La base debe marcar compra, no compra, respuesta, interés y cierre.</td>
+            </tr>
+            <tr>
+              <td>Vendedor</td>
+              <td>Patricio, Nicole u otro ejecutivo deben tomar los leads calientes.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="grid two" style="margin-top: 24px;">
+      <section class="card">
+        <h2>Prueba recomendada</h2>
+        <p class="muted">Antes de lanzar a toda la base, validar el proceso con un piloto controlado.</p>
+        <div class="mini-list">
+          <div class="mini-item">
+            <strong>Piloto de 10 clientes</strong>
+            <span>Partir con una muestra pequeña para validar texto, interacción y conversión.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Indicadores mínimos</strong>
+            <span>Entrega del mensaje, tasa de clic, respuestas, derivaciones y ventas cerradas.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Criterio de escalamiento</strong>
+            <span>Si la prueba funciona, ampliar al resto de la base con la misma disciplina operativa.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Mensaje ejecutivo final</h2>
+        <div class="note">
+          No se recomienda desarrollar una aplicación propia para esta tarea. La prioridad es ordenar CRM, consentimiento comercial, plantillas de WhatsApp, automatización en ManyChat y seguimiento comercial del vendedor.
+        </div>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Pregunta del jefe</th>
+              <th>Respuesta</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>¿Se puede automatizar?</td>
+              <td>Sí, con ManyChat y WhatsApp Business Platform.</td>
+            </tr>
+            <tr>
+              <td>¿Hay que hacer una app?</td>
+              <td>No. Sería más caro, lento y con más fricción para una base pequeña.</td>
+            </tr>
+            <tr>
+              <td>¿Cuál es el siguiente paso?</td>
+              <td>Mostrar una prueba real funcionando con 10 clientes antes de escalar.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 24px;">
+      <h2>Plan de trabajo y dependencias</h2>
+      <p class="muted">Vista de proyecto para que se entienda qué proceso depende de otro y cuándo realmente se puede salir a producción.</p>
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Fase</th>
+            <th>Objetivo</th>
+            <th>Depende de</th>
+            <th>Entrega</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1. Orden de base</td>
+            <td>Depurar clientes, separar comprados vs pendientes, validar teléfonos y consentimiento.</td>
+            <td>No depende de otra fase.</td>
+            <td>Base limpia para campaña.</td>
+          </tr>
+          <tr>
+            <td>2. Diseño CRM</td>
+            <td>Definir etapas, responsables, reglas de salida y condiciones para detener mensajes.</td>
+            <td>Fase 1.</td>
+            <td>Pipeline comercial operativo.</td>
+          </tr>
+          <tr>
+            <td>3. Plantillas Meta</td>
+            <td>Redactar y aprobar la plantilla de WhatsApp con oferta gancho y botones.</td>
+            <td>Fase 1 y Fase 2.</td>
+            <td>Plantilla lista para enviar.</td>
+          </tr>
+          <tr>
+            <td>4. Automatización ManyChat</td>
+            <td>Configurar flujos, respuestas, validación mayorista y derivación al vendedor.</td>
+            <td>Fase 2 y Fase 3.</td>
+            <td>Bot funcional conectado al CRM.</td>
+          </tr>
+          <tr>
+            <td>5. Integración comercial</td>
+            <td>Conectar eventos de respuesta, clic, compra y no compra al tablero CRM.</td>
+            <td>Fase 2 y Fase 4.</td>
+            <td>Trazabilidad completa por cliente.</td>
+          </tr>
+          <tr>
+            <td>6. Piloto controlado</td>
+            <td>Probar con 10 clientes reales y medir apertura, interacción y cierre.</td>
+            <td>Fase 1 a Fase 5 completas.</td>
+            <td>Resultados reales de prueba.</td>
+          </tr>
+          <tr>
+            <td>7. Ajustes</td>
+            <td>Corregir mensaje, tiempos, segmentación o derivación según el piloto.</td>
+            <td>Fase 6.</td>
+            <td>Versión final lista para escalar.</td>
+          </tr>
+          <tr>
+            <td>8. Lanzamiento</td>
+            <td>Enviar a toda la base pendiente y activar seguimiento comercial.</td>
+            <td>Fase 7 aprobada.</td>
+            <td>Campaña productiva en marcha.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="grid two" style="margin-top: 24px;">
+      <section class="card">
+        <h2>Cadena de dependencia</h2>
+        <div class="flow">
+          <article class="step" data-step="1">
+            <h3>Sin base limpia no hay campaña</h3>
+            <p>Si la segmentación está mala, se envía a clientes incorrectos, se repiten mensajes o se pierde trazabilidad.</p>
+          </article>
+          <article class="step" data-step="2">
+            <h3>Sin etapas CRM no hay control</h3>
+            <p>Antes de automatizar, hay que definir cómo se mueve el cliente dentro del proceso comercial.</p>
+          </article>
+          <article class="step" data-step="3">
+            <h3>Sin plantilla aprobada no se puede iniciar WhatsApp</h3>
+            <p>La salida inicial depende de una plantilla autorizada por Meta.</p>
+          </article>
+          <article class="step" data-step="4">
+            <h3>Sin piloto no conviene escalar</h3>
+            <p>Primero se valida con una muestra pequeña; después recién se libera al resto de la base.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Hitos para reportar al jefe</h2>
+        <div class="mini-list">
+          <div class="mini-item">
+            <strong>Hito 1</strong>
+            <span>Base segmentada y CRM ordenado.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Hito 2</strong>
+            <span>Plantilla aprobada y flujo ManyChat conectado.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Hito 3</strong>
+            <span>Piloto con 10 clientes y métricas iniciales.</span>
+          </div>
+          <div class="mini-item">
+            <strong>Hito 4</strong>
+            <span>Lanzamiento completo a la base pendiente.</span>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <div class="grid two">
       <section class="card">
