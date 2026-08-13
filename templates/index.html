@@ -2022,24 +2022,7 @@
                 contactHtml += '<span style="font-size:10px;color:#6b7280">✉ '+r.email+'</span>';
               }
             }
-            // Chips de categoría JEANS para pendientes
             var catsHtml = '';
-            if (group === 'no_at') {
-              var catEntries = Object.entries(r.cats_a || {}).filter(function(e){return e[0].indexOf('JEANS')!==-1;}).sort(function(a,b){return b[1]-a[1];}).slice(0,3);
-              if (catEntries.length) {
-                catsHtml = catEntries.map(function(e) {
-                  var cn=e[0], cv2=e[1];
-                  var av = CAT_AVAIL[cn] || {stock:0, corte:0};
-                  var disp = av.stock + av.corte;
-                  var cl2 = disp >= cv2 ? '#10b981' : disp > 0 ? '#f59e0b' : '#ef4444';
-                  var short = cn.split(' ').slice(0,2).join(' ');
-                  return '<span style="font-size:9px;background:'+cl2+'15;border:1px solid '+cl2+'50;border-radius:3px;padding:0 5px;color:'+cl2+';white-space:nowrap">'
-                    +short+' '+cv2.toLocaleString('es-CL')+'u'
-                    +(disp > 0 ? ' · '+(disp >= cv2 ? '✓' : '~')+disp.toLocaleString('es-CL')+' disp' : ' · sin stock')
-                    +'</span>';
-                }).join('');
-              }
-            }
             var rowAttrs = group === 'no_at' ? ' style="cursor:pointer" data-ic-idx="'+idx+'"' : '';
             var delBtn = group === 'no_at'
               ? '<button data-del-id="'+r.id+'" style="float:right;background:none;border:1px solid #fecaca;color:#ef4444;border-radius:5px;font-size:10px;padding:2px 7px;cursor:pointer;line-height:1;white-space:nowrap;margin-left:8px" title="Ocultar cliente">✕</button>'
