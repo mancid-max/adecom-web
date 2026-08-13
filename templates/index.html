@@ -633,6 +633,15 @@
       </dialog>
       {% if excel_preview_dashboard.month_options %}
       <style>
+        /* Hover en tabla de producción del cliente (detalle inactivo) */
+        #icdProdTable table tbody tr:hover td {
+          background-color: #1e293b !important;
+          color: #ffffff !important;
+        }
+        #icdProdTable table tbody tr:hover td span {
+          color: #ffffff !important;
+        }
+
         /* Hover en tabla de clientes inactivos — texto blanco sobre fondo oscuro */
         #icListModal tbody tr[data-ic-idx]:hover td,
         #icListModal tbody tr[data-ic-idx]:hover td * {
