@@ -5483,7 +5483,9 @@ def _parse_ventas_tod_entries(path: Path) -> list[dict[str, object]]:
                 "gross": 0,
             }
         docs[num]["cantidad"] = int(docs[num]["cantidad"]) + _to_int(row.get("Cant"))
-        docs[num]["gross"] = int(docs[num]["gross"]) + _to_int(row.get("Total"))
+        total_con_dcto = row.get("Total C/descto")
+        net_col = total_con_dcto if (str(total_con_dcto or "").strip() not in ("", "0")) else row.get("Total")
+        docs[num]["gross"] = int(docs[num]["gross"]) + _to_int(net_col)
     for doc in docs.values():
         date_iso = str(doc.get("date") or "")
         if not date_iso:
@@ -5908,23 +5910,91 @@ def _build_inactive_clients_dashboard() -> dict[str, object]:
     return base
 
 
+def _parse_detallev_entries(path: Path) -> list[dict[str, object]]:
+    """Parser para DETALLEV.TXT — Total incluye descuentos, viene en bruto con IVA."""
+    entries: list[dict[str, object]] = []
+    _TIPO_LABEL = {
+        "33": "Factura Electrónica", "34": "Factura No Afecta",
+        "39": "Boleta Electrónica",  "61": "Nota de Crédito",
+        "02": "Boleta Exenta",       "56": "Nota de Débito",
+    }
+    _EXENTO = {"02", "34"}
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as fh:
+                rows = list(csv.DictReader(fh, delimiter=";"))
+            break
+        except Exception:
+            rows = []
+    for row in rows:
+        num   = str(row.get("Dcto") or "").strip()
+        if not num:
+            continue
+        fecha_raw = str(row.get("Fecha") or "").strip()
+        tipo  = str(row.get("Tipo") or "").strip()
+        try:
+            dt = datetime.strptime(fecha_raw, "%d/%m/%Y")
+            date_iso = dt.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+        gross_raw = str(row.get("Total") or "0").strip().replace(" ", "").replace(",", "")
+        try:
+            gross = int(gross_raw)
+        except ValueError:
+            continue
+        is_exento = tipo in _EXENTO
+        # DETALLEV Total = bruto con IVA. Separamos neto e IVA.
+        if is_exento or gross == 0:
+            net = gross
+            iva = 0
+        else:
+            net = int(round(gross / 1.19))
+            iva = gross - net
+        week_date = dt.date()
+        week_key  = f"{date_iso[:7]}-W{_week_of_month(week_date)}"
+        entries.append({
+            "type_code":   tipo,
+            "type_label":  _TIPO_LABEL.get(tipo, f"Tipo {tipo}"),
+            "doc":         num,
+            "date":        date_iso,
+            "month":       date_iso[:7],
+            "year":        date_iso[:4],
+            "week":        week_key,
+            "branch_code": "04",
+            "branch_label": "Local 04",
+            "rut":         str(row.get("RUT") or "").strip(),
+            "cliente":     str(row.get("Razon Social") or "").strip() or "-",
+            "vendor":      str(row.get("Vendedor") or "").strip() or "Sin vendedor",
+            "payment":     str(row.get("F.Pago") or "").strip() or "Sin forma de pago",
+            "cantidad":    int(str(row.get("prendas") or "0").strip().replace(" ", "") or "0"),
+            "net":         net,
+            "iva":         iva,
+            "gross":       gross,
+        })
+    return entries
+
+
 def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[str, object]:
-    # VENTAS-TOD-2026.CSV (Z:\BI o seed) tiene datos más actuales que DETALLEV.TXT.
-    # DETALLEV.TXT queda como último recurso si no hay VENTAS disponible.
-    bi_ventas = BI_DIR / "VENTAS-TOD-2026.CSV"
-    seed_ventas = SEED_DIR / "VENTAS-TOD-2026.CSV"
+    # DETALLEV.TXT tiene montos con descuentos aplicados — fuente primaria.
+    # VENTAS-TOD como respaldo si no hay DETALLEV disponible.
+    bi_detallev   = BI_DIR  / "DETALLEV.TXT"
+    seed_detallev = SEED_DIR / "DETALLEV.TXT"
+    bi_ventas     = BI_DIR  / "VENTAS-TOD-2026.CSV"
+    seed_ventas   = SEED_DIR / "VENTAS-TOD-2026.CSV"
+
+    use_detallev = False
     if bi_ventas.exists() and bi_ventas.stat().st_size > 0:
         path = bi_ventas
-        use_bi = True
     elif seed_ventas.exists() and seed_ventas.stat().st_size > 0:
         path = seed_ventas
-        use_bi = True
-    elif SEED_DETALLEV.exists() and SEED_DETALLEV.stat().st_size > 0:
-        path = SEED_DETALLEV
-        use_bi = False
+    elif bi_detallev.exists() and bi_detallev.stat().st_size > 0:
+        path = bi_detallev
+        use_detallev = True
+    elif seed_detallev.exists() and seed_detallev.stat().st_size > 0:
+        path = seed_detallev
+        use_detallev = True
     else:
         path = _ventas_docs_file() or SEED_VENTAS_DOCS
-        use_bi = False
     base = {
         "available": False,
         "file_name": path.name,
@@ -5943,60 +6013,10 @@ def _build_detailv_sales_report(comparativo_summary: dict[str, object]) -> dict[
     if not path.exists() or not path.is_file() or path.stat().st_size <= 0:
         return base
 
-    if use_bi:
-        entries = _parse_ventas_tod_entries(path)
+    if use_detallev:
+        entries = _parse_detallev_entries(path)
     else:
-        raw_text = _detailv_decode(path)
-        raw_lines = [line for line in raw_text.splitlines() if str(line).strip()]
-        if len(raw_lines) <= 1:
-            return base
-        header_parts = [str(item or "").strip() for item in raw_lines[0].split(";")]
-        header_index = {_commercial_norm(name): idx for idx, name in enumerate(header_parts)}
-
-        def _detailv_part(parts: list[str], header: str, fallback_idx: int, default: str = "") -> str:
-            idx = header_index.get(_commercial_norm(header), fallback_idx)
-            if 0 <= idx < len(parts):
-                return str(parts[idx] or "").strip()
-            return default
-
-        entries = []
-        for line in raw_lines[1:]:
-            parts = [str(item or "").strip() for item in line.split(";")]
-            if len(parts) < 8:
-                continue
-            raw_type = _detailv_part(parts, "Tipo", 0)
-            doc = _detailv_part(parts, "Dcto", 1)
-            fecha_iso = _pedidos_detalle_date(_detailv_part(parts, "Fecha", 2))
-            rut = _detailv_part(parts, "RUT", 3)
-            cliente = _detailv_part(parts, "Razon Social", 4) or "-"
-            vendor = _detailv_part(parts, "Vendedor", 5) or "Sin vendedor"
-            cantidad = _to_int(_detailv_part(parts, "prendas", 6))
-            gross_total = _to_int(_detailv_part(parts, "Total", 7))
-            payment = _detailv_part(parts, "F.Pago", 9)
-            if not doc or not fecha_iso:
-                continue
-            net_total, iva_total = _gross_to_net_iva(gross_total, raw_type)
-            week_date = datetime.strptime(fecha_iso, "%Y-%m-%d").date()
-            week_key = f"{fecha_iso[:7]}-W{_week_of_month(week_date)}"
-            entries.append({
-                "type_code": raw_type,
-                "type_label": _ventas_tipo_label(raw_type),
-                "doc": doc,
-                "date": fecha_iso,
-                "month": fecha_iso[:7],
-                "year": fecha_iso[:4],
-                "week": week_key,
-                "branch_code": "00",
-                "branch_label": "Todas",
-                "rut": rut,
-                "cliente": cliente,
-                "vendor": vendor,
-                "payment": payment or "Sin forma de pago",
-                "cantidad": cantidad,
-                "net": net_total,
-                "iva": iva_total,
-                "gross": gross_total,
-            })
+        entries = _parse_ventas_tod_entries(path)
 
     if not entries:
         return base

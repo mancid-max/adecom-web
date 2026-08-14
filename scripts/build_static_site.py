@@ -42,6 +42,8 @@ def _sync_bi_to_seed() -> None:
             ("TRAZABILIDAD2.CSV", "TRAZABILIDAD_OP.TXT"),
             ("PEDIDOS.CSV", "PEDIDOS.Txt"),
             ("ARCHIVO_TALLAS.CSV", "PEDIDOSXTALLA.TXT"),
+            ("CLIENTE.Txt", "CLIENTE.Txt"),
+            ("DETALLEV.TXT", "DETALLEV.TXT"),
         ]
         for bi_name, seed_name in copies:
             src = BI_DIR / bi_name
@@ -155,6 +157,8 @@ def _postprocess_main_html(html: str) -> str:
     html = html.replace('src="/static/js/print_modal.js"', 'src="js/print_modal.js"')
     html = html.replace("</body>", f"{STATIC_BRIDGE_SCRIPT}\n</body>")
     return html
+
+
 def _write_docs(main_html: str) -> None:
     DOCS_DIR.mkdir(exist_ok=True)
     shutil.copy2(STATIC_DIR / "styles.css", DOCS_DIR / "styles.css")
