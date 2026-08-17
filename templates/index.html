@@ -2048,7 +2048,7 @@
               }
             }
             var catsHtml = '';
-            var rowAttrs = group === 'no_at' ? ' style="cursor:pointer" data-ic-idx="'+idx+'"' : '';
+            var rowAttrs = ' data-ic-idx="'+idx+'" data-nombre="'+(r.r||'').toLowerCase().replace(/"/g,'')+'" data-rut-search="'+(r.id||'').toLowerCase()+'"'+(group==='no_at'?' style="cursor:pointer"':'');
             var delBtn = group === 'no_at'
               ? '<button data-del-id="'+r.id+'" style="float:right;background:none;border:1px solid #fecaca;color:#ef4444;border-radius:5px;font-size:10px;padding:2px 7px;cursor:pointer;line-height:1;white-space:nowrap;margin-left:8px" title="Ocultar cliente">✕</button>'
               : '';
