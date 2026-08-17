@@ -156,14 +156,6 @@
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openPedidoVsCorteModal">
           <h2>Pedido vs Corte</h2>
-          {% set ofrecer = pedido_vs_corte | selectattr('estado', 'equalto', 'ofrecer') | list | length %}
-          {% set cortar  = pedido_vs_corte | selectattr('estado', 'equalto', 'cortar')  | list | length %}
-          {% if ofrecer or cortar %}
-          <p style="font-size:11px;margin:6px 0 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            {% if ofrecer %}<span style="color:#10b981">▲ {{ ofrecer }} para ofrecer</span>{% endif %}
-            {% if cortar  %}<span style="color:#ef4444">▼ {{ cortar }} falta cortar</span>{% endif %}
-          </p>
-          {% endif %}
         </button>
       </article>
     </section>
