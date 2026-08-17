@@ -4081,6 +4081,7 @@ def _index_cache_key(filters: dict, pedidos_collection: str, open_modal: str, pr
     )
 
 
+
 @app.template_filter("miles")
 def miles(value):
     try:
@@ -6858,12 +6859,12 @@ def _load_venta_despacho_dashboard(
         for key in ("solicitado", "despachado", "saldo", "valor_solicitado", "valor_despachado", "valor_saldo"):
             totals[key] = int(totals[key]) + int(cliente_row[key])
 
-    if not source_has_articulo:
-        season_totals = _pedidos_talla_totals_for_collection(pedidos_collection)
-        if any(season_totals.values()):
-            totals["solicitado"] = season_totals["solicitado"]
-            totals["despachado"] = season_totals["despachado"]
-            totals["saldo"] = season_totals["saldo"]
+    season_totals = _pedidos_talla_totals_for_collection(pedidos_collection)
+    if any(season_totals.values()):
+        totals["solicitado"] = season_totals["solicitado"]
+        totals["saldo"] = season_totals["saldo"]
+    elif not source_has_articulo and season_totals.get("despachado"):
+        totals["despachado"] = season_totals["despachado"]
 
     totals["pct_despacho"] = _pct_despacho(int(totals["despachado"]), int(totals["solicitado"]))
     clientes_rows.sort(
