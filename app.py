@@ -4142,6 +4142,25 @@ def _to_int(value: object) -> int:
         return 0
 
 
+def _fetch_clientes_ocultos() -> set[str]:
+    """Lee desde Supabase los RUTs marcados como ocultos en Clientes Inactivos."""
+    try:
+        import urllib.request as _ur, json as _json
+        cfg_path = SEED_DIR.parent / "supabase_config.json"
+        if not cfg_path.exists():
+            return set()
+        cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+        url = f"{cfg['url']}/rest/v1/clientes_ocultos?hidden=eq.true&select=rut"
+        req = _ur.Request(url, headers={
+            "apikey": cfg["service_role_key"],
+            "Authorization": f"Bearer {cfg['service_role_key']}",
+        })
+        with _ur.urlopen(req, timeout=5) as resp:
+            return {row["rut"] for row in _json.loads(resp.read())}
+    except Exception:
+        return set()
+
+
 def _inventory_norm(value: object) -> str:
     text = unicodedata.normalize("NFKD", str(value or ""))
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
@@ -5721,6 +5740,77 @@ def _build_cruce_colecciones() -> dict:
     }
 
 
+def _build_pedido_vs_corte() -> list[dict[str, object]]:
+    """Cruza PEDIDOSXTALLA (pedidos ventas) vs TRAZABILIDAD (programado) por base de artículo."""
+    TEMP_MIN, TEMP_MAX = 40, 45
+
+    # 1. Pedidos por base desde PEDIDOSXTALLA
+    pedidos: dict[str, int] = {}
+    for path in _seed_pedidos_talla_files():
+        for row in parse_pedidos_talla_txt(path.read_bytes()):
+            art = str(row.get("articulo") or "").strip()
+            if len(art) < 6:
+                continue
+            try:
+                temp = int(art[2:4])
+            except ValueError:
+                continue
+            if not (TEMP_MIN <= temp <= TEMP_MAX):
+                continue
+            if str(row.get("tipo") or "").strip().lower() != "ventas":
+                continue
+            base = art[2:6]
+            pedidos[base] = pedidos.get(base, 0) + int(row.get("total") or 0)
+
+    # 2. Programado por base desde TRAZABILIDAD
+    corte: dict[str, int] = {}
+    bi_path = BI_DIR / "TRAZABILIDAD2.CSV"
+    traza_path = bi_path if (bi_path.exists() and bi_path.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
+    if traza_path.exists():
+        raw_text = _detailv_decode(traza_path)
+        reader = csv.reader(io.StringIO(raw_text), delimiter=";")
+        rows = list(reader)
+        for raw in rows[1:]:
+            if len(raw) < 6:
+                continue
+            art = str(raw[4]).strip() if len(raw) > 4 else ""
+            if not art or len(art) < 6:
+                continue
+            try:
+                temp = int(art[2:4])
+            except ValueError:
+                continue
+            if not (TEMP_MIN <= temp <= TEMP_MAX):
+                continue
+            tipo = str(raw[1]).strip().upper()
+            if "MUESTRA" in tipo or "SET" in tipo:
+                continue
+            programado = _to_int(str(raw[5]).strip()) if len(raw) > 5 else 0
+            base = art[2:6]
+            corte[base] = corte.get(base, 0) + programado
+
+    # 3. Cruce
+    all_bases = set(list(pedidos.keys()) + list(corte.keys()))
+    result = []
+    for base in sorted(all_bases):
+        p = pedidos.get(base, 0)
+        c = corte.get(base, 0)
+        if p == 0 and c == 0:
+            continue
+        diff = c - p
+        result.append({
+            "base": base,
+            "temp": base[:2],
+            "pedido": p,
+            "corte": c,
+            "diferencia": diff,
+            "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
+        })
+
+    result.sort(key=lambda x: abs(x["diferencia"]), reverse=True)
+    return result
+
+
 def _build_inactive_clients_dashboard() -> dict[str, object]:
     path = SEED_PEDIDOS_DETALLE
     base = {
@@ -5806,6 +5896,7 @@ def _build_inactive_clients_dashboard() -> dict[str, object]:
         return base
     new_collection = new_collection_candidates[-1]
 
+    ocultos = _fetch_clientes_ocultos()
     dashboard_rows: list[dict[str, object]] = []
     legacy_units = 0
 
@@ -5816,6 +5907,9 @@ def _build_inactive_clients_dashboard() -> dict[str, object]:
         qty_legacy = qty_40 + qty_41
         qty_new = int(season_qty.get(new_collection) or 0)
         if qty_legacy <= 0 or qty_new > 0:
+            continue
+        rut_norm = str(client.get("rut") or "").strip()
+        if rut_norm and rut_norm in ocultos:
             continue
 
         legacy_units += qty_legacy
@@ -7612,6 +7706,7 @@ def index():
     disponibles_summary = _load_disponibles_ranking_4200(ventas_top_articulos)
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
+    pedido_vs_corte = _build_pedido_vs_corte()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
     venta_despacho_allowed_keys = {str(k) for k in range(MIN_DISPLAY_COLLECTION, MAX_DISPLAY_COLLECTION + 1)}
     venta_despacho_collection_keys = [
@@ -7699,6 +7794,7 @@ def index():
         venta_despacho_dashboard=venta_despacho_dashboard,
         venta_despacho_dashboard_views=venta_despacho_dashboard_views,
         inactive_clients_dashboard=inactive_clients_dashboard,
+        pedido_vs_corte=pedido_vs_corte,
         cruce_cols=cruce_cols,
         ui_state={"open_modal": open_modal, "programas_month": programas_month},
         now=datetime.now(),
