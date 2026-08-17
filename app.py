@@ -5783,11 +5783,11 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             if not (TEMP_MIN <= temp <= TEMP_MAX):
                 continue
             tipo = str(raw[1]).strip().upper()
-            if "MUESTRA" in tipo or "SET" in tipo:
+            if "PRODUCCION" not in tipo:
                 continue
-            programado = _to_int(str(raw[5]).strip()) if len(raw) > 5 else 0
+            cortado_val = _to_int(str(raw[6]).strip()) if len(raw) > 6 else 0
             base = art[2:6]
-            corte[base] = corte.get(base, 0) + programado
+            corte[base] = corte.get(base, 0) + cortado_val
 
     # 3. Cruce
     all_bases = set(list(pedidos.keys()) + list(corte.keys()))
