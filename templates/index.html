@@ -2313,62 +2313,74 @@
     </dialog>
 
     <!-- Modal Pedido vs Corte -->
-    <dialog id="pedidoVsCorteModal" class="modal" style="width:min(860px,96vw);padding:0;overflow:hidden;border-radius:10px">
-      <div style="display:flex;flex-direction:column;max-height:85vh">
-        <div class="modal-head" style="flex-shrink:0;display:flex;align-items:center;gap:12px;padding:14px 18px">
-          <div style="flex:1">
-            <strong style="font-size:15px;font-weight:700">Pedido vs Corte</strong>
-            <span style="font-size:12px;color:#6b7280;margin-left:10px">Pedidos clientes vs Programado producción</span>
+    <dialog id="pedidoVsCorteModal" class="modal" style="width:min(860px,96vw);padding:0;overflow:hidden;border-radius:12px;background:#fff">
+      <div style="display:flex;flex-direction:column;max-height:88vh">
+
+        <!-- Cabecera -->
+        <div style="flex-shrink:0;padding:16px 20px;border-bottom:1px solid #e5e7eb;background:#fff">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <span style="font-size:16px;font-weight:700;color:#111827">Pedido vs Corte</span>
+              <span style="font-size:12px;color:#9ca3af;margin-left:10px">pedidos clientes vs producción programada</span>
+            </div>
+            <button onclick="document.getElementById('pedidoVsCorteModal').close()"
+              style="border:1px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:8px;padding:5px 14px;font-size:13px;cursor:pointer;font-weight:500">Cerrar</button>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input id="pvcSearch" type="text" placeholder="Filtrar artículo…" oninput="pvcFiltrar(this.value)"
-              style="font-size:12px;padding:5px 10px;border:1px solid #e5e7eb;border-radius:6px;width:150px">
-            <div id="pvcFiltroTemp" style="display:flex;gap:4px"></div>
+          <!-- Filtros -->
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input id="pvcSearch" type="text" placeholder="Buscar artículo…" oninput="pvcFiltrar(this.value)"
+              style="font-size:12px;padding:6px 12px;border:1px solid #d1d5db;border-radius:8px;width:160px;color:#111827;outline:none">
+            <div id="pvcFiltroTemp" style="display:flex;gap:4px;flex-wrap:wrap"></div>
           </div>
-          <button class="modal-close" onclick="document.getElementById('pedidoVsCorteModal').close()">Cerrar</button>
         </div>
-        <div style="overflow-x:auto;flex:1;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:13px" id="pvcTable">
+
+        <!-- Tabla -->
+        <div style="overflow:auto;flex:1">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
-              <tr style="background:#1e2633;color:#e8eef8;position:sticky;top:0;z-index:1">
-                <th style="padding:9px 14px;text-align:left;font-weight:600">Artículo base</th>
-                <th style="padding:9px 14px;text-align:left;font-weight:600">Temp.</th>
-                <th style="padding:9px 14px;text-align:right;font-weight:600">Pedido</th>
-                <th style="padding:9px 14px;text-align:right;font-weight:600">Corte</th>
-                <th style="padding:9px 14px;text-align:right;font-weight:600">Diferencia</th>
-                <th style="padding:9px 14px;text-align:center;font-weight:600">Estado</th>
+              <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Artículo</th>
+                <th style="padding:10px 10px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Temp.</th>
+                <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Pedido</th>
+                <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Corte</th>
+                <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Diferencia</th>
+                <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Estado</th>
               </tr>
             </thead>
             <tbody id="pvcTbody">
               {% for r in pedido_vs_corte %}
-              <tr data-temp="T{{ r.temp }}" style="border-bottom:1px solid #f3f4f6">
-                <td style="padding:8px 14px;font-weight:600;font-family:monospace">{{ r.base }}</td>
-                <td style="padding:8px 14px;color:#6b7280">T{{ r.temp }}</td>
-                <td style="padding:8px 14px;text-align:right">{{ r.pedido | miles }}</td>
-                <td style="padding:8px 14px;text-align:right">{{ r.corte | miles }}</td>
-                <td style="padding:8px 14px;text-align:right;font-weight:700;color:{% if r.diferencia > 0 %}#10b981{% elif r.diferencia < 0 %}#ef4444{% else %}#6b7280{% endif %}">
+              <tr data-temp="T{{ r.temp }}" style="border-bottom:1px solid #f3f4f6;background:#fff">
+                <td style="padding:9px 16px;font-weight:700;color:#111827;font-family:monospace;font-size:14px">{{ r.base }}</td>
+                <td style="padding:9px 10px">
+                  <span style="background:#f3f4f6;color:#374151;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600">T{{ r.temp }}</span>
+                </td>
+                <td style="padding:9px 16px;text-align:right;color:#374151;font-weight:500">{{ r.pedido | miles }}</td>
+                <td style="padding:9px 16px;text-align:right;color:#374151;font-weight:500">{{ r.corte | miles }}</td>
+                <td style="padding:9px 16px;text-align:right;font-weight:700;font-size:14px;color:{% if r.diferencia > 0 %}#16a34a{% elif r.diferencia < 0 %}#dc2626{% else %}#9ca3af{% endif %}">
                   {% if r.diferencia > 0 %}+{% endif %}{{ r.diferencia | miles }}
                 </td>
-                <td style="padding:8px 14px;text-align:center">
+                <td style="padding:9px 16px;text-align:center">
                   {% if r.estado == 'ofrecer' %}
-                  <span style="background:#dcfce7;color:#16a34a;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600">Ofrecer</span>
+                  <span style="background:#dcfce7;color:#15803d;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;white-space:nowrap">▲ Ofrecer</span>
                   {% elif r.estado == 'cortar' %}
-                  <span style="background:#fee2e2;color:#dc2626;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600">Cortar más</span>
+                  <span style="background:#fee2e2;color:#b91c1c;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar más</span>
                   {% else %}
-                  <span style="background:#f3f4f6;color:#6b7280;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600">OK</span>
+                  <span style="background:#f3f4f6;color:#6b7280;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600">OK</span>
                   {% endif %}
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="6" style="padding:24px;text-align:center;color:#9ca3af">Sin datos disponibles</td></tr>
+              <tr><td colspan="6" style="padding:32px;text-align:center;color:#9ca3af">Sin datos disponibles</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <div style="padding:10px 18px;background:#f9fafb;border-top:1px solid #e5e7eb;flex-shrink:0;display:flex;gap:16px;font-size:12px;color:#6b7280">
-          <span>Total artículos: <strong>{{ pedido_vs_corte | length }}</strong></span>
-          <span style="color:#10b981">▲ Ofrecer: <strong>{{ pedido_vs_corte | selectattr('estado', 'equalto', 'ofrecer') | list | length }}</strong></span>
-          <span style="color:#ef4444">▼ Cortar más: <strong>{{ pedido_vs_corte | selectattr('estado', 'equalto', 'cortar') | list | length }}</strong></span>
+
+        <!-- Footer -->
+        <div style="flex-shrink:0;padding:10px 20px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:20px;align-items:center;font-size:12px">
+          <span style="color:#6b7280">Total: <strong style="color:#111827">{{ pedido_vs_corte | length }}</strong> artículos</span>
+          <span style="color:#15803d;font-weight:600">▲ {{ pedido_vs_corte | selectattr('estado', 'equalto', 'ofrecer') | list | length }} para ofrecer</span>
+          <span style="color:#b91c1c;font-weight:600">▼ {{ pedido_vs_corte | selectattr('estado', 'equalto', 'cortar') | list | length }} falta cortar</span>
         </div>
       </div>
     </dialog>
