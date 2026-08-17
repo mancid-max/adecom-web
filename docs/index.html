@@ -39,7 +39,7 @@
           <strong>Dashboard ejecutivo</strong>
           <small>Operacion, pedidos y seguimiento</small>
         </div>
-        <span class="top-data-ts" id="dataTimestamp">Datos al 17/08/2026 15:36</span>
+        <span class="top-data-ts" id="dataTimestamp">Datos al 17/08/2026 16:19</span>
       </div>
       <div class="top-nav-actions">
         <div class="top-nav-user">
@@ -85902,6 +85902,31 @@
         var EXCL_KEY = 'ic_excl_v2';
         var _excludedMap = JSON.parse(localStorage.getItem(EXCL_KEY) || '{}');
         var _excluded = new Set(Object.keys(_excludedMap));
+        var SB_URL  = 'https://kdtydxihrflhziclgiof.supabase.co';
+        var SB_ANON = 'sb_publishable_37ce4uK_RG8o9pP-Jdf2Xw_3eWgqJQy';
+        var _sbExcluded = new Set();
+        function _sbHeaders(extra) {
+          return Object.assign({'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON}, extra || {});
+        }
+        function _loadSbOcultos() {
+          fetch(SB_URL + '/rest/v1/clientes_ocultos?hidden=eq.true&select=rut', {headers: _sbHeaders()})
+            .then(function(r){ return r.json(); })
+            .then(function(rows){
+              if (!Array.isArray(rows)) return;
+              _sbExcluded.clear();
+              rows.forEach(function(r){ if(r.rut) _sbExcluded.add(r.rut); });
+              icRecompute();
+              var curGroup = document.querySelector('.ic-group-btn.is-active');
+              if (curGroup) icSelectGroup(curGroup.getAttribute('data-group'));
+            }).catch(function(){});
+        }
+        function _callCrmOcultar(rut, nombre, accion) {
+          fetch(SB_URL + '/rest/v1/clientes_ocultos', {
+            method: 'POST',
+            headers: _sbHeaders({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
+            body: JSON.stringify({rut: rut, nombre: nombre || '', hidden: accion !== 'mostrar'})
+          }).catch(function(){});
+        }
 
         function icRecompute() {
           var colA = selA.value, colA2 = selA2.value, colB = selB.value;
@@ -85924,7 +85949,7 @@
             var vk  = cl.v || '(sin vendedor)';
             if (!_vend[vk]) _vend[vk] = {at:0, no:0};
             if (dB) { _at.push({id:rut, r:cl.r, c:cl.c, v:cl.v, fA:dA.f, sA:dA.s, fB:dB.f, sB:dB.s, tel:cl.tel||'', email:cl.email||''}); _vend[vk].at++; }
-            else if (!_excluded.has(rut)) { _no_at.push({id:rut, r:cl.r, c:cl.c, v:cl.v, fA:dA.f, sA:dA.s, tel:cl.tel||'', email:cl.email||'', cats_a:dA.cats||{}, arts_a:dA.arts||{}}); _vend[vk].no++; }
+            else if (!_excluded.has(rut) && !_sbExcluded.has(rut)) { _no_at.push({id:rut, r:cl.r, c:cl.c, v:cl.v, fA:dA.f, sA:dA.s, tel:cl.tel||'', email:cl.email||'', cats_a:dA.cats||{}, arts_a:dA.arts||{}}); _vend[vk].no++; }
           });
           Object.keys(inB).forEach(function(rut) {
             if (!inA[rut]) {
@@ -86277,6 +86302,7 @@
               _excludedMap[id] = label;
               _excluded.add(id);
               localStorage.setItem(EXCL_KEY, JSON.stringify(_excludedMap));
+              _callCrmOcultar(id, label, 'ocultar');
               _no_at = _no_at.filter(function(r){ return r.id !== id; });
               document.getElementById('icNo').textContent = _no_at.length;
               setTimeout(function(){ if(tr) tr.remove(); _updateRestoreHint(); }, 220);
@@ -86299,7 +86325,9 @@
             var rid = restoreOne.getAttribute('data-restore-id');
             delete _excludedMap[rid];
             _excluded.delete(rid);
+            _sbExcluded.delete(rid);
             localStorage.setItem(EXCL_KEY, JSON.stringify(_excludedMap));
+            _callCrmOcultar(rid, '', 'mostrar');
             icRecompute();
             if (curGroup) icSelectGroup(curGroup);
             _updateRestoreHint();
@@ -86307,8 +86335,10 @@
           }
           // Restaurar todos
           if (e.target && e.target.id === 'icRestoreBtn') {
+            Object.keys(_excludedMap).forEach(function(r){ _callCrmOcultar(r, '', 'mostrar'); });
             _excludedMap = {};
             _excluded.clear();
+            _sbExcluded.clear();
             localStorage.removeItem(EXCL_KEY);
             icRecompute();
             if (curGroup) icSelectGroup(curGroup);
@@ -86386,6 +86416,7 @@
         document.getElementById('icNuevosCard').addEventListener('click', function(){ icSelectGroup('nuevos'); });
 
         icRecompute();
+        _loadSbOcultos();
       })();
       </script>
     </dialog>
