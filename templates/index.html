@@ -2397,7 +2397,7 @@
         ['Todas'].concat(Array.from(_pvcTemps).sort()).forEach(function(t){
           var btn = document.createElement('button');
           btn.textContent = t;
-          btn.className = 'ic-group-btn' + (t === 'Todas' ? ' is-active' : '');
+          btn.className = 'pvc-temp-btn' + (t === 'Todas' ? ' pvc-active' : '');
           btn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e5e7eb;background:' + (t==='Todas'?'#1e2633':'#f9fafb') + ';color:' + (t==='Todas'?'#fff':'#374151') + ';cursor:pointer';
           btn.addEventListener('click', function(){
             _pvcActiveTemp = t === 'Todas' ? '' : t;
