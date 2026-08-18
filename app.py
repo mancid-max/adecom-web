@@ -5790,15 +5790,15 @@ def _load_cole44_origen() -> dict[str, str]:
 
 
 def _build_pedido_vs_corte() -> list[dict[str, object]]:
-    """Cruza PEDIDOSXTALLA (pedidos ventas) vs TRAZABILIDAD (programado) por base de artículo."""
+    """Cruza PEDIDOSXTALLA (pedidos ventas) vs TRAZABILIDAD (programado) por variante (modelo+color)."""
     TEMP_MIN, TEMP_MAX = 40, 45
 
-    # 1. Pedidos por base desde PEDIDOSXTALLA
+    # 1. Pedidos por variante (art[2:8] = temp+modelo+color) desde PEDIDOSXTALLA
     pedidos: dict[str, int] = {}
     for path in _seed_pedidos_talla_files():
         for row in parse_pedidos_talla_txt(path.read_bytes()):
             art = str(row.get("articulo") or "").strip()
-            if len(art) < 6:
+            if len(art) < 8:
                 continue
             try:
                 temp = int(art[2:4])
@@ -5808,10 +5808,10 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
                 continue
             if str(row.get("tipo") or "").strip().lower() != "ventas":
                 continue
-            base = art[2:6]
-            pedidos[base] = pedidos.get(base, 0) + int(row.get("total") or 0)
+            variant = art[2:8]
+            pedidos[variant] = pedidos.get(variant, 0) + int(row.get("total") or 0)
 
-    # 2. Programado por base desde TRAZABILIDAD
+    # 2. Programado por variante desde TRAZABILIDAD
     corte: dict[str, int] = {}
     bi_path = BI_DIR / "TRAZABILIDAD2.CSV"
     traza_path = bi_path if (bi_path.exists() and bi_path.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
@@ -5823,7 +5823,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             if len(raw) < 6:
                 continue
             art = str(raw[4]).strip() if len(raw) > 4 else ""
-            if not art or len(art) < 6:
+            if not art or len(art) < 8:
                 continue
             try:
                 temp = int(art[2:4])
@@ -5835,27 +5835,29 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             if "PRODUCCION" not in tipo:
                 continue
             cortado_val = _to_int(str(raw[6]).strip()) if len(raw) > 6 else 0
-            base = art[2:6]
-            corte[base] = corte.get(base, 0) + cortado_val
+            variant = art[2:8]
+            corte[variant] = corte.get(variant, 0) + cortado_val
 
-    # 3. Cruce
+    # 3. Cruce — variant = "442600" → display "4426-00", temp "44", modelo "4426"
     origen_map = _load_cole44_origen()
-    all_bases = set(list(pedidos.keys()) + list(corte.keys()))
+    all_variants = set(list(pedidos.keys()) + list(corte.keys()))
     result = []
-    for base in sorted(all_bases):
-        p = pedidos.get(base, 0)
-        c = corte.get(base, 0)
+    for variant in sorted(all_variants):
+        p = pedidos.get(variant, 0)
+        c = corte.get(variant, 0)
         if p == 0 and c == 0:
             continue
         diff = c - p
+        modelo = variant[:4]
+        color = variant[4:6] if len(variant) >= 6 else ""
         result.append({
-            "base": base,
-            "temp": base[:2],
+            "base": f"{modelo}-{color}" if color else modelo,
+            "temp": variant[:2],
             "pedido": p,
             "corte": c,
             "diferencia": diff,
             "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
-            "origen": origen_map.get(base, ""),
+            "origen": origen_map.get(modelo, ""),
         })
 
     result.sort(key=lambda x: abs(x["diferencia"]), reverse=True)
