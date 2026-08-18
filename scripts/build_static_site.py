@@ -155,7 +155,9 @@ def _postprocess_main_html(html: str) -> str:
     html = html.replace("__DATA_TIMESTAMP__", ts)
     html = html.replace("{{ now.strftime('%d/%m/%Y %H:%M') }}", ts)
     html = html.replace('src="/static/js/print_modal.js"', 'src="js/print_modal.js"')
-    html = html.replace("</body>", f"{STATIC_BRIDGE_SCRIPT}\n</body>")
+    idx = html.rfind("</body>")
+    if idx != -1:
+        html = html[:idx] + f"{STATIC_BRIDGE_SCRIPT}\n</body>" + html[idx + len("</body>"):]
     return html
 
 
