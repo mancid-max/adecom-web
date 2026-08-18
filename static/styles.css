@@ -12200,3 +12200,7 @@ input[type="file"],
 #pvcTbody tr:hover { background: #f0f6ff !important; }
 #pvcTbody tr:hover td { color: #1e2633 !important; }
 /* ─────────────────────────────────── */
+
+/* ─── Hover legible en tabla Estado de Resultado ─── */
+#erPanelMes table tbody tr:hover td { color: #1e2633 !important; background-color: #f0f6ff !important; }
+/* ─────────────────────────────────────────────────── */
