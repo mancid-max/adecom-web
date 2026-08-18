@@ -2371,8 +2371,8 @@
                 <th id="pvcThCorte" onclick="pvcSort('corte')" style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Corte <span id="pvcSortCorte" style="opacity:.5"></span></th>
                 <th id="pvcThDif" onclick="pvcSort('dif')" style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Diferencia <span id="pvcSortDif" style="opacity:.7">↕</span></th>
                 <th id="pvcThEstado" onclick="pvcCicloEstado()" style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Estado <span id="pvcEstadoLabel" style="opacity:.6">↕</span></th>
-                <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Origen</th>
-                <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Hist. EX</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">EX</th>
+                <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Cant. EX</th>
               </tr>
             </thead>
             <tbody id="pvcTbody">
@@ -2397,17 +2397,19 @@
                   {% endif %}
                 </td>
                 <td style="padding:9px 12px">
-                  {% if r.origen %}
-                  <span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">{{ r.origen }}</span>
+                  {% if r.ex_base %}
+                  <span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">{{ r.ex_base }}</span>
+                  {% else %}
+                  <span style="color:#d1d5db;font-size:12px;font-weight:600">————</span>
                   {% endif %}
                 </td>
-                <td style="padding:9px 12px">
-                  {% if r.ex_hist >= 0 %}
-                    {% if r.ex_hist > 0 %}
-                    <span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">T{{ r.ex_base[:2] }}: {{ r.ex_hist | miles }}</span>
-                    {% else %}
-                    <span style="color:#9ca3af;font-size:11px">No corresponde</span>
-                    {% endif %}
+                <td style="padding:9px 12px;text-align:right">
+                  {% if r.ex_hist > 0 %}
+                  <span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">{{ r.ex_hist | miles }}</span>
+                  {% elif r.ex_hist == 0 %}
+                  <span style="color:#9ca3af;font-size:11px">No corresponde</span>
+                  {% else %}
+                  <span style="color:#d1d5db;font-size:12px;font-weight:600">————</span>
                   {% endif %}
                 </td>
               </tr>
