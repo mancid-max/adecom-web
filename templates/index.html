@@ -2377,8 +2377,13 @@
             </thead>
             <tbody id="pvcTbody">
               {% for r in pedido_vs_corte %}
-              <tr data-temp="T{{ r.temp }}" data-estado="{{ r.estado }}" data-dif="{{ r.diferencia }}" data-pedido="{{ r.pedido }}" data-corte="{{ r.corte }}" data-base="{{ r.base }}" style="border-bottom:1px solid #f3f4f6;background:#fff">
-                <td style="padding:9px 16px;font-weight:700;color:#111827;font-family:monospace;font-size:14px">{{ r.base }}</td>
+              <tr data-temp="T{{ r.temp }}" data-estado="{{ r.estado }}" data-dif="{{ r.diferencia }}" data-pedido="{{ r.pedido }}" data-corte="{{ r.corte }}" data-base="{{ r.base }}"
+                  onclick="pvcOpenDetail('{{ r.base }}')"
+                  style="border-bottom:1px solid #f3f4f6;background:#fff;cursor:pointer">
+                <td style="padding:9px 16px;font-weight:700;color:#111827;font-family:monospace;font-size:14px">
+                  {{ r.base }}
+                  {% if r.variants | length > 1 %}<span style="margin-left:5px;font-size:10px;color:#9ca3af;font-weight:400">{{ r.variants | length }} col.</span>{% endif %}
+                </td>
                 <td style="padding:9px 10px">
                   <span style="background:#f3f4f6;color:#374151;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600">T{{ r.temp }}</span>
                 </td>
@@ -2400,7 +2405,7 @@
                   {% if r.ex_base %}
                   <span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">{{ r.ex_base }}</span>
                   {% else %}
-                  <span style="color:#d1d5db;font-size:12px;font-weight:600">————</span>
+                  <span style="color:#d1d5db;font-size:12px">————</span>
                   {% endif %}
                 </td>
                 <td style="padding:9px 12px;text-align:right">
@@ -2409,7 +2414,7 @@
                   {% elif r.ex_hist == 0 %}
                   <span style="color:#9ca3af;font-size:11px">No corresponde</span>
                   {% else %}
-                  <span style="color:#d1d5db;font-size:12px;font-weight:600">————</span>
+                  <span style="color:#d1d5db;font-size:12px">————</span>
                   {% endif %}
                 </td>
               </tr>
@@ -2584,8 +2589,82 @@
       // Aplicar filtro inicial (T44 por defecto)
       _updateSortIcons('dif', false);
       pvcFiltrar('');
+
+      // Datos de variantes por modelo (para el modal de detalle)
+      var _pvcDetalles = {
+        {% for r in pedido_vs_corte %}
+        "{{ r.base }}": {
+          "ex_base": "{{ r.ex_base }}",
+          "ex_hist": {{ r.ex_hist }},
+          "variants": [
+            {% for v in r.variants %}
+            {"color":"{{ v.color }}","pedido":{{ v.pedido }},"corte":{{ v.corte }},"diferencia":{{ v.diferencia }},"estado":"{{ v.estado }}","ex_base":"{{ v.ex_base }}","ex_hist":{{ v.ex_hist }}}{% if not loop.last %},{% endif %}
+            {% endfor %}
+          ]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      };
+
+      window.pvcOpenDetail = function(modelo) {
+        var data = _pvcDetalles[modelo];
+        if (!data) return;
+        var d = document.getElementById('pvcDetailModal');
+        document.getElementById('pvcDetailTitle').textContent = 'Artículo ' + modelo + ' — Detalle por color';
+        var tbody = document.getElementById('pvcDetailTbody');
+        tbody.innerHTML = '';
+        data.variants.forEach(function(v) {
+          var dif = v.diferencia;
+          var difColor = dif > 0 ? '#16a34a' : (dif < 0 ? '#dc2626' : '#9ca3af');
+          var exCell = v.ex_base
+            ? '<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700">' + v.ex_base + '</span>'
+            : '<span style="color:#d1d5db">——</span>';
+          var cantExCell = v.ex_hist > 0
+            ? '<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700">' + v.ex_hist.toLocaleString('es-CL') + '</span>'
+            : (v.ex_hist === 0 ? '<span style="color:#9ca3af;font-size:11px">No corresponde</span>' : '<span style="color:#d1d5db">——</span>');
+          var estadoBadge = v.estado === 'ofrecer'
+            ? '<span style="background:#dcfce7;color:#15803d;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">▲ Ofrecer</span>'
+            : (v.estado === 'cortar'
+              ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">▼ Cortar más</span>'
+              : '<span style="background:#f3f4f6;color:#6b7280;border-radius:20px;padding:2px 10px;font-size:11px">OK</span>');
+          var tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid #f3f4f6';
+          tr.innerHTML = '<td style="padding:8px 14px;font-weight:700;font-family:monospace;color:#111827">' + modelo + '-' + v.color + '</td>'
+            + '<td style="padding:8px 14px;text-align:right;color:#374151">' + v.pedido.toLocaleString('es-CL') + '</td>'
+            + '<td style="padding:8px 14px;text-align:right;color:#374151">' + v.corte.toLocaleString('es-CL') + '</td>'
+            + '<td style="padding:8px 14px;text-align:right;font-weight:700;color:' + difColor + '">' + (dif > 0 ? '+' : '') + dif.toLocaleString('es-CL') + '</td>'
+            + '<td style="padding:8px 14px;text-align:center">' + estadoBadge + '</td>'
+            + '<td style="padding:8px 10px">' + exCell + '</td>'
+            + '<td style="padding:8px 10px;text-align:right">' + cantExCell + '</td>';
+          tbody.appendChild(tr);
+        });
+        d.showModal();
+      };
     })();
     </script>
+
+    <!-- Modal detalle variantes PVC -->
+    <dialog id="pvcDetailModal" style="border:none;border-radius:12px;padding:0;width:min(720px,96vw);box-shadow:0 8px 40px rgba(0,0,0,.18);background:#fff">
+      <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
+        <span id="pvcDetailTitle" style="font-size:15px;font-weight:800;color:#111827"></span>
+        <button onclick="document.getElementById('pvcDetailModal').close()" style="border:1px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:8px;padding:5px 14px;font-size:13px;cursor:pointer">Cerrar</button>
+      </div>
+      <div style="overflow:auto;max-height:400px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
+              <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Color</th>
+              <th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Pedido</th>
+              <th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Corte</th>
+              <th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Diferencia</th>
+              <th style="padding:9px 14px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Estado</th>
+              <th style="padding:9px 10px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">EX</th>
+              <th style="padding:9px 10px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Cant. EX</th>
+            </tr>
+          </thead>
+          <tbody id="pvcDetailTbody"></tbody>
+        </table>
+      </div>
+    </dialog>
 
     <!-- Modal Estado de Resultado -->
     <dialog id="estadoResultadoModal" class="modal" style="width:min(980px,96vw);padding:0;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 8px 48px rgba(0,0,0,.18)">

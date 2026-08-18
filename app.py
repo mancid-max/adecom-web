@@ -5844,40 +5844,60 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
                 key = art[2:6]
                 corte_hist[key] = corte_hist.get(key, 0) + cortado_val
 
-    # 3. Cruce — variant = "442600" → display "4426-00"
-    #    Diferencia = (Corte T44 + Cantidad EX) − Pedido
+    # 3. Cruce por variante → luego agrupar por modelo para la tabla principal
     import re as _re
     origen_map = _load_cole44_origen()
     all_variants = set(list(pedidos.keys()) + list(corte.keys()))
-    result = []
+
+    # Construir filas por variante (para el detalle al hacer clic)
+    from collections import defaultdict
+    modelo_variants: dict[str, list] = defaultdict(list)
     for variant in sorted(all_variants):
         p = pedidos.get(variant, 0)
         c = corte.get(variant, 0)
         if p == 0 and c == 0:
             continue
         modelo = variant[:4]
-        color = variant[4:6] if len(variant) >= 6 else ""
+        color = variant[4:6] if len(variant) >= 6 else "00"
         origen = origen_map.get(modelo, "")
-        # Extraer código EX: "EX 4302" → "4302"
         ex_base = ""
-        ex_hist = -1  # -1 = sin EX origen
+        ex_hist = -1
         m = _re.match(r"(?i)^EX\s*(\d{4})", origen)
         if m:
             ex_base = m.group(1)
-            ex_hist = corte_hist.get(ex_base, 0)  # 0 = EX pero sin corte histórico
-        # Diferencia incluye cantidad EX disponible
-        ex_efectivo = ex_hist if ex_hist > 0 else 0
-        diff = (c + ex_efectivo) - p
-        result.append({
-            "base": f"{modelo}-{color}" if color else modelo,
-            "temp": variant[:2],
+            ex_hist = corte_hist.get(ex_base, 0)
+        ex_ef = ex_hist if ex_hist > 0 else 0
+        diff = (c + ex_ef) - p
+        modelo_variants[modelo].append({
+            "color": color,
             "pedido": p,
             "corte": c,
-            "diferencia": diff,
-            "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
-            "origen": origen,
             "ex_base": ex_base,
             "ex_hist": ex_hist,
+            "diferencia": diff,
+            "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
+        })
+
+    # Agrupar en filas a nivel modelo (tabla principal muestra "4416")
+    result = []
+    for modelo, variants in sorted(modelo_variants.items()):
+        total_p = sum(v["pedido"] for v in variants)
+        total_c = sum(v["corte"] for v in variants)
+        # EX es propiedad del modelo — mismo para todas sus variantes
+        ex_base = variants[0]["ex_base"]
+        ex_hist = variants[0]["ex_hist"]
+        ex_ef = ex_hist if ex_hist > 0 else 0
+        diff = (total_c + ex_ef) - total_p
+        result.append({
+            "base": modelo,
+            "temp": modelo[:2],
+            "pedido": total_p,
+            "corte": total_c,
+            "diferencia": diff,
+            "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
+            "ex_base": ex_base,
+            "ex_hist": ex_hist,
+            "variants": variants,
         })
 
     result.sort(key=lambda x: abs(x["diferencia"]), reverse=True)
