@@ -5811,8 +5811,9 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             variant = art[2:8]
             pedidos[variant] = pedidos.get(variant, 0) + int(row.get("total") or 0)
 
-    # 2. Programado por variante desde TRAZABILIDAD
+    # 2. Programado por variante desde TRAZABILIDAD (T44) + histórico T40-T43 para EX
     corte: dict[str, int] = {}
+    corte_hist: dict[str, int] = {}  # clave = art[2:6] (modelo sin color), para lookup EX
     bi_path = BI_DIR / "TRAZABILIDAD2.CSV"
     traza_path = bi_path if (bi_path.exists() and bi_path.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
     if traza_path.exists():
@@ -5829,16 +5830,20 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
                 temp = int(art[2:4])
             except ValueError:
                 continue
-            if not (TEMP_MIN <= temp <= TEMP_MAX):
-                continue
             tipo = str(raw[1]).strip().upper()
             if "PRODUCCION" not in tipo:
                 continue
             cortado_val = _to_int(str(raw[6]).strip()) if len(raw) > 6 else 0
-            variant = art[2:8]
-            corte[variant] = corte.get(variant, 0) + cortado_val
+            if TEMP_MIN <= temp <= TEMP_MAX:
+                variant = art[2:8]
+                corte[variant] = corte.get(variant, 0) + cortado_val
+            elif temp < TEMP_MIN:
+                # Histórico: agrupa por modelo (art[2:6]) sin color, para EX lookup
+                key = art[2:6]
+                corte_hist[key] = corte_hist.get(key, 0) + cortado_val
 
     # 3. Cruce — variant = "442600" → display "4426-00", temp "44", modelo "4426"
+    import re as _re
     origen_map = _load_cole44_origen()
     all_variants = set(list(pedidos.keys()) + list(corte.keys()))
     result = []
@@ -5850,6 +5855,14 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
         diff = c - p
         modelo = variant[:4]
         color = variant[4:6] if len(variant) >= 6 else ""
+        origen = origen_map.get(modelo, "")
+        # Lookup histórico EX: extraer código base del origen "EX 4302" → "4302"
+        ex_base = ""
+        ex_hist = -1  # -1 = no tiene EX
+        m = _re.match(r"(?i)^EX\s*(\d{4})", origen)
+        if m:
+            ex_base = m.group(1)
+            ex_hist = corte_hist.get(ex_base, 0)  # 0 = tiene EX pero sin corte histórico
         result.append({
             "base": f"{modelo}-{color}" if color else modelo,
             "temp": variant[:2],
@@ -5857,7 +5870,9 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             "corte": c,
             "diferencia": diff,
             "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
-            "origen": origen_map.get(modelo, ""),
+            "origen": origen,
+            "ex_base": ex_base,
+            "ex_hist": ex_hist,
         })
 
     result.sort(key=lambda x: abs(x["diferencia"]), reverse=True)
