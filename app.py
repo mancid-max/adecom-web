@@ -83,6 +83,8 @@ SEED_COMPARATIVO = SEED_DIR / "COMPARATIVO.Txt"
 SEED_DEUDAS = SEED_DIR / "Deudas_Vencidas.CSV"
 SEED_DETALLEV = SEED_DIR / "DETALLEV.TXT"
 SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
+SEED_ESTADO_RESULTADO = SEED_DIR / "ESTADO DE RESULTADO 2026.CSV"
+_ESTADO_RESULTADO_DESKTOP = Path(r"C:\Users\Lenovo\Desktop\ESTADO DE RESULTADO 2026.CSV")
 SEED_CORTES_4200_XLSX = SEED_DIR / "Cortes 4200.xlsx"
 PROGRAMAS_MHC_PATH = Path(
     os.environ.get(
@@ -4091,6 +4093,18 @@ def miles(value):
     return f"{number:,}".replace(",", ".")
 
 
+@app.template_filter("er_miles")
+def er_miles(v):
+    """Divide por 1000 y formatea con puntos chilenos. Cero -> —"""
+    try:
+        n = int(float(v or 0)) // 1000
+        if n == 0:
+            return "—"
+        return f"{n:,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return "—"
+
+
 def _ventas_docs_file() -> Path | None:
     bi_ventas = BI_DIR / "VENTAS-TOD-2026.CSV"
     if bi_ventas.exists() and bi_ventas.stat().st_size > 0:
@@ -5809,6 +5823,75 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
 
     result.sort(key=lambda x: abs(x["diferencia"]), reverse=True)
     return result
+
+
+def _build_estado_resultado() -> dict[str, object]:
+    """Carga Estado de Resultado 2026 desde CSV (pesos CLP, separador ;)."""
+    LINES_WANTED = {"01", "02", "03", "04", "05", "06", "09", "13", "20"}
+    SUBTOTALS = {"03", "09", "20"}
+    MK = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+    ML = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+    content: bytes | None = None
+    for p in [SEED_ESTADO_RESULTADO, _ESTADO_RESULTADO_DESKTOP]:
+        try:
+            if p.exists() and p.stat().st_size > 0:
+                content = p.read_bytes()
+                break
+        except OSError:
+            pass
+    if content is None:
+        return {"available": False, "rows": [], "kpis": {}, "months": []}
+
+    text = ""
+    for enc in ("cp1252", "utf-8-sig", "utf-8", "latin-1"):
+        try:
+            text = content.decode(enc)
+            break
+        except (UnicodeDecodeError, AttributeError):
+            continue
+
+    def _int(s: str) -> int:
+        try:
+            return int(float(s.strip() or "0"))
+        except (ValueError, TypeError):
+            return 0
+
+    rows: list[dict] = []
+    lin_map: dict[str, dict] = {}
+    for row in csv.reader(io.StringIO(text), delimiter=";"):
+        if len(row) < 3:
+            continue
+        lin = str(row[1]).strip().zfill(2)
+        if lin not in LINES_WANTED:
+            continue
+        entry: dict = {
+            "lin": lin,
+            "concepto": str(row[2]).strip(),
+            "acum": _int(row[15]) if len(row) > 15 else 0,
+            "is_subtotal": lin in SUBTOTALS,
+        }
+        for k, mk in enumerate(MK):
+            entry[mk] = _int(row[3 + k]) if 3 + k < len(row) else 0
+        rows.append(entry)
+        lin_map[lin] = entry
+
+    active_months = [
+        {"key": mk, "label": ml}
+        for mk, ml in zip(MK, ML)
+        if any(r[mk] != 0 for r in rows)
+    ]
+
+    def _acum(lin: str) -> int:
+        return lin_map.get(lin, {}).get("acum", 0)
+
+    kpis = {
+        "ingresos":     _acum("01"),
+        "margen":       _acum("03"),
+        "resultado_op": _acum("09"),
+        "utilidad":     _acum("20"),
+    }
+    return {"available": bool(rows), "rows": rows, "kpis": kpis, "months": active_months}
 
 
 def _build_inactive_clients_dashboard() -> dict[str, object]:
@@ -7707,6 +7790,7 @@ def index():
     inventory_book = _load_inventory_book_dashboard()
     trazabilidad_op_dashboard = _load_trazabilidad_op_dashboard()
     pedido_vs_corte = _build_pedido_vs_corte()
+    estado_resultado = _build_estado_resultado()
     full_table_rows, full_table_totals, full_table_temporadas = _load_full_table_rows_from_seed()
     venta_despacho_allowed_keys = {str(k) for k in range(MIN_DISPLAY_COLLECTION, MAX_DISPLAY_COLLECTION + 1)}
     venta_despacho_collection_keys = [
@@ -7795,6 +7879,7 @@ def index():
         venta_despacho_dashboard_views=venta_despacho_dashboard_views,
         inactive_clients_dashboard=inactive_clients_dashboard,
         pedido_vs_corte=pedido_vs_corte,
+        estado_resultado=estado_resultado,
         cruce_cols=cruce_cols,
         ui_state={"open_modal": open_modal, "programas_month": programas_month},
         now=datetime.now(),

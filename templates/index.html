@@ -223,6 +223,20 @@
       </section>
     </section>
 
+    <section class="dashboard-section-block dashboard-section-block-finanzas">
+      <header class="dashboard-section-title">
+        <h2>FINANZAS</h2>
+      </header>
+      <section class="summary dashboard-kpi-row">
+        <article class="card-action summary-secondary">
+          <button type="button" class="summary-open summary-open-centered" id="openEstadoResultadoModal"
+            {% if not estado_resultado.available %}disabled title="CSV no disponible"{% endif %}>
+            <h2>test estado resultado</h2>
+          </button>
+        </article>
+      </section>
+    </section>
+
     {% if not static_export_mode %}
     <dialog id="adminAccessModal" class="modal modal-production-goals">
       <div class="modal-head">
@@ -2339,17 +2353,17 @@
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
-                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Artículo</th>
+                <th id="pvcThBase" onclick="pvcSort('base')" style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Artículo <span id="pvcSortBase" style="opacity:.5"></span></th>
                 <th style="padding:10px 10px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Temp.</th>
-                <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Pedido</th>
-                <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Corte</th>
-                <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Diferencia</th>
-                <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Estado</th>
+                <th id="pvcThPedido" onclick="pvcSort('pedido')" style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Pedido <span id="pvcSortPedido" style="opacity:.5"></span></th>
+                <th id="pvcThCorte" onclick="pvcSort('corte')" style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Corte <span id="pvcSortCorte" style="opacity:.5"></span></th>
+                <th id="pvcThDif" onclick="pvcSort('dif')" style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Diferencia <span id="pvcSortDif" style="opacity:.7">↕</span></th>
+                <th id="pvcThEstado" onclick="pvcCicloEstado()" style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none">Estado <span id="pvcEstadoLabel" style="opacity:.6">↕</span></th>
               </tr>
             </thead>
             <tbody id="pvcTbody">
               {% for r in pedido_vs_corte %}
-              <tr data-temp="T{{ r.temp }}" style="border-bottom:1px solid #f3f4f6;background:#fff">
+              <tr data-temp="T{{ r.temp }}" data-estado="{{ r.estado }}" data-dif="{{ r.diferencia }}" data-pedido="{{ r.pedido }}" data-corte="{{ r.corte }}" data-base="{{ r.base }}" style="border-bottom:1px solid #f3f4f6;background:#fff">
                 <td style="padding:9px 16px;font-weight:700;color:#111827;font-family:monospace;font-size:14px">{{ r.base }}</td>
                 <td style="padding:9px 10px">
                   <span style="background:#f3f4f6;color:#374151;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600">T{{ r.temp }}</span>
@@ -2389,6 +2403,8 @@
       document.getElementById('openPedidoVsCorteModal').addEventListener('click', function(){
         document.getElementById('pedidoVsCorteModal').showModal();
       });
+
+      // --- Filtro por temporada ---
       var _pvcTemps = new Set();
       document.querySelectorAll('#pvcTbody tr[data-temp]').forEach(function(tr){ _pvcTemps.add(tr.dataset.temp); });
       var _pvcActiveTemp = '';
@@ -2408,14 +2424,307 @@
           filtroEl.appendChild(btn);
         });
       }
+
+      // --- Filtro por Estado (ciclo en encabezado) ---
+      var _estadoCiclo = ['', 'ofrecer', 'cortar'];
+      var _estadoLabels = ['↕', '▲ Ofrecer', '▼ Cortar más'];
+      var _estadoColors = ['#6b7280', '#15803d', '#b91c1c'];
+      var _estadoIdx = 0;
+      window.pvcCicloEstado = function(){
+        _estadoIdx = (_estadoIdx + 1) % _estadoCiclo.length;
+        var lbl = document.getElementById('pvcEstadoLabel');
+        var th  = document.getElementById('pvcThEstado');
+        if (lbl) { lbl.textContent = _estadoLabels[_estadoIdx]; lbl.style.opacity = '1'; }
+        if (th)  { th.style.color = _estadoColors[_estadoIdx]; }
+        pvcFiltrar(document.getElementById('pvcSearch').value);
+      };
+
+      // --- Ordenar por columna ---
+      var _pvcSortCol = 'dif';
+      var _pvcSortAsc = false;
+      var _sortSpans = { base:'pvcSortBase', pedido:'pvcSortPedido', corte:'pvcSortCorte', dif:'pvcSortDif' };
+
+      function _updateSortIcons(col, asc) {
+        Object.keys(_sortSpans).forEach(function(k){
+          var el = document.getElementById(_sortSpans[k]);
+          if (!el) return;
+          el.textContent = (k === col) ? (asc ? '▲' : '▼') : '';
+          el.style.opacity = (k === col) ? '1' : '.5';
+        });
+      }
+
+      window.pvcSort = function(col){
+        if (_pvcSortCol === col) {
+          _pvcSortAsc = !_pvcSortAsc;
+        } else {
+          _pvcSortCol = col;
+          _pvcSortAsc = (col === 'base');
+        }
+        _updateSortIcons(col, _pvcSortAsc);
+        var tbody = document.getElementById('pvcTbody');
+        var rows = Array.from(tbody.querySelectorAll('tr[data-temp]'));
+        rows.sort(function(a, b){
+          var va, vb;
+          if (col === 'base') {
+            va = a.dataset.base || ''; vb = b.dataset.base || '';
+            return _pvcSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+          }
+          va = parseInt(a.dataset[col] || '0', 10);
+          vb = parseInt(b.dataset[col] || '0', 10);
+          return _pvcSortAsc ? va - vb : vb - va;
+        });
+        rows.forEach(function(r){ tbody.appendChild(r); });
+      };
+
+      // --- Filtrar (búsqueda + temp + estado) ---
       window.pvcFiltrar = function(q){
         q = (q||'').toLowerCase().trim();
+        var activeEstado = _estadoCiclo[_estadoIdx];
         document.querySelectorAll('#pvcTbody tr[data-temp]').forEach(function(tr){
-          var baseMatch = !q || tr.cells[0].textContent.toLowerCase().includes(q);
-          var tempMatch = !_pvcActiveTemp || tr.dataset.temp === _pvcActiveTemp;
-          tr.style.display = (baseMatch && tempMatch) ? '' : 'none';
+          var baseMatch   = !q            || tr.dataset.base.toLowerCase().includes(q);
+          var tempMatch   = !_pvcActiveTemp  || tr.dataset.temp   === _pvcActiveTemp;
+          var estadoMatch = !activeEstado    || tr.dataset.estado  === activeEstado;
+          tr.style.display = (baseMatch && tempMatch && estadoMatch) ? '' : 'none';
         });
       };
+
+      // Ícono inicial de diferencia
+      _updateSortIcons('dif', false);
+    })();
+    </script>
+
+    <!-- Modal Estado de Resultado -->
+    <dialog id="estadoResultadoModal" class="modal" style="width:min(980px,96vw);padding:0;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 8px 48px rgba(0,0,0,.18)">
+      <div style="display:flex;flex-direction:column;max-height:90vh">
+
+        <!-- Header -->
+        <div style="flex-shrink:0;padding:18px 24px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <span style="font-size:17px;font-weight:800;color:#111827;letter-spacing:-.01em">Estado de Resultado 2026</span>
+            <span style="font-size:12px;color:#9ca3af;margin-left:14px">Pérdida y ganancia · cifras en miles de pesos CLP</span>
+          </div>
+          <button onclick="document.getElementById('estadoResultadoModal').close()"
+            style="border:1px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:8px;padding:6px 18px;font-size:13px;cursor:pointer;font-weight:600">Cerrar</button>
+        </div>
+
+        {% if estado_resultado.available %}
+        {%- set ing = (estado_resultado.kpis.ingresos / 1000000)|round(0)|int -%}
+        {%- set mar = (estado_resultado.kpis.margen / 1000000)|round(0)|int -%}
+        {%- set rop = (estado_resultado.kpis.resultado_op / 1000000)|round(0)|int -%}
+        {%- set uti = (estado_resultado.kpis.utilidad / 1000000)|round(0)|int -%}
+
+        <!-- KPI strip -->
+        <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(4,1fr);background:#fafafa;border-bottom:1px solid #e5e7eb">
+          <div style="padding:16px 22px;border-right:1px solid #e5e7eb">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-bottom:6px">Ingresos YTD</div>
+            <div style="font-size:26px;font-weight:800;color:#1e2633;font-variant-numeric:tabular-nums;letter-spacing:-.02em">${{ ing|abs }} M</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px">acumulado {{ estado_resultado.months[-1].label if estado_resultado.months else '—' }}</div>
+          </div>
+          <div style="padding:16px 22px;border-right:1px solid #e5e7eb">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-bottom:6px">Margen explotación</div>
+            <div style="font-size:26px;font-weight:800;color:{% if mar >= 0 %}#15803d{% else %}#dc2626{% endif %};font-variant-numeric:tabular-nums;letter-spacing:-.02em">{% if mar < 0 %}−{% endif %}${{ mar|abs }} M</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px">{% if ing != 0 %}{{ ((mar|abs / ing|abs) * 100)|round(1) }}% sobre ingresos{% endif %}</div>
+          </div>
+          <div style="padding:16px 22px;border-right:1px solid #e5e7eb">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-bottom:6px">Resultado operacional</div>
+            <div style="font-size:26px;font-weight:800;color:{% if rop >= 0 %}#15803d{% else %}#dc2626{% endif %};font-variant-numeric:tabular-nums;letter-spacing:-.02em">{% if rop < 0 %}−{% endif %}${{ rop|abs }} M</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px">acumulado 2026</div>
+          </div>
+          <div style="padding:16px 22px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-bottom:6px">Utilidad / Pérdida</div>
+            <div style="font-size:26px;font-weight:800;color:{% if uti >= 0 %}#15803d{% else %}#dc2626{% endif %};font-variant-numeric:tabular-nums;letter-spacing:-.02em">{% if uti >= 0 %}+{% else %}−{% endif %}${{ uti|abs }} M</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px">ejercicio 2026</div>
+          </div>
+        </div>
+
+        <!-- Cuerpo principal -->
+        {%- set ns = namespace(costo=0,gadm=0,gven=0,gpat=0,ifuera=0) -%}
+        {%- for row in estado_resultado.rows -%}
+          {%- if row.lin == '02' -%}{%- set ns.costo = row.acum -%}
+          {%- elif row.lin == '04' -%}{%- set ns.gadm = row.acum -%}
+          {%- elif row.lin == '05' -%}{%- set ns.gven = row.acum -%}
+          {%- elif row.lin == '06' -%}{%- set ns.gpat = row.acum -%}
+          {%- elif row.lin == '13' -%}{%- set ns.ifuera = row.acum -%}
+          {%- endif -%}
+        {%- endfor -%}
+
+        <div style="overflow-y:auto;flex:1;min-height:0;padding:16px 20px;background:#f1f5f9;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+
+          <!-- COLUMNA IZQUIERDA: cascada P&L -->
+          <div style="display:flex;flex-direction:column;gap:10px">
+
+            <!-- Grupo 1: Explotación -->
+            <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+              <div style="padding:8px 14px;background:#1e2633;color:#94a3b8;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em">Resultado explotación</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #f1f5f9">
+                <span style="font-size:12px;color:#6b7280"><span style="color:#cbd5e1;font-size:10px;margin-right:6px">01</span>Ingresos explotación</span>
+                <span style="font-size:13px;font-weight:700;color:#1e2633;font-variant-numeric:tabular-nums">${{ ing|abs }} M</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:2px solid #e2e8f0">
+                <span style="font-size:12px;color:#6b7280"><span style="color:#cbd5e1;font-size:10px;margin-right:6px">02</span>Costo explotación</span>
+                <span style="font-size:13px;font-weight:600;color:#9ca3af;font-variant-numeric:tabular-nums">−${{ (ns.costo|abs / 1000000)|round(0)|int }} M</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f0fdf4">
+                <div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#15803d">Margen explotación</div>
+                  <div style="font-size:10px;color:#9ca3af;margin-top:2px">{% if ing != 0 %}{{ ((mar|abs / ing|abs) * 100)|round(1) }}% sobre ingresos{% endif %}</div>
+                </div>
+                <span style="font-size:22px;font-weight:800;color:#15803d;font-variant-numeric:tabular-nums">${{ mar|abs }} M</span>
+              </div>
+            </div>
+
+            <!-- Grupo 2: Gastos → Resultado Op -->
+            <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+              <div style="padding:8px 14px;background:#1e2633;color:#94a3b8;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em">Gastos operacionales</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #f1f5f9">
+                <span style="font-size:12px;color:#6b7280"><span style="color:#cbd5e1;font-size:10px;margin-right:6px">04</span>Gastos administración</span>
+                <span style="font-size:13px;font-weight:600;color:#9ca3af;font-variant-numeric:tabular-nums">−${{ (ns.gadm|abs / 1000000)|round(0)|int }} M</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #f1f5f9">
+                <span style="font-size:12px;color:#6b7280"><span style="color:#cbd5e1;font-size:10px;margin-right:6px">05</span>Gastos ventas</span>
+                <span style="font-size:13px;font-weight:600;color:#9ca3af;font-variant-numeric:tabular-nums">−${{ (ns.gven|abs / 1000000)|round(0)|int }} M</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:2px solid #e2e8f0">
+                <span style="font-size:12px;color:#6b7280"><span style="color:#cbd5e1;font-size:10px;margin-right:6px">06</span>Patentes e impuestos</span>
+                <span style="font-size:13px;font-weight:600;color:#9ca3af;font-variant-numeric:tabular-nums">−${{ (ns.gpat|abs / 1000000)|round(0)|int }} M</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:{% if rop < 0 %}#fef2f2{% else %}#f0fdf4{% endif %}">
+                <div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:{% if rop < 0 %}#dc2626{% else %}#15803d{% endif %}">Resultado operacional</div>
+                  <div style="font-size:10px;color:#9ca3af;margin-top:2px">Margen − Gastos totales</div>
+                </div>
+                <span style="font-size:22px;font-weight:800;color:{% if rop < 0 %}#dc2626{% else %}#15803d{% endif %};font-variant-numeric:tabular-nums">{% if rop < 0 %}−{% endif %}${{ rop|abs }} M</span>
+              </div>
+            </div>
+
+            <!-- Grupo 3: No operacional → Utilidad -->
+            <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+              <div style="padding:8px 14px;background:#1e2633;color:#94a3b8;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em">Resultado final</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:2px solid #e2e8f0">
+                <span style="font-size:12px;color:#6b7280"><span style="color:#cbd5e1;font-size:10px;margin-right:6px">13</span>Ingresos fuera explotación</span>
+                <span style="font-size:13px;font-weight:600;color:#15803d;font-variant-numeric:tabular-nums">+${{ (ns.ifuera|abs / 1000000)|round(0)|int }} M</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:{% if uti >= 0 %}#f0fdf4{% else %}#fef2f2{% endif %}">
+                <div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:{% if uti >= 0 %}#15803d{% else %}#dc2626{% endif %}">Utilidad / Pérdida ejercicio</div>
+                  <div style="font-size:10px;color:#9ca3af;margin-top:2px">Resultado Op. + No operacional</div>
+                </div>
+                <span style="font-size:22px;font-weight:800;color:{% if uti >= 0 %}#15803d{% else %}#dc2626{% endif %};font-variant-numeric:tabular-nums">{% if uti >= 0 %}+{% else %}−{% endif %}${{ uti|abs }} M</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMNA DERECHA: gráficos -->
+          <div style="display:flex;flex-direction:column;gap:10px">
+
+            <!-- Gráfico Ingresos -->
+            <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:12px">Ingresos por mes · miles CLP</div>
+              <div style="display:flex;align-items:flex-end;gap:5px;height:72px">
+                {%- set er_max_ing = namespace(v=1) -%}
+                {%- for row in estado_resultado.rows if row.lin == '01' -%}
+                  {%- for m in estado_resultado.months -%}
+                    {%- if row[m.key] > er_max_ing.v -%}{%- set er_max_ing.v = row[m.key] -%}{%- endif -%}
+                  {%- endfor -%}
+                {%- endfor -%}
+                {%- for row in estado_resultado.rows if row.lin == '01' -%}
+                {%- for m in estado_resultado.months -%}
+                {%- set v = row[m.key] -%}
+                {%- set h = ((v / er_max_ing.v) * 60)|round(0)|int if v > 0 else 0 -%}
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+                  <div style="width:100%;background:#3b82f6;border-radius:3px 3px 0 0;height:{{ h }}px" title="{{ m.label }}: {{ v | er_miles }}k"></div>
+                  <div style="font-size:8px;color:#9ca3af;white-space:nowrap">{{ m.label }}</div>
+                </div>
+                {%- endfor -%}
+                {%- endfor -%}
+              </div>
+            </div>
+
+            <!-- Gráfico Resultado Op +/- -->
+            <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:4px">Resultado operacional · mes a mes</div>
+              <div style="font-size:9px;color:#cbd5e1;margin-bottom:10px">verde = positivo · rojo = negativo</div>
+              {%- set er_max_rop = namespace(v=1) -%}
+              {%- for row in estado_resultado.rows if row.lin == '09' -%}
+                {%- for m in estado_resultado.months -%}
+                  {%- if row[m.key]|abs > er_max_rop.v -%}{%- set er_max_rop.v = row[m.key]|abs -%}{%- endif -%}
+                {%- endfor -%}
+              {%- endfor -%}
+              <div style="display:flex;align-items:stretch;gap:5px;height:80px;border-bottom:1px solid #e5e7eb;position:relative">
+                {%- for row in estado_resultado.rows if row.lin == '09' -%}
+                {%- for m in estado_resultado.months -%}
+                {%- set v = row[m.key] -%}
+                {%- set h = ((v|abs / er_max_rop.v) * 36)|round(0)|int -%}
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:80px">
+                  {%- if v >= 0 -%}
+                  <div style="width:100%;height:40px;display:flex;flex-direction:column;justify-content:flex-end">
+                    <div style="width:100%;height:{{ h }}px;background:#16a34a;border-radius:3px 3px 0 0;min-height:{% if v != 0 %}3{% else %}0{% endif %}px"></div>
+                  </div>
+                  <div style="width:100%;height:40px"></div>
+                  {%- else -%}
+                  <div style="width:100%;height:40px"></div>
+                  <div style="width:100%;height:40px;display:flex;flex-direction:column;justify-content:flex-start">
+                    <div style="width:100%;height:{{ h }}px;background:#dc2626;border-radius:0 0 3px 3px;min-height:3px"></div>
+                  </div>
+                  {%- endif -%}
+                </div>
+                {%- endfor -%}
+                {%- endfor -%}
+              </div>
+              <div style="display:flex;gap:5px;margin-top:4px">
+                {%- for m in estado_resultado.months -%}
+                <div style="flex:1;text-align:center;font-size:8px;color:#9ca3af">{{ m.label }}</div>
+                {%- endfor -%}
+              </div>
+            </div>
+
+            <!-- Detalle rápido -->
+            <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:10px">Composición gastos acumulado</div>
+              {%- set total_gastos = (ns.gadm|abs + ns.gven|abs + ns.gpat|abs) -%}
+              {%- set pct_gadm = ((ns.gadm|abs / total_gastos) * 100)|round(0)|int if total_gastos > 0 else 0 -%}
+              {%- set pct_gven = ((ns.gven|abs / total_gastos) * 100)|round(0)|int if total_gastos > 0 else 0 -%}
+              {%- set pct_gpat = (100 - pct_gadm - pct_gven) -%}
+              <!-- Barra apilada -->
+              <div style="display:flex;border-radius:6px;overflow:hidden;height:12px;margin-bottom:10px">
+                <div style="width:{{ pct_gadm }}%;background:#3b82f6" title="Admin {{ pct_gadm }}%"></div>
+                <div style="width:{{ pct_gven }}%;background:#8b5cf6" title="Ventas {{ pct_gven }}%"></div>
+                <div style="width:{{ pct_gpat }}%;background:#f59e0b" title="Patentes {{ pct_gpat }}%"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;background:#3b82f6;border-radius:2px;display:inline-block"></span>Administración</span>
+                  <span style="font-size:11px;font-weight:600;color:#374151;font-variant-numeric:tabular-nums">${{ (ns.gadm|abs / 1000000)|round(0)|int }} M · {{ pct_gadm }}%</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;background:#8b5cf6;border-radius:2px;display:inline-block"></span>Ventas</span>
+                  <span style="font-size:11px;font-weight:600;color:#374151;font-variant-numeric:tabular-nums">${{ (ns.gven|abs / 1000000)|round(0)|int }} M · {{ pct_gven }}%</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;background:#f59e0b;border-radius:2px;display:inline-block"></span>Patentes</span>
+                  <span style="font-size:11px;font-weight:600;color:#374151;font-variant-numeric:tabular-nums">${{ (ns.gpat|abs / 1000000)|round(0)|int }} M · {{ pct_gpat }}%</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {% else %}
+        <div style="padding:48px;text-align:center;color:#9ca3af;font-size:14px">CSV no disponible — coloca "ESTADO DE RESULTADO 2026.CSV" en Z:\BI</div>
+        {% endif %}
+
+        <div style="padding:9px 24px;background:#f8faff;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;flex-shrink:0;letter-spacing:.03em">
+          Cifras en miles de pesos CLP · Datos al último build automático
+        </div>
+      </div>
+    </dialog>
+    <script>
+    (function(){
+      var btn = document.getElementById('openEstadoResultadoModal');
+      if (btn) btn.addEventListener('click', function(){
+        document.getElementById('estadoResultadoModal').showModal();
+      });
     })();
     </script>
 
