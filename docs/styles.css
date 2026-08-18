@@ -12086,3 +12086,117 @@ input[type="file"],
   margin: 0 !important;
 }
 /* ─────────────────────────────────────────────────────────────── */
+
+
+/* ─── Diseño visual por sección (v2 blanco profesional) ─── */
+
+/* Badge ícono dentro de la card */
+.card-badge {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; line-height: 1; flex-shrink: 0;
+  margin-bottom: 2px;
+}
+.summary-open-centered {
+  flex-direction: column !important;
+  gap: 4px !important;
+  align-items: center !important;
+}
+.summary-open-centered h2 {
+  font-size: 11px !important;
+  letter-spacing: .05em !important;
+  text-transform: uppercase !important;
+  text-align: center !important;
+  line-height: 1.35 !important;
+  color: #3d5370 !important;
+  margin: 0 !important;
+}
+
+/* Barra de acento lateral en los headers de sección */
+.dashboard-section-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 7px !important;
+}
+.dashboard-section-title::before {
+  content: '' !important;
+  display: block !important;
+  width: 4px !important; height: 18px !important;
+  border-radius: 3px !important;
+  flex-shrink: 0 !important;
+}
+.dashboard-section-title::after {
+  content: none !important;
+}
+.dashboard-section-title h2 {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: .2em !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
+}
+
+/* PEDIDOS – azul */
+.dashboard-section-block-pedidos .dashboard-section-title::before { background: #1e6fdb !important; }
+.dashboard-section-block-pedidos .dashboard-section-title h2      { color: #1e6fdb !important; }
+.dashboard-section-block-pedidos .card-badge                      { background: #ebf2ff; }
+.dashboard-section-block-pedidos .dashboard-kpi-row .card-action::before,
+.dashboard-section-block-pedidos .dashboard-kpi-row article::before { background: #1e6fdb !important; height: 3px !important; }
+.dashboard-section-block-pedidos .summary-open:hover              { background: #ebf2ff !important; border-color: #c0d8fb !important; }
+.dashboard-section-block-pedidos .summary-open:hover h2           { color: #1e6fdb !important; }
+
+/* PRODUCCION – verde */
+.dashboard-section-block-produccion .dashboard-section-title::before { background: #0a8c5a !important; }
+.dashboard-section-block-produccion .dashboard-section-title h2      { color: #0a8c5a !important; }
+.dashboard-section-block-produccion .card-badge                      { background: #e8faf3; }
+.dashboard-section-block-produccion .dashboard-kpi-row .card-action::before,
+.dashboard-section-block-produccion .dashboard-kpi-row article::before { background: #0a8c5a !important; height: 3px !important; }
+.dashboard-section-block-produccion .summary-open:hover              { background: #e8faf3 !important; border-color: #b0e8d0 !important; }
+.dashboard-section-block-produccion .summary-open:hover h2           { color: #0a8c5a !important; }
+
+/* VENTA – ámbar */
+.dashboard-section-block-venta-despacho .dashboard-section-title::before { background: #c07010 !important; }
+.dashboard-section-block-venta-despacho .dashboard-section-title h2      { color: #c07010 !important; }
+.dashboard-section-block-venta-despacho .card-badge                      { background: #fff7e6; }
+.dashboard-section-block-venta-despacho .dashboard-kpi-row .card-action::before,
+.dashboard-section-block-venta-despacho .dashboard-kpi-row article::before { background: #c07010 !important; height: 3px !important; }
+.dashboard-section-block-venta-despacho .summary-open:hover              { background: #fff7e6 !important; border-color: #fcd9a0 !important; }
+.dashboard-section-block-venta-despacho .summary-open:hover h2           { color: #c07010 !important; }
+
+/* FINANZAS – violeta */
+.dashboard-section-block-finanzas .dashboard-section-title::before { background: #6835c9 !important; }
+.dashboard-section-block-finanzas .dashboard-section-title h2      { color: #6835c9 !important; }
+.dashboard-section-block-finanzas .card-badge                      { background: #f2eeff; }
+.dashboard-section-block-finanzas .dashboard-kpi-row .card-action::before,
+.dashboard-section-block-finanzas .dashboard-kpi-row article::before { background: #6835c9 !important; height: 3px !important; }
+.dashboard-section-block-finanzas .summary-open:hover              { background: #f2eeff !important; border-color: #d4c2f8 !important; }
+.dashboard-section-block-finanzas .summary-open:hover h2           { color: #6835c9 !important; }
+
+/* ─────────────────────────────────────────────────────── */
+
+
+/* ─── Ocultar título header y buscador ─── */
+.top-nav-title   { display: none !important; }
+.top-nav-actions { display: none !important; }
+.top-nav-redesign {
+  min-height: 0 !important;
+  padding: 7px 20px !important;
+  border-bottom: 1px solid #e8ebf0 !important;
+}
+.top-nav-brand { gap: 0 !important; }
+.filters { display: none !important; }
+/* ─────────────────────────────────────── */
+
+
+/* ─── Quitar línea separadora entre PEDIDOS y PRODUCCION ─── */
+.page #sectionProduccion::after { content: none !important; }
+#sectionProduccion { margin-bottom: 0 !important; }
+/* ─────────────────────────────────────────────────────────── */
+
+
+/* ─── Hover legible en tabla PVC ─── */
+#pvcTbody tr { background: #fff !important; }
+#pvcTbody tr:hover { background: #f0f6ff !important; }
+#pvcTbody tr:hover td { color: #1e2633 !important; }
+/* ─────────────────────────────────── */

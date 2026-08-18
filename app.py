@@ -5859,22 +5859,35 @@ def _build_estado_resultado() -> dict[str, object]:
 
     rows: list[dict] = []
     lin_map: dict[str, dict] = {}
+    current_lin: str | None = None
     for row in csv.reader(io.StringIO(text), delimiter=";"):
         if len(row) < 3:
             continue
-        lin = str(row[1]).strip().zfill(2)
-        if lin not in LINES_WANTED:
-            continue
-        entry: dict = {
-            "lin": lin,
-            "concepto": str(row[2]).strip(),
-            "acum": _int(row[15]) if len(row) > 15 else 0,
-            "is_subtotal": lin in SUBTOTALS,
-        }
-        for k, mk in enumerate(MK):
-            entry[mk] = _int(row[3 + k]) if 3 + k < len(row) else 0
-        rows.append(entry)
-        lin_map[lin] = entry
+        col1 = str(row[1]).strip()
+        lin = col1.zfill(2) if col1 else ""
+        if lin in LINES_WANTED:
+            entry: dict = {
+                "lin": lin,
+                "concepto": str(row[2]).strip(),
+                "acum": _int(row[15]) if len(row) > 15 else 0,
+                "is_subtotal": lin in SUBTOTALS,
+                "sub": [],
+            }
+            for k, mk in enumerate(MK):
+                entry[mk] = _int(row[3 + k]) if 3 + k < len(row) else 0
+            rows.append(entry)
+            lin_map[lin] = entry
+            current_lin = lin
+        elif current_lin and current_lin in lin_map and col1 and len(col1) > 2 and col1[0].isdigit():
+            sub: dict = {
+                "cuenta": col1,
+                "concepto": str(row[2]).strip(),
+                "acum": _int(row[15]) if len(row) > 15 else 0,
+            }
+            for k, mk in enumerate(MK):
+                sub[mk] = _int(row[3 + k]) if 3 + k < len(row) else 0
+            if any(sub[mk] != 0 for mk in MK) or sub["acum"] != 0:
+                lin_map[current_lin]["sub"].append(sub)
 
     active_months = [
         {"key": mk, "label": ml}

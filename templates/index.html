@@ -143,18 +143,21 @@
     <section class="summary dashboard-kpi-row" id="sectionProduccion">
       <article class="card-action summary-focus">
         <button type="button" class="summary-open summary-open-centered" id="openVentasTotalModalTop">
+          <span class="card-badge">📋</span>
           <h2>Detalle pedido color</h2>
         </button>
       </article>
 
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openTopArticulosDashboardCard">
+          <span class="card-badge">🏆</span>
           <h2>TOP 10 Pedidos</h2>
         </button>
       </article>
 
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openPedidoVsCorteModal">
+          <span class="card-badge">✂️</span>
           <h2>Pedido vs Corte</h2>
         </button>
       </article>
@@ -168,16 +171,19 @@
     <section class="summary dashboard-kpi-row dashboard-ops-row">
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openProductionExcelModal">
+          <span class="card-badge">📈</span>
           <h2>Modelo Excel metas</h2>
         </button>
       </article>
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openInventoryBookModal">
+          <span class="card-badge">📦</span>
           <h2>Stock bodega</h2>
         </button>
       </article>
       <article class="card-action summary-secondary">
         <button type="button" class="summary-open summary-open-centered" id="openFullTableModal">
+          <span class="card-badge">🗂️</span>
           <h2>Tabla completa</h2>
         </button>
       </article>
@@ -197,6 +203,7 @@
             data-open-id="openVentaDespachoModal"
             {% if not venta_despacho_dashboard.available %}disabled{% endif %}
           >
+            <span class="card-badge">🚚</span>
             <h2>Venta vs Despacho</h2>
           </button>
         </article>
@@ -207,6 +214,7 @@
             class="summary-open summary-open-centered"
             data-open-id="openReporteVentaModal"
           >
+            <span class="card-badge">💰</span>
             <h2>Reporte Venta</h2>
           </button>
         </article>
@@ -217,6 +225,7 @@
             class="summary-open summary-open-centered"
             data-open-id="openFacturablesModal"
           >
+            <span class="card-badge">👤</span>
             <h2>Clientes inactivos</h2>
           </button>
         </article>
@@ -231,6 +240,7 @@
         <article class="card-action summary-secondary">
           <button type="button" class="summary-open summary-open-centered" id="openEstadoResultadoModal"
             {% if not estado_resultado.available %}disabled title="CSV no disponible"{% endif %}>
+            <span class="card-badge">📊</span>
             <h2>test estado resultado</h2>
           </button>
         </article>
@@ -2337,8 +2347,10 @@
               <span style="font-size:16px;font-weight:700;color:#111827">Pedido vs Corte</span>
               <span style="font-size:12px;color:#9ca3af;margin-left:10px">pedidos clientes vs producción programada</span>
             </div>
-            <button onclick="document.getElementById('pedidoVsCorteModal').close()"
-              style="border:1px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:8px;padding:5px 14px;font-size:13px;cursor:pointer;font-weight:500">Cerrar</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button onclick="pvcImprimir()" style="border:1px solid #d1d5db;background:#1e2633;color:#fff;border-radius:8px;padding:5px 14px;font-size:13px;cursor:pointer;font-weight:600">🖨️ Imprimir</button>
+              <button onclick="document.getElementById('pedidoVsCorteModal').close()" style="border:1px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:8px;padding:5px 14px;font-size:13px;cursor:pointer;font-weight:500">Cerrar</button>
+            </div>
           </div>
           <!-- Filtros -->
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -2391,10 +2403,11 @@
         </div>
 
         <!-- Footer -->
-        <div style="flex-shrink:0;padding:10px 20px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:20px;align-items:center;font-size:12px">
-          <span style="color:#6b7280">Total: <strong style="color:#111827">{{ pedido_vs_corte | length }}</strong> artículos</span>
-          <span style="color:#15803d;font-weight:600">▲ {{ pedido_vs_corte | selectattr('estado', 'equalto', 'ofrecer') | list | length }} para ofrecer</span>
-          <span style="color:#b91c1c;font-weight:600">▼ {{ pedido_vs_corte | selectattr('estado', 'equalto', 'cortar') | list | length }} falta cortar</span>
+        <div style="flex-shrink:0;padding:10px 20px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:20px;align-items:center;font-size:12px;flex-wrap:wrap">
+          <span style="color:#6b7280">Mostrando: <strong id="pvcCountTotal" style="color:#111827">{{ pedido_vs_corte | length }}</strong> artículos</span>
+          <span style="color:#15803d;font-weight:600">▲ <span id="pvcCountOfrecer">{{ pedido_vs_corte | selectattr('estado', 'equalto', 'ofrecer') | list | length }}</span> para ofrecer</span>
+          <span style="color:#b91c1c;font-weight:600">▼ <span id="pvcCountCortar">{{ pedido_vs_corte | selectattr('estado', 'equalto', 'cortar') | list | length }}</span> falta cortar</span>
+          <span style="margin-left:auto;color:#374151;font-weight:600">Σ Diferencia: <strong id="pvcSumDif" style="color:#6b7280">—</strong></span>
         </div>
       </div>
     </dialog>
@@ -2407,14 +2420,15 @@
       // --- Filtro por temporada ---
       var _pvcTemps = new Set();
       document.querySelectorAll('#pvcTbody tr[data-temp]').forEach(function(tr){ _pvcTemps.add(tr.dataset.temp); });
-      var _pvcActiveTemp = '';
+      var _pvcActiveTemp = _pvcTemps.has('T44') ? 'T44' : '';
       var filtroEl = document.getElementById('pvcFiltroTemp');
       if (filtroEl) {
         ['Todas'].concat(Array.from(_pvcTemps).sort()).forEach(function(t){
+          var isActive = (t === 'T44' && _pvcTemps.has('T44')) || (t === 'Todas' && !_pvcTemps.has('T44'));
           var btn = document.createElement('button');
           btn.textContent = t;
-          btn.className = 'pvc-temp-btn' + (t === 'Todas' ? ' pvc-active' : '');
-          btn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e5e7eb;background:' + (t==='Todas'?'#1e2633':'#f9fafb') + ';color:' + (t==='Todas'?'#fff':'#374151') + ';cursor:pointer';
+          btn.className = 'pvc-temp-btn' + (isActive ? ' pvc-active' : '');
+          btn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e5e7eb;background:' + (isActive?'#1e2633':'#f9fafb') + ';color:' + (isActive?'#fff':'#374151') + ';cursor:pointer';
           btn.addEventListener('click', function(){
             _pvcActiveTemp = t === 'Todas' ? '' : t;
             document.querySelectorAll('#pvcFiltroTemp button').forEach(function(b){ b.style.background='#f9fafb'; b.style.color='#374151'; });
@@ -2474,22 +2488,84 @@
           return _pvcSortAsc ? va - vb : vb - va;
         });
         rows.forEach(function(r){ tbody.appendChild(r); });
+        pvcFiltrar(document.getElementById('pvcSearch').value);
       };
 
-      // --- Filtrar (búsqueda + temp + estado) ---
+      // --- Filtrar (búsqueda + temp + estado) + actualizar conteos y suma ---
       window.pvcFiltrar = function(q){
         q = (q||'').toLowerCase().trim();
         var activeEstado = _estadoCiclo[_estadoIdx];
+        var countVisible = 0, countOfrecer = 0, countCortar = 0, sumDif = 0;
         document.querySelectorAll('#pvcTbody tr[data-temp]').forEach(function(tr){
-          var baseMatch   = !q            || tr.dataset.base.toLowerCase().includes(q);
+          var baseMatch   = !q               || tr.dataset.base.toLowerCase().includes(q);
           var tempMatch   = !_pvcActiveTemp  || tr.dataset.temp   === _pvcActiveTemp;
           var estadoMatch = !activeEstado    || tr.dataset.estado  === activeEstado;
-          tr.style.display = (baseMatch && tempMatch && estadoMatch) ? '' : 'none';
+          var visible = baseMatch && tempMatch && estadoMatch;
+          tr.style.display = visible ? '' : 'none';
+          if (visible) {
+            countVisible++;
+            if (tr.dataset.estado === 'ofrecer') countOfrecer++;
+            if (tr.dataset.estado === 'cortar')  countCortar++;
+            sumDif += parseInt(tr.dataset.dif || '0', 10);
+          }
         });
+        var ct = document.getElementById('pvcCountTotal');
+        var co = document.getElementById('pvcCountOfrecer');
+        var cc = document.getElementById('pvcCountCortar');
+        var sd = document.getElementById('pvcSumDif');
+        if (ct) ct.textContent = countVisible;
+        if (co) co.textContent = countOfrecer;
+        if (cc) cc.textContent = countCortar;
+        if (sd) {
+          sd.textContent = (sumDif > 0 ? '+' : '') + sumDif.toLocaleString('es-CL');
+          sd.style.color = sumDif > 0 ? '#15803d' : sumDif < 0 ? '#b91c1c' : '#6b7280';
+        }
       };
 
-      // Ícono inicial de diferencia
+      // --- Imprimir ---
+      window.pvcImprimir = function(){
+        var rows = Array.from(document.querySelectorAll('#pvcTbody tr[data-temp]')).filter(function(tr){ return tr.style.display !== 'none'; });
+        var tempLabel = _pvcActiveTemp || 'Todas las temporadas';
+        var estadoLabel = _estadoCiclo[_estadoIdx] === 'ofrecer' ? 'Solo Ofrecer' : _estadoCiclo[_estadoIdx] === 'cortar' ? 'Solo Cortar más' : 'Todos los estados';
+        var tsEl = document.getElementById('dataTimestamp');
+        var ts = tsEl ? tsEl.textContent.trim() : '';
+        var sumDifP = 0;
+        var rowsHtml = rows.map(function(tr){
+          var dif = parseInt(tr.dataset.dif || '0', 10);
+          sumDifP += dif;
+          var difCls = dif > 0 ? 'pos' : dif < 0 ? 'neg' : '';
+          var estado = tr.dataset.estado;
+          var estadoHtml = estado==='ofrecer' ? '<span class="ofrecer">▲ Ofrecer</span>' : estado==='cortar' ? '<span class="cortar">▼ Cortar más</span>' : 'OK';
+          var tds = tr.querySelectorAll('td');
+          return '<tr><td class="mono">'+(tds[0]?tds[0].textContent.trim():'')+'</td><td>'+tr.dataset.temp+'</td><td class="r">'+(tds[2]?tds[2].textContent.trim():'')+'</td><td class="r">'+(tds[3]?tds[3].textContent.trim():'')+'</td><td class="r '+difCls+'">'+(dif>0?'+':'')+dif.toLocaleString('es-CL')+'</td><td>'+estadoHtml+'</td></tr>';
+        }).join('');
+        var sign = sumDifP > 0 ? '+' : '';
+        var sumColor = sumDifP >= 0 ? '#15803d' : '#b91c1c';
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pedido vs Corte</title><style>'
+          +'body{font-family:system-ui,sans-serif;font-size:12px;color:#111;margin:20px}'
+          +'h2{margin:0 0 2px;font-size:16px}p{margin:0 0 14px;color:#666;font-size:11px}'
+          +'table{width:100%;border-collapse:collapse}'
+          +'th{background:#f3f4f6;border-bottom:2px solid #e5e7eb;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}'
+          +'td{padding:6px 10px;border-bottom:1px solid #f3f4f6}'
+          +'.r{text-align:right}.mono{font-family:monospace;font-weight:700}'
+          +'.ofrecer{color:#15803d;font-weight:700}.cortar{color:#b91c1c;font-weight:700}'
+          +'.pos{color:#16a34a;font-weight:700}.neg{color:#dc2626;font-weight:700}'
+          +'.foot td{font-weight:700;background:#f9fafb;border-top:2px solid #e5e7eb}'
+          +'@media print{@page{size:A4 landscape;margin:15mm}}</style></head><body>'
+          +'<h2>Pedido vs Corte</h2>'
+          +'<p>'+tempLabel+' · '+estadoLabel+(ts?' · '+ts:'')+'</p>'
+          +'<table><thead><tr><th>Artículo</th><th>Temp.</th><th class="r">Pedido</th><th class="r">Corte</th><th class="r">Diferencia</th><th>Estado</th></tr></thead>'
+          +'<tbody>'+rowsHtml+'</tbody>'
+          +'<tfoot><tr class="foot"><td colspan="4">Total: '+rows.length+' artículos</td>'
+          +'<td class="r" style="color:'+sumColor+'">'+sign+sumDifP.toLocaleString('es-CL')+'</td><td></td></tr></tfoot>'
+          +'</table></body></html>';
+        var w = window.open('','_blank','width=960,height=720');
+        if (w) { w.document.write(html); w.document.close(); setTimeout(function(){ w.print(); }, 400); }
+      };
+
+      // Aplicar filtro inicial (T44 por defecto)
       _updateSortIcons('dif', false);
+      pvcFiltrar('');
     })();
     </script>
 
@@ -2537,7 +2613,7 @@
           </div>
         </div>
 
-        <!-- Cuerpo principal -->
+        <!-- Tabs -->
         {%- set ns = namespace(costo=0,gadm=0,gven=0,gpat=0,ifuera=0) -%}
         {%- for row in estado_resultado.rows -%}
           {%- if row.lin == '02' -%}{%- set ns.costo = row.acum -%}
@@ -2548,7 +2624,13 @@
           {%- endif -%}
         {%- endfor -%}
 
-        <div style="overflow-y:auto;flex:1;min-height:0;padding:16px 20px;background:#f1f5f9;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+        <div style="flex-shrink:0;display:flex;gap:0;border-bottom:2px solid #e5e7eb;background:#fff;padding:0 20px">
+          <button id="erTabResumen" onclick="erTab('resumen')" style="padding:10px 18px;font-size:12px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid #1e2633;margin-bottom:-2px;color:#1e2633;letter-spacing:.02em">Resumen</button>
+          <button id="erTabMes" onclick="erTab('mes')" style="padding:10px 18px;font-size:12px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:#9ca3af;letter-spacing:.02em">Por mes</button>
+        </div>
+
+        <!-- Panel Resumen -->
+        <div id="erPanelResumen" style="overflow-y:auto;flex:1;min-height:0;padding:16px 20px;background:#f1f5f9;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
 
           <!-- COLUMNA IZQUIERDA: cascada P&L -->
           <div style="display:flex;flex-direction:column;gap:10px">
@@ -2708,7 +2790,64 @@
             </div>
 
           </div>
-        </div>
+        </div><!-- /erPanelResumen -->
+
+        <!-- Panel Por mes -->
+        <div id="erPanelMes" style="overflow:auto;flex:1;min-height:0;display:none">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">
+            <thead>
+              <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;min-width:220px;position:sticky;left:0;background:#f8fafc;z-index:1">Concepto</th>
+                {% for m in estado_resultado.months %}
+                <th style="padding:10px 10px;text-align:right;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">{{ m.label }}</th>
+                {% endfor %}
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#1e2633;text-transform:uppercase;letter-spacing:.04em;background:#e8edf4;white-space:nowrap">Acum.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in estado_resultado.rows %}
+              {%- set is_sub = row.is_subtotal -%}
+              {%- set has_sub = row.sub | length > 0 -%}
+              <!-- Fila resumen -->
+              <tr onclick="{% if has_sub %}erToggleSub('{{ row.lin }}'){% endif %}"
+                  style="border-bottom:1px solid {% if is_sub %}#d1d9e6{% else %}#f3f4f6{% endif %};background:{% if is_sub %}#f0f4fa{% else %}#fff{% endif %};{% if has_sub %}cursor:pointer{% endif %}">
+                <td style="padding:{% if is_sub %}11px{% else %}8px{% endif %} 14px;font-size:{% if is_sub %}12px{% else %}11px{% endif %};font-weight:{% if is_sub %}700{% else %}600{% endif %};color:{% if is_sub %}#1e2633{% else %}#374151{% endif %};position:sticky;left:0;background:{% if is_sub %}#f0f4fa{% else %}#fff{% endif %};z-index:1;border-right:1px solid #f0f0f0">
+                  {% if has_sub %}<span id="erArrow{{ row.lin }}" style="display:inline-block;margin-right:4px;font-size:9px;color:#9ca3af;transition:transform .15s">▶</span>{% endif %}
+                  <span style="color:#c4cdd9;font-size:9px;margin-right:5px">{{ row.lin }}</span>{{ row.concepto | lower | capitalize }}
+                </td>
+                {% for m in estado_resultado.months %}
+                {%- set v = row[m.key] -%}
+                <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:{% if is_sub %}{% if v > 0 %}#15803d{% elif v < 0 %}#dc2626{% else %}#9ca3af{% endif %}{% else %}#374151{% endif %};font-weight:{% if is_sub %}700{% else %}500{% endif %}">
+                  {%- if v != 0 -%}{{ v | er_miles }}{%- else -%}<span style="color:#e2e8f0">—</span>{%- endif -%}
+                </td>
+                {% endfor %}
+                <td style="padding:8px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;background:#e8edf4;white-space:nowrap;color:{% if row.acum > 0 %}{% if is_sub %}#15803d{% else %}#1e2633{% endif %}{% elif row.acum < 0 %}#dc2626{% else %}#9ca3af{% endif %}">
+                  {%- if row.acum != 0 -%}{{ row.acum | er_miles }}{%- else -%}<span style="color:#e2e8f0">—</span>{%- endif -%}
+                </td>
+              </tr>
+              <!-- Sub-cuentas (colapsadas) -->
+              {% if has_sub %}
+              {% for s in row.sub %}
+              <tr class="er-sub-{{ row.lin }}" style="display:none;background:#fafbfc;border-bottom:1px solid #f3f4f6">
+                <td style="padding:5px 14px 5px 30px;font-size:10px;color:#6b7280;position:sticky;left:0;background:#fafbfc;z-index:1;border-right:1px solid #f0f0f0">
+                  <span style="color:#d1d5db;font-size:9px;margin-right:5px">{{ s.cuenta }}</span>{{ s.concepto | lower | capitalize }}
+                </td>
+                {% for m in estado_resultado.months %}
+                {%- set v = s[m.key] -%}
+                <td style="padding:5px 10px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px;color:{% if v < 0 %}#dc2626{% else %}#374151{% endif %}">
+                  {%- if v != 0 -%}{{ v | er_miles }}{%- else -%}<span style="color:#e9ecef">—</span>{%- endif -%}
+                </td>
+                {% endfor %}
+                <td style="padding:5px 14px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;background:#f0f2f6;white-space:nowrap;color:{% if s.acum < 0 %}#dc2626{% else %}#374151{% endif %}">
+                  {%- if s.acum != 0 -%}{{ s.acum | er_miles }}{%- else -%}<span style="color:#e9ecef">—</span>{%- endif -%}
+                </td>
+              </tr>
+              {% endfor %}
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div><!-- /erPanelMes -->
 
         {% else %}
         <div style="padding:48px;text-align:center;color:#9ca3af;font-size:14px">CSV no disponible — coloca "ESTADO DE RESULTADO 2026.CSV" en Z:\BI</div>
@@ -2725,6 +2864,26 @@
       if (btn) btn.addEventListener('click', function(){
         document.getElementById('estadoResultadoModal').showModal();
       });
+      window.erTab = function(tab) {
+        var isRes = tab === 'resumen';
+        var pRes = document.getElementById('erPanelResumen');
+        var pMes = document.getElementById('erPanelMes');
+        var tRes = document.getElementById('erTabResumen');
+        var tMes = document.getElementById('erTabMes');
+        if (pRes) pRes.style.display = isRes ? 'grid' : 'none';
+        if (pMes) pMes.style.display = isRes ? 'none' : 'block';
+        if (tRes) { tRes.style.borderBottomColor = isRes ? '#1e2633' : 'transparent'; tRes.style.color = isRes ? '#1e2633' : '#9ca3af'; }
+        if (tMes) { tMes.style.borderBottomColor = isRes ? 'transparent' : '#1e2633'; tMes.style.color = isRes ? '#9ca3af' : '#1e2633'; }
+      };
+      var _erOpen = {};
+      window.erToggleSub = function(lin) {
+        _erOpen[lin] = !_erOpen[lin];
+        document.querySelectorAll('.er-sub-' + lin).forEach(function(tr){
+          tr.style.display = _erOpen[lin] ? '' : 'none';
+        });
+        var arrow = document.getElementById('erArrow' + lin);
+        if (arrow) arrow.style.transform = _erOpen[lin] ? 'rotate(90deg)' : '';
+      };
     })();
     </script>
 
