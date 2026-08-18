@@ -86,6 +86,7 @@ SEED_VENTAS_DOCS = SEED_DIR / "VENTAS-TOD-2026.CSV"
 SEED_ESTADO_RESULTADO = SEED_DIR / "ESTADO DE RESULTADO 2026.CSV"
 _ESTADO_RESULTADO_DESKTOP = Path(r"C:\Users\Lenovo\Desktop\ESTADO DE RESULTADO 2026.CSV")
 SEED_CORTES_4200_XLSX = SEED_DIR / "Cortes 4200.xlsx"
+SEED_COLE44_ORIGEN_XLSX = SEED_DIR / "COLE44_ORIGEN.xlsx"
 PROGRAMAS_MHC_PATH = Path(
     os.environ.get(
         "ADECOM_PROGRAMAS_MHC_XLSX",
@@ -5754,6 +5755,40 @@ def _build_cruce_colecciones() -> dict:
     }
 
 
+def _load_cole44_origen() -> dict[str, str]:
+    """Carga mapeo base→origen desde COLE44_ORIGEN.xlsx. Retorna dict vacío si no existe."""
+    import re as _re
+    result: dict[str, str] = {}
+    if not SEED_COLE44_ORIGEN_XLSX.exists():
+        return result
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(str(SEED_COLE44_ORIGEN_XLSX), read_only=True, data_only=True)
+        ws = wb.active
+        for row in ws.iter_rows(min_row=6, values_only=True):
+            art_raw = row[2] if len(row) > 2 else None
+            origen_raw = row[3] if len(row) > 3 else None
+            if not art_raw:
+                continue
+            art = str(art_raw).strip().replace("-", "").replace(" ", "")
+            if len(art) < 4 or not art[:4].isdigit():
+                continue
+            base = art[:4]
+            if origen_raw is None:
+                continue
+            origen_str = str(origen_raw).strip()
+            # Normalizar: "EX 4323", "EX4316" → "EX 4323"
+            m = _re.match(r"(?i)^EX\s*(\d{4}(?:\d{2})?(?:/\d+)?)", origen_str)
+            if m:
+                cleaned = "EX " + m.group(1).strip()
+                if base not in result:
+                    result[base] = cleaned
+        wb.close()
+    except Exception:
+        pass
+    return result
+
+
 def _build_pedido_vs_corte() -> list[dict[str, object]]:
     """Cruza PEDIDOSXTALLA (pedidos ventas) vs TRAZABILIDAD (programado) por base de artículo."""
     TEMP_MIN, TEMP_MAX = 40, 45
@@ -5804,6 +5839,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             corte[base] = corte.get(base, 0) + cortado_val
 
     # 3. Cruce
+    origen_map = _load_cole44_origen()
     all_bases = set(list(pedidos.keys()) + list(corte.keys()))
     result = []
     for base in sorted(all_bases):
@@ -5819,6 +5855,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             "corte": c,
             "diferencia": diff,
             "estado": "ofrecer" if diff > 0 else ("cortar" if diff < 0 else "ok"),
+            "origen": origen_map.get(base, ""),
         })
 
     result.sort(key=lambda x: abs(x["diferencia"]), reverse=True)
