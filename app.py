@@ -215,7 +215,7 @@ def _pedidos_collection_matches(value: object, selected: str) -> bool:
     if selected_key == "":
         return code == "42"
     if selected_key == "all":
-        return code.isdigit()
+        return code.isdigit() and MIN_DISPLAY_COLLECTION <= int(code) <= MAX_DISPLAY_COLLECTION
     return code == selected_key
 
 
