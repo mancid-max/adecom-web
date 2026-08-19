@@ -6680,24 +6680,26 @@
         renderPayments(view);
       };
       closeBtn.addEventListener("click", () => modal.close());
-      if (applyRangeBtn && fromDateInput && toDateInput) {
-        applyRangeBtn.addEventListener("click", () => {
-          const from = String(fromDateInput.value || "");
-          const to = String(toDateInput.value || "");
-          if (!from || !to) return;
-          const dateFrom = from <= to ? from : to;
-          const dateTo = from <= to ? to : from;
-          const items = rangeEntries.filter((item) => {
-            const value = String(item.date || "");
-            return value >= dateFrom && value <= dateTo;
-          });
-          const label = dateFrom === dateTo
-            ? toDisplayDate(dateFrom)
-            : `${toDisplayDate(dateFrom)} a ${toDisplayDate(dateTo)}`;
-          const rangeView = aggregateEntries(items, label);
-          applyView(rangeView);
+      const applyRange = () => {
+        if (!fromDateInput || !toDateInput) return;
+        const from = String(fromDateInput.value || "");
+        const to = String(toDateInput.value || "");
+        if (!from || !to) return;
+        const dateFrom = from <= to ? from : to;
+        const dateTo = from <= to ? to : from;
+        const items = rangeEntries.filter((item) => {
+          const value = String(item.date || "");
+          return value >= dateFrom && value <= dateTo;
         });
-      }
+        const label = dateFrom === dateTo
+          ? toDisplayDate(dateFrom)
+          : `${toDisplayDate(dateFrom)} a ${toDisplayDate(dateTo)}`;
+        const rangeView = aggregateEntries(items, label);
+        applyView(rangeView);
+      };
+      if (applyRangeBtn) applyRangeBtn.addEventListener("click", applyRange);
+      if (fromDateInput) fromDateInput.addEventListener("change", applyRange);
+      if (toDateInput) toDateInput.addEventListener("change", applyRange);
       if (resetLatestBtn && fromDateInput && toDateInput) {
         resetLatestBtn.addEventListener("click", () => {
           fromDateInput.value = defaultFromDate;

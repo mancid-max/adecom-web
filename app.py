@@ -258,7 +258,7 @@ def _discover_pedidos_collection_keys(
                                 keys.add(code)
         except Exception:
             pass
-    return sorted(keys, key=lambda item: int(item))
+    return sorted(keys, key=lambda item: int(item), reverse=True)
 
 
 def _pedidos_collection_options(keys: list[str]) -> list[dict[str, str]]:
@@ -6889,7 +6889,7 @@ def _build_facturables_dashboard(
 
 def _load_venta_despacho_dashboard(
     trazabilidad_rows: list[dict[str, object]] | None = None,
-    pedidos_collection: str = "42",
+    pedidos_collection: str = "44",
 ) -> dict[str, object]:
     path = SEED_PEDIDOS_DETALLE
     empty_totals = {
@@ -7466,7 +7466,7 @@ def index():
         assistant_provider = "local"
     programas_month = str(request.args.get("programas_month") or "").strip()
     open_modal = str(request.args.get("open_modal") or "").strip()
-    pedidos_collection = str(request.args.get("pedidos_collection") or "42").strip().lower()
+    pedidos_collection = str(request.args.get("pedidos_collection") or "44").strip().lower()
     filters_early = {
         "q": request.args.get("q", "").strip(),
         "fecha": request.args.get("fecha", "").strip(),
@@ -7856,19 +7856,18 @@ def index():
     ventas_docs_summary = _load_ventas_docs_summary()
     available_pedidos_collections = _discover_pedidos_collection_keys(pedidos_sections)
     if not available_pedidos_collections:
-        available_pedidos_collections = ["42", "43"]
+        available_pedidos_collections = ["44", "43"]
     pedidos_collection_view_keys = list(available_pedidos_collections)
     if len(available_pedidos_collections) > 1:
         pedidos_collection_view_keys.append("all")
     if pedidos_collection not in pedidos_collection_view_keys:
-        pedidos_collection = "42" if "42" in available_pedidos_collections else available_pedidos_collections[0]
+        pedidos_collection = available_pedidos_collections[0]
     pedidos_collection_views = {
         key: _build_pedidos_collection_view(pedidos_sections, key)
         for key in pedidos_collection_view_keys
     }
     selected_pedidos_view = (
         pedidos_collection_views.get(pedidos_collection)
-        or pedidos_collection_views.get("42")
         or pedidos_collection_views[available_pedidos_collections[0]]
     )
     ventas_total = int(selected_pedidos_view.get("ventas_total") or 0)
