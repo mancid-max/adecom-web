@@ -12195,15 +12195,28 @@ input[type="file"],
 /* ─────────────────────────────────────────────────────────── */
 
 
-/* ─── Hover legible en tabla PVC ─── */
+/* ─── Fondo base y hover legible en tabla PVC ─── */
+#pvcTbody tr td,
+#pvcTbody tr th,
+#pvcDetailTbody tr td,
+#pvcDetailTbody tr th {
+  background: #ffffff !important;
+  color: #1e2633 !important;
+}
+#pvcTbody tr:nth-child(even) td,
+#pvcTbody tr:nth-child(even) th,
+#pvcDetailTbody tr:nth-child(even) td,
+#pvcDetailTbody tr:nth-child(even) th {
+  background: #f7f9fc !important;
+}
 #pvcTbody tr:hover td,
 #pvcTbody tr:hover th,
 #pvcDetailTbody tr:hover td,
 #pvcDetailTbody tr:hover th {
-  background: #f0f6ff !important;
+  background: #e8f0fe !important;
   color: #1e2633 !important;
 }
-/* ─────────────────────────────────── */
+/* ──────────────────────────────────────────────── */
 
 /* ─── Hover legible en tabla Estado de Resultado ─── */
 #erPanelMes table tbody tr:hover td { color: #1e2633 !important; background-color: #f0f6ff !important; }
