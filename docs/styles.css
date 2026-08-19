@@ -4328,7 +4328,7 @@ body {
 .top-nav-group[open] .top-nav-menu-item:nth-child(13) { transition-delay: .50s; }
 .top-nav-group[open] .top-nav-menu-item:nth-child(14) { transition-delay: .54s; }
 .top-nav-group[open] .top-nav-menu-item:nth-child(15) { transition-delay: .58s; }
-}
+
 
 .top-nav-menu-item:hover {
   border-color: #3f4d69;
@@ -12195,7 +12195,7 @@ input[type="file"],
 /* ─────────────────────────────────────────────────────────── */
 
 
-/* ─── Fondo base y hover legible en tabla PVC ─── */
+/* ─── Fondo base y hover legible en tablas PVC ─── */
 #pvcTbody tr td,
 #pvcTbody tr th,
 #pvcDetailTbody tr td,
@@ -12216,46 +12216,148 @@ input[type="file"],
   background: #e8f0fe !important;
   color: #1e2633 !important;
 }
-/* ──────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────── */
 
 /* ─── Hover legible en tabla Estado de Resultado ─── */
 #erPanelMes table tbody tr:hover td { color: #1e2633 !important; background-color: #f0f6ff !important; }
 /* ─────────────────────────────────────────────────── */
 
-/* ─── Responsivo móvil para modal-head ─── */
-@media (max-width: 600px) {
-  dialog.modal {
-    width: 96vw !important;
-    max-width: 96vw !important;
-    padding: 12px !important;
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVO MÓVIL COMPLETO — solo afecta pantallas ≤ 640px
+   Desktop (> 640px) no se modifica
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+
+  /* --- Todos los <dialog> ocupan pantalla completa en móvil --- */
+  dialog {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
-  .modal-head {
+
+  /* --- Cuerpos de dialog flex para que los hijos scrolleen --- */
+  dialog > div {
+    max-height: calc(100dvh - 20px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* --- modal-head: apilar verticalmente en móvil --- */
+  .modal-head,
+  .trace-detail-modal-head {
     flex-wrap: wrap !important;
     gap: 8px !important;
     align-items: flex-start !important;
   }
-  .modal-head > div:first-child {
-    flex: 1 1 100%;
+  .modal-head > *,
+  .trace-detail-modal-head > * {
+    flex-shrink: 0;
   }
-  .modal-head > div.venta-despacho-head-actions,
-  .modal-head .venta-despacho-head-actions {
-    width: 100%;
-    flex-direction: row !important;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 6px;
+  .modal-head > div:first-child {
+    flex: 1 1 100% !important;
   }
   .modal-head h3,
-  .modal-head h2 {
-    font-size: 20px !important;
+  .modal-head h2,
+  .trace-detail-modal-head h3 {
+    font-size: clamp(16px, 5vw, 22px) !important;
+  }
+  .venta-despacho-head-actions {
+    width: 100% !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
   }
   .venta-despacho-head-btn {
     font-size: 11px !important;
     padding: 4px 8px !important;
   }
-  .modal-close {
-    font-size: 12px !important;
-    padding: 4px 10px !important;
+
+  /* --- Hero section: columna única --- */
+  .hero {
+    grid-template-columns: 1fr !important;
   }
+
+  /* --- Grillas que no colapsan con los breakpoints existentes --- */
+  .sufijos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .row-detail-kpis {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .top-articulo-trace-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .venta-despacho-client-kpis,
+  .venta-despacho-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  #facturablesModal .modal-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .modal-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* --- Búsqueda de tabla completa: columna única --- */
+  #fullTableModal .full-table-search-stack {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* --- Flex rows que no wrappean por defecto --- */
+  .ventas-docs-head,
+  .top-articulo-detalle-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  /* --- Etapas: columnas fijas → relativas --- */
+  .etapas-head,
+  .etapa-line {
+    grid-template-columns: 1fr 1fr 1fr auto !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+  }
+
+  /* --- Todas las tablas: scroll horizontal dentro de su contenedor --- */
+  .table-wrap,
+  .bodega-wrap,
+  [style*="overflow"] {
+    overflow-x: auto !important;
+  }
+
+  /* --- Reactivar scroll en familia detail (tenía overflow:visible !important) --- */
+  #familiaDetalleModal .table-wrap {
+    overflow: auto !important;
+  }
+
+  /* --- tabla-tools: columna única --- */
+  .table-tools {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .table-tools select,
+  .table-tools input {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* --- Asegurar que el .page no scrollee horizontalmente --- */
+  .page,
+  body {
+    overflow-x: hidden !important;
+  }
+
 }
-/* ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════ */
