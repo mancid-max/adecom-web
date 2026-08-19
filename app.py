@@ -189,11 +189,13 @@ def _seed_pedidos_talla_files() -> list[Path]:
         else:
             generic_files.append(path)
 
+    # Si existe el archivo genérico (PEDIDOSXTALLA.TXT), contiene todas las
+    # temporadas y es la fuente actualizada desde Z:\BI. Usar solo ese para
+    # evitar doble conteo con los archivos específicos por temporada.
+    if generic_files:
+        return generic_files
+
     files: list[Path] = [explicit_by_collection[key] for key in sorted(explicit_by_collection, key=int)]
-
-    for path in generic_files:
-        files.append(path)
-
     if not files:
         fallback = [path for path in (SEED_PEDIDOS, SEED_PEDIDOS_43) if path.exists()]
         return fallback
@@ -6621,11 +6623,9 @@ def _seed_pedidos_talla_files_local() -> list[Path]:
             explicit_by_collection[m.group(1)] = path
         else:
             generic_files.append(path)
+    if generic_files:
+        return generic_files
     files: list[Path] = [explicit_by_collection[k] for k in sorted(explicit_by_collection, key=int)]
-    for path in generic_files:
-        if path.resolve() == SEED_PEDIDOS.resolve() and "42" in explicit_by_collection:
-            continue
-        files.append(path)
     return files or [p for p in (SEED_PEDIDOS, SEED_PEDIDOS_43) if p.exists()]
 
 
