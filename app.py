@@ -5868,8 +5868,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
         if m:
             ex_base = m.group(1)
             ex_hist = corte_hist.get(ex_base, 0)
-        ex_ef = ex_hist if ex_hist > 0 else 0
-        diff = (c + ex_ef) - p
+        diff = c - p
         modelo_variants[modelo].append({
             "color": color,
             "pedido": p,
@@ -5888,8 +5887,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
         # EX es propiedad del modelo — mismo para todas sus variantes
         ex_base = variants[0]["ex_base"]
         ex_hist = variants[0]["ex_hist"]
-        ex_ef = ex_hist if ex_hist > 0 else 0
-        diff = (total_c + ex_ef) - total_p
+        diff = total_c - total_p
         result.append({
             "base": modelo,
             "temp": modelo[:2],
