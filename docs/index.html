@@ -784,7 +784,7 @@ async function secTabla() {
         </tr></thead>
         <tbody id="tablaBody">${rowsHtml}</tbody>
         <tfoot><tr style="background:var(--sf2);font-weight:700">
-          <td colspan="5" class="td-dim">Totales</td>
+          <td class="td-dim">Totales</td><td></td><td></td><td></td><td></td>
           ${totRow}
         </tr></tfoot>
       </table>
@@ -1012,12 +1012,20 @@ function buildFtMap(ft) {
   const m = {};
   for (const r of ft) {
     const a = (r.articulo||'').trim();
-    if (!m[a]) m[a] = { corte:0, bodega:0, etapa:'Sin movimiento', erank:-1 };
+    if (!m[a]) m[a] = { corte:0, bodega:0, etapas:{} };
     m[a].corte  += r.proceso||0;
     m[a].bodega += r.bodega||0;
     const et = getEtapa(r);
-    const er = ETAPA_RANK[et] ?? -1;
-    if (er > m[a].erank) { m[a].etapa = et; m[a].erank = er; }
+    // Solo etapas activas (no Bodega ni Sin movimiento)
+    if (et !== 'Bodega' && et !== 'Sin movimiento') {
+      m[a].etapas[et] = (m[a].etapas[et]||0) + 1;
+    }
+  }
+  // Derivar etapa primaria (mayor rango) para filtros
+  for (const a in m) {
+    const entries = Object.entries(m[a].etapas)
+      .sort((x,y) => (ETAPA_RANK[y[0]]??-2) - (ETAPA_RANK[x[0]]??-2));
+    m[a].etapa = entries.length ? entries[0][0] : 'Sin movimiento';
   }
   return m;
 }
@@ -1050,10 +1058,13 @@ function buildPVCRows(t, ftMap, exMap) {
       corteTotal += c;
       const diff = c - v.qty;
       const cls  = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)';
-      const et   = ftr.etapa || 'Sin movimiento';
-      // Solo etapas activas de producción (no Bodega ni Sin movimiento)
-      if (et !== 'Sin movimiento' && et !== 'Bodega') modelEtapas[et] = (modelEtapas[et]||0) + 1;
-      const etLbl = et !== 'Sin movimiento' ? `<span style="color:${etapaClr(et)};font-size:10px;font-weight:600">${et}</span>` : '<span style="color:var(--tx3);font-size:10px">—</span>';
+      // Todas las etapas activas del artículo (puede tener varias OC en distintas etapas)
+      const artEtapas = Object.entries(ftr.etapas || {})
+        .sort((x,y) => (ETAPA_RANK[y[0]]??-2) - (ETAPA_RANK[x[0]]??-2));
+      for (const [e] of artEtapas) modelEtapas[e] = (modelEtapas[e]||0) + 1;
+      const etLbl = artEtapas.length
+        ? artEtapas.map(([e]) => `<span style="color:${etapaClr(e)};font-size:10px;font-weight:600">${e}</span>`).join('<span style="color:var(--tx3);font-size:10px"> + </span>')
+        : '<span style="color:var(--tx3);font-size:10px">—</span>';
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
         <td class="td-dim" style="padding-left:28px">└ color ${v.mod}</td>
@@ -1083,11 +1094,12 @@ function buildPVCRows(t, ftMap, exMap) {
     const cantExHtml = ex?.ex_saldo > 0
       ? `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${fmt(ex.ex_saldo)}</span>`
       : `<span style="color:var(--bd2);font-size:12px">————</span>`;
-    // Etapa summary for model
-    const etapaEntries = Object.entries(modelEtapas).sort((a,b)=>b[1]-a[1]);
+    // Etapa summary for model — ordenar por rango (etapa más avanzada primero)
+    const etapaEntries = Object.entries(modelEtapas)
+      .sort((a,b) => (ETAPA_RANK[b[0]]??-2) - (ETAPA_RANK[a[0]]??-2));
     const modelEtapaHtml = etapaEntries.length
-      ? etapaEntries.slice(0,2).map(([e,n]) =>
-          `<span style="display:inline-block;background:${etapaClr(e)}20;color:${etapaClr(e)};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-right:2px;white-space:nowrap">${e}${etapaEntries.length>1?' '+n:''}</span>`
+      ? etapaEntries.slice(0,2).map(([e]) =>
+          `<span style="display:inline-block;background:${etapaClr(e)}20;color:${etapaClr(e)};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-right:2px;white-space:nowrap">${e}</span>`
         ).join('')
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
