@@ -678,14 +678,15 @@ async function secStock() {
 
 /* ── TABLA COMPLETA ─────────────────────────────────────────── */
 function getEtapa(r) {
-  if ((r.bodega||0) > 0)      return 'Bodega';
-  if ((r.lavanderia||0) > 0)  return 'Lavandería';
+  // Primero etapas activas (unidades pendientes), luego bodega solo si saldo=0
   if ((r.terminacion||0) > 0) return 'Terminación';
-  if ((r.taller||0) > 0)      return 'Costura';
-  if ((r.texterno||0) > 0)    return 'T.Externo';
-  if ((r.limpiado||0) > 0)    return 'Limpiado';
-  if ((r.corte_u||0) > 0)     return 'Corte';
-  if ((r.proceso||0) > 0)     return 'Proceso';
+  if ((r.lavanderia||0)  > 0) return 'Lavandería';
+  if ((r.taller||0)      > 0) return 'Costura';
+  if ((r.texterno||0)    > 0) return 'T.Externo';
+  if ((r.limpiado||0)    > 0) return 'Limpiado';
+  if ((r.corte_u||0)     > 0 && (r.saldo||0) > 0) return 'Corte';
+  if ((r.proceso||0)     > 0 && (r.saldo||0) > 0) return 'Proceso';
+  if ((r.bodega||0)      > 0) return 'Bodega';
   return 'Sin movimiento';
 }
 
@@ -995,7 +996,7 @@ function makePH(path, title, desc) {
     <h3>${title}</h3><p>${desc}</p></div>`;
 }
 /* ── PEDIDO VS CORTE ─────────────────────────────────────────── */
-const ETAPA_RANK = {'Bodega':8,'Lavandería':7,'Terminación':6,'Costura':5,'T.Externo':4,'Limpiado':3,'Corte':2,'Proceso':1,'Sin movimiento':0};
+const ETAPA_RANK = {'Terminación':6,'Lavandería':5,'Costura':4,'T.Externo':3,'Limpiado':2,'Corte':1,'Proceso':0,'Bodega':-1,'Sin movimiento':-2};
 const ETAPA_COLOR = {
   'Bodega':'var(--ok)','Terminación':'var(--ac)','Lavandería':'var(--wa)',
   'Costura':'#7c3aed','T.Externo':'#0891b2','Limpiado':'#16a34a',
