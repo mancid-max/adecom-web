@@ -678,15 +678,16 @@ async function secStock() {
 
 /* ── TABLA COMPLETA ─────────────────────────────────────────── */
 function getEtapa(r) {
-  // Primero etapas activas (unidades pendientes), luego bodega solo si saldo=0
+  const saldo = r.saldo || 0;
+  // saldo=0 y tiene entrega → todo entregado a bodega
+  if (saldo <= 0 && (r.bodega||0) > 0) return 'Bodega';
+  // Hay saldo pendiente: buscar la última etapa alcanzada (más avanzada primero)
   if ((r.terminacion||0) > 0) return 'Terminación';
   if ((r.lavanderia||0)  > 0) return 'Lavandería';
   if ((r.taller||0)      > 0) return 'Costura';
   if ((r.texterno||0)    > 0) return 'T.Externo';
   if ((r.limpiado||0)    > 0) return 'Limpiado';
-  if ((r.corte_u||0)     > 0 && (r.saldo||0) > 0) return 'Corte';
-  if ((r.proceso||0)     > 0 && (r.saldo||0) > 0) return 'Proceso';
-  if ((r.bodega||0)      > 0) return 'Bodega';
+  if ((r.proceso||0)     > 0) return 'Corte';
   return 'Sin movimiento';
 }
 
