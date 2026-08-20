@@ -860,16 +860,19 @@ async function secVentaDespacho() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>','Venta vs Despacho','Carga datos via serve.py');
 
-  const t44 = peds.filter(p => p.u_temp?.['44'] > 0 || p.temps?.includes('44'));
-  const totalPed  = t44.reduce((s,p) => s+p.unidades, 0);
-  const totalDesp = t44.reduce((s,p) => s+p.despacho, 0);
-  const totalSal  = t44.reduce((s,p) => s+p.saldo, 0);
+  const t44 = peds.filter(p => (p.u_temp?.['44'] || 0) > 0);
+  const totalPed  = t44.reduce((s,p) => s+(p.u_temp?.['44']||0), 0);
+  const totalDesp = t44.reduce((s,p) => s+(p.u_desp?.['44']||0), 0);
+  const totalSal  = t44.reduce((s,p) => s+(p.u_sal?.['44']||0), 0);
   const pct = totalPed ? (totalDesp/totalPed*100).toFixed(1) : 0;
 
-  t44.sort((a,b) => b.saldo - a.saldo);
+  t44.sort((a,b) => (b.u_sal?.['44']||0) - (a.u_sal?.['44']||0));
 
   const rowsHtml = t44.map(p => {
-    const avancePct = p.unidades ? Math.round(p.despacho/p.unidades*100) : 0;
+    const ped44  = p.u_temp?.['44'] || 0;
+    const desp44 = p.u_desp?.['44'] || 0;
+    const sal44  = p.u_sal?.['44']  || 0;
+    const avancePct = ped44 ? Math.round(desp44/ped44*100) : 0;
     const nombre = (p.nombre||p.rut||'').toUpperCase();
     return `<tr class="no-click"
       data-nombre="${nombre.toLowerCase()}"
@@ -877,9 +880,9 @@ async function secVentaDespacho() {
       data-avance="${avancePct}">
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${nombre||p.rut}</td>
       <td class="td-dim">${p.ciudad||'—'}</td>
-      <td class="r td-num">${fmt(p.unidades)}</td>
-      <td class="r td-num" style="color:var(--ok)">${fmt(p.despacho)}</td>
-      <td class="r td-num" style="color:${p.saldo>0?'var(--wa)':'var(--tx3)'}">${fmt(p.saldo)}</td>
+      <td class="r td-num">${fmt(ped44)}</td>
+      <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
+      <td class="r td-num" style="color:${sal44>0?'var(--wa)':'var(--tx3)'}">${fmt(sal44)}</td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
           <div class="pbar" style="width:60px">
