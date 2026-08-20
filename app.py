@@ -5818,6 +5818,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
     #    - T40-T43  → histórico EX (por modelo art[2:6], sin color)
     corte: dict[str, int] = {}
     corte_hist: dict[str, int] = {}
+    entrega_hist: dict[str, int] = {}
     bi_path = BI_DIR / "TRAZABILIDAD2.CSV"
     traza_path = bi_path if (bi_path.exists() and bi_path.stat().st_size > 0) else SEED_DIR / "TRAZABILIDAD_OP.TXT"
     if traza_path.exists():
@@ -5838,13 +5839,15 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
             if "PRODUCCION" not in tipo:
                 continue
             cortado_val = _to_int(str(raw[6]).strip()) if len(raw) > 6 else 0
+            entrega_val = _to_int(str(raw[7]).strip()) if len(raw) > 7 else 0
             if temp == 44:
                 variant = art[2:8]
                 corte[variant] = corte.get(variant, 0) + cortado_val
             elif 40 <= temp <= 43:
-                # Histórico T40-T43: agrupa por modelo (sin color) para EX lookup
+                # Histórico T40-T43: saldo por modelo (Cortado - Entrega) para EX lookup
                 key = art[2:6]
                 corte_hist[key] = corte_hist.get(key, 0) + cortado_val
+                entrega_hist[key] = entrega_hist.get(key, 0) + entrega_val
 
     # 3. Cruce por variante → luego agrupar por modelo para la tabla principal
     import re as _re
@@ -5867,7 +5870,7 @@ def _build_pedido_vs_corte() -> list[dict[str, object]]:
         m = _re.match(r"(?i)^EX\s*(\d{4})", origen)
         if m:
             ex_base = m.group(1)
-            ex_hist = corte_hist.get(ex_base, 0)
+            ex_hist = max(0, corte_hist.get(ex_base, 0) - entrega_hist.get(ex_base, 0))
         diff = c - p
         modelo_variants[modelo].append({
             "color": color,
