@@ -1088,7 +1088,7 @@ function buildPVCRows(t, ftMap, exMap) {
         ).join('')
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" style="font-weight:600">
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores>1?'es':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
@@ -1146,7 +1146,6 @@ async function secPVC() {
     <span class="flbl">Etapa</span>
     <div class="segs" id="pvcEtapaSegs">
       <button class="seg on" data-etapa="all">Todas</button>
-      <button class="seg" data-etapa="Bodega">Bodega</button>
       <button class="seg" data-etapa="Terminación">Terminación</button>
       <button class="seg" data-etapa="Lavandería">Lavandería</button>
       <button class="seg" data-etapa="Costura">Costura</button>
@@ -1423,7 +1422,7 @@ function bindContent(secId) {
       const estado = document.querySelector('#pvcEstadoSegs .seg.on')?.dataset.estado || 'all';
       const etapa  = document.querySelector('#pvcEtapaSegs .seg.on')?.dataset.etapa  || 'all';
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
-      let visible = 0;
+      let visible = 0, sumPed = 0, sumCort = 0;
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado;
         const showEtapa  = etapa  === 'all' || row.dataset.etapa  === etapa;
@@ -1434,8 +1433,20 @@ function bindContent(secId) {
           next.style.display = 'none';
           next = next.nextElementSibling;
         }
-        if (show) visible++;
+        if (show) {
+          visible++;
+          sumPed  += parseInt(row.dataset.ped  || 0);
+          sumCort += parseInt(row.dataset.cort || 0);
+        }
       });
+      // Actualizar KPIs con los totales filtrados
+      const diff = sumCort - sumPed;
+      const kpedEl  = document.getElementById('pvcKPed');
+      const kprogEl = document.getElementById('pvcKProg');
+      const kdiffEl = document.getElementById('pvcKDiff');
+      if (kpedEl)  kpedEl.textContent  = fmt(sumPed);
+      if (kprogEl) kprogEl.textContent = fmt(sumCort);
+      if (kdiffEl) { kdiffEl.textContent = (diff>0?'+':'')+fmt(diff); kdiffEl.style.color = diff>=0?'var(--ok)':'var(--er)'; }
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || '44';
       const foot = document.getElementById('pvcFoot');
       if (foot) foot.textContent = `${visible} modelos T${t}`;
