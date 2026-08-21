@@ -804,9 +804,19 @@ function buildVentaTable(filtered) {
   </tr>`).join('');
 }
 
-function secReporteVenta() {
+function getHoyDocs() {
   const hoy = today();
-  const todayDocs = DOCS.filter(d => d.fecha_iso === hoy);
+  const docs = DOCS.filter(r => r.fecha_iso === hoy);
+  if (docs.length > 0) return { docs, label: 'Documentos de Hoy' };
+  const dates = [...new Set(DOCS.map(r => r.fecha_iso).filter(Boolean))].sort();
+  if (!dates.length) return { docs: [], label: 'Documentos de Hoy' };
+  const last = dates[dates.length - 1];
+  const [yr, mo, dy] = last.split('-');
+  return { docs: DOCS.filter(r => r.fecha_iso === last), label: `Documentos del ${dy}/${mo}/${yr}` };
+}
+
+function secReporteVenta() {
+  const { docs: todayDocs, label: initLabel } = getHoyDocs();
   const neto  = todayDocs.reduce((s,d) => s+d.neto, 0);
   const bruto = todayDocs.reduce((s,d) => s+d.bruto, 0);
   const prendas = todayDocs.reduce((s,d) => s+d.prendas, 0);
@@ -844,7 +854,7 @@ function secReporteVenta() {
   </div>
 
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0" id="vTblTtl">Documentos de Hoy</div></div>
+    <div class="tbl-head"><div class="card-ttl" style="margin:0" id="vTblTtl">${initLabel}</div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Documento</th><th>Fecha</th><th>Cliente</th><th class="r">Prendas</th><th class="r">Neto</th></tr></thead>
@@ -1544,8 +1554,9 @@ function bindContent(secId) {
         const hoy = today();
         let filtered, label;
         if (p === 'hoy') {
-          filtered = DOCS.filter(d => d.fecha_iso === hoy);
-          label = 'Documentos de Hoy';
+          const hoyData = getHoyDocs();
+          filtered = hoyData.docs;
+          label = hoyData.label;
         } else if (p === 'semana') {
           const lunes = new Date(); lunes.setDate(lunes.getDate() - lunes.getDay() + 1);
           const lunesStr = lunes.toISOString().split('T')[0];
