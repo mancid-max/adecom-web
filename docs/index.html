@@ -160,25 +160,30 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:49}
 
 /* ── MOBILE ──────────────────────────────────────────────────── */
-@media(max-width:900px){
+@media(max-width:1100px){
   .hd-menu{display:flex}
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0)}
   .overlay.open{display:block}
   .main{margin-left:0}
 }
+@media(max-width:960px){
+  .chart-row{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(3,1fr)}
+  .temp-grid{grid-template-columns:repeat(4,1fr)}
+  .content{padding:14px;gap:14px}
+  .header{padding:0 14px}
+}
 @media(max-width:700px){
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
-  .chart-row{grid-template-columns:1fr}
   .temp-grid{grid-template-columns:repeat(3,1fr)}
   .content{padding:12px;gap:12px}
   .header{padding:0 12px}
   .hd-ts{font-size:11px}
-  /* segmentos: scroll horizontal en lugar de wrap */
   .segs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .segs::-webkit-scrollbar{display:none}
   .fbar{gap:8px;padding:10px 12px}
-  /* tablas: fuente menor y celdas más compactas */
+  .tbl-scroll{-webkit-overflow-scrolling:touch}
   thead th{padding:7px 10px;font-size:9px}
   tbody td{padding:7px 10px;font-size:12px}
   .tbl-foot{padding:7px 12px}
@@ -190,7 +195,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
   .temp-grid{grid-template-columns:repeat(2,1fr)}
   .kpi-val{font-size:20px}
   .kpi-ico{width:40px;height:40px}
-  .hd-ts{display:none}   /* timestamp oculto en pantallas muy pequeñas */
+  .hd-ts{display:none}
   .seg{padding:4px 9px;font-size:11px}
   .content{padding:10px;gap:10px}
 }
@@ -1037,16 +1042,16 @@ function buildFtMap(ft) {
   const m = {};
   for (const r of ft) {
     const a = (r.articulo||'').trim();
-    if (!m[a]) m[a] = { corte:0, bodega:0, etapas:{} };
+    if (!m[a]) m[a] = { corte:0, bodega:0, etapas:{}, ocs:[] };
     m[a].corte  += r.proceso||0;
     m[a].bodega += r.bodega||0;
     const et = getEtapa(r);
-    // Solo etapas activas (no Bodega ni Sin movimiento)
+    // Guardar cada OC individual para mostrar en filas expandibles
+    m[a].ocs.push({ unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
     if (et !== 'Bodega' && et !== 'Sin movimiento') {
       m[a].etapas[et] = (m[a].etapas[et]||0) + 1;
     }
   }
-  // Derivar etapa primaria (mayor rango) para filtros
   for (const a in m) {
     const entries = Object.entries(m[a].etapas)
       .sort((x,y) => (ETAPA_RANK[y[0]]??-2) - (ETAPA_RANK[x[0]]??-2));
@@ -1080,29 +1085,27 @@ function buildPVCRows(t, ftMap, exMap) {
     const suffix = item.base.slice(-2);
     let corteTotal = 0;
     const modelEtapas = {};
-    const colorRows = (item.modelos || []).map(v => {
+    const allOcs = [];
+    for (const v of (item.modelos || [])) {
       const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
       const ftr = ftMap[art] || {};
-      const c   = ftr.corte || 0;
-      corteTotal += c;
-      const diff = c - v.qty;
-      const cls  = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)';
-      // Todas las etapas activas del artículo (puede tener varias OC en distintas etapas)
+      corteTotal += ftr.corte || 0;
       const artEtapas = Object.entries(ftr.etapas || {})
         .sort((x,y) => (ETAPA_RANK[y[0]]??-2) - (ETAPA_RANK[x[0]]??-2));
       for (const [e] of artEtapas) modelEtapas[e] = (modelEtapas[e]||0) + 1;
-      const etLbl = artEtapas.length
-        ? artEtapas.map(([e]) => `<span style="color:${etapaClr(e)};font-size:10px;font-weight:600">${e}</span>`).join('<span style="color:var(--tx3);font-size:10px"> + </span>')
-        : '<span style="color:var(--tx3);font-size:10px">—</span>';
+      for (const oc of (ftr.ocs || [])) allOcs.push(oc);
+    }
+    const ocRows = allOcs.map((oc, idx) => {
+      const etClr = etapaClr(oc.etapa);
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
-        <td class="td-dim" style="padding-left:28px">└ corte ${v.mod}</td>
-        <td class="r td-dim">${fmt(v.qty)}</td>
-        <td class="r td-dim">${c ? fmt(c) : '—'}</td>
-        <td class="r td-dim">${c && v.qty ? (c/v.qty*100).toFixed(0)+'%' : '—'}</td>
-        <td class="r td-dim" style="color:${cls};font-weight:600">${diff > 0 ? '+' : ''}${diff ? fmt(diff) : '—'}</td>
+        <td class="td-dim" style="padding-left:28px">└ corte ${idx+1}</td>
+        <td></td>
+        <td class="r td-dim">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
+        <td></td>
+        <td class="r td-dim" style="color:${oc.saldo>0?'var(--wa)':'var(--tx3)'};">${oc.saldo ? fmt(oc.saldo)+' u.' : '—'}</td>
         <td></td><td></td><td></td>
-        <td style="padding-left:6px">${etLbl}</td>
+        <td style="padding-left:6px"><span style="color:${etClr};font-size:10px;font-weight:600">${oc.etapa}</span></td>
       </tr>`;
     }).join('');
     const diff = corteTotal - item.total;
@@ -1132,9 +1135,9 @@ function buildPVCRows(t, ftMap, exMap) {
         ).join('')
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" style="font-weight:600">
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
-      <td class="td-dim" style="font-weight:400">${item.colores} corte${item.colores>1?'s':''}</td>
+      <td class="td-dim" style="font-weight:400">${allOcs.length} corte${allOcs.length>1?'s':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
       <td class="r td-num">${corteTotal ? fmt(corteTotal) : '—'}</td>
       <td class="r td-dim">${corteTotal ? `${pct}%` : '—'}</td>
@@ -1143,7 +1146,7 @@ function buildPVCRows(t, ftMap, exMap) {
       <td>${exHtml}</td>
       <td class="r">${cantExHtml}</td>
       <td style="padding-left:4px">${modelEtapaHtml}</td>
-    </tr>${colorRows}`;
+    </tr>${ocRows}`;
   }).join('');
 }
 
@@ -1194,6 +1197,8 @@ async function secPVC() {
       <button class="seg" data-etapa="Lavandería">Lavandería</button>
       <button class="seg" data-etapa="Costura">Costura</button>
       <button class="seg" data-etapa="T.Externo">T.Externo</button>
+      <button class="seg" data-etapa="Limpiado">Limpiado</button>
+      <button class="seg" data-etapa="Corte">Corte</button>
     </div>
   </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)" id="pvcKpis">
@@ -1214,7 +1219,7 @@ async function secPVC() {
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver cortes</div></div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Modelo</th><th>Colores</th><th class="r">Pedido</th><th class="r">Corte</th><th class="r">%</th><th class="r">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
+        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Cortado</th><th class="r">%</th><th class="r">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody">${buildPVCRows(defT, ftMap, exMap)}</tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">${byTemp[defT]?.modelos||0} modelos T${defT}</div>
