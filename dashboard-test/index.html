@@ -1630,12 +1630,16 @@ function bindMobile() {
 
 /* ── INIT ────────────────────────────────────────────────────── */
 async function init() {
-  document.getElementById('hdTs').textContent = new Date().toLocaleString('es-CL', {
-    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
-  });
-
-  // Cargar datos en paralelo
-  [PEDS_ART, DOCS] = await Promise.all([load('pedidos_art.json'), load('docs_venta.json')]);
+  // Cargar datos base en paralelo + meta para timestamp real del build
+  const [pa, dv, meta] = await Promise.all([
+    load('pedidos_art.json'),
+    load('docs_venta.json'),
+    load('meta.json').catch(() => null),
+  ]);
+  PEDS_ART = pa; DOCS = dv;
+  const tsEl = document.getElementById('hdTs');
+  tsEl.textContent = meta?.updated_str ? `Datos: ${meta.updated_str}` : '—';
+  tsEl.title = meta?.updated_str ? 'Última actualización desde Z:\\BI' : '';
 
   // Venta hoy
   const hoy = today();

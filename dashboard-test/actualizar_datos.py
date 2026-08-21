@@ -337,10 +337,20 @@ except Exception as e:
     print(f"  COLE44_ORIGEN.xlsx: {e}")
 
 # ── Guardar ────────────────────────────────────────────────────
+from datetime import datetime
+NOW = datetime.now()
+meta = {
+    "updated_iso": NOW.strftime('%Y-%m-%dT%H:%M'),
+    "updated_str": NOW.strftime('%d/%m/%Y %H:%M'),
+    "updated_date": NOW.strftime('%d/%m'),
+    "updated_time": NOW.strftime('%H:%M'),
+}
+
 DATASETS = [("full_table", full_table), ("traza_oc", traza_oc),
             ("pedidos", pedidos), ("docs_venta", docs_venta),
             ("pedidos_art", pedidos_art),
-            ("saldos_bodega", saldos_bodega), ("pvc_ex", pvc_ex)]
+            ("saldos_bodega", saldos_bodega), ("pvc_ex", pvc_ex),
+            ("meta", meta)]
 
 for name, data in DATASETS:
     for dest in [OUT, DOCS_OUT]:
@@ -348,7 +358,7 @@ for name, data in DATASETS:
         path = os.path.join(dest, f"{name}.json")
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False)
-    n = len(data)
+    n = len(data) if isinstance(data, list) else 1
     print(f"  {name}.json -> {n} registros")
 
 print("Datos actualizados. Recarga el navegador.")
