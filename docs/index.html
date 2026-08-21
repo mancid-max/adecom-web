@@ -69,7 +69,7 @@ svg{display:block}
 .sec.on{display:flex;flex-direction:column;gap:18px}
 
 /* ── KPI GRID ────────────────────────────────────────────────── */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .1s}
 .kpi:hover{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac10)}
 .kpi:active{transform:scale(.98)}
@@ -425,7 +425,7 @@ function secResumen() {
   const vh = VENTA_HOY;
 
   return `
-  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+  <div class="kpi-grid">
     <div class="kpi" data-goto="reporte-venta" data-goto-ttl="Reporte Venta" style="border:2px solid var(--ok);background:var(--ok10)">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
       <div>
