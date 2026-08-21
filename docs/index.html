@@ -633,6 +633,7 @@ async function secStock() {
   const sucList = [...allSucs].sort();
 
   const temps = [...new Set(data.map(r => r.temp).filter(Boolean))].sort();
+  const botas = [...new Set(data.map(r => r.bota).filter(Boolean))].sort();
 
   // KPIs iniciales (todas las sucursales, campo prendas = suc 01-33 ya calculado)
   const totalPrendas = data.reduce((s,r) => s + (r.prendas||0), 0);
@@ -644,7 +645,7 @@ async function secStock() {
     .map(r => {
       const tc = tcFor(r.temp);
       const sucAttrs = sucList.map(s => `data-s${s}="${r.suc?.[s]||0}"`).join(' ');
-      return `<tr class="no-click st-row" data-temp="${r.temp}" data-prendas="${r.prendas||0}" ${sucAttrs}>
+      return `<tr class="no-click st-row" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-bota="${(r.bota||'').toLowerCase()}" ${sucAttrs}>
         <td class="td-code">${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
@@ -668,6 +669,13 @@ async function secStock() {
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
     </div>
   </div>
+  ${botas.length ? `<div class="fbar" style="margin-top:8px">
+    <span class="flbl">Tipo</span>
+    <div class="segs" id="stBotaSegs">
+      <button class="seg on" data-bota="all">Todas</button>
+      ${botas.map(b => `<button class="seg" data-bota="${b.toLowerCase()}">${b}</button>`).join('')}
+    </div>
+  </div>` : ''}
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
@@ -1376,15 +1384,17 @@ function bindContent(secId) {
       '34':'Telas','35':'Insumos'
     };
     function applyStockFilters() {
-      const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc || 'all';
-      const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t  || 'all';
+      const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
+      const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
+      const bota = document.querySelector('#stBotaSegs .seg.on')?.dataset.bota || 'all';
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
         const tempOk = temp === 'all' || row.dataset.temp === temp;
+        const botaOk = bota === 'all' || row.dataset.bota === bota;
         const qty = suc === 'all'
           ? parseInt(row.dataset.prendas)||0
           : parseInt(row.dataset[`s${suc}`])||0;
-        const show = tempOk && qty > 0;
+        const show = tempOk && botaOk && qty > 0;
         row.style.display = show ? '' : 'none';
         const qtyCell = row.querySelector('td:last-child');
         if (qtyCell) qtyCell.textContent = show ? fmt(qty) : '';
@@ -1404,6 +1414,10 @@ function bindContent(secId) {
     }));
     document.querySelectorAll('#stTempSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#stTempSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); applyStockFilters();
+    }));
+    document.querySelectorAll('#stBotaSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#stBotaSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyStockFilters();
     }));
     applyStockFilters();

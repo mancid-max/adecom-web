@@ -135,6 +135,28 @@ for r in ped_rows:
 
 pedidos = list(pedidos_dict.values())
 
+# Mapeo art8 → tipo de bota (desde SubCateg de PEDIDOS.CSV)
+def norm_bota(sc):
+    s = sc.strip().upper()
+    if 'PITILLO' in s: return 'Pitillo'
+    if 'FLARE'   in s: return 'Flare'
+    if 'BOOTCUT' in s: return 'Bootcut'
+    if 'WIDE LEG' in s: return 'Wide Leg'
+    if 'OXFORD'  in s: return 'Oxford'
+    if 'PALAZZO' in s: return 'Palazzo'
+    if 'RECTO'   in s: return 'Recto'
+    if 'BALLOON' in s: return 'Balloon'
+    if 'BERMUDA' in s: return 'Bermuda'
+    if 'CALZA'   in s: return 'Calza'
+    return s.title() if s else ''
+
+mod_bota = {}
+for r in ped_rows:
+    art8 = r.get('ARTICULO','').strip()[:8]
+    sc   = r.get('SubCateg','').strip()
+    if art8 and sc:
+        mod_bota[art8] = norm_bota(sc)
+
 # ── 2b. ARTÍCULOS POR TALLA (ARCHIVO_TALLAS.CSV) ───────────────────────────
 # Fuente correcta para unidades pedidas por artículo/modelo.
 # PEDIDOS.CSV suma SOLICITADO que incluye líneas no confirmadas → cifra mayor.
@@ -285,7 +307,8 @@ for art8, sucs in sorted(saldo_map.items()):
     saldos_bodega.append({
         "art": art8, "temp": t, "modelo": modelo, "color": color,
         "suc": {k: int(v) for k, v in sucs.items()},
-        "prendas": int(total_prendas), "total": int(total_all)
+        "prendas": int(total_prendas), "total": int(total_all),
+        "bota": mod_bota.get(art8, '')
     })
 saldos_bodega.sort(key=lambda x: -x['prendas'])
 
