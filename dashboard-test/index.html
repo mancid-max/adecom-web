@@ -835,16 +835,16 @@ function buildVentaTable(filtered) {
 function getHoyDocs() {
   const hoy = today();
   const docs = DOCS.filter(r => r.fecha_iso === hoy);
-  if (docs.length > 0) return { docs, label: 'Documentos de Hoy' };
+  if (docs.length > 0) return { docs, label: 'Documentos de Hoy', date: null, fallback: false };
   const dates = [...new Set(DOCS.map(r => r.fecha_iso).filter(Boolean))].sort();
-  if (!dates.length) return { docs: [], label: 'Documentos de Hoy' };
+  if (!dates.length) return { docs: [], label: 'Sin documentos', date: null, fallback: false };
   const last = dates[dates.length - 1];
   const [yr, mo, dy] = last.split('-');
-  return { docs: DOCS.filter(r => r.fecha_iso === last), label: `Documentos del ${dy}/${mo}/${yr}` };
+  return { docs: DOCS.filter(r => r.fecha_iso === last), label: `Documentos del ${dy}/${mo}/${yr}`, date: last, fallback: true };
 }
 
 function secReporteVenta() {
-  const { docs: todayDocs, label: initLabel } = getHoyDocs();
+  const { docs: todayDocs, label: initLabel, date: initDate, fallback: initFallback } = getHoyDocs();
   const neto  = todayDocs.reduce((s,d) => s+d.neto, 0);
   const bruto = todayDocs.reduce((s,d) => s+d.bruto, 0);
   const prendas = todayDocs.reduce((s,d) => s+d.prendas, 0);
@@ -853,13 +853,13 @@ function secReporteVenta() {
   <div class="fbar" id="ventaFbar" style="flex-wrap:wrap;gap:8px">
     <span class="flbl">Período</span>
     <div class="segs" id="ventaSegs">
-      <button class="seg on" data-vp="hoy">Hoy</button>
+      <button class="seg ${initFallback ? '' : 'on'}" data-vp="hoy">Hoy</button>
       <button class="seg" data-vp="semana">Esta semana</button>
       <button class="seg" data-vp="mes">Este mes</button>
       <button class="seg" data-vp="todo">Todo 2026</button>
     </div>
     <span class="flbl" style="margin-left:4px">Día</span>
-    <input type="date" id="ventaFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px">
+    <input type="date" id="ventaFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px" value="${initDate||''}">
   </div>
 
   <div class="kpi-grid">
