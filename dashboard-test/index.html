@@ -171,13 +171,28 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .chart-row{grid-template-columns:1fr}
   .temp-grid{grid-template-columns:repeat(3,1fr)}
-  .content{padding:14px}
-  .header{padding:0 14px}
+  .content{padding:12px;gap:12px}
+  .header{padding:0 12px}
+  .hd-ts{font-size:11px}
+  /* segmentos: scroll horizontal en lugar de wrap */
+  .segs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .segs::-webkit-scrollbar{display:none}
+  .fbar{gap:8px;padding:10px 12px}
+  /* tablas: fuente menor y celdas más compactas */
+  thead th{padding:7px 10px;font-size:9px}
+  tbody td{padding:7px 10px;font-size:12px}
+  .tbl-foot{padding:7px 12px}
+  .kpi{padding:14px 16px}
+  .card{padding:16px}
 }
 @media(max-width:480px){
   .kpi-grid{grid-template-columns:1fr 1fr}
   .temp-grid{grid-template-columns:repeat(2,1fr)}
-  .kpi-val{font-size:22px}
+  .kpi-val{font-size:20px}
+  .kpi-ico{width:40px;height:40px}
+  .hd-ts{display:none}   /* timestamp oculto en pantallas muy pequeñas */
+  .seg{padding:4px 9px;font-size:11px}
+  .content{padding:10px;gap:10px}
 }
 </style>
 </head>
@@ -1055,7 +1070,11 @@ function buildPVCRows(t, ftMap, exMap) {
       ct += ftMap[art]?.corte || 0;
     }
     return { ...item, _ct: ct, _diff: ct - item.total };
-  }).sort((a, b) => b._diff - a._diff);
+  }).sort((a, b) => {
+    if (a._diff >= 0 && b._diff >= 0) return b._diff - a._diff;   // ambos positivos: mayor primero
+    if (a._diff < 0  && b._diff < 0)  return a._diff - b._diff;   // ambos negativos: más negativo primero
+    return b._diff >= 0 ? 1 : -1;                                  // positivos antes que negativos
+  });
 
   return items.map(item => {
     const suffix = item.base.slice(-2);
@@ -1077,7 +1096,7 @@ function buildPVCRows(t, ftMap, exMap) {
         : '<span style="color:var(--tx3);font-size:10px">—</span>';
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
-        <td class="td-dim" style="padding-left:28px">└ color ${v.mod}</td>
+        <td class="td-dim" style="padding-left:28px">└ corte ${v.mod}</td>
         <td class="r td-dim">${fmt(v.qty)}</td>
         <td class="r td-dim">${c ? fmt(c) : '—'}</td>
         <td class="r td-dim">${c && v.qty ? (c/v.qty*100).toFixed(0)+'%' : '—'}</td>
@@ -1115,7 +1134,7 @@ function buildPVCRows(t, ftMap, exMap) {
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
     return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
-      <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores>1?'es':''}</td>
+      <td class="td-dim" style="font-weight:400">${item.colores} corte${item.colores>1?'s':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
       <td class="r td-num">${corteTotal ? fmt(corteTotal) : '—'}</td>
       <td class="r td-dim">${corteTotal ? `${pct}%` : '—'}</td>
@@ -1192,7 +1211,7 @@ async function secPVC() {
     </div>
   </div>
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver colores</div></div>
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver cortes</div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Modelo</th><th>Colores</th><th class="r">Pedido</th><th class="r">Corte</th><th class="r">%</th><th class="r">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
