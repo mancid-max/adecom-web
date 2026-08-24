@@ -1055,7 +1055,7 @@ function buildFtMap(ft) {
     m[a].bodega += r.bodega||0;
     const et = getEtapa(r);
     // Guardar cada OC individual para mostrar en filas expandibles
-    m[a].ocs.push({ unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
+    m[a].ocs.push({ oc: (r.corte||'').trim(), unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
     if (et !== 'Bodega' && et !== 'Sin movimiento') {
       m[a].etapas[et] = (m[a].etapas[et]||0) + 1;
     }
@@ -1107,7 +1107,7 @@ function buildPVCRows(t, ftMap, exMap) {
       const etClr = etapaClr(oc.etapa);
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
-        <td class="td-dim" style="padding-left:28px">└ corte ${idx+1}</td>
+        <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
         <td></td>
         <td class="r td-dim">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
         <td></td>
