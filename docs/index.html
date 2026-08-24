@@ -645,13 +645,22 @@ async function secStock() {
     .map(r => {
       const tc = tcFor(r.temp);
       const sucAttrs = sucList.map(s => `data-s${s}="${r.suc?.[s]||0}"`).join(' ');
-      return `<tr class="no-click st-row" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-bota="${(r.bota||'').toLowerCase()}" ${sucAttrs}>
+      const tallaEntries = Object.entries(r.tallas||{});
+      const tallaRows = tallaEntries.map(([t, q]) =>
+        `<tr class="no-click st-talla-row" style="display:none;background:var(--sf2)">
+          <td></td><td></td><td></td>
+          <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t}</td>
+          <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
+        </tr>`).join('');
+      const clickCls = tallaEntries.length ? '' : ' no-click';
+      const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
+      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs}>
         <td class="td-code">${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
-        <td class="td-dim">${r.color}</td>
+        <td class="td-dim">${r.color}${chevron}</td>
         <td class="r td-num">${fmt(r.prendas||0)}</td>
-      </tr>`;
+      </tr>${tallaRows}`;
     }).join('');
 
   return `
@@ -676,6 +685,10 @@ async function secStock() {
       ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
     </select>
   </div>` : ''}
+  <div class="fbar" style="margin-top:8px;align-items:center">
+    <span class="flbl">Buscar</span>
+    <input id="stSearch" type="text" placeholder="Artículo o modelo..." style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;outline:none;width:200px" />
+  </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
@@ -1387,17 +1400,24 @@ function bindContent(secId) {
       const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
       const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
       const bota = document.getElementById('stBotaSel')?.value || 'all';
+      const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
         const tempOk = temp === 'all' || row.dataset.temp === temp;
         const botaOk = bota === 'all' || row.dataset.bota === bota;
+        const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
         const qty = suc === 'all'
           ? parseInt(row.dataset.prendas)||0
           : parseInt(row.dataset[`s${suc}`])||0;
-        const show = tempOk && botaOk && qty > 0;
+        const show = tempOk && botaOk && srchOk && qty > 0;
         row.style.display = show ? '' : 'none';
         const qtyCell = row.querySelector('td:last-child');
         if (qtyCell) qtyCell.textContent = show ? fmt(qty) : '';
+        if (!show) {
+          // ocultar tallas si la fila padre se oculta
+          let sib = row.nextElementSibling;
+          while (sib && sib.classList.contains('st-talla-row')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
+        }
         if (show) { vis++; totalU += qty; }
       });
       const el = id => document.getElementById(id);
@@ -1417,6 +1437,25 @@ function bindContent(secId) {
       b.classList.add('on'); applyStockFilters();
     }));
     document.getElementById('stBotaSel')?.addEventListener('change', applyStockFilters);
+    document.getElementById('stSearch')?.addEventListener('input', applyStockFilters);
+    // Expandir/colapsar tallas al hacer click en fila
+    document.querySelectorAll('#stockBody tr.st-row:not(.no-click)').forEach(row => {
+      row.addEventListener('click', () => {
+        let open = false;
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('st-talla-row')) {
+          if (sib.style.display !== 'none') open = true;
+          sib = sib.nextElementSibling;
+        }
+        sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('st-talla-row')) {
+          sib.style.display = open ? 'none' : '';
+          sib = sib.nextElementSibling;
+        }
+        const chv = row.querySelector('.chv');
+        if (chv) chv.textContent = open ? '▸' : '▾';
+      });
+    });
     applyStockFilters();
   }
 

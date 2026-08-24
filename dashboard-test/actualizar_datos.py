@@ -267,7 +267,7 @@ docs_venta = list(docs_dict.values())
 SUCURSALES_PRENDAS = {'01','02','04','05','10','12','33'}
 
 print("Leyendo SALDOSXLOCAL.CSV...")
-saldo_map = {}  # {art8: {suc: qty}}
+saldo_map = {}  # {art8: {'sucs': {suc: qty}, 'tallas': {talla: qty}}}
 saldo_file = os.path.join(BI, 'SALDOSXLOCAL.CSV')
 try:
     with open(saldo_file, encoding='latin-1') as f:
@@ -289,24 +289,34 @@ try:
                 continue
             if not (40 <= t_num <= 44):
                 continue
-            art8 = code[:8]
-            saldo_map.setdefault(art8, {})
-            saldo_map[art8][suc] = saldo_map[art8].get(suc, 0) + qty
+            art8  = code[:8]
+            talla = code[8:10].lstrip('0') or code[8:10]
+            if art8 not in saldo_map:
+                saldo_map[art8] = {'sucs': {}, 'tallas': {}}
+            saldo_map[art8]['sucs'][suc] = saldo_map[art8]['sucs'].get(suc, 0) + qty
+            if talla:
+                saldo_map[art8]['tallas'][talla] = saldo_map[art8]['tallas'].get(talla, 0) + qty
 except FileNotFoundError:
     print("  SALDOSXLOCAL.CSV no encontrado en Z:\\BI")
 
 saldos_bodega = []
-for art8, sucs in sorted(saldo_map.items()):
-    t    = art8[2:4]
+for art8, data in sorted(saldo_map.items()):
+    sucs   = data['sucs']
+    tallas = data['tallas']
+    t      = art8[2:4]
     modelo = art8[2:6]
     color  = art8[6:8]
     total_prendas = sum(v for k, v in sucs.items() if k in SUCURSALES_PRENDAS)
     total_all = sum(sucs.values())
     if total_all <= 0:
         continue
+    def _tsort(k):
+        try: return int(k)
+        except: return 999
     saldos_bodega.append({
         "art": art8, "temp": t, "modelo": modelo, "color": color,
         "suc": {k: int(v) for k, v in sucs.items()},
+        "tallas": {k: int(v) for k, v in sorted(tallas.items(), key=lambda x: _tsort(x[0]))},
         "prendas": int(total_prendas), "total": int(total_all),
         "bota": mod_bota.get(art8, '')
     })
