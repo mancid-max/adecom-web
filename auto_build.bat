@@ -10,15 +10,18 @@ cd /d "%PROJECT_DIR%"
 
 echo [%date% %time%] Iniciando build automatico... >> %LOG%
 
-:: Construir sitio (sincroniza Z:\BI automaticamente)
-%PYTHON% scripts/build_static_site.py >> %LOG% 2>&1
+:: Generar JSONs desde Z:\BI → dashboard-test/ y docs/
+%PYTHON% "dashboard-test\actualizar_datos.py" >> %LOG% 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [%date% %time%] ERROR: Build fallo con codigo %ERRORLEVEL% >> %LOG%
+    echo [%date% %time%] ERROR: actualizar_datos.py fallo con codigo %ERRORLEVEL% >> %LOG%
     exit /b 1
 )
 
+:: Copiar index.html del dashboard a docs/
+copy /y "dashboard-test\index.html" "docs\index.html" >> %LOG% 2>&1
+
 :: Agregar archivos modificados
-%GIT% add docs/index.html docs/404.html seed/VENTAS-TOD-2026.CSV seed/TRAZABILIDAD_OP.TXT seed/PEDIDOS.Txt seed/PEDIDOSXTALLA.TXT >> %LOG% 2>&1
+%GIT% add docs\index.html docs\full_table.json docs\traza_oc.json docs\pedidos.json docs\docs_venta.json docs\pedidos_art.json docs\saldos_bodega.json docs\pvc_ex.json docs\meta.json >> %LOG% 2>&1
 
 :: Si no hay cambios, salir sin error
 %GIT% diff --cached --quiet
