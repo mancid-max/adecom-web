@@ -669,12 +669,12 @@ async function secStock() {
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
     </div>
   </div>
-  ${botas.length ? `<div class="fbar" style="margin-top:8px">
+  ${botas.length ? `<div class="fbar" style="margin-top:8px;align-items:center">
     <span class="flbl">Tipo</span>
-    <div class="segs" id="stBotaSegs">
-      <button class="seg on" data-bota="all">Todas</button>
-      ${botas.map(b => `<button class="seg" data-bota="${b.toLowerCase()}">${b}</button>`).join('')}
-    </div>
+    <select id="stBotaSel" style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;cursor:pointer;outline:none">
+      <option value="all">Todas</option>
+      ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
+    </select>
   </div>` : ''}
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi" style="cursor:default">
@@ -1386,7 +1386,7 @@ function bindContent(secId) {
     function applyStockFilters() {
       const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
       const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
-      const bota = document.querySelector('#stBotaSegs .seg.on')?.dataset.bota || 'all';
+      const bota = document.getElementById('stBotaSel')?.value || 'all';
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
         const tempOk = temp === 'all' || row.dataset.temp === temp;
@@ -1416,10 +1416,7 @@ function bindContent(secId) {
       document.querySelectorAll('#stTempSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyStockFilters();
     }));
-    document.querySelectorAll('#stBotaSegs .seg').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#stBotaSegs .seg').forEach(x => x.classList.remove('on'));
-      b.classList.add('on'); applyStockFilters();
-    }));
+    document.getElementById('stBotaSel')?.addEventListener('change', applyStockFilters);
     applyStockFilters();
   }
 
