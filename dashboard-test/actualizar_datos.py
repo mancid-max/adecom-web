@@ -291,9 +291,14 @@ try:
                 continue
             art8  = code[:8]
             talla = code[8:10].lstrip('0') or code[8:10]
+            try:
+                cajas = float(str(r.get('Cajas', '0')).strip() or 0)
+            except:
+                cajas = 0
             if art8 not in saldo_map:
-                saldo_map[art8] = {'sucs': {}, 'tallas': {}}
+                saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}}
             saldo_map[art8]['sucs'][suc] = saldo_map[art8]['sucs'].get(suc, 0) + qty
+            saldo_map[art8]['cajas'][suc] = saldo_map[art8]['cajas'].get(suc, 0) + cajas
             if talla:
                 saldo_map[art8]['tallas'][talla] = saldo_map[art8]['tallas'].get(talla, 0) + qty
 except FileNotFoundError:
@@ -313,9 +318,13 @@ for art8, data in sorted(saldo_map.items()):
     def _tsort(k):
         try: return int(k)
         except: return 999
+    cajas_d = data.get('cajas', {})
+    total_cajas = int(sum(v for k, v in cajas_d.items() if k in SUCURSALES_PRENDAS))
     saldos_bodega.append({
         "art": art8, "temp": t, "modelo": modelo, "color": color,
         "suc": {k: int(v) for k, v in sucs.items()},
+        "cajas": {k: int(v) for k, v in cajas_d.items()},
+        "cajas_total": total_cajas,
         "tallas": {k: int(v) for k, v in sorted(tallas.items(), key=lambda x: _tsort(x[0]))},
         "prendas": int(total_prendas), "total": int(total_all),
         "bota": mod_bota.get(art8, '')

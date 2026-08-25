@@ -645,21 +645,24 @@ async function secStock() {
     .map(r => {
       const tc = tcFor(r.temp);
       const sucAttrs = sucList.map(s => `data-s${s}="${r.suc?.[s]||0}"`).join(' ');
+      const cajAttrs = sucList.map(s => `data-caj${s}="${r.cajas?.[s]||0}"`).join(' ');
       const tallaEntries = Object.entries(r.tallas||{});
       const tallaRows = tallaEntries.map(([t, q]) =>
         `<tr class="no-click st-talla-row" style="display:none;background:var(--sf2)">
           <td></td><td></td><td></td>
           <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
+          <td></td>
         </tr>`).join('');
       const clickCls = tallaEntries.length ? '' : ' no-click';
       const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
-      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs}>
+      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
         <td class="td-code">${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
         <td class="td-dim">${r.color}${chevron}</td>
         <td class="r td-num">${fmt(r.prendas||0)}</td>
+        <td class="r td-dim" id="cajcell">${r.cajas_total ? fmt(r.cajas_total) : '—'}</td>
       </tr>${tallaRows}`;
     }).join('');
 
@@ -710,7 +713,7 @@ async function secStock() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th></tr></thead>
+        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th><th class="r">Cajas</th></tr></thead>
         <tbody id="stockBody">${rowsHtml}</tbody>
       </table>
     </div>
@@ -1409,10 +1412,14 @@ function bindContent(secId) {
         const qty = suc === 'all'
           ? parseInt(row.dataset.prendas)||0
           : parseInt(row.dataset[`s${suc}`])||0;
+        const cajQty = suc === 'all'
+          ? parseInt(row.dataset.cajall)||0
+          : parseInt(row.dataset[`caj${suc}`])||0;
         const show = tempOk && botaOk && srchOk && qty > 0;
         row.style.display = show ? '' : 'none';
-        const qtyCell = row.querySelector('td:last-child');
-        if (qtyCell) qtyCell.textContent = show ? fmt(qty) : '';
+        const cells = row.cells;
+        if (cells[4]) cells[4].textContent = show ? fmt(qty) : '';
+        if (cells[5]) cells[5].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
         if (!show) {
           // ocultar tallas si la fila padre se oculta
           let sib = row.nextElementSibling;
