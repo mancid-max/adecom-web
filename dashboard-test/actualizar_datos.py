@@ -110,7 +110,8 @@ for r in ped_rows:
             "ciudad": r['CIUDAD'].strip(), "vendedor": r.get('VENDEDOR','').strip(),
             "unidades": 0, "despacho": 0, "saldo": 0,
             "valor": 0, "valor_desp": 0, "valor_sal": 0,
-            "dias": dias_desde(r['FECHA']), "temps": [], "u_temp": {}, "u_desp": {}, "u_sal": {}
+            "dias": dias_desde(r['FECHA']), "temps": [], "u_temp": {}, "u_desp": {}, "u_sal": {},
+            "_arts": {}
         }
     p = pedidos_dict[pid]
     if temp and temp not in p['temps']:
@@ -132,6 +133,23 @@ for r in ped_rows:
     p['u_temp'][temp] = p['u_temp'].get(temp, 0) + sol
     p['u_desp'][temp] = p['u_desp'].get(temp, 0) + desp
     p['u_sal'][temp]  = p['u_sal'].get(temp, 0)  + sal
+    # Detalle por artículo (art8 = sin talla)
+    art8 = art[:8]
+    if art8 and len(art8) == 8:
+        if art8 not in p['_arts']:
+            p['_arts'][art8] = {'sol': 0, 'desp': 0, 'sal': 0}
+        p['_arts'][art8]['sol']  += sol
+        p['_arts'][art8]['desp'] += desp
+        p['_arts'][art8]['sal']  += sal
+
+# Convertir _arts en lineas y limpiar clave interna
+for p in pedidos_dict.values():
+    arts = p.pop('_arts', {})
+    p['lineas'] = sorted(
+        [{'art': k, 'temp': k[2:4], 'modelo': k[2:6], 'color': k[6:8], **v}
+         for k, v in arts.items() if v['sol'] > 0],
+        key=lambda x: -(x['sal'])
+    )
 
 pedidos = list(pedidos_dict.values())
 
