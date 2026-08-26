@@ -188,7 +188,7 @@ try:
             cells = [c.strip() for c in line.strip().split(';')]
             if len(cells) < 6 or not cells[0] or not cells[2]:
                 continue
-            if cells[2].lower() != 'ventas':
+            if cells[3].lower() != 'ventas':
                 continue
             art  = cells[0]
             temp = art[2:4] if len(art) >= 4 else ''
