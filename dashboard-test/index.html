@@ -69,7 +69,7 @@ svg{display:block}
 .sec.on{display:flex;flex-direction:column;gap:18px}
 
 /* ── KPI GRID ────────────────────────────────────────────────── */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .1s}
 .kpi:hover{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac10)}
 .kpi:active{transform:scale(.98)}
@@ -158,6 +158,15 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 
 /* ── OVERLAY ─────────────────────────────────────────────────── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:49}
+/* ── DETAIL MODAL ────────────────────────────────────────────── */
+.det-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.det-ov.open{display:flex}
+.det-panel{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);width:min(760px,94vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.det-hd{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px}
+.det-ttl{font-size:15px;font-weight:700;letter-spacing:-.02em;flex:1}
+.det-close{width:30px;height:30px;border-radius:var(--rsm);background:var(--sf2);color:var(--tx2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;border:none}
+.det-close:hover{background:var(--bd)}
+.det-body{overflow-y:auto;flex:1}
 
 /* ── MOBILE ──────────────────────────────────────────────────── */
 @media(max-width:1100px){
@@ -204,6 +213,15 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 <body>
 
 <div class="overlay" id="overlay"></div>
+<div class="det-ov" id="detOv">
+  <div class="det-panel">
+    <div class="det-hd">
+      <div class="det-ttl" id="detTtl">Detalle</div>
+      <button class="det-close" id="detClose">✕</button>
+    </div>
+    <div class="det-body" id="detBody"></div>
+  </div>
+</div>
 <div class="layout">
 
 <!-- ── SIDEBAR ── -->
@@ -425,7 +443,7 @@ function secResumen() {
   const vh = VENTA_HOY;
 
   return `
-  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+  <div class="kpi-grid">
     <div class="kpi" data-goto="reporte-venta" data-goto-ttl="Reporte Venta" style="border:2px solid var(--ok);background:var(--ok10)">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
       <div>
@@ -532,7 +550,7 @@ function secDetalleColor() {
           <td class="r td-dim">—</td>
         </tr>`
       ).join('');
-      return `<tr data-expandable style="font-weight:600">
+      return `<tr data-expandable data-base="${item.base}" style="font-weight:600">
         <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
         <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores > 1 ? 'es' : ''}</td>
         <td class="r td-num">${fmt(item.total)}</td>
@@ -560,6 +578,7 @@ function secDetalleColor() {
     <div class="segs" id="dcSegs">
       ${temps.map(t => `<button class="seg${t==='44'?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
+    <input id="dcSearch" type="search" placeholder="Buscar modelo…" style="margin-left:auto;padding:6px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:13px;width:160px;outline:none">
   </div>
   <div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>
@@ -645,13 +664,26 @@ async function secStock() {
     .map(r => {
       const tc = tcFor(r.temp);
       const sucAttrs = sucList.map(s => `data-s${s}="${r.suc?.[s]||0}"`).join(' ');
-      return `<tr class="no-click st-row" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-bota="${(r.bota||'').toLowerCase()}" ${sucAttrs}>
+      const cajAttrs = sucList.map(s => `data-caj${s}="${r.cajas?.[s]||0}"`).join(' ');
+      const tallaEntries = Object.entries(r.tallas||{});
+      const tallaRows = tallaEntries.map(([t, q]) =>
+        `<tr class="no-click st-talla-row" style="display:none;background:var(--sf2)">
+          <td></td><td></td><td></td>
+          <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t}</td>
+          <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
+          <td></td><td></td>
+        </tr>`).join('');
+      const clickCls = tallaEntries.length ? '' : ' no-click';
+      const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
+      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
         <td class="td-code">${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
-        <td class="td-dim">${r.color}</td>
+        <td class="td-dim">${r.color}${chevron}</td>
         <td class="r td-num">${fmt(r.prendas||0)}</td>
-      </tr>`;
+        <td class="r td-dim" style="color:var(--tx2)">${r.total !== r.prendas ? fmt(r.total||0) : '—'}</td>
+        <td class="r td-dim">${r.cajas_total ? fmt(r.cajas_total) : '—'}</td>
+      </tr>${tallaRows}`;
     }).join('');
 
   return `
@@ -669,13 +701,17 @@ async function secStock() {
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
     </div>
   </div>
-  ${botas.length ? `<div class="fbar" style="margin-top:8px">
+  ${botas.length ? `<div class="fbar" style="margin-top:8px;align-items:center">
     <span class="flbl">Tipo</span>
-    <div class="segs" id="stBotaSegs">
-      <button class="seg on" data-bota="all">Todas</button>
-      ${botas.map(b => `<button class="seg" data-bota="${b.toLowerCase()}">${b}</button>`).join('')}
-    </div>
+    <select id="stBotaSel" style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;cursor:pointer;outline:none">
+      <option value="all">Todas</option>
+      ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
+    </select>
   </div>` : ''}
+  <div class="fbar" style="margin-top:8px;align-items:center">
+    <span class="flbl">Buscar</span>
+    <input id="stSearch" type="text" placeholder="Artículo o modelo..." style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;outline:none;width:200px" />
+  </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
@@ -697,7 +733,7 @@ async function secStock() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th></tr></thead>
+        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th><th class="r">Total</th><th class="r">Cajas</th></tr></thead>
         <tbody id="stockBody">${rowsHtml}</tbody>
       </table>
     </div>
@@ -812,7 +848,7 @@ async function secTabla() {
         </tr></thead>
         <tbody id="tablaBody">${rowsHtml}</tbody>
         <tfoot><tr style="background:var(--sf2);font-weight:700">
-          <td class="td-dim">Totales</td><td></td><td></td><td></td><td></td>
+          <td class="td-dim" colspan="5">Totales</td>
           ${totRow}
         </tr></tfoot>
       </table>
@@ -912,10 +948,7 @@ async function secVentaDespacho() {
     const sal44  = p.u_sal?.['44']  || 0;
     const avancePct = ped44 ? Math.round(desp44/ped44*100) : 0;
     const nombre = (p.nombre||p.rut||'').toUpperCase();
-    return `<tr class="no-click"
-      data-nombre="${nombre.toLowerCase()}"
-      data-ciudad="${(p.ciudad||'').toLowerCase()}"
-      data-avance="${avancePct}">
+    return `<tr data-nombre="${nombre.toLowerCase()}" data-ciudad="${(p.ciudad||'').toLowerCase()}" data-avance="${avancePct}" data-pid="${p.pedido}" style="cursor:pointer">
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${nombre||p.rut}</td>
       <td class="td-dim">${p.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
@@ -1055,7 +1088,7 @@ function buildFtMap(ft) {
     m[a].bodega += r.bodega||0;
     const et = getEtapa(r);
     // Guardar cada OC individual para mostrar en filas expandibles
-    m[a].ocs.push({ unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
+    m[a].ocs.push({ oc: (r.corte||'').trim(), unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
     if (et !== 'Bodega' && et !== 'Sin movimiento') {
       m[a].etapas[et] = (m[a].etapas[et]||0) + 1;
     }
@@ -1107,7 +1140,7 @@ function buildPVCRows(t, ftMap, exMap) {
       const etClr = etapaClr(oc.etapa);
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
-        <td class="td-dim" style="padding-left:28px">└ corte ${idx+1}</td>
+        <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
         <td></td>
         <td class="r td-dim">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
         <td></td>
@@ -1281,11 +1314,30 @@ function bindContent(secId) {
     const byTemp = buildByTemp();
     const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
 
+    function applyDcSearch() {
+      const q = (document.getElementById('dcSearch')?.value || '').trim().toLowerCase();
+      let vis = 0;
+      document.querySelectorAll('#dcBody tr[data-expandable]').forEach(row => {
+        const match = !q || (row.dataset.base || '').toLowerCase().includes(q);
+        row.style.display = match ? '' : 'none';
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('variant-row')) {
+          if (!match) sib.style.display = 'none';
+          sib = sib.nextElementSibling;
+        }
+        if (match) vis++;
+      });
+      const foot = document.getElementById('dcFoot');
+      if (foot && q) foot.textContent = `${vis} resultado${vis!==1?'s':''} para "${q}"`;
+    }
+
     document.querySelectorAll('#dcSegs .seg').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#dcSegs .seg').forEach(b => b.classList.remove('on'));
         btn.classList.add('on');
         const t = btn.dataset.t;
+        const srch = document.getElementById('dcSearch');
+        if (srch) srch.value = '';
         document.getElementById('dcBody').innerHTML = buildColorRowsForTemp(byTemp, t);
         document.getElementById('dcFoot').textContent = `${byTemp[t]?.modelos||0} modelos en T${t}`;
         document.querySelectorAll('[data-temp-card]').forEach(c =>
@@ -1293,6 +1345,8 @@ function bindContent(secId) {
         bindExpandRows();
       });
     });
+
+    document.getElementById('dcSearch')?.addEventListener('input', applyDcSearch);
 
     document.querySelectorAll('[data-temp-card]').forEach(card => {
       card.addEventListener('click', () => {
@@ -1386,18 +1440,29 @@ function bindContent(secId) {
     function applyStockFilters() {
       const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
       const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
-      const bota = document.querySelector('#stBotaSegs .seg.on')?.dataset.bota || 'all';
+      const bota = document.getElementById('stBotaSel')?.value || 'all';
+      const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
         const tempOk = temp === 'all' || row.dataset.temp === temp;
         const botaOk = bota === 'all' || row.dataset.bota === bota;
+        const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
         const qty = suc === 'all'
           ? parseInt(row.dataset.prendas)||0
           : parseInt(row.dataset[`s${suc}`])||0;
-        const show = tempOk && botaOk && qty > 0;
+        const cajQty = suc === 'all'
+          ? parseInt(row.dataset.cajall)||0
+          : parseInt(row.dataset[`caj${suc}`])||0;
+        const show = tempOk && botaOk && srchOk && qty > 0;
         row.style.display = show ? '' : 'none';
-        const qtyCell = row.querySelector('td:last-child');
-        if (qtyCell) qtyCell.textContent = show ? fmt(qty) : '';
+        const cells = row.cells;
+        if (cells[4]) cells[4].textContent = show ? fmt(qty) : '';
+        if (cells[6]) cells[6].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
+        if (!show) {
+          // ocultar tallas si la fila padre se oculta
+          let sib = row.nextElementSibling;
+          while (sib && sib.classList.contains('st-talla-row')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
+        }
         if (show) { vis++; totalU += qty; }
       });
       const el = id => document.getElementById(id);
@@ -1416,10 +1481,26 @@ function bindContent(secId) {
       document.querySelectorAll('#stTempSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyStockFilters();
     }));
-    document.querySelectorAll('#stBotaSegs .seg').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#stBotaSegs .seg').forEach(x => x.classList.remove('on'));
-      b.classList.add('on'); applyStockFilters();
-    }));
+    document.getElementById('stBotaSel')?.addEventListener('change', applyStockFilters);
+    document.getElementById('stSearch')?.addEventListener('input', applyStockFilters);
+    // Expandir/colapsar tallas al hacer click en fila
+    document.querySelectorAll('#stockBody tr.st-row:not(.no-click)').forEach(row => {
+      row.addEventListener('click', () => {
+        let open = false;
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('st-talla-row')) {
+          if (sib.style.display !== 'none') open = true;
+          sib = sib.nextElementSibling;
+        }
+        sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('st-talla-row')) {
+          sib.style.display = open ? 'none' : '';
+          sib = sib.nextElementSibling;
+        }
+        const chv = row.querySelector('.chv');
+        if (chv) chv.textContent = open ? '▸' : '▾';
+      });
+    });
     applyStockFilters();
   }
 
@@ -1447,6 +1528,47 @@ function bindContent(secId) {
       document.querySelectorAll('#vdAvanceSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyVDFilters();
     }));
+    // Modal detalle por artículo al hacer click en fila de cliente
+    const pedMap = {}; t44.forEach(p => pedMap[p.pedido] = p);
+    document.querySelectorAll('#vdBody tr[data-pid]').forEach(row => {
+      row.addEventListener('click', () => {
+        const p = pedMap[row.dataset.pid]; if (!p) return;
+        const lineas44 = (p.lineas||[]).filter(l => l.temp === '44');
+        const nombre = (p.nombre||p.rut||'').toUpperCase();
+        document.getElementById('detTtl').textContent = `${nombre} — Detalle T44`;
+        const rowsHtml = lineas44.map(l => {
+          const clr = l.sal > 0 ? 'var(--wa)' : 'var(--ok)';
+          const estado = l.sal <= 0 ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completo</span>'
+                       : l.desp > 0 ? '<span style="color:var(--ac);font-size:10px">En proceso</span>'
+                       : '<span style="color:var(--tx3);font-size:10px">Sin despacho</span>';
+          return `<tr>
+            <td class="td-code" style="padding:8px 12px">${l.art}</td>
+            <td class="td-dim" style="padding:8px 8px">${l.modelo}</td>
+            <td class="td-dim" style="padding:8px 8px">${l.color}</td>
+            <td class="r td-num" style="padding:8px 12px">${fmt(l.sol)}</td>
+            <td class="r td-num" style="padding:8px 12px;color:var(--ok)">${l.desp > 0 ? fmt(l.desp) : '—'}</td>
+            <td class="r td-num" style="padding:8px 12px;color:${clr}">${l.sal > 0 ? fmt(l.sal) : '—'}</td>
+            <td style="padding:8px 12px">${estado}</td>
+          </tr>`;
+        }).join('');
+        document.getElementById('detBody').innerHTML = `
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:var(--sf2)">
+              <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">ARTÍCULO</th>
+              <th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">MOD</th>
+              <th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">COL</th>
+              <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">PEDIDO</th>
+              <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">DESPACHADO</th>
+              <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">SALDO</th>
+              <th style="padding:8px 12px;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">ESTADO</th>
+            </tr></thead>
+            <tbody>${rowsHtml || '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T44</td></tr>'}</tbody>
+          </table>`;
+        document.getElementById('detOv').classList.add('open');
+      });
+    });
+    document.getElementById('detClose')?.addEventListener('click', () => document.getElementById('detOv').classList.remove('open'));
+    document.getElementById('detOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
   }
 
   // Clientes Inactivos — filters
@@ -1637,7 +1759,7 @@ function buildColorRowsForTemp(byTemp, t) {
         <td class="r td-dim">—</td>
       </tr>`
     ).join('');
-    return `<tr data-expandable style="font-weight:600">
+    return `<tr data-expandable data-base="${item.base}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores>1?'es':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>

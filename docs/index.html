@@ -550,7 +550,7 @@ function secDetalleColor() {
           <td class="r td-dim">—</td>
         </tr>`
       ).join('');
-      return `<tr data-expandable style="font-weight:600">
+      return `<tr data-expandable data-base="${item.base}" style="font-weight:600">
         <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
         <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores > 1 ? 'es' : ''}</td>
         <td class="r td-num">${fmt(item.total)}</td>
@@ -578,6 +578,7 @@ function secDetalleColor() {
     <div class="segs" id="dcSegs">
       ${temps.map(t => `<button class="seg${t==='44'?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
+    <input id="dcSearch" type="search" placeholder="Buscar modelo…" style="margin-left:auto;padding:6px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:13px;width:160px;outline:none">
   </div>
   <div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>
@@ -1313,11 +1314,30 @@ function bindContent(secId) {
     const byTemp = buildByTemp();
     const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
 
+    function applyDcSearch() {
+      const q = (document.getElementById('dcSearch')?.value || '').trim().toLowerCase();
+      let vis = 0;
+      document.querySelectorAll('#dcBody tr[data-expandable]').forEach(row => {
+        const match = !q || (row.dataset.base || '').toLowerCase().includes(q);
+        row.style.display = match ? '' : 'none';
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('variant-row')) {
+          if (!match) sib.style.display = 'none';
+          sib = sib.nextElementSibling;
+        }
+        if (match) vis++;
+      });
+      const foot = document.getElementById('dcFoot');
+      if (foot && q) foot.textContent = `${vis} resultado${vis!==1?'s':''} para "${q}"`;
+    }
+
     document.querySelectorAll('#dcSegs .seg').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#dcSegs .seg').forEach(b => b.classList.remove('on'));
         btn.classList.add('on');
         const t = btn.dataset.t;
+        const srch = document.getElementById('dcSearch');
+        if (srch) srch.value = '';
         document.getElementById('dcBody').innerHTML = buildColorRowsForTemp(byTemp, t);
         document.getElementById('dcFoot').textContent = `${byTemp[t]?.modelos||0} modelos en T${t}`;
         document.querySelectorAll('[data-temp-card]').forEach(c =>
@@ -1325,6 +1345,8 @@ function bindContent(secId) {
         bindExpandRows();
       });
     });
+
+    document.getElementById('dcSearch')?.addEventListener('input', applyDcSearch);
 
     document.querySelectorAll('[data-temp-card]').forEach(card => {
       card.addEventListener('click', () => {
@@ -1737,7 +1759,7 @@ function buildColorRowsForTemp(byTemp, t) {
         <td class="r td-dim">—</td>
       </tr>`
     ).join('');
-    return `<tr data-expandable style="font-weight:600">
+    return `<tr data-expandable data-base="${item.base}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores>1?'es':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
