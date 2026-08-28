@@ -1554,7 +1554,7 @@ function bindContent(secId) {
       const isText = col === 'nombre' || col === 'ciudad';
       rows.sort((a, b) => {
         const av = a.dataset[col] || '', bv = b.dataset[col] || '';
-        return isText ? av.localeCompare(bv, 'es') * vdSortDir : (parseInt(av)||0 - (parseInt(bv)||0)) * vdSortDir;
+        return isText ? av.localeCompare(bv, 'es') * vdSortDir : ((parseInt(av)||0) - (parseInt(bv)||0)) * vdSortDir;
       });
       rows.forEach(r => tbody.appendChild(r));
       document.querySelectorAll('#vdThead th[data-sort]').forEach(th => {
