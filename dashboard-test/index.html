@@ -948,7 +948,7 @@ async function secVentaDespacho() {
     const sal44  = p.u_sal?.['44']  || 0;
     const avancePct = ped44 ? Math.round(desp44/ped44*100) : 0;
     const nombre = (p.nombre||p.rut||'').toUpperCase();
-    return `<tr data-nombre="${nombre.toLowerCase()}" data-ciudad="${(p.ciudad||'').toLowerCase()}" data-avance="${avancePct}" data-pid="${p.pedido}" style="cursor:pointer">
+    return `<tr data-nombre="${nombre.toLowerCase()}" data-ciudad="${(p.ciudad||'').toLowerCase()}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-pid="${p.pedido}" style="cursor:pointer">
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${nombre||p.rut}</td>
       <td class="td-dim">${p.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
@@ -975,6 +975,7 @@ async function secVentaDespacho() {
       <button class="seg" data-av="completo">Completo</button>
     </div>
     <input id="vdSearch" class="finput" placeholder="Cliente o ciudad…" style="width:160px">
+    <select id="vdCiudad" class="finput" style="width:140px"><option value="">Todas las ciudades</option></select>
   </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi sel" style="cursor:default">
@@ -997,7 +998,14 @@ async function secVentaDespacho() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Saldo</th><th>Avance</th></tr></thead>
+        <thead><tr id="vdThead">
+          <th data-sort="nombre" style="cursor:pointer">Cliente <span class="si">↕</span></th>
+          <th data-sort="ciudad" style="cursor:pointer">Ciudad <span class="si">↕</span></th>
+          <th class="r" data-sort="ped" style="cursor:pointer">Pedido <span class="si">↕</span></th>
+          <th class="r" data-sort="desp" style="cursor:pointer">Despachado <span class="si">↕</span></th>
+          <th class="r" data-sort="sal" style="cursor:pointer">Saldo <span class="si">↕</span></th>
+          <th data-sort="avance" style="cursor:pointer">Avance <span class="si">↕</span></th>
+        </tr></thead>
         <tbody id="vdBody">${rowsHtml}</tbody>
       </table>
     </div>
@@ -1504,11 +1512,17 @@ function bindContent(secId) {
     applyStockFilters();
   }
 
-  // Venta vs Despacho — filters
+  // Venta vs Despacho — filters + sort
   if (secId === 'venta-despacho') {
+    // Populate city dropdown
+    const ciudades = [...new Set([...document.querySelectorAll('#vdBody tr[data-ciudad]')].map(r => r.dataset.ciudad).filter(Boolean))].sort();
+    const sel = document.getElementById('vdCiudad');
+    ciudades.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c.charAt(0).toUpperCase()+c.slice(1); sel.appendChild(o); });
+
     function applyVDFilters() {
       const av  = document.querySelector('#vdAvanceSegs .seg.on')?.dataset.av || 'todo';
       const q   = (document.getElementById('vdSearch')?.value||'').trim().toLowerCase();
+      const ciu = (document.getElementById('vdCiudad')?.value||'').toLowerCase();
       let vis = 0;
       document.querySelectorAll('#vdBody tr[data-nombre]').forEach(row => {
         const pct = parseInt(row.dataset.avance)||0;
@@ -1517,17 +1531,38 @@ function bindContent(secId) {
           (av === 'parcial'  && pct > 0 && pct < 100) ||
           (av === 'completo' && pct >= 100);
         const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q);
-        row.style.display = (avOk && qOk) ? '' : 'none';
-        if (avOk && qOk) vis++;
+        const ciuOk = !ciu || row.dataset.ciudad === ciu;
+        row.style.display = (avOk && qOk && ciuOk) ? '' : 'none';
+        if (avOk && qOk && ciuOk) vis++;
       });
       const el = document.getElementById('vdCount');
       if (el) el.textContent = `${vis} clientes`;
     }
     document.getElementById('vdSearch')?.addEventListener('input', applyVDFilters);
+    document.getElementById('vdCiudad')?.addEventListener('change', applyVDFilters);
     document.querySelectorAll('#vdAvanceSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#vdAvanceSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyVDFilters();
     }));
+
+    // Sort
+    let vdSortCol = null, vdSortDir = -1;
+    function sortVD(col) {
+      if (vdSortCol === col) { vdSortDir *= -1; } else { vdSortCol = col; vdSortDir = (col === 'nombre' || col === 'ciudad') ? 1 : -1; }
+      const tbody = document.getElementById('vdBody');
+      const rows = [...tbody.querySelectorAll('tr[data-nombre]')];
+      const isText = col === 'nombre' || col === 'ciudad';
+      rows.sort((a, b) => {
+        const av = a.dataset[col] || '', bv = b.dataset[col] || '';
+        return isText ? av.localeCompare(bv, 'es') * vdSortDir : (parseInt(av)||0 - (parseInt(bv)||0)) * vdSortDir;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      document.querySelectorAll('#vdThead th[data-sort]').forEach(th => {
+        const ico = th.querySelector('.si');
+        if (ico) ico.textContent = th.dataset.sort === vdSortCol ? (vdSortDir > 0 ? ' ▲' : ' ▼') : ' ↕';
+      });
+    }
+    document.querySelectorAll('#vdThead th[data-sort]').forEach(th => th.addEventListener('click', () => sortVD(th.dataset.sort)));
     // Modal detalle por artículo al hacer click en fila de cliente
     const pedMap = {}; t44.forEach(p => pedMap[p.pedido] = p);
     document.querySelectorAll('#vdBody tr[data-pid]').forEach(row => {
