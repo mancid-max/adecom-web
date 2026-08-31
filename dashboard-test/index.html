@@ -681,8 +681,8 @@ async function secStock() {
         <td class="td-dim">${r.modelo}</td>
         <td class="td-dim">${r.color}${chevron}</td>
         <td class="r td-num">${fmt(r.prendas||0)}</td>
-        <td class="r td-dim" style="color:var(--tx2)">${r.total !== r.prendas ? fmt(r.total||0) : '—'}</td>
         <td class="r td-dim">${r.cajas_total ? fmt(r.cajas_total) : '—'}</td>
+        <td class="r td-num">${r.cajas_total ? fmt((r.prendas||0) + (r.cajas_total||0)) : '—'}</td>
       </tr>${tallaRows}`;
     }).join('');
 
@@ -733,7 +733,7 @@ async function secStock() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th><th class="r">Total</th><th class="r">Cajas</th></tr></thead>
+        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th><th class="r">Cajas</th><th class="r">Total</th></tr></thead>
         <tbody id="stockBody">${rowsHtml}</tbody>
       </table>
     </div>
