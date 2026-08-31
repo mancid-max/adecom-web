@@ -771,12 +771,12 @@ async function secTabla() {
   const rowsHtml = rows.map(r => {
     const bg = (r.bodega||0) > 0 ? 'style="background:var(--ok10)"'
                : (r.lavanderia||0) > 0 ? 'style="background:var(--wa10)"' : '';
-    const dataAttrs = `data-art="${(r.articulo||'').trim().toLowerCase()}" data-oc="${(r.corte||'').trim().toLowerCase()}" data-temp="${r.temporada||''}" data-tipo="${(r.tipo||'').toLowerCase()}" data-etapa="${r.etapa}" data-fecha="${r.fecha_iso||''}" ${NUM_COLS.map(k=>`data-${k}="${r[k]||0}"`).join(' ')}`;
+    const dataAttrs = `data-art="${(r.articulo||'').trim().toLowerCase()}" data-oc="${(r.corte||'').trim().toLowerCase()}" data-temp="${r.temporada||''}" data-tipo="${(r.tipo||'').toLowerCase()}" data-m="${(r.m||'').toLowerCase()}" data-etapa="${r.etapa}" data-fecha="${r.fecha_iso||''}" ${NUM_COLS.map(k=>`data-${k}="${r[k]||0}"`).join(' ')}`;
     return `<tr class="no-click" ${bg} ${dataAttrs}>
       <td class="td-code">${r.articulo}</td>
       <td class="td-dim">${r.corte||'—'}</td>
       <td class="td-dim">${r.fecha||'—'}</td>
-      <td class="td-dim">${r.tipo||'—'}</td>
+      <td class="td-dim">${r.tipo||'—'}${r.m ? ' <span style="font-size:10px;font-weight:700;color:var(--ac)">'+r.m+'</span>' : ''}</td>
       <td><span class="badge ${r.etapa==='Bodega'?'b-bol':r.etapa==='Lavandería'?'b-nc':'b-otro'}" style="font-size:9px">${r.etapa}</span></td>
       <td class="r td-dim">${fmt(r.programa||0)}</td>
       <td class="r td-num">${fmt(r.proceso||0)}</td>
@@ -1384,7 +1384,7 @@ function bindContent(secId) {
         const show =
           (etapa === 'todo' || row.dataset.etapa === etapa) &&
           (temp  === 'todo' || row.dataset.temp  === temp) &&
-          (tipo  === 'todo' || row.dataset.tipo?.startsWith(tipo)) &&
+          (tipo  === 'todo' || row.dataset.tipo?.startsWith(tipo) || (row.dataset.m && row.dataset.m === tipo)) &&
           (!art || row.dataset.art.includes(art)) &&
           (!oc  || row.dataset.oc.includes(oc));
         row.style.display = show ? '' : 'none';
@@ -1401,6 +1401,14 @@ function bindContent(secId) {
       document.querySelectorAll('#tblTempSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyTablaFilters();
     }));
+    // Add M1-M5 buttons dynamically from existing data
+    const mVals = [...new Set([...document.querySelectorAll('#tablaBody tr[data-m]')].map(r => r.dataset.m).filter(Boolean))].sort();
+    const tipoSegs = document.getElementById('tblTipoSegs');
+    mVals.forEach(m => {
+      const b = document.createElement('button');
+      b.className = 'seg'; b.dataset.tp = m; b.textContent = m.toUpperCase();
+      tipoSegs.appendChild(b);
+    });
     document.querySelectorAll('#tblTipoSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#tblTipoSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyTablaFilters();
