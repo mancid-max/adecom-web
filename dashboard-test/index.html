@@ -1488,6 +1488,18 @@ function bindContent(secId) {
       if (el('stTotalArt'))  el('stTotalArt').textContent  = fmt(vis);
       if (el('stPromedio'))  el('stPromedio').textContent  = Math.round(totalU/Math.max(1,vis));
       if (el('stUnidLbl'))   el('stUnidLbl').textContent   = `Prendas en ${sucName}`;
+      // Re-ordenar filas de mayor a menor stock (con sus talla-rows hijas)
+      const tbody = document.getElementById('stockBody');
+      const groups = [];
+      [...tbody.querySelectorAll('tr.st-row')].forEach(row => {
+        const children = [];
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('st-talla-row')) { children.push(sib); sib = sib.nextElementSibling; }
+        const qty = suc === 'all' ? (parseInt(row.dataset.prendas)||0) : (parseInt(row.dataset[`s${suc}`])||0);
+        groups.push({ row, children, qty });
+      });
+      groups.sort((a, b) => b.qty - a.qty);
+      groups.forEach(({ row, children }) => { tbody.appendChild(row); children.forEach(c => tbody.appendChild(c)); });
     }
     document.querySelectorAll('#stSucSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#stSucSegs .seg').forEach(x => x.classList.remove('on'));
