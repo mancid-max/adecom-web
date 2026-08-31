@@ -253,12 +253,7 @@ for r in venta_rows:
     tipo  = str(r.get('Tipo') or '').strip()
     num   = str(r.get('Numero') or '').strip()
     bod   = str(r.get('Bod') or '').strip()
-    es_factura = any(x in tipo.upper() for x in ('F/ELEC','FAC','FELEC'))
-    if bod == '04':
-        pass
-    elif bod == '00' and es_factura:
-        pass  # facturas sin bodega asignada también pertenecen a Local 04
-    else:
+    if bod != '04':
         continue
     key = (tipo, num)
     if key not in docs_dict:
