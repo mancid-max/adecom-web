@@ -834,9 +834,9 @@ async function secTabla() {
         ${temps.map(t => `<option value="${t}">T${t}</option>`).join('')}
       </select>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span class="flbl">Tipo</span>
-      <div class="segs" id="tblTipoSegs" style="overflow-x:auto;flex-wrap:nowrap">
+    <div style="display:flex;align-items:center;gap:6px;width:100%;min-width:0">
+      <span class="flbl" style="flex-shrink:0">Tipo</span>
+      <div class="segs" id="tblTipoSegs" style="overflow-x:auto;flex-wrap:nowrap;min-width:0;flex:1">
         <button class="seg on" data-tp="todo">Todas</button>
         <button class="seg" data-tp="muestras">Muestras</button>
         <button class="seg" data-tp="producción">Producción</button>
