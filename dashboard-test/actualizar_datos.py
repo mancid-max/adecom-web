@@ -343,6 +343,7 @@ for art8, data in sorted(saldo_map.items()):
         "suc": {k: int(v) for k, v in sucs.items()},
         "cajas": {k: int(v) for k, v in cajas_d.items()},
         "cajas_total": total_cajas,
+        "saldo": max(0, int(total_prendas) - total_cajas),
         "tallas": {k: int(v) for k, v in sorted(tallas.items(), key=lambda x: _tsort(x[0]))},
         "prendas": int(total_prendas), "total": int(total_all),
         "bota": mod_bota.get(art8, '')

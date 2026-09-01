@@ -699,7 +699,7 @@ async function secStock() {
         <td class="td-dim">${r.color}${chevron}</td>
         <td class="r td-num">${fmt(r.prendas||0)}</td>
         <td class="r td-dim">${r.cajas_total ? fmt(r.cajas_total) : '—'}</td>
-        <td class="r td-num">${r.cajas_total ? fmt(Math.max(0,(r.prendas||0) - (r.cajas_total||0))) : fmt(r.prendas||0)}</td>
+        <td class="r td-num">${r.saldo != null ? fmt(r.saldo) : fmt(r.prendas||0)}</td>
       </tr>${tallaRows}`;
     }).join('');
 
