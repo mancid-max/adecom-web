@@ -45,7 +45,7 @@ html,body{overflow-x:hidden;max-width:100%}
 .sidebar{
   width:var(--sw);flex-shrink:0;background:var(--sf);border-right:1px solid var(--bd);
   position:fixed;top:0;left:0;height:100vh;
-  display:flex;flex-direction:column;overflow-y:auto;z-index:50;
+  display:flex;flex-direction:column;overflow-y:auto;z-index:50;overscroll-behavior:contain;
   transition:transform .22s cubic-bezier(.4,0,.2,1);
 }
 .sb-logo{display:flex;align-items:center;gap:11px;padding:20px 18px 18px;border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -1919,8 +1919,22 @@ function bindExpandRows() {
 function bindMobile() {
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
-  const open  = () => { sidebar.classList.add('open'); overlay.classList.add('open'); document.body.style.overflow = 'hidden'; };
-  const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); document.body.style.overflow = ''; };
+  let _sy = 0;
+  const open = () => {
+    _sy = window.scrollY || window.pageYOffset;
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.cssText += ';position:fixed;top:-' + _sy + 'px;width:100%;overflow:hidden';
+  };
+  const close = () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    window.scrollTo(0, _sy);
+  };
   document.getElementById('hamburger').addEventListener('click', open);
   overlay.addEventListener('click', close);
   document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', close));
