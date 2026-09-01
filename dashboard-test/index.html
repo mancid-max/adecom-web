@@ -826,10 +826,10 @@ async function secTabla() {
       <option value="Sin movimiento">Sin movimiento</option>
     </select>
     <span class="flbl" style="margin-left:6px">Temp</span>
-    <div class="segs" id="tblTempSegs">
-      <button class="seg on" data-t="todo">Todas</button>
-      ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
-    </div>
+    <select id="tblTempSel" class="finput">
+      <option value="todo">Todas las temp.</option>
+      ${temps.map(t => `<option value="${t}">T${t}</option>`).join('')}
+    </select>
     <span class="flbl" style="margin-left:6px">Tipo</span>
     <div class="segs" id="tblTipoSegs">
       <button class="seg on" data-tp="todo">Todas</button>
@@ -1405,7 +1405,7 @@ function bindContent(secId) {
     const allRows = () => Array.from(document.querySelectorAll('#tablaBody tr[data-art]'));
     function applyTablaFilters() {
       const etapa = document.getElementById('tblEtapa')?.value || 'todo';
-      const temp  = document.querySelector('#tblTempSegs .seg.on')?.dataset.t || 'todo';
+      const temp  = document.getElementById('tblTempSel')?.value || 'todo';
       const tipo  = document.querySelector('#tblTipoSegs .seg.on')?.dataset.tp || 'todo';
       const art   = (document.getElementById('tblArtSearch')?.value||'').trim().toLowerCase();
       const oc    = (document.getElementById('tblOcSearch')?.value||'').trim().toLowerCase();
@@ -1430,10 +1430,7 @@ function bindContent(secId) {
     document.getElementById('tblEtapa')?.addEventListener('change', applyTablaFilters);
     document.getElementById('tblArtSearch')?.addEventListener('input', applyTablaFilters);
     document.getElementById('tblOcSearch')?.addEventListener('input', applyTablaFilters);
-    document.querySelectorAll('#tblTempSegs .seg').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#tblTempSegs .seg').forEach(x => x.classList.remove('on'));
-      b.classList.add('on'); applyTablaFilters();
-    }));
+    document.getElementById('tblTempSel')?.addEventListener('change', applyTablaFilters);
     // Add M1-M5 buttons dynamically from existing data
     const mVals = [...new Set([...document.querySelectorAll('#tablaBody tr[data-m]')].map(r => r.dataset.m).filter(Boolean))].sort();
     const tipoSegs = document.getElementById('tblTipoSegs');
