@@ -910,6 +910,22 @@ function secReporteVenta() {
       <button class="seg" data-vp="mes">Este mes</button>
       <button class="seg" data-vp="todo">Todo 2026</button>
     </div>
+    <span class="flbl" style="margin-left:4px">Mes</span>
+    <select id="ventaMes" class="finput" style="padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px">
+      <option value="">—</option>
+      <option value="2026-01">Enero</option>
+      <option value="2026-02">Febrero</option>
+      <option value="2026-03">Marzo</option>
+      <option value="2026-04">Abril</option>
+      <option value="2026-05">Mayo</option>
+      <option value="2026-06">Junio</option>
+      <option value="2026-07">Julio</option>
+      <option value="2026-08">Agosto</option>
+      <option value="2026-09">Septiembre</option>
+      <option value="2026-10">Octubre</option>
+      <option value="2026-11">Noviembre</option>
+      <option value="2026-12">Diciembre</option>
+    </select>
     <span class="flbl" style="margin-left:4px">Día</span>
     <input type="date" id="ventaFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px" value="${initDate||''}">
   </div>
@@ -1806,12 +1822,22 @@ function bindContent(secId) {
     });
 
     document.getElementById('ventaFecha')?.addEventListener('change', function() {
-      const fecha = this.value; // YYYY-MM-DD
+      const fecha = this.value;
       if (!fecha) return;
       document.querySelectorAll('#ventaSegs .seg').forEach(b => b.classList.remove('on'));
+      document.getElementById('ventaMes').value = '';
       const filtered = DOCS.filter(d => d.fecha_iso === fecha);
       const [y, m, d] = fecha.split('-');
-      const label = `Documentos del ${d}/${m}/${y}`;
+      applyVentaFilter(filtered, `Documentos del ${d}/${m}/${y}`);
+    });
+    document.getElementById('ventaMes')?.addEventListener('change', function() {
+      const mes = this.value;
+      if (!mes) return;
+      document.querySelectorAll('#ventaSegs .seg').forEach(b => b.classList.remove('on'));
+      document.getElementById('ventaFecha').value = '';
+      const filtered = DOCS.filter(d => d.fecha_iso?.startsWith(mes));
+      const nombres = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      const label = `Documentos de ${nombres[parseInt(mes.split('-')[1])]} ${mes.split('-')[0]}`;
       applyVentaFilter(filtered, label);
     });
   }
