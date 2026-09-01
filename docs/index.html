@@ -1919,22 +1919,8 @@ function bindExpandRows() {
 function bindMobile() {
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
-  let _sy = 0;
-  const open = () => {
-    _sy = window.scrollY || window.pageYOffset;
-    sidebar.classList.add('open');
-    overlay.classList.add('open');
-    document.body.style.cssText += ';position:fixed;top:-' + _sy + 'px;width:100%;overflow:hidden';
-  };
-  const close = () => {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('open');
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.width = '';
-    document.body.style.overflow = '';
-    window.scrollTo(0, _sy);
-  };
+  const open  = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
+  const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); };
   document.getElementById('hamburger').addEventListener('click', open);
   overlay.addEventListener('click', close);
   document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', close));
