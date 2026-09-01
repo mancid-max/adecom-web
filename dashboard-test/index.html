@@ -191,7 +191,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 }
 @media(max-width:960px){
   .chart-row{grid-template-columns:1fr}
-  .kpi-grid{grid-template-columns:repeat(3,1fr)}
+  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
   .temp-grid{grid-template-columns:repeat(4,1fr)}
   .content{padding:14px;gap:14px}
   .header{padding:0 14px}
@@ -728,7 +728,7 @@ async function secStock() {
     <span class="flbl">Buscar</span>
     <input id="stSearch" type="text" placeholder="Artículo o modelo..." style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;outline:none;width:200px" />
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
       <div><div class="kpi-val" id="stTotalUnid">${fmt(totalPrendas)}</div><div class="kpi-lbl" id="stUnidLbl">Prendas en Local</div></div>
@@ -1009,7 +1009,7 @@ async function secVentaDespacho() {
     <input id="vdSearch" class="finput" placeholder="Cliente o ciudad…" style="width:160px">
     <select id="vdCiudad" class="finput" style="width:140px"><option value="">Todas las ciudades</option></select>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpi-grid">
     <div class="kpi sel" style="cursor:default">
       <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
       <div><div class="kpi-val" id="vdKPed">${fmt(totalPed)}</div><div class="kpi-lbl">Pedido T44</div></div>
@@ -1076,7 +1076,7 @@ async function secClientes() {
     </div>
     <input id="clSearch" class="finput" placeholder="Cliente o ciudad…" style="width:160px">
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
       <div><div class="kpi-val" id="clKCount">${tot180.length}</div><div class="kpi-lbl" id="clKLbl">Clientes con saldo +180d</div></div>
@@ -1282,7 +1282,7 @@ async function secPVC() {
       <button class="seg" data-etapa="Corte">Corte</button>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)" id="pvcKpis">
+  <div class="kpi-grid" id="pvcKpis">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
       <div><div class="kpi-val" id="pvcKPed">${fmt(k.totalPed)}</div><div class="kpi-lbl">Total Pedido</div></div>
