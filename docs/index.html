@@ -842,6 +842,10 @@ async function secTabla() {
         <button class="seg" data-tp="producción">Producción</button>
       </div>
     </div>
+    <div id="tblMSubRow" style="display:none;align-items:center;gap:6px;width:100%;min-width:0">
+      <span class="flbl" style="flex-shrink:0">Muestra</span>
+      <div id="tblMSegs" style="display:flex;flex-wrap:wrap;gap:4px;padding:2px 0"></div>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <input id="tblArtSearch" class="finput" placeholder="Artículo…" style="width:110px">
       <input id="tblOcSearch"  class="finput" placeholder="OC…" style="width:90px">
@@ -1415,6 +1419,7 @@ function bindContent(secId) {
       const etapa = document.getElementById('tblEtapa')?.value || 'todo';
       const temp  = document.getElementById('tblTempSel')?.value || 'todo';
       const tipo  = document.querySelector('#tblTipoSegs .seg.on')?.dataset.tp || 'todo';
+      const selMs = new Set([...document.querySelectorAll('#tblMSegs .seg.on')].map(b => b.dataset.m));
       const art   = (document.getElementById('tblArtSearch')?.value||'').trim().toLowerCase();
       const oc    = (document.getElementById('tblOcSearch')?.value||'').trim().toLowerCase();
       const NUM   = ['programa','proceso','bodega','saldo','corte_u','taller','texterno','limpiado','lavanderia','terminacion'];
@@ -1422,10 +1427,13 @@ function bindContent(secId) {
       const tots = {};
       NUM.forEach(k => tots[k] = 0);
       allRows().forEach(row => {
+        const tipoOk = tipo === 'todo'
+          || (tipo === 'muestras' && row.dataset.tipo === 'muestras' && (selMs.size === 0 || selMs.has(row.dataset.m)))
+          || (tipo !== 'todo' && tipo !== 'muestras' && row.dataset.tipo === tipo);
         const show =
+          tipoOk &&
           (etapa === 'todo' || row.dataset.etapa === etapa) &&
           (temp  === 'todo' || row.dataset.temp  === temp) &&
-          (tipo  === 'todo' || row.dataset.tipo?.startsWith(tipo) || (row.dataset.m && row.dataset.m === tipo)) &&
           (!art || row.dataset.art.includes(art)) &&
           (!oc  || row.dataset.oc.includes(oc));
         row.style.display = show ? '' : 'none';
@@ -1439,17 +1447,34 @@ function bindContent(secId) {
     document.getElementById('tblArtSearch')?.addEventListener('input', applyTablaFilters);
     document.getElementById('tblOcSearch')?.addEventListener('input', applyTablaFilters);
     document.getElementById('tblTempSel')?.addEventListener('change', applyTablaFilters);
-    // Add M1-M5 buttons dynamically from existing data
+    // Build M sub-filter pills (multi-select)
     const mVals = [...new Set([...document.querySelectorAll('#tablaBody tr[data-m]')].map(r => r.dataset.m).filter(Boolean))].sort();
-    const tipoSegs = document.getElementById('tblTipoSegs');
+    const mSegs   = document.getElementById('tblMSegs');
+    const mSubRow = document.getElementById('tblMSubRow');
     mVals.forEach(m => {
       const b = document.createElement('button');
-      b.className = 'seg'; b.dataset.tp = m; b.textContent = m.toUpperCase();
-      tipoSegs.appendChild(b);
+      b.className = 'seg'; b.dataset.m = m;
+      b.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px"><span class="m-chk" style="font-size:11px;line-height:1">○</span>${m.toUpperCase()}</span>`;
+      b.addEventListener('click', () => {
+        b.classList.toggle('on');
+        b.querySelector('.m-chk').textContent = b.classList.contains('on') ? '●' : '○';
+        applyTablaFilters();
+      });
+      mSegs.appendChild(b);
     });
+    // Main TIPO segs listener
     document.querySelectorAll('#tblTipoSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#tblTipoSegs .seg').forEach(x => x.classList.remove('on'));
-      b.classList.add('on'); applyTablaFilters();
+      b.classList.add('on');
+      const isMuestras = b.dataset.tp === 'muestras';
+      mSubRow.style.display = isMuestras ? 'flex' : 'none';
+      if (!isMuestras) {
+        document.querySelectorAll('#tblMSegs .seg').forEach(x => {
+          x.classList.remove('on');
+          x.querySelector('.m-chk').textContent = '○';
+        });
+      }
+      applyTablaFilters();
     }));
 
     // Sortable headers
