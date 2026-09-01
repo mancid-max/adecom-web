@@ -811,33 +811,41 @@ async function secTabla() {
   const totRow = NUM_COLS.map(k => `<td class="r td-num" id="tblTotal_${k}">${fmt(rows.reduce((s,r)=>s+(r[k]||0),0))}</td>`).join('');
 
   return `
-  <div class="fbar" style="gap:8px;flex-wrap:wrap">
-    <span class="flbl">Etapa</span>
-    <select id="tblEtapa" class="finput">
-      <option value="todo">Todas las etapas</option>
-      <option value="Bodega">Bodega</option>
-      <option value="Lavandería">Lavandería</option>
-      <option value="Terminación">Terminación</option>
-      <option value="Costura">Costura</option>
-      <option value="T.Externo">T.Externo</option>
-      <option value="Limpiado">Limpiado</option>
-      <option value="Corte">Corte</option>
-      <option value="Proceso">Proceso</option>
-      <option value="Sin movimiento">Sin movimiento</option>
-    </select>
-    <span class="flbl" style="margin-left:6px">Temp</span>
-    <select id="tblTempSel" class="finput">
-      <option value="todo">Todas las temp.</option>
-      ${temps.map(t => `<option value="${t}">T${t}</option>`).join('')}
-    </select>
-    <span class="flbl" style="margin-left:6px">Tipo</span>
-    <div class="segs" id="tblTipoSegs">
-      <button class="seg on" data-tp="todo">Todas</button>
-      <button class="seg" data-tp="muestras">Muestras</button>
-      <button class="seg" data-tp="producción">Producción</button>
+  <div class="fbar" style="gap:8px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="flbl">Etapa</span>
+      <select id="tblEtapa" class="finput">
+        <option value="todo">Todas las etapas</option>
+        <option value="Bodega">Bodega</option>
+        <option value="Lavandería">Lavandería</option>
+        <option value="Terminación">Terminación</option>
+        <option value="Costura">Costura</option>
+        <option value="T.Externo">T.Externo</option>
+        <option value="Limpiado">Limpiado</option>
+        <option value="Corte">Corte</option>
+        <option value="Proceso">Proceso</option>
+        <option value="Sin movimiento">Sin movimiento</option>
+      </select>
     </div>
-    <input id="tblArtSearch" class="finput" placeholder="Artículo…" style="width:110px">
-    <input id="tblOcSearch"  class="finput" placeholder="OC…" style="width:100px">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="flbl">Temp</span>
+      <select id="tblTempSel" class="finput">
+        <option value="todo">Todas</option>
+        ${temps.map(t => `<option value="${t}">T${t}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span class="flbl">Tipo</span>
+      <div class="segs" id="tblTipoSegs" style="overflow-x:auto;flex-wrap:nowrap">
+        <button class="seg on" data-tp="todo">Todas</button>
+        <button class="seg" data-tp="muestras">Muestras</button>
+        <button class="seg" data-tp="producción">Producción</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input id="tblArtSearch" class="finput" placeholder="Artículo…" style="width:110px">
+      <input id="tblOcSearch"  class="finput" placeholder="OC…" style="width:90px">
+    </div>
   </div>
   <div class="tbl-card">
     <div class="tbl-head">
