@@ -1658,7 +1658,9 @@ function bindContent(secId) {
     }
     document.querySelectorAll('#vdThead th[data-sort]').forEach(th => th.addEventListener('click', () => sortVD(th.dataset.sort)));
     // Modal detalle por artículo al hacer click en fila de cliente
-    const pedMap = {}; t44.forEach(p => pedMap[p.pedido] = p);
+    const _peds = (typeof CACHE !== 'undefined' && CACHE['pedidos.json']) || [];
+    const pedMap = {};
+    _peds.filter(p => (p.u_temp?.['44']||0) > 0).forEach(p => pedMap[p.pedido] = p);
     document.querySelectorAll('#vdBody tr[data-pid]').forEach(row => {
       row.addEventListener('click', () => {
         const p = pedMap[row.dataset.pid]; if (!p) return;
