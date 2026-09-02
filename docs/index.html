@@ -684,13 +684,16 @@ async function secStock() {
       const sucAttrs = sucList.map(s => `data-s${s}="${r.suc?.[s]||0}"`).join(' ');
       const cajAttrs = sucList.map(s => `data-caj${s}="${r.cajas?.[s]||0}"`).join(' ');
       const tallaEntries = Object.entries(r.tallas||{});
-      const tallaRows = tallaEntries.map(([t, q]) =>
-        `<tr class="no-click st-talla-row" style="display:none;background:var(--sf2)">
+      const tallaRows = tallaEntries.map(([t, q]) => {
+        const ts = r.saldo_talla?.[t];
+        return `<tr class="no-click st-talla-row" style="display:none;background:var(--sf2)">
           <td></td><td></td><td></td>
           <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
-          <td></td><td></td>
-        </tr>`).join('');
+          <td></td>
+          <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${ts != null ? fmt(ts) : '—'}</td>
+        </tr>`;
+      }).join('');
       const clickCls = tallaEntries.length ? '' : ' no-click';
       const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
       return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
