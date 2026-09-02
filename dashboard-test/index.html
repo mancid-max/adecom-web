@@ -327,9 +327,10 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 <script>
 /* ── CACHE ──────────────────────────────────────────────────── */
 const CACHE = {};
+const _VER = Date.now();
 async function load(file) {
   if (!CACHE[file]) {
-    try { CACHE[file] = await (await fetch(file, {cache:'no-cache'})).json(); }
+    try { CACHE[file] = await (await fetch(file + '?v=' + _VER)).json(); }
     catch { CACHE[file] = []; }
   }
   return CACHE[file];
