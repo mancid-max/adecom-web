@@ -1598,6 +1598,12 @@ function bindContent(secId) {
       });
     });
     applyStockFilters();
+    if (window._bodegaMode) {
+      const sanGeBtn = document.querySelector('#stSucSegs .seg[data-suc="04"]');
+      if (sanGeBtn) { sanGeBtn.click(); }
+      const sucFbar = document.getElementById('stSucSegs')?.closest('.fbar');
+      if (sucFbar) sucFbar.style.display = 'none';
+    }
   }
 
   // Venta vs Despacho — filters + sort
@@ -1999,6 +2005,7 @@ function applyRole(role, email) {
   document.getElementById('sbName').textContent = name;
   document.getElementById('sbRole').textContent = role === 'admin' ? 'Administrador' : 'Bodega';
   if (role === 'bodega') {
+    window._bodegaMode = true;
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
     const stockBtn = document.querySelector('.nav-item[data-sec="stock"]');
     if (stockBtn) { stockBtn.click(); }
