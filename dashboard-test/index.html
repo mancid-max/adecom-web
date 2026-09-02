@@ -1537,7 +1537,8 @@ function bindContent(secId) {
         row.style.display = show ? '' : 'none';
         const cells = row.cells;
         if (cells[4]) cells[4].textContent = show ? fmt(qty) : '';
-        if (cells[6]) cells[6].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
+        if (cells[5]) cells[5].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
+        if (cells[6]) cells[6].textContent = show ? fmt(Math.max(0, qty - cajQty)) : '';
         if (!show) {
           // ocultar tallas si la fila padre se oculta
           let sib = row.nextElementSibling;
