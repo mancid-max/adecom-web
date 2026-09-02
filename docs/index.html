@@ -329,7 +329,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 const CACHE = {};
 async function load(file) {
   if (!CACHE[file]) {
-    try { CACHE[file] = await (await fetch(file)).json(); }
+    try { CACHE[file] = await (await fetch(file, {cache:'no-cache'})).json(); }
     catch { CACHE[file] = []; }
   }
   return CACHE[file];
