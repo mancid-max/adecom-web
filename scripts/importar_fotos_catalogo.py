@@ -30,10 +30,10 @@ def main():
             print(f"  sin data-catalogo-{t}.json"); continue
         for it in json.load(open(jf, encoding='utf-8')):
             fam = str(it.get('family') or '').strip()
-            m = re.match(r'^(\d{4})-?(\d{2})$', fam)
+            m = re.match(r'^(\d{4})(?:-?(\d{2}))?$', fam)
             if not m:
                 bad.append(fam); continue
-            modelo, color = m.group(1), m.group(2)
+            modelo, color = m.group(1), m.group(2) or '00'
             code = f"01{modelo}{color}"
             src = it.get('main_image') or (it.get('gallery') or [None])[0]
             path = os.path.join(WEB, src.replace('/', os.sep)) if src else None
