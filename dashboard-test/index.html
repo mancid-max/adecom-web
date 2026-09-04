@@ -1281,7 +1281,6 @@ async function secPVC() {
     <div class="segs" id="pvcSegs">
       ${temps.map((t,i) => `<button class="seg${i===0?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
-    <input id="pvcSearch" class="finput" placeholder="Buscar modelo, OC o EX…" style="width:190px;margin-left:auto">
   </div>
   <div class="fbar" style="margin-top:8px">
     <span class="flbl">Estado</span>
@@ -1318,7 +1317,10 @@ async function secPVC() {
     </div>
   </div>
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver cortes</div></div>
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver cortes</div>
+      <input id="pvcSearch" class="finput" placeholder="Buscar modelo, OC o EX…" style="width:200px;margin-left:auto">
+    </div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Cortado</th><th class="r">%</th><th class="r">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
