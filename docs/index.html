@@ -154,6 +154,9 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .seg.on{background:var(--ac);color:#fff}
 .finput{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx1);padding:5px 10px;outline:none;transition:border-color .1s}
 .finput:focus{border-color:var(--ac)}
+/* Inputs de búsqueda: lupa a la izquierda */
+.finput.fsearch{padding-left:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:9px center;background-size:14px 14px}
+.finput.fsearch:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23465fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E")}
 
 /* ── TEMP GRID ───────────────────────────────────────────────── */
 .temp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
@@ -596,7 +599,7 @@ function secDetalleColor() {
     <div class="segs" id="dcSegs">
       ${temps.map(t => `<button class="seg${t==='44'?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
-    <input id="dcSearch" type="search" placeholder="Buscar modelo…" style="margin-left:auto;padding:6px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:13px;width:160px;outline:none">
+    <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="margin-left:auto;width:180px">
   </div>
   <div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>
@@ -731,7 +734,7 @@ async function secStock() {
   </div>` : ''}
   <div class="fbar" style="margin-top:8px;align-items:center">
     <span class="flbl">Buscar</span>
-    <input id="stSearch" type="text" placeholder="Artículo o modelo..." style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;outline:none;width:200px" />
+    <input id="stSearch" type="text" class="finput fsearch" placeholder="Artículo o modelo…" style="width:200px" />
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -851,8 +854,8 @@ async function secTabla() {
       <div id="tblMSegs" style="display:flex;flex-wrap:wrap;gap:4px;padding:2px 0"></div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <input id="tblArtSearch" class="finput" placeholder="Artículo…" style="width:110px">
-      <input id="tblOcSearch"  class="finput" placeholder="OC…" style="width:90px">
+      <input id="tblArtSearch" class="finput fsearch" placeholder="Artículo…" style="width:130px">
+      <input id="tblOcSearch"  class="finput fsearch" placeholder="OC…" style="width:110px">
     </div>
   </div>
   <div class="tbl-card">
@@ -1023,7 +1026,7 @@ async function secVentaDespacho() {
       <button class="seg" data-av="parcial">En proceso</button>
       <button class="seg" data-av="completo">Completo</button>
     </div>
-    <input id="vdSearch" class="finput" placeholder="Cliente o ciudad…" style="width:160px">
+    <input id="vdSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:180px">
     <select id="vdCiudad" class="finput" style="width:140px"><option value="">Todas las ciudades</option></select>
   </div>
   <div class="kpi-grid">
@@ -1091,7 +1094,7 @@ async function secClientes() {
       <button class="seg" data-d="270">+270 días</button>
       <button class="seg" data-d="365">+365 días</button>
     </div>
-    <input id="clSearch" class="finput" placeholder="Cliente o ciudad…" style="width:160px">
+    <input id="clSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:180px">
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -1319,7 +1322,7 @@ async function secPVC() {
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver cortes</div>
-      <input id="pvcSearch" class="finput" placeholder="Buscar modelo, OC o EX…" style="width:200px;margin-left:auto">
+      <input id="pvcSearch" class="finput fsearch" placeholder="Modelo, OC o EX…" style="width:200px;margin-left:auto">
     </div>
     <div class="tbl-scroll">
       <table>
