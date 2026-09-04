@@ -178,6 +178,12 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* ── DETAIL MODAL ────────────────────────────────────────────── */
 .det-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
 .det-ov.open{display:flex}
+/* Foto de artículo: miniatura en tabla + visor */
+.art-thumb{width:34px;height:44px;object-fit:cover;border-radius:5px;border:1px solid var(--bd);vertical-align:middle;margin-right:8px;cursor:zoom-in;background:var(--sf2)}
+#imgOv{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;cursor:zoom-out}
+#imgOv.open{display:flex}
+#imgOv img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.4);background:#fff}
+#imgOv .img-cap{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:#fff;font-weight:600;font-size:14px;background:rgba(0,0,0,.45);padding:6px 14px;border-radius:20px}
 .det-panel{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);width:min(760px,94vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3)}
 .det-hd{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px}
 .det-ttl{font-size:15px;font-weight:700;letter-spacing:-.02em;flex:1}
@@ -230,6 +236,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 <body>
 
 <div class="overlay" id="overlay"></div>
+<div id="imgOv"><img id="imgOvImg" alt=""><div class="img-cap" id="imgOvCap"></div></div>
 <div class="det-ov" id="detOv">
   <div class="det-panel">
     <div class="det-hd">
@@ -348,6 +355,28 @@ const fmt     = n => Math.round(n).toLocaleString('es-CL');
 const fmtCLP  = n => '$' + fmt(n);
 const fmtM    = n => n >= 1e6 ? '$'+(n/1e6).toFixed(2)+'M' : n >= 1e3 ? '$'+(n/1e3).toFixed(0)+'k' : fmtCLP(n);
 const today   = () => new Date().toISOString().split('T')[0];
+
+/* ── Fotos de artículo: img/art/<art8>.jpg, respaldo <modelo4>.jpg, si no hay → se oculta ── */
+function artImg(art) {
+  const a = String(art || '');
+  if (a.length < 8) return '';
+  return `<img class="art-thumb" src="img/art/${a}.jpg" data-alt="img/art/${a.slice(2,6)}.jpg" data-art="${a}" loading="lazy" onerror="artImgErr(this)" alt="">`;
+}
+function artImgErr(img) {
+  if (img.dataset.alt && !img.src.endsWith(img.dataset.alt)) { img.src = img.dataset.alt; img.dataset.alt = ''; }
+  else img.remove();
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('.art-thumb');
+  if (t) {
+    e.stopPropagation();
+    document.getElementById('imgOvImg').src = t.src;
+    document.getElementById('imgOvCap').textContent = t.dataset.art || '';
+    document.getElementById('imgOv').classList.add('open');
+  } else if (e.target.closest('#imgOv')) {
+    document.getElementById('imgOv').classList.remove('open');
+  }
+}, true);
 
 function deltaInfo(cur, prev) {
   if (!prev) return { html:'—', cls:'d-nu' };
@@ -704,7 +733,7 @@ async function secStock() {
       const clickCls = tallaEntries.length ? '' : ' no-click';
       const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
       return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
-        <td class="td-code">${r.art}</td>
+        <td class="td-code">${artImg(r.art)}${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
         <td class="td-dim">${r.color}${chevron}</td>
