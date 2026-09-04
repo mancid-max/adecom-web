@@ -1233,7 +1233,10 @@ function buildPVCRows(t, ftMap, exMap) {
         ).join('')
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" style="font-weight:600">
+    // Texto buscable: modelo base, EX, números de OC, etapas
+    const q = [item.base, ex?.ex_base || '', ...allOcs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)]
+      .join(' ').toLowerCase();
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${allOcs.length} corte${allOcs.length>1?'s':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
@@ -1273,11 +1276,12 @@ async function secPVC() {
   const k = kpis(defT);
 
   return `
-  <div class="fbar">
+  <div class="fbar" style="gap:8px;flex-wrap:wrap">
     <span class="flbl">Temporada</span>
     <div class="segs" id="pvcSegs">
       ${temps.map((t,i) => `<button class="seg${i===0?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
+    <input id="pvcSearch" class="finput" placeholder="Buscar modelo, OC o EX…" style="width:190px;margin-left:auto">
   </div>
   <div class="fbar" style="margin-top:8px">
     <span class="flbl">Estado</span>
@@ -1737,12 +1741,14 @@ function bindContent(secId) {
     function applyPvcFilter() {
       const estado = document.querySelector('#pvcEstadoSegs .seg.on')?.dataset.estado || 'all';
       const etapa  = document.querySelector('#pvcEtapaSegs .seg.on')?.dataset.etapa  || 'all';
+      const q      = (document.getElementById('pvcSearch')?.value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
       let visible = 0, sumPed = 0, sumCort = 0;
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado;
         const showEtapa  = etapa  === 'all' || row.dataset.etapa  === etapa;
-        const show = showEstado && showEtapa;
+        const showQ      = !q || (row.dataset.q || '').includes(q);
+        const show = showEstado && showEtapa && showQ;
         row.style.display = show ? '' : 'none';
         let next = row.nextElementSibling;
         while (next && next.classList.contains('variant-row')) {
@@ -1779,6 +1785,8 @@ function bindContent(secId) {
       b.classList.add('on');
       applyPvcFilter();
     }));
+
+    document.getElementById('pvcSearch')?.addEventListener('input', applyPvcFilter);
 
     document.querySelectorAll('#pvcSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#pvcSegs .seg').forEach(x => x.classList.remove('on'));
