@@ -274,6 +274,10 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       Stock Bodega
     </button>
+    <button class="nav-item" data-sec="cajas" data-ttl="Cajas en Bodega">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Cajas en Bodega
+    </button>
     <button class="nav-item" data-sec="tabla" data-ttl="Tabla Completa">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       Tabla Completa
@@ -1064,6 +1068,104 @@ async function secVentaDespacho() {
   </div>`;
 }
 
+/* ── CAJAS EN BODEGA ─────────────────────────────────────────── */
+function cajasEstadoBadge(e) {
+  if (e === 'bodega')    return '<span style="background:var(--ac10);color:var(--ac);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">En bodega</span>';
+  if (e === 'facturada') return '<span style="background:var(--ok10);color:var(--ok);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">✓ Facturada</span>';
+  return '<span style="background:var(--sf2);color:var(--tx2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">Despachada</span>';
+}
+const cajasDiasClr = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'var(--tx2)';
+
+async function secCajas() {
+  const data  = await load('cajas.json');
+  const cajas = Array.isArray(data) ? [] : (data?.cajas || []);
+  const cmeta = (!Array.isArray(data) && data?.meta) || {};
+  const ICO = '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>';
+  if (!cajas.length) return makePH(ICO, 'Cajas en Bodega', 'Sin datos: CAJAS.TXT no encontrado en Z:\\BI');
+
+  const vendedores = [...new Set(cajas.map(c => c.vendedor).filter(Boolean))].sort();
+  const rowsHtml = cajas.map(c => {
+    // Contenido agrupado por artículo: 01441800 → 36×2 · 38×2 · …
+    const byArt = {};
+    (c.lineas || []).forEach(l => { (byArt[l.art] = byArt[l.art] || []).push(l); });
+    const lineRows = Object.entries(byArt).map(([art, ls]) => {
+      const tot = ls.reduce((s, l) => s + l.cant, 0);
+      const tallas = ls.map(l => `${l.talla}×${l.cant}`).join(' · ');
+      return `<tr class="no-click cj-line" style="display:none;background:var(--sf2)">
+        <td></td><td></td><td></td>
+        <td colspan="4" class="td-dim" style="padding-left:26px;font-size:11px">└ <span class="td-code">${art}</span> <span style="margin-left:8px;color:var(--tx3)">${tallas}</span></td>
+        <td class="r td-dim" style="font-size:11px">${fmt(tot)}</td>
+        <td></td><td></td>
+      </tr>`;
+    }).join('');
+    const q = [c.caja, c.pedido, c.cliente, c.ciudad, c.vendedor, ...Object.keys(byArt), ...(c.facturas || [])].join(' ').toLowerCase();
+    const pedWarn = c.pedido_existe ? '' : ' <span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">PEDIDO NO EXISTE</span>';
+    const fact = (c.facturas || []).length ? `<div style="font-size:10px;color:var(--tx3);margin-top:2px">FAC ${c.facturas.slice(0, 2).join(', ')}</div>` : '';
+    return `<tr class="cj-row" data-estado="${c.estado}" data-dias="${c.dias}" data-vend="${(c.vendedor || '').toLowerCase()}" data-prendas="${c.prendas}" data-valor="${c.valor}" data-q="${q}" style="font-weight:500">
+      <td><span class="td-code">${String(c.caja).replace(/^0+/, '')}</span><span class="chv" style="font-size:10px;color:var(--tx3);margin-left:8px">▸</span></td>
+      <td class="td-dim">${c.fecha}</td>
+      <td class="r td-num" style="color:${cajasDiasClr(c.dias)};font-weight:700">${c.dias}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.cliente}${pedWarn}</td>
+      <td class="td-dim">${c.ciudad || '—'}</td>
+      <td class="td-dim">${c.vendedor || '—'}</td>
+      <td><span class="td-code">${c.pedido}</span>${fact}</td>
+      <td class="r td-num">${fmt(c.prendas)}</td>
+      <td class="r td-num">${fmtCLP(c.valor)}</td>
+      <td style="text-align:center">${cajasEstadoBadge(c.estado)}</td>
+    </tr>${lineRows}`;
+  }).join('');
+
+  return `
+  <div class="fbar" style="gap:8px;flex-wrap:wrap">
+    <span class="flbl">Estado</span>
+    <div class="segs" id="cjEstadoSegs">
+      <button class="seg on" data-est="bodega">En bodega</button>
+      <button class="seg" data-est="salio">Despachadas</button>
+      <button class="seg" data-est="all">Todas</button>
+    </div>
+    <span class="flbl" style="margin-left:4px">Antigüedad</span>
+    <div class="segs" id="cjDiasSegs">
+      <button class="seg on" data-d="0">Todas</button>
+      <button class="seg" data-d="7">+7 días</button>
+      <button class="seg" data-d="14">+14 días</button>
+      <button class="seg" data-d="30">+30 días</button>
+    </div>
+    <select id="cjVend" class="finput" style="width:160px"><option value="">Todos los vendedores</option>${vendedores.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('')}</select>
+    <input id="cjSearch" class="finput fsearch" placeholder="Cliente, pedido, caja, artículo…" style="width:230px">
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO}</svg></div>
+      <div><div class="kpi-val" id="cjKN">—</div><div class="kpi-lbl">Cajas</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+      <div><div class="kpi-val" id="cjKPrendas">—</div><div class="kpi-lbl">Prendas</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <div><div class="kpi-val" id="cjKValor" style="font-size:20px">—</div><div class="kpi-lbl">Valor neto (precio pedido)</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div><div class="kpi-val" id="cjKViejas">—</div><div class="kpi-lbl">Más de 30 días</div></div>
+    </div>
+  </div>
+  <div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div class="card-ttl" style="margin:0">Cajas armadas — toca una fila para ver el contenido</div>
+      <span class="td-dim" style="margin-left:auto" title="Última modificación de Z:\\BI\\CAJAS.TXT">CAJAS.TXT al ${cmeta.archivo_fecha || '—'}</span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Caja</th><th>Fecha</th><th class="r">Días</th><th>Cliente</th><th>Ciudad</th><th>Vendedor</th><th>Pedido</th><th class="r">Prendas</th><th class="r">Valor neto</th><th style="text-align:center">Estado</th></tr></thead>
+        <tbody id="cjBody">${rowsHtml}</tbody>
+      </table>
+      <div class="tbl-foot" id="cjFoot"></div>
+    </div>
+  </div>`;
+}
+
 /* ── CLIENTES INACTIVOS ─────────────────────────────────────── */
 async function secClientes() {
   const peds = await load('pedidos.json');
@@ -1342,6 +1444,7 @@ const SECS = {
   'top10':          () => secTop10(),
   'pvc':            () => secPVC(),
   'stock':          () => secStock(),
+  'cajas':          () => secCajas(),
   'tabla':          () => secTabla(),
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
   'venta-despacho': () => secVentaDespacho(),
@@ -1709,6 +1812,44 @@ function bindContent(secId) {
     });
     document.getElementById('detClose')?.addEventListener('click', () => document.getElementById('detOv').classList.remove('open'));
     document.getElementById('detOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+  }
+
+  // Cajas en Bodega — filtros + expandir contenido
+  if (secId === 'cajas') {
+    function applyCjFilters() {
+      const est  = document.querySelector('#cjEstadoSegs .seg.on')?.dataset.est || 'bodega';
+      const minD = parseInt(document.querySelector('#cjDiasSegs .seg.on')?.dataset.d || '0') || 0;
+      const vend = document.getElementById('cjVend')?.value || '';
+      const q    = (document.getElementById('cjSearch')?.value || '').trim().toLowerCase();
+      let n = 0, prendas = 0, valor = 0, viejas = 0;
+      document.querySelectorAll('#cjBody tr.cj-row').forEach(row => {
+        const e = row.dataset.estado, d = parseInt(row.dataset.dias) || 0;
+        const okE = est === 'all' || (est === 'bodega' ? e === 'bodega' : e !== 'bodega');
+        const ok = okE && d >= minD && (!vend || row.dataset.vend === vend) && (!q || (row.dataset.q || '').includes(q));
+        row.style.display = ok ? '' : 'none';
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('cj-line')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
+        const chv = row.querySelector('.chv'); if (chv) chv.textContent = '▸';
+        if (ok) { n++; prendas += parseInt(row.dataset.prendas) || 0; valor += parseInt(row.dataset.valor) || 0; if (d > 30) viejas++; }
+      });
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('cjKN', n); set('cjKPrendas', fmt(prendas)); set('cjKValor', fmtM(valor)); set('cjKViejas', viejas);
+      set('cjFoot', `${n} cajas · ${fmt(prendas)} prendas · ${fmtCLP(valor)} neto`);
+    }
+    ['cjEstadoSegs', 'cjDiasSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); applyCjFilters();
+    })));
+    document.getElementById('cjVend')?.addEventListener('change', applyCjFilters);
+    document.getElementById('cjSearch')?.addEventListener('input', applyCjFilters);
+    document.querySelectorAll('#cjBody tr.cj-row').forEach(row => row.addEventListener('click', () => {
+      let open = false, sib = row.nextElementSibling;
+      while (sib && sib.classList.contains('cj-line')) { if (sib.style.display !== 'none') open = true; sib = sib.nextElementSibling; }
+      sib = row.nextElementSibling;
+      while (sib && sib.classList.contains('cj-line')) { sib.style.display = open ? 'none' : ''; sib = sib.nextElementSibling; }
+      const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
+    }));
+    applyCjFilters();
   }
 
   // Clientes Inactivos — filters

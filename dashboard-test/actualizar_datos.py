@@ -401,6 +401,74 @@ try:
 except Exception as e:
     print(f"  COLE44_ORIGEN.xlsx: {e}")
 
+# ── 6. CAJAS EN BODEGA (CAJAS.TXT) ─────────────────────────────
+# Cajas físicas armadas y asignadas a un pedido. Se cruza con PEDIDOS.CSV
+# (despachado/precio/vendedor) y VENTAS (facturas posteriores del RUT).
+# estado: bodega (sin despachar) | despachada (sin factura) | facturada
+print("Leyendo CAJAS.TXT...")
+def _rut_norm(s): return str(s or '').strip().replace('.', '').replace('-', '').upper()
+cajas_file = os.path.join(BI, 'CAJAS.TXT')
+cajas = []
+cajas_meta = {"archivo_fecha": "", "archivo_fecha_iso": ""}
+try:
+    _mt = datetime.fromtimestamp(os.path.getmtime(cajas_file))
+    cajas_meta = {"archivo_fecha": _mt.strftime('%d/%m/%Y %H:%M'), "archivo_fecha_iso": _mt.strftime('%Y-%m-%dT%H:%M')}
+    ped_line = {}   # (pedido, art10) -> (sol, desp, precio)
+    ped_info = {}   # pedido -> ciudad/vendedor
+    for r in ped_rows:
+        pid = r['PEDIDO'].strip()
+        k = (pid, r.get('ARTICULO', '').strip() + r.get('TALLA', '').strip().zfill(2))
+        try: _pr = float(str(r.get('PRECIO', '0')).strip() or 0)
+        except: _pr = 0.0
+        ped_line[k] = (clean_int(r.get('SOLICITADO', 0)), clean_int(r.get('DESPACHADO', 0)), _pr)
+        if pid not in ped_info:
+            ped_info[pid] = {"ciudad": r['CIUDAD'].strip(), "vendedor": r.get('VENDEDOR', '').strip()}
+    fact_rut = {}   # rut -> [(fecha, numero, art8)]
+    for r in venta_rows:
+        if str(r.get('Tipo') or '').strip() != 'F/Elec':
+            continue
+        _d = parse_date(r.get('fecha') or '')
+        if not _d:
+            continue
+        fact_rut.setdefault(_rut_norm(r.get('Rut')), []).append((_d, str(r.get('Numero') or '').strip(), str(r.get('Articulo') or '').strip()[:8]))
+    cj = {}
+    with open(cajas_file, encoding='latin-1') as f:
+        for r in csv.DictReader(f, delimiter=';'):
+            r = {(k or '').strip(): (v or '').strip() for k, v in r.items()}
+            cid = r.get('Caja', '')
+            if not cid:
+                continue
+            art10 = r.get('Articulo', ''); pid = r.get('Pedido', '')
+            cant = clean_int(r.get('Cant', 0))
+            if cid not in cj:
+                cj[cid] = {
+                    "caja": cid, "fecha": fmt_date(r.get('Fecha', '')), "fecha_iso": to_iso(r.get('Fecha', '')),
+                    "dias": dias_desde(r.get('Fecha', '')), "pedido": pid, "rut": r.get('RUT', ''), "cliente": r.get('Cliente', ''),
+                    "ciudad": ped_info.get(pid, {}).get('ciudad', ''), "vendedor": ped_info.get(pid, {}).get('vendedor', ''),
+                    "pedido_existe": pid in ped_info,
+                    "prendas": 0, "valor": 0, "sol": 0, "desp": 0, "temps": [], "lineas": []
+                }
+            c = cj[cid]
+            sol, desp, precio = ped_line.get((pid, art10), (0, 0, 0.0))
+            c['prendas'] += cant; c['valor'] += int(cant * precio); c['sol'] += sol; c['desp'] += desp
+            t = art10[2:4]
+            if t and t not in c['temps']:
+                c['temps'].append(t)
+            c['lineas'].append({"art": art10[:8], "talla": art10[8:10].lstrip('0') or art10[8:10], "cant": cant, "desp": desp})
+    for c in cj.values():
+        fd = parse_date(c['fecha'])
+        arts = {l['art'] for l in c['lineas']}
+        facts = sorted({(d.strftime('%Y-%m-%d'), nm) for d, nm, a in fact_rut.get(_rut_norm(c['rut']), []) if fd and d >= fd and a in arts})
+        c['facturas'] = [nm for _, nm in facts]
+        c['factura_fecha'] = facts[0][0] if facts else ''
+        c['estado'] = 'bodega' if c['desp'] == 0 else ('facturada' if facts else 'despachada')
+        c['lineas'].sort(key=lambda l: (l['art'], l['talla']))
+    cajas = sorted(cj.values(), key=lambda c: (c['estado'] != 'bodega', -c['dias']))
+    print(f"  CAJAS.TXT del {cajas_meta['archivo_fecha']}: {len(cajas)} cajas, {sum(1 for c in cajas if c['estado']=='bodega')} en bodega")
+except FileNotFoundError:
+    print("  CAJAS.TXT no encontrado en Z:\\BI")
+cajas_out = {"meta": cajas_meta, "cajas": cajas}
+
 # ── Guardar ────────────────────────────────────────────────────
 from datetime import datetime
 NOW = datetime.now()
@@ -415,6 +483,7 @@ DATASETS = [("full_table", full_table), ("traza_oc", traza_oc),
             ("pedidos", pedidos), ("docs_venta", docs_venta),
             ("pedidos_art", pedidos_art),
             ("saldos_bodega", saldos_bodega), ("pvc_ex", pvc_ex),
+            ("cajas", cajas_out),
             ("meta", meta)]
 
 for name, data in DATASETS:

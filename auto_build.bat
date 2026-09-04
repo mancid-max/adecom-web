@@ -21,7 +21,7 @@ if %ERRORLEVEL% neq 0 (
 copy /y "dashboard-test\index.html" "docs\index.html" >> %LOG% 2>&1
 
 :: Agregar archivos modificados
-%GIT% add docs\index.html docs\full_table.json docs\traza_oc.json docs\pedidos.json docs\docs_venta.json docs\pedidos_art.json docs\saldos_bodega.json docs\pvc_ex.json docs\meta.json >> %LOG% 2>&1
+%GIT% add docs\index.html docs\full_table.json docs\traza_oc.json docs\pedidos.json docs\docs_venta.json docs\pedidos_art.json docs\saldos_bodega.json docs\pvc_ex.json docs\cajas.json docs\meta.json >> %LOG% 2>&1
 
 :: Si no hay cambios, salir sin error
 %GIT% diff --cached --quiet
