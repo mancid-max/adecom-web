@@ -812,7 +812,9 @@ async function secStock() {
   data.forEach(r => Object.keys(r.suc||{}).forEach(s => allSucs.add(s)));
   const sucList = [...allSucs].sort();
 
-  const temps = [...new Set(data.map(r => r.temp).filter(Boolean))].sort();
+  const allTemps = [...new Set(data.map(r => r.temp).filter(Boolean))].sort();
+  const temps  = allTemps.filter(t => parseInt(t) >= 40);
+  const hasOld = allTemps.some(t => parseInt(t) < 40);   // colecciones anteriores: solo entran si tienen cajas
   const botas = [...new Set(data.map(r => r.bota).filter(Boolean))].sort();
 
   // KPIs iniciales (todas las sucursales, campo prendas = suc 01-33 ya calculado)
@@ -863,6 +865,7 @@ async function secStock() {
     <div class="segs" id="stTempSegs">
       <button class="seg on" data-t="all">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
+      ${hasOld ? '<button class="seg" data-t="old" title="Colecciones anteriores a T40 que aún figuran con cajas">&lt; T40 con cajas</button>' : ''}
     </div>
   </div>
   ${botas.length ? `<div class="fbar" style="margin-top:8px;align-items:center">
@@ -1783,7 +1786,7 @@ function bindContent(secId) {
       const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
-        const tempOk = temp === 'all' || row.dataset.temp === temp;
+        const tempOk = temp === 'all' || row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40);
         const botaOk = bota === 'all' || row.dataset.bota === bota;
         const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
         const qty = suc === 'all'

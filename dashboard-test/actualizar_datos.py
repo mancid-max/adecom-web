@@ -296,7 +296,11 @@ try:
                 qty = float(str(r.get('SaldoFisico', '0')).strip() or 0)
             except:
                 continue
-            if qty <= 0:
+            try:
+                cajas = float(str(r.get('Cajas', '0')).strip() or 0)
+            except:
+                cajas = 0
+            if qty <= 0 and cajas <= 0:
                 continue
             if not code.startswith('01') or len(code) < 10:
                 continue
@@ -304,14 +308,11 @@ try:
                 t_num = int(code[2:4])
             except:
                 continue
-            if not (40 <= t_num <= 44):
+            # T40–T44 siempre; colecciones anteriores solo si tienen cajas (para limpiar ese dato)
+            if not (40 <= t_num <= 44) and cajas <= 0:
                 continue
             art8  = code[:8]
             talla = code[8:10].lstrip('0') or code[8:10]
-            try:
-                cajas = float(str(r.get('Cajas', '0')).strip() or 0)
-            except:
-                cajas = 0
             if art8 not in saldo_map:
                 saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}, 'cajas_talla': {}}
             saldo_map[art8]['sucs'][suc] = saldo_map[art8]['sucs'].get(suc, 0) + qty
