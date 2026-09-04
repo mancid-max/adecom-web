@@ -1220,6 +1220,7 @@ async function secCajas() {
   if (!cajas.length) return makePH(ICO, 'Cajas en Bodega', 'Sin datos: CAJAS.TXT no encontrado en Z:\\BI');
 
   const vendedores = [...new Set(cajas.map(c => c.vendedor).filter(Boolean))].sort();
+  const tempsCj = [...new Set(cajas.flatMap(c => c.temps || []))].sort((a, b) => b.localeCompare(a));
   const rowsHtml = cajas.map(c => {
     // Contenido agrupado por artículo: 01441800 → 36×2 · 38×2 · …
     const byArt = {};
@@ -1237,7 +1238,7 @@ async function secCajas() {
     const q = [c.caja, c.pedido, c.cliente, c.ciudad, c.vendedor, ...Object.keys(byArt), ...(c.facturas || [])].join(' ').toLowerCase();
     const pedWarn = c.pedido_existe ? '' : ' <span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">PEDIDO NO EXISTE</span>';
     const fact = (c.facturas || []).length ? `<div style="font-size:10px;color:var(--tx3);margin-top:2px">FAC ${c.facturas.slice(0, 2).join(', ')}</div>` : '';
-    return `<tr class="cj-row" data-estado="${c.estado}" data-dias="${c.dias}" data-vend="${(c.vendedor || '').toLowerCase()}" data-prendas="${c.prendas}" data-valor="${c.valor}" data-q="${q}" style="font-weight:500">
+    return `<tr class="cj-row" data-estado="${c.estado}" data-dias="${c.dias}" data-temps="${(c.temps || []).join(' ')}" data-vend="${(c.vendedor || '').toLowerCase()}" data-prendas="${c.prendas}" data-valor="${c.valor}" data-q="${q}" style="font-weight:500">
       <td><span class="td-code">${String(c.caja).replace(/^0+/, '')}</span><span class="chv" style="font-size:10px;color:var(--tx3);margin-left:8px">▸</span></td>
       <td class="td-dim">${c.fecha}</td>
       <td class="r td-num" style="color:${cajasDiasClr(c.dias)};font-weight:700">${c.dias}</td>
@@ -1252,6 +1253,13 @@ async function secCajas() {
   }).join('');
 
   return `
+  <div class="fbar" style="gap:8px;flex-wrap:wrap">
+    <span class="flbl">Temporada</span>
+    <div class="segs" id="cjTempSegs">
+      <button class="seg on" data-t="all">Todas</button>
+      ${tempsCj.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
+    </div>
+  </div>
   <div class="fbar" style="gap:8px;flex-wrap:wrap">
     <span class="flbl">Estado</span>
     <div class="segs" id="cjEstadoSegs">
@@ -1954,6 +1962,7 @@ function bindContent(secId) {
   if (secId === 'cajas') {
     function applyCjFilters() {
       const est  = document.querySelector('#cjEstadoSegs .seg.on')?.dataset.est || 'bodega';
+      const temp = document.querySelector('#cjTempSegs .seg.on')?.dataset.t || 'all';
       const minD = parseInt(document.querySelector('#cjDiasSegs .seg.on')?.dataset.d || '0') || 0;
       const vend = document.getElementById('cjVend')?.value || '';
       const q    = (document.getElementById('cjSearch')?.value || '').trim().toLowerCase();
@@ -1961,7 +1970,8 @@ function bindContent(secId) {
       document.querySelectorAll('#cjBody tr.cj-row').forEach(row => {
         const e = row.dataset.estado, d = parseInt(row.dataset.dias) || 0;
         const okE = est === 'all' || (est === 'bodega' ? e === 'bodega' : e !== 'bodega');
-        const ok = okE && d >= minD && (!vend || row.dataset.vend === vend) && (!q || (row.dataset.q || '').includes(q));
+        const okT = temp === 'all' || (row.dataset.temps || '').split(' ').includes(temp);
+        const ok = okE && okT && d >= minD && (!vend || row.dataset.vend === vend) && (!q || (row.dataset.q || '').includes(q));
         row.style.display = ok ? '' : 'none';
         let sib = row.nextElementSibling;
         while (sib && sib.classList.contains('cj-line')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
@@ -1972,7 +1982,7 @@ function bindContent(secId) {
       set('cjKN', n); set('cjKPrendas', fmt(prendas)); set('cjKValor', fmtM(valor)); set('cjKViejas', viejas);
       set('cjFoot', `${n} cajas · ${fmt(prendas)} prendas · ${fmtCLP(valor)} neto`);
     }
-    ['cjEstadoSegs', 'cjDiasSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+    ['cjTempSegs', 'cjEstadoSegs', 'cjDiasSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyCjFilters();
     })));
