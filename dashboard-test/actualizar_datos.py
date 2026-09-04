@@ -252,14 +252,13 @@ docs_dict = {}
 for r in venta_rows:
     tipo  = str(r.get('Tipo') or '').strip()
     num   = str(r.get('Numero') or '').strip()
-    bod   = str(r.get('Bod') or '').strip()
-    if bod != '04':
-        continue
+    bod   = str(r.get('Bod') or '').strip().zfill(2)
+    # Todas las bodegas: 04 San Gerardo (mayorista) + 00 Central / 12 Outlet (retail boletas)
     key = (tipo, num)
     if key not in docs_dict:
         fecha = str(r.get('fecha') or '').strip()
         docs_dict[key] = {
-            "tipo": tipo, "dcto": num,
+            "tipo": tipo, "dcto": num, "bod": bod,
             "fecha": fmt_date(fecha), "fecha_iso": to_iso(fecha),
             "rut": str(r.get('Rut') or '').strip(),
             "razon": str(r.get('cliente') or '').strip(),
