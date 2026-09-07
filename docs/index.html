@@ -362,6 +362,41 @@ const fmtCLP  = n => '$' + fmt(n);
 const fmtM    = n => n >= 1e6 ? '$'+(n/1e6).toFixed(2)+'M' : n >= 1e3 ? '$'+(n/1e3).toFixed(0)+'k' : fmtCLP(n);
 const today   = () => new Date().toISOString().split('T')[0];
 
+/* ── Imprimir tabla: clona la tabla con solo las filas visibles y abre el diálogo de impresión ── */
+function printTable({ table, title, subtitle = '', landscape = true }) {
+  if (!table) return;
+  const t = table.cloneNode(true);
+  t.querySelectorAll('tbody tr').forEach(tr => { if (tr.style.display === 'none') tr.remove(); });
+  t.querySelectorAll('.sort-ic, .si, .chv, .art-thumb, .m-chk').forEach(el => el.remove());
+  t.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+  const rows = t.querySelectorAll('tbody tr').length;
+  const w = window.open('', '_blank');
+  if (!w) { alert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio.'); return; }
+  const meta = document.getElementById('hdTs')?.textContent || '';
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${title}</title>
+  <style>
+    @page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:10mm}
+    body{font-family:Segoe UI,Arial,sans-serif;color:#111;font-size:10px;margin:0}
+    h1{font-size:15px;margin:0 0 2px}
+    .sub{color:#555;font-size:10px;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #bbb;padding:3px 5px;text-align:left;white-space:nowrap}
+    th{background:#eee;font-size:9px;text-transform:uppercase;letter-spacing:.03em}
+    td.r,th.r{text-align:right}
+    tfoot td{font-weight:700;background:#f3f3f3}
+    .badge{border:1px solid #999;border-radius:8px;padding:0 4px;font-size:8px}
+    thead{display:table-header-group}
+    tr{page-break-inside:avoid}
+    .foot{margin-top:8px;color:#777;font-size:9px}
+  </style></head><body>
+  <h1>${title}</h1>
+  <div class="sub">${subtitle}${subtitle ? ' · ' : ''}${rows} filas · ${meta} · Impreso ${new Date().toLocaleString('es-CL')}</div>
+  ${t.outerHTML}
+  <div class="foot">ADECOM · Mohicano Jeans</div>
+  <script>window.onload = () => window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
 /* ── Fotos de artículo: img/art/<art8>.jpg, respaldo <modelo4>.jpg, si no hay → se oculta ── */
 function artImg(art) {
   const a = String(art || '');
@@ -1005,6 +1040,7 @@ async function secTabla() {
     <div class="tbl-head">
       <div class="card-ttl" style="margin:0">Tabla Completa</div>
       <span class="td-dim" style="margin-left:auto" id="tblCount">${rows.length} OC</span>
+      <button class="seg" id="tblPrint" title="Imprime las filas visibles con los filtros aplicados" style="margin-left:8px;border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -1706,6 +1742,17 @@ function bindContent(secId) {
       if (countEl) countEl.textContent = `${vis} de ${allRows().length} OC`;
       NUM.forEach(k => { const el = document.getElementById(`tblTotal_${k}`); if (el) el.textContent = fmt(tots[k]); });
     }
+    document.getElementById('tblPrint')?.addEventListener('click', () => {
+      const selTxt = id => { const s = document.getElementById(id); return s ? (s.options[s.selectedIndex]?.text || '') : ''; };
+      const tipo = document.querySelector('#tblTipoSegs .seg.on')?.textContent.trim() || 'Todas';
+      const ms   = [...document.querySelectorAll('#tblMSegs .seg.on')].map(b => b.textContent.replace(/[○●]/g, '').trim());
+      const art  = (document.getElementById('tblArtSearch')?.value || '').trim();
+      const oc   = (document.getElementById('tblOcSearch')?.value || '').trim();
+      const parts = [`Etapa: ${selTxt('tblEtapa')}`, `Temp: ${selTxt('tblTempSel')}`, `Tipo: ${tipo}${ms.length ? ' (' + ms.join(', ') + ')' : ''}`];
+      if (art) parts.push(`Artículo: ${art}`);
+      if (oc)  parts.push(`OC: ${oc}`);
+      printTable({ table: document.getElementById('tablaBody')?.closest('table'), title: 'Tabla Completa', subtitle: parts.join(' · ') });
+    });
     document.getElementById('tblEtapa')?.addEventListener('change', applyTablaFilters);
     document.getElementById('tblArtSearch')?.addEventListener('input', applyTablaFilters);
     document.getElementById('tblOcSearch')?.addEventListener('input', applyTablaFilters);
