@@ -402,39 +402,6 @@ try:
 except Exception as e:
     print(f"  COLE44_ORIGEN.xlsx: {e}")
 
-# ── 5b. TALLAS POR ARTÍCULO (ARCHIVO_TALLAS.CSV) ───────────────
-# Filas por artículo: Ventas / Despacho / saldo / stock / corte / sugerido,
-# columnas [5:14] = tallas 36,38,40,42,44,46,48,50,52 (verificado vs stock por talla).
-print("Leyendo ARCHIVO_TALLAS.CSV (por talla)...")
-TALLAS_COLS = ['36', '38', '40', '42', '44', '46', '48', '50', '52']
-TIPO_KEY = {'ventas': 'ventas', 'despacho': 'despacho', 'saldo': 'saldo', 'stock': 'stock', 'corte': 'corte', 'sugerido': 'sugerido'}
-tallas_art = {}
-try:
-    with open(f"{BI}/ARCHIVO_TALLAS.CSV", encoding="latin-1") as f:
-        for line in f:
-            cells = [c.strip() for c in line.rstrip('\n').split(';')]
-            if len(cells) < 15 or not cells[0]:
-                continue
-            key = TIPO_KEY.get(cells[3].lower())
-            if not key:
-                continue
-            art8 = cells[0][:8]
-            if not art8.startswith('01') or not temp_valida(art8[2:4]):
-                continue
-            vals = {}
-            for t, c in zip(TALLAS_COLS, cells[5:14]):
-                v = clean_int(c)
-                if v:
-                    vals[t] = v
-            if art8 not in tallas_art:
-                tallas_art[art8] = {}
-            tallas_art[art8][key] = vals
-    # Quitar artículos sin ningún dato
-    tallas_art = {a: d for a, d in tallas_art.items() if any(d.values())}
-    print(f"  tallas_art: {len(tallas_art)} artículos")
-except FileNotFoundError:
-    print("  ARCHIVO_TALLAS.CSV no encontrado")
-
 # ── 6. CAJAS EN BODEGA (CAJAS.TXT) ─────────────────────────────
 # Cajas físicas armadas y asignadas a un pedido. Se cruza con PEDIDOS.CSV
 # (despachado/precio/vendedor) y VENTAS (facturas posteriores del RUT).
@@ -517,7 +484,7 @@ DATASETS = [("full_table", full_table), ("traza_oc", traza_oc),
             ("pedidos", pedidos), ("docs_venta", docs_venta),
             ("pedidos_art", pedidos_art),
             ("saldos_bodega", saldos_bodega), ("pvc_ex", pvc_ex),
-            ("cajas", cajas_out), ("tallas_art", tallas_art),
+            ("cajas", cajas_out),
             ("meta", meta)]
 
 for name, data in DATASETS:
