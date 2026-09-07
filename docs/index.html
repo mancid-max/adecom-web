@@ -389,10 +389,9 @@ function printTable({ table, title, subtitle = '', landscape = true }) {
     tr{page-break-inside:avoid}
     .foot{margin-top:8px;color:#777;font-size:9px}
   </style></head><body>
-  <h1>${title}</h1>
+  <h1>${title} <span style="font-weight:400;color:#777;font-size:11px">· ADECOM Mohicano Jeans</span></h1>
   <div class="sub">${subtitle}${subtitle ? ' · ' : ''}${rows} filas · ${meta} · Impreso ${new Date().toLocaleString('es-CL')}</div>
   ${t.outerHTML}
-  <div class="foot">ADECOM · Mohicano Jeans</div>
   <script>window.onload = () => window.print();<\/script></body></html>`);
   w.document.close();
 }
