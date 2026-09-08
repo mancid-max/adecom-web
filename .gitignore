@@ -8,3 +8,5 @@ seed/1_PROGRAMAS DE PRODUCCION MHC .xlsx
 .env
 zoho_config.json
 supabase_config.json
+# Datos del dashboard: viven en Supabase Storage (bucket privado 'bi'), no en el repo publico
+docs/*.json

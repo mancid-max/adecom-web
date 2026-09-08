@@ -348,10 +348,25 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* ── CACHE ──────────────────────────────────────────────────── */
 const CACHE = {};
 const _VER = Date.now();
+/* Datos: se leen del bucket privado 'bi' de Supabase Storage con la sesión del usuario
+   (sin login no hay acceso). Si falla (p.ej. serve.py local), cae al archivo relativo. */
 async function load(file) {
   if (!CACHE[file]) {
-    try { CACHE[file] = await (await fetch(file + '?v=' + _VER)).json(); }
-    catch { CACHE[file] = []; }
+    let data = null;
+    try {
+      if (typeof sb !== 'undefined') {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) {
+          const { data: blob, error } = await sb.storage.from('bi').download(file);
+          if (!error && blob) data = JSON.parse(await blob.text());
+        }
+      }
+    } catch { data = null; }
+    if (data === null) {
+      try { data = await (await fetch(file + '?v=' + _VER, { cache: 'no-cache' })).json(); }
+      catch { data = []; }
+    }
+    CACHE[file] = data;
   }
   return CACHE[file];
 }
