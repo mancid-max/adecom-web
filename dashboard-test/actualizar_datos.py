@@ -523,9 +523,10 @@ for c in cajas:
     cajas_por_pedido.setdefault(c['pedido'], []).append(
         {"caja": c['caja'], "fecha": c['fecha'], "dias": c['dias'], "prendas": c['prendas'], "estado": c['estado']})
 
-# PUBLICAR_CLI: la ficha de crédito/deuda va a un JSON servido públicamente por GitHub Pages.
-# Queda apagada hasta que los datos se sirvan con login (Supabase) o Manu autorice publicarla.
-PUBLICAR_CLI = False
+# PUBLICAR_CLI: la ficha de crédito/deuda va en pedidos.json. Desde 2026-09-08 los JSON se sirven
+# desde Supabase Storage (bucket privado 'bi', solo usuarios logueados), por eso puede ir encendida.
+# Si algún día los JSON vuelven a un sitio público, apagar esto.
+PUBLICAR_CLI = True
 for p in pedidos:
     p['cli']     = clientes.get(_rut_norm(p['rut']).lstrip('0')) if PUBLICAR_CLI else None
     p['bloqueo'] = p['pedido'] in bloqueados
