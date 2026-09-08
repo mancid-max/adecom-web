@@ -1178,8 +1178,16 @@ async function secVentaDespacho() {
     const sal44  = p.u_sal?.['44']  || 0;
     const avancePct = ped44 ? Math.round(desp44/ped44*100) : 0;
     const nombre = (p.nombre||p.rut||'').toUpperCase();
-    return `<tr data-nombre="${nombre.toLowerCase()}" data-ciudad="${(p.ciudad||'').toLowerCase()}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-pid="${p.pedido}" style="cursor:pointer">
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${nombre||p.rut}</td>
+    const cajasBod = (p.cajas || []).filter(c => c.estado === 'bodega');
+    const sinCupo  = !!(p.cli && p.cli.credito > 0 && p.cli.disponible <= 0);   // mismo criterio que el modal
+    const flags = [
+      cajasBod.length ? `<span title="${cajasBod.length} caja(s) armada(s) en bodega, ${cajasBod.reduce((s,c)=>s+c.prendas,0)} prendas" style="background:var(--ac10);color:var(--ac);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">📦 ${cajasBod.length}</span>` : '',
+      p.bloqueo ? '<span title="Pedido bloqueado en el ERP" style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">🔒 Bloqueado</span>' : '',
+      sinCupo ? '<span title="Crédito agotado: sin cupo disponible" style="background:var(--wa10);color:var(--wa);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">Sin cupo</span>' : '',
+    ].filter(Boolean).join('');
+    const esc = s => String(s).replace(/"/g, '&quot;');
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((p.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-pid="${p.pedido}" style="cursor:pointer">
+      <td><div style="display:flex;align-items:center;gap:6px"><span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||p.rut}</span>${flags}</div></td>
       <td class="td-dim">${p.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
@@ -1971,7 +1979,45 @@ function bindContent(secId) {
         const p = pedMap[row.dataset.pid]; if (!p) return;
         const lineas44 = (p.lineas||[]).filter(l => l.temp === '44');
         const nombre = (p.nombre||p.rut||'').toUpperCase();
-        document.getElementById('detTtl').textContent = `${nombre} — Detalle T44`;
+        document.getElementById('detTtl').textContent = `${nombre} — Pedido ${p.pedido} · T44`;
+        // Bloque: cajas armadas + ficha cliente (crédito / deuda / cupo) + bloqueo
+        const meta = CACHE['meta.json'] || {};
+        const cj = p.cajas || [];
+        const cajasHtml = cj.length
+          ? cj.map(c => `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:3px 0">
+                <span class="td-code">Caja ${String(c.caja).replace(/^0+/, '')}</span>
+                <span class="td-dim">${c.fecha}</span>
+                <span style="font-weight:700;color:${c.dias > 30 ? 'var(--er)' : c.dias > 14 ? 'var(--wa)' : 'var(--tx2)'}">${c.dias} días</span>
+                <span>${fmt(c.prendas)} prendas</span>
+                ${cajasEstadoBadge(c.estado)}
+              </div>`).join('')
+          : `<span class="td-dim" style="font-size:12px">Sin cajas armadas para este pedido</span>`;
+        const cli = p.cli;
+        const money = (v, warn) => { v = v || 0; return `<span class="td-num" style="font-weight:700;color:${warn ? 'var(--er)' : 'var(--tx1)'}">${v < 0 ? '−' : ''}${fmtCLP(Math.abs(v))}</span>`; };
+        const sinLinea = cli && !(cli.credito > 0);                       // contado: sin línea de crédito asignada
+        const sinCupo  = cli && cli.credito > 0 && cli.disponible <= 0;   // mismo criterio que el badge de la fila
+        const cupoTag  = sinLinea ? '<span style="color:var(--tx3);font-size:10px;font-weight:700">Sin línea de crédito</span>'
+                       : sinCupo  ? '<span style="color:var(--er);font-size:10px;font-weight:700">Sin cupo</span>'
+                                  : '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Tiene cupo</span>';
+        const cliHtml = cli
+          ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 16px;font-size:12px">
+               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Crédito</div>${money(cli.credito)}</div>
+               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Deuda (cta. cte.)</div>${money(cli.deuda, cli.deuda > 0)}</div>
+               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Cheques</div>${money(cli.cheques, cli.cheques > 0)}</div>
+               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Cupo disponible</div>${money(cli.disponible, sinCupo)} ${cupoTag}</div>
+               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Forma de pago</div><span>${cli.fpago || '—'}</span></div>
+             </div>
+             <div class="td-dim" style="font-size:10px;margin-top:6px">Ficha CLIENTE.Txt al ${meta.clientes_fecha || '—'}${cli.fichas > 1 ? ` · ${cli.fichas} fichas con este RUT (se muestra la de mayor crédito${cli.deuda_otras > 0 ? `; otras fichas deben ${fmtCLP(cli.deuda_otras)}` : ''})` : ''}</div>`
+          : `<span class="td-dim" style="font-size:12px">Ficha de crédito no disponible en esta versión (RUT ${p.rut || '—'})</span>`;
+        const infoHtml = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:12px 12px 14px">
+            <div style="background:var(--sf2);border-radius:10px;padding:10px 14px">
+              <div style="font-size:11px;font-weight:700;margin-bottom:6px">📦 Cajas armadas ${cj.length ? `(${cj.length})` : ''}</div>${cajasHtml}
+            </div>
+            <div style="background:var(--sf2);border-radius:10px;padding:10px 14px">
+              <div style="font-size:11px;font-weight:700;margin-bottom:6px;display:flex;gap:8px;align-items:center">Cuenta cliente ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px">🔒 Pedido bloqueado</span>' : ''}</div>${cliHtml}
+            </div>
+          </div>`;
         const rowsHtml = lineas44.map(l => {
           const clr = l.sal > 0 ? 'var(--wa)' : 'var(--ok)';
           const estado = l.sal <= 0 ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completo</span>'
@@ -1987,7 +2033,7 @@ function bindContent(secId) {
             <td style="padding:8px 12px">${estado}</td>
           </tr>`;
         }).join('');
-        document.getElementById('detBody').innerHTML = `
+        document.getElementById('detBody').innerHTML = infoHtml + `
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="background:var(--sf2)">
               <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">ARTÍCULO</th>

@@ -470,6 +470,67 @@ except FileNotFoundError:
     print("  CAJAS.TXT no encontrado en Z:\\BI")
 cajas_out = {"meta": cajas_meta, "cajas": cajas}
 
+# ── 7. FICHA CLIENTE (CLIENTE.Txt) + cajas/bloqueo por pedido ──
+# CLIENTE.Txt: Credito (cupo), Ctacte (deuda), Cheques, Disponible = Credito - Ctacte - Cheques.
+# Se cuelga de cada pedido como 'cli'; 'cajas' = cajas armadas del pedido; 'bloqueo' = alguna línea con BLOQUEO=S.
+print("Leyendo CLIENTE.Txt...")
+clientes_meta = {"archivo_fecha": ""}
+clientes = {}
+try:
+    cli_file = os.path.join(BI, 'CLIENTE.Txt')
+    clientes_meta["archivo_fecha"] = datetime.fromtimestamp(os.path.getmtime(cli_file)).strftime('%d/%m/%Y')
+    # Layout: 23 columnas. El ERP exporta la 'Ñ' como ';' → algunas filas traen 24 columnas y los índices
+    # fijos se corren. Por eso: RUT se busca por patrón en las primeras columnas, Fpago por patrón 'NN - ',
+    # y Tipo..Disponible se leen desde la cola (las 4 últimas columnas Contacto/Fono/Mail/Observacion son fijas).
+    _RUT_RE   = _re.compile(r'^\d{1,2}\.\d{3}\.\d{3}-[\dKk]$')
+    _FPAGO_RE = _re.compile(r'^\d{2} - ')
+    fichas = {}          # rut -> [ficha, ...]  (un RUT puede tener varias fichas: sucursales / razones sociales)
+    descartadas = 0
+    with open(cli_file, encoding='latin-1', errors='replace') as f:
+        rd = csv.reader(f, delimiter=';')
+        next(rd, None)
+        for x in rd:
+            if len(x) < 23:
+                descartadas += 1; continue
+            x = [c.strip() for c in x]
+            rut_raw = next((c for c in x[:10] if _RUT_RE.match(c)), None)
+            if not rut_raw:
+                descartadas += 1; continue
+            fpago = next((c for c in x[7:12] if _FPAGO_RE.match(c)), '')
+            ficha = {
+                "razon": x[0], "credito": clean_int(x[-8]), "deuda": clean_int(x[-7]), "cheques": clean_int(x[-6]),
+                "disponible": clean_int(x[-5]), "fpago": fpago, "tipo": x[-9],
+            }
+            fichas.setdefault(_rut_norm(rut_raw).lstrip('0'), []).append(ficha)
+    # Regla de merge por RUT: ficha principal = mayor crédito (empate → mayor deuda); se informa cuántas fichas hay
+    for k, lst in fichas.items():
+        lst.sort(key=lambda c: (c['credito'], c['deuda']), reverse=True)
+        principal = dict(lst[0])
+        principal['fichas'] = len(lst)
+        principal['deuda_otras'] = sum(c['deuda'] for c in lst[1:])   # deuda en otras fichas del mismo RUT
+        clientes[k] = principal
+    print(f"  CLIENTE.Txt del {clientes_meta['archivo_fecha']}: {len(clientes)} clientes ({sum(len(v) for v in fichas.values())} fichas, {descartadas} filas descartadas)")
+except FileNotFoundError:
+    print("  CLIENTE.Txt no encontrado")
+
+bloqueados = set()
+for r in ped_rows:
+    if r.get('BLOQUEO', '').strip().upper() == 'S':
+        bloqueados.add(r['PEDIDO'].strip())
+
+cajas_por_pedido = {}
+for c in cajas:
+    cajas_por_pedido.setdefault(c['pedido'], []).append(
+        {"caja": c['caja'], "fecha": c['fecha'], "dias": c['dias'], "prendas": c['prendas'], "estado": c['estado']})
+
+# PUBLICAR_CLI: la ficha de crédito/deuda va a un JSON servido públicamente por GitHub Pages.
+# Queda apagada hasta que los datos se sirvan con login (Supabase) o Manu autorice publicarla.
+PUBLICAR_CLI = False
+for p in pedidos:
+    p['cli']     = clientes.get(_rut_norm(p['rut']).lstrip('0')) if PUBLICAR_CLI else None
+    p['bloqueo'] = p['pedido'] in bloqueados
+    p['cajas']   = cajas_por_pedido.get(p['pedido'], [])
+
 # ── Guardar ────────────────────────────────────────────────────
 from datetime import datetime
 NOW = datetime.now()
@@ -478,6 +539,8 @@ meta = {
     "updated_str": NOW.strftime('%d/%m/%Y %H:%M'),
     "updated_date": NOW.strftime('%d/%m'),
     "updated_time": NOW.strftime('%H:%M'),
+    "clientes_fecha": clientes_meta.get("archivo_fecha", ""),
+    "cajas_fecha": cajas_meta.get("archivo_fecha", ""),
 }
 
 DATASETS = [("full_table", full_table), ("traza_oc", traza_oc),
