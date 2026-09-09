@@ -154,6 +154,9 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .seg.on{background:var(--ac);color:#fff}
 .finput{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx1);padding:5px 10px;outline:none;transition:border-color .1s}
 .finput:focus{border-color:var(--ac)}
+/* Mini mensaje junto a cada buscador ("← Busca por …") */
+.fhint{font-size:11px;color:var(--tx3);white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-left:2px}
+.fhint b{color:var(--ac);font-weight:700}
 /* Inputs de búsqueda: lupa a la izquierda */
 .finput.fsearch{padding-left:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:9px center;background-size:14px 14px}
 .finput.fsearch:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23465fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E")}
@@ -1740,6 +1743,19 @@ async function go(secId, title) {
 
 /* ── BIND EVENTS ────────────────────────────────────────────── */
 function bindContent(secId) {
+  // Mini mensaje junto a cada buscador, derivado de su placeholder: "← Busca por cliente o ciudad"
+  document.querySelectorAll('input.fsearch:not([data-hinted])').forEach(inp => {
+    inp.dataset.hinted = '1';
+    let t = (inp.placeholder || '').replace(/…|\.\.\./g, '').trim();
+    if (!t) return;
+    const w0 = t.split(/[\s,]/)[0];
+    if (!(w0.length > 1 && w0 === w0.toUpperCase())) t = t[0].toLowerCase() + t.slice(1);   // "OC…" se queda en mayúscula
+    if (!/\so\s/.test(t) && t.includes(',')) { const parts = t.split(/\s*,\s*/); t = parts.slice(0, -1).join(', ') + ' o ' + parts[parts.length - 1]; }
+    const s = document.createElement('span');
+    s.className = 'fhint'; s.innerHTML = `<b>←</b> Busca por ${t}`;
+    inp.insertAdjacentElement('afterend', s);
+  });
+
   // [data-goto] → navegar
   document.querySelectorAll('[data-goto]').forEach(el => {
     el.addEventListener('click', () => go(el.dataset.goto, el.dataset.gotoTtl));
