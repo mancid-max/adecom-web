@@ -2142,9 +2142,15 @@ function bindContent(secId) {
           <div style="margin:12px 12px 14px;background:var(--sf2);border-radius:10px;padding:10px 14px">
             <div style="font-size:11px;font-weight:700;margin-bottom:6px;display:flex;gap:8px;align-items:center">📦 Cajas armadas ${cj.length ? `(${cj.length})` : ''} ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px">🔒 Pedido bloqueado</span>' : ''}</div>${cajasListHtml(p)}
           </div>`;
+        // Unidades por artículo que ya están en cajas armadas (en bodega) de este pedido
+        const enCaja = {};
+        cj.filter(c => c.estado === 'bodega').forEach(c => { const full = cajaFull(c.caja); (full?.lineas || []).forEach(l => enCaja[l.art] = (enCaja[l.art] || 0) + l.cant); });
         const rowsHtml = lineas44.map(l => {
           const clr = l.sal > 0 ? 'var(--wa)' : 'var(--ok)';
+          const ec = enCaja[l.art] || 0;
           const estado = l.sal <= 0 ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completo</span>'
+                       : ec >= l.sal ? '<span style="color:var(--ac);font-size:10px;font-weight:700">📦 Listo en caja</span>'
+                       : ec > 0 ? `<span style="color:var(--ac);font-size:10px">📦 En caja parcial · faltan ${fmt(l.sal - ec)}</span>`
                        : l.desp > 0 ? '<span style="color:var(--ac);font-size:10px">En proceso</span>'
                        : '<span style="color:var(--tx3);font-size:10px">Sin despacho</span>';
           return `<tr>
@@ -2152,7 +2158,7 @@ function bindContent(secId) {
             <td class="td-dim" style="padding:8px 8px">${l.modelo}</td>
             <td class="td-dim" style="padding:8px 8px">${l.color}</td>
             <td class="r td-num" style="padding:8px 12px">${fmt(l.sol)}</td>
-            <td class="r td-num" style="padding:8px 12px;color:var(--ok)">${l.desp > 0 ? fmt(l.desp) : '—'}</td>
+            <td class="r td-num" style="padding:8px 12px;color:var(--ok);white-space:nowrap">${l.desp > 0 ? fmt(l.desp) : '—'}${ec ? ` <span title="En caja armada, pendiente de despacho" style="color:var(--ac);font-size:11px;font-weight:600">(+${fmt(Math.min(ec, l.sal))} en caja)</span>` : ''}</td>
             <td class="r td-num" style="padding:8px 12px;color:${clr}">${l.sal > 0 ? fmt(l.sal) : '—'}</td>
             <td style="padding:8px 12px">${estado}</td>
           </tr>`;
