@@ -178,6 +178,10 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* ── DETAIL MODAL ────────────────────────────────────────────── */
 .det-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
 .det-ov.open{display:flex}
+/* Caja en detalle de pedido: hover + animación al abrir */
+.cj-open:hover{background:var(--ac10)}
+@keyframes cjPop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.cj-detail *{animation:none!important}}
 /* Foto de artículo: miniatura en tabla + visor */
 .art-thumb{width:34px;height:44px;object-fit:cover;border-radius:5px;border:1px solid var(--bd);vertical-align:middle;margin-right:8px;cursor:zoom-in;background:var(--sf2)}
 #imgOv{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:300;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;cursor:zoom-out}
@@ -2001,14 +2005,66 @@ function bindContent(secId) {
         const meta = CACHE['meta.json'] || {};
         const cj = p.cajas || [];
         const cajasHtml = cj.length
-          ? cj.map(c => `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:3px 0">
+          ? cj.map(c => `<div class="cj-open" data-caja="${c.caja}" title="Ver contenido de la caja y qué cubre del pedido" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:5px 6px;margin:0 -6px;border-radius:8px;cursor:pointer">
+                <span class="chv" style="font-size:10px;color:var(--tx3)">▸</span>
                 <span class="td-code">Caja ${String(c.caja).replace(/^0+/, '')}</span>
                 <span class="td-dim">${c.fecha}</span>
                 <span style="font-weight:700;color:${c.dias > 30 ? 'var(--er)' : c.dias > 14 ? 'var(--wa)' : 'var(--tx2)'}">${c.dias} días</span>
                 <span>${fmt(c.prendas)} prendas</span>
                 ${cajasEstadoBadge(c.estado)}
-              </div>`).join('')
+              </div>
+              <div class="cj-detail" id="cjd-${c.caja}" style="display:none;margin:2px 0 8px"></div>`).join('')
           : `<span class="td-dim" style="font-size:12px">Sin cajas armadas para este pedido</span>`;
+        // Contenido de una caja cruzado con el pedido: qué cubre y qué falta
+        const buildCajaCobertura = (caja) => {
+          if (!caja) return '<span class="td-dim" style="font-size:12px">No se encontró el detalle de esta caja</span>';
+          const enBodega = caja.estado === 'bodega';
+          const byArt = {};
+          (caja.lineas || []).forEach(l => { const a = byArt[l.art] = byArt[l.art] || { cant: 0, tallas: [] }; a.cant += l.cant; a.tallas.push(`${l.talla}×${l.cant}`); });
+          const ped = {}; (p.lineas || []).forEach(l => ped[l.art] = l);
+          let cubre = 0, fuera = 0;
+          const rows = Object.entries(byArt).map(([art, a]) => {
+            const pl = ped[art];
+            const ref = pl ? (enBodega ? pl.sal : pl.sol) : 0;     // en bodega: compara con saldo pendiente; ya despachada: con lo pedido
+            const cov = Math.min(a.cant, ref); cubre += cov; if (!pl) fuera += a.cant;
+            const est = !pl ? '<span style="color:var(--er);font-size:10px;font-weight:700">No está en el pedido</span>'
+                      : a.cant >= ref ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completa</span>'
+                      : `<span style="color:var(--wa);font-size:10px;font-weight:700">Parcial · faltan ${fmt(ref - a.cant)}</span>`;
+            return `<tr style="border-top:1px solid var(--bd)">
+              <td style="padding:5px 8px"><span class="td-code">${art}</span> ${artImg(art)}</td>
+              <td class="td-dim" style="padding:5px 8px;font-size:11px;white-space:normal">${a.tallas.join(' · ')}</td>
+              <td class="r td-num" style="padding:5px 8px;color:var(--ac)">${fmt(a.cant)}</td>
+              <td class="r td-num" style="padding:5px 8px">${pl ? fmt(pl.sol) : '—'}</td>
+              <td class="r td-num" style="padding:5px 8px;color:var(--wa)">${pl ? fmt(pl.sal) : '—'}</td>
+              <td style="padding:5px 8px">${est}</td>
+            </tr>`;
+          }).join('');
+          const salTot = (p.lineas || []).reduce((s, l) => s + (enBodega ? l.sal : l.sol), 0);
+          const pct = salTot ? Math.round(cubre / salTot * 100) : 0;
+          const sinCaja = (p.lineas || []).filter(l => l.sal > 0 && !byArt[l.art]).length;
+          return `
+            <div style="background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;animation:cjPop .18s ease-out">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
+                <span style="font-size:18px">📦</span>
+                <span style="font-weight:700">Caja ${String(caja.caja).replace(/^0+/, '')} · ${fmt(caja.prendas)} prendas · ${Object.keys(byArt).length} artículos</span>
+                <span style="margin-left:auto;background:${pct >= 100 ? 'var(--ok10)' : 'var(--ac10)'};color:${pct >= 100 ? 'var(--ok)' : 'var(--ac)'};border-radius:20px;padding:3px 10px;font-weight:700">Cubre ${fmt(cubre)} de ${fmt(salTot)} ${enBodega ? 'pendientes' : 'pedidas'} (${pct}%)</span>
+              </div>
+              <div class="pbar" style="margin-bottom:8px"><div class="pbar-fill" style="width:${Math.min(100, pct)}%;background:${pct >= 100 ? 'var(--ok)' : 'var(--ac)'}"></div></div>
+              <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="background:var(--sf2)">
+                  <th style="padding:5px 8px;text-align:left;font-size:10px;color:var(--tx3)">ARTÍCULO</th>
+                  <th style="padding:5px 8px;text-align:left;font-size:10px;color:var(--tx3)">TALLAS EN CAJA</th>
+                  <th class="r" style="padding:5px 8px;font-size:10px;color:var(--tx3)">EN CAJA</th>
+                  <th class="r" style="padding:5px 8px;font-size:10px;color:var(--tx3)">PEDIDO</th>
+                  <th class="r" style="padding:5px 8px;font-size:10px;color:var(--tx3)">SALDO</th>
+                  <th style="padding:5px 8px;font-size:10px;color:var(--tx3)">ESTADO</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table></div>
+              ${sinCaja ? `<div class="td-dim" style="font-size:11px;margin-top:6px">${sinCaja} artículo(s) del pedido con saldo no vienen en esta caja</div>` : ''}
+              ${fuera ? `<div style="font-size:11px;margin-top:4px;color:var(--er)">${fmt(fuera)} prenda(s) de la caja no corresponden a este pedido</div>` : ''}
+            </div>`;
+        };
         const cli = p.cli;
         const money = (v, warn) => { v = v || 0; return `<span class="td-num" style="font-weight:700;color:${warn ? 'var(--er)' : 'var(--tx1)'}">${v < 0 ? '−' : ''}${fmtCLP(Math.abs(v))}</span>`; };
         const sinLinea = cli && !(cli.credito > 0);                       // contado: sin línea de crédito asignada
@@ -2063,6 +2119,19 @@ function bindContent(secId) {
             </tr></thead>
             <tbody>${rowsHtml || '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T44</td></tr>'}</tbody>
           </table>`;
+        // Click en una caja → abre su contenido y cobertura del pedido
+        document.querySelectorAll('#detBody .cj-open').forEach(el => el.addEventListener('click', async () => {
+          const box = document.getElementById('cjd-' + el.dataset.caja); if (!box) return;
+          const chv = el.querySelector('.chv');
+          if (box.style.display !== 'none') { box.style.display = 'none'; if (chv) chv.textContent = '▸'; return; }
+          if (!box.innerHTML) {
+            box.innerHTML = '<span class="td-dim" style="font-size:12px">Cargando…</span>';
+            const cdata = await load('cajas.json');
+            const caja = ((!Array.isArray(cdata) && cdata?.cajas) || []).find(c => c.caja === el.dataset.caja);
+            box.innerHTML = buildCajaCobertura(caja);
+          }
+          box.style.display = 'block'; if (chv) chv.textContent = '▾';
+        }));
         document.getElementById('detOv').classList.add('open');
       });
     });
