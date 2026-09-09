@@ -155,8 +155,14 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .finput{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx1);padding:5px 10px;outline:none;transition:border-color .1s}
 .finput:focus{border-color:var(--ac)}
 /* Mini mensaje junto a cada buscador ("← Busca por …") */
-.fhint{font-size:11px;color:var(--tx3);white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-left:2px}
-.fhint b{color:var(--ac);font-weight:700}
+.fhint{font-size:11px;font-weight:600;color:var(--ac);background:var(--ac10);border:1px solid #c7d2fe;border-radius:20px;padding:3px 10px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;margin-left:2px}
+.fhint b{font-weight:800}
+/* Al abrir la sección: la burbuja y el buscador pulsan 3 veces para que se ubique el buscador */
+@keyframes hintPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(70,95,255,.45)}50%{transform:scale(1.08);box-shadow:0 0 0 8px rgba(70,95,255,0)}}
+@keyframes inputPulse{0%,100%{box-shadow:0 0 0 0 rgba(70,95,255,.5);border-color:var(--ac)}50%{box-shadow:0 0 0 6px rgba(70,95,255,0);border-color:var(--ac)}}
+.fhint.pop{animation:hintPulse 1.1s ease-in-out 3}
+.fsearch.pop{animation:inputPulse 1.1s ease-in-out 3}
+@media (prefers-reduced-motion:reduce){.fhint.pop,.fsearch.pop{animation:none}}
 /* Inputs de búsqueda: lupa a la izquierda */
 .finput.fsearch{padding-left:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:9px center;background-size:14px 14px}
 .finput.fsearch:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23465fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E")}
@@ -1752,8 +1758,10 @@ function bindContent(secId) {
     if (!(w0.length > 1 && w0 === w0.toUpperCase())) t = t[0].toLowerCase() + t.slice(1);   // "OC…" se queda en mayúscula
     if (!/\so\s/.test(t) && t.includes(',')) { const parts = t.split(/\s*,\s*/); t = parts.slice(0, -1).join(', ') + ' o ' + parts[parts.length - 1]; }
     const s = document.createElement('span');
-    s.className = 'fhint'; s.innerHTML = `<b>←</b> Busca por ${t}`;
+    s.className = 'fhint pop'; s.innerHTML = `<b>←</b> Busca por ${t}`;
     inp.insertAdjacentElement('afterend', s);
+    inp.classList.add('pop');
+    setTimeout(() => { s.classList.remove('pop'); inp.classList.remove('pop'); }, 3600);
   });
 
   // [data-goto] → navegar
