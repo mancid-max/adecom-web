@@ -1183,16 +1183,51 @@ function secReporteVenta() {
 /* ── VENTA VS DESPACHO ──────────────────────────────────────── */
 /* Venta vs Despacho: agrupar pedidos T44 por cliente (RUT normalizado; si no hay RUT, por nombre) */
 const vdKey = p => (String(p.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '') || (p.nombre || '').toUpperCase());
-function vdGroups(peds) {
+/* Producción pendiente por artículo (Trazabilidad): unidades con saldo por etapa; 'term' = en Terminación (última etapa) */
+function buildProdMap(ft) {
+  const m = {};
+  for (const r of (Array.isArray(ft) ? ft : [])) {
+    const a = (r.articulo || '').trim(); const u = r.saldo || 0;
+    if (!a || u <= 0) continue;
+    const et = getEtapa(r);
+    if (et === 'Bodega') continue;
+    const e = m[a] = m[a] || { term: 0, etapas: {} };
+    e.etapas[et] = (e.etapas[et] || 0) + u;
+    if (et === 'Terminación') e.term += u;
+  }
+  for (const a in m) {
+    const en = Object.entries(m[a].etapas).sort((x, y) => (ETAPA_RANK[y[0]] ?? -2) - (ETAPA_RANK[x[0]] ?? -2));
+    m[a].top = en[0]?.[0] || ''; m[a].topU = en[0]?.[1] || 0;
+  }
+  return m;
+}
+/* Unidades por artículo que ya están en cajas armadas (en bodega) de un pedido */
+function pedidoEnCaja(p, cajasAll) {
+  const m = {}; const ids = new Set((p.cajas || []).filter(c => c.estado === 'bodega').map(c => c.caja));
+  (cajasAll || []).forEach(c => { if (ids.has(c.caja)) (c.lineas || []).forEach(l => m[l.art] = (m[l.art] || 0) + l.cant); });
+  return m;
+}
+/* Pendiente sin caja que está en Terminación (lo "atacable" ya): artículos y unidades */
+function pedidoTerm(p, prodMap, enCaja) {
+  let arts = 0, units = 0;
+  (p.lineas || []).forEach(l => {
+    const falta = Math.max(0, (l.sal || 0) - (enCaja[l.art] || 0));
+    const t = prodMap[l.art]?.term || 0;
+    if (falta > 0 && t > 0) { arts++; units += Math.min(falta, t); }
+  });
+  return { arts, units };
+}
+function vdGroups(peds, prodMap = {}, cajasAll = []) {
   const m = new Map();
   peds.filter(p => (p.u_temp?.['44'] || 0) > 0).forEach(p => {
     const k = vdKey(p);
-    if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false });
+    if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false, termArts: 0, termUnits: 0 });
     const g = m.get(k);
     g.pedidos.push(p); g.ped += p.u_temp['44'] || 0; g.desp += p.u_desp?.['44'] || 0; g.sal += p.u_sal?.['44'] || 0;
     if (!g.cli && p.cli) g.cli = p.cli;
     if (p.bloqueo) g.bloqueo = true;
     (p.cajas || []).forEach(c => { if (c.estado === 'bodega') { g.cajasBod++; g.cajasPrendas += c.prendas; } });
+    const tm = pedidoTerm(p, prodMap, pedidoEnCaja(p, cajasAll)); g.termArts += tm.arts; g.termUnits += tm.units;
   });
   const groups = [...m.values()];
   groups.forEach(g => g.pedidos.sort((a, b) => (b.u_sal?.['44'] || 0) - (a.u_sal?.['44'] || 0)));
@@ -1210,7 +1245,11 @@ async function secVentaDespacho() {
   const totalSal  = t44.reduce((s,p) => s+(p.u_sal?.['44']||0), 0);
   const pct = totalPed ? (totalDesp/totalPed*100).toFixed(1) : 0;
 
-  const groups = vdGroups(peds);   // una fila por cliente; sus pedidos se ven al abrir
+  const ftAll = await load('full_table.json');
+  const cdata = await load('cajas.json');
+  const cajasAll = (!Array.isArray(cdata) && cdata?.cajas) || [];
+  const prodMap = buildProdMap(ftAll);
+  const groups = vdGroups(peds, prodMap, cajasAll);   // una fila por cliente; sus pedidos se ven al abrir
 
   const rowsHtml = groups.map(g => {
     const ped44 = g.ped, desp44 = g.desp, sal44 = g.sal;
@@ -1222,13 +1261,14 @@ async function secVentaDespacho() {
     const flags = [
       g.pedidos.length > 1 ? badge(`${g.pedidos.length} pedidos`, 'var(--sf2)', 'var(--tx2)', 'Pedidos T44 de este cliente') : '',
       g.cajasBod ? badge(`📦 ${g.cajasBod}`, 'var(--ac10)', 'var(--ac)', `${g.cajasBod} caja(s) armada(s) en bodega, ${g.cajasPrendas} prendas`) : '',
+      g.termArts ? badge(`🏁 ${g.termArts} en terminación`, '#ede9fe', '#6d28d9', `${g.termArts} artículo(s) pendientes sin caja que están en Terminación (última etapa): ${fmt(g.termUnits)} prendas por llegar`) : '',
       g.bloqueo ? badge('🔒 Bloqueado', 'var(--er10)', 'var(--er)', 'Tiene pedido(s) bloqueado(s) en el ERP') : '',
       (cli && (cli.deuda > 0 || cli.cheques > 0)) ? badge(`Deuda ${fmtM((cli.deuda || 0) + (cli.cheques || 0))}`, 'var(--wa10)', 'var(--wa)', `Deuda en cta. cte. ${fmtCLP(cli.deuda || 0)}${cli.cheques > 0 ? ' · cheques ' + fmtCLP(cli.cheques) : ''}`) : '',
       sinCupo ? badge('Sin cupo', 'var(--er10)', 'var(--er)', 'Crédito agotado: sin cupo disponible')
         : (cli && cli.credito > 0 && cli.disponible > 0) ? badge(`Cupo ${fmtM(cli.disponible)}`, 'var(--ok10)', 'var(--ok)', `Cupo disponible ${fmtCLP(cli.disponible)} de ${fmtCLP(cli.credito)} de crédito`) : '',
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-key="${esc(g.key)}" style="cursor:pointer">
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
       <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
       <td class="td-dim">${g.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
@@ -1253,6 +1293,11 @@ async function secVentaDespacho() {
       <button class="seg" data-av="cero">Sin despacho</button>
       <button class="seg" data-av="parcial">En proceso</button>
       <button class="seg" data-av="completo">Completo</button>
+    </div>
+    <span class="flbl" style="margin-left:4px">Producción</span>
+    <div class="segs" id="vdTermSegs">
+      <button class="seg on" data-tm="todo">Todos</button>
+      <button class="seg" data-tm="term" title="Clientes con artículos pendientes (sin caja) en Terminación">🏁 Con terminación</button>
     </div>
     <input id="vdSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:180px">
     <select id="vdCiudad" class="finput" style="width:140px"><option value="">Todas las ciudades</option></select>
@@ -1970,6 +2015,7 @@ function bindContent(secId) {
 
     function applyVDFilters() {
       const av  = document.querySelector('#vdAvanceSegs .seg.on')?.dataset.av || 'todo';
+      const tm  = document.querySelector('#vdTermSegs .seg.on')?.dataset.tm || 'todo';
       const q   = (document.getElementById('vdSearch')?.value||'').trim().toLowerCase();
       const ciu = (document.getElementById('vdCiudad')?.value||'').toLowerCase();
       let vis = 0;
@@ -1979,20 +2025,22 @@ function bindContent(secId) {
           (av === 'cero'     && pct === 0) ||
           (av === 'parcial'  && pct > 0 && pct < 100) ||
           (av === 'completo' && pct >= 100);
+        const tmOk = tm === 'todo' || (parseInt(row.dataset.term) || 0) > 0;
         const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q);
         const ciuOk = !ciu || row.dataset.ciudad === ciu;
-        row.style.display = (avOk && qOk && ciuOk) ? '' : 'none';
-        if (avOk && qOk && ciuOk) vis++;
+        const ok = avOk && tmOk && qOk && ciuOk;
+        row.style.display = ok ? '' : 'none';
+        if (ok) vis++;
       });
       const el = document.getElementById('vdCount');
       if (el) el.textContent = `${vis} clientes`;
     }
     document.getElementById('vdSearch')?.addEventListener('input', applyVDFilters);
     document.getElementById('vdCiudad')?.addEventListener('change', applyVDFilters);
-    document.querySelectorAll('#vdAvanceSegs .seg').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#vdAvanceSegs .seg').forEach(x => x.classList.remove('on'));
+    ['vdAvanceSegs', 'vdTermSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyVDFilters();
-    }));
+    })));
 
     // Sort
     let vdSortCol = null, vdSortDir = -1;
@@ -2014,7 +2062,9 @@ function bindContent(secId) {
     document.querySelectorAll('#vdThead th[data-sort]').forEach(th => th.addEventListener('click', () => sortVD(th.dataset.sort)));
     // Ventanas: cliente (detOv) → pedido (pedOv) → caja (cajaOv). Cada nivel con su X.
     const _peds = (typeof CACHE !== 'undefined' && CACHE['pedidos.json']) || [];
-    const groupMap = {}; vdGroups(_peds).forEach(g => groupMap[g.key] = g);
+    const prodMap = buildProdMap(CACHE['full_table.json'] || []);
+    const cajasAllB = (!Array.isArray(CACHE['cajas.json']) && CACHE['cajas.json']?.cajas) || [];
+    const groupMap = {}; vdGroups(_peds, prodMap, cajasAllB).forEach(g => groupMap[g.key] = g);
     const pedMapAll = {}; _peds.forEach(p => pedMapAll[p.pedido] = p);
     let cajaFull = () => null;   // se resuelve al abrir (cajas.json)
 
@@ -2131,6 +2181,7 @@ function bindContent(secId) {
           <span style="display:flex;align-items:center;gap:6px"><span class="pbar" style="width:70px"><span class="pbar-fill" style="display:block;background:var(--ok);width:${pct}%"></span></span><span class="td-dim">${pct}%</span></span>
         </div>
         <div style="border-top:1px solid var(--bd);padding-top:6px">${cajasListHtml(p)}</div>
+        ${(() => { const tm = pedidoTerm(p, prodMap, pedidoEnCaja(p, cajasAllB)); return tm.arts ? `<div style="margin-top:6px;font-size:11px;color:#6d28d9;font-weight:700">🏁 ${tm.arts} artículo(s) pendientes en Terminación · ${fmt(tm.units)} prendas por llegar</div>` : ''; })()}
       </div>`;
     };
 
@@ -2148,11 +2199,16 @@ function bindContent(secId) {
         const rowsHtml = lineas44.map(l => {
           const clr = l.sal > 0 ? 'var(--wa)' : 'var(--ok)';
           const ec = enCaja[l.art] || 0;
+          const falta = Math.max(0, l.sal - ec);          // pendiente que NO está en caja
+          const pr = prodMap[l.art];
+          const prodTag = falta > 0
+            ? (pr?.term > 0 ? `<span style="color:#6d28d9;font-size:10px;font-weight:700">🏁 En terminación (${fmt(Math.min(falta, pr.term))})</span>`
+              : pr ? `<span style="color:${etapaClr(pr.top)};font-size:10px">En ${pr.top} (${fmt(pr.topU)})</span>`
+              : '<span style="color:var(--tx3);font-size:10px">Sin producción</span>')
+            : '';
           const estado = l.sal <= 0 ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completo</span>'
                        : ec >= l.sal ? '<span style="color:var(--ac);font-size:10px;font-weight:700">📦 Listo en caja</span>'
-                       : ec > 0 ? `<span style="color:var(--ac);font-size:10px">📦 En caja parcial · faltan ${fmt(l.sal - ec)}</span>`
-                       : l.desp > 0 ? '<span style="color:var(--ac);font-size:10px">En proceso</span>'
-                       : '<span style="color:var(--tx3);font-size:10px">Sin despacho</span>';
+                       : [ec > 0 ? `<span style="color:var(--ac);font-size:10px">📦 En caja parcial · faltan ${fmt(falta)}</span>` : '', prodTag].filter(Boolean).join('<br>');
           return `<tr>
             <td class="td-code" style="padding:8px 12px">${l.art}</td>
             <td class="td-dim" style="padding:8px 8px">${l.modelo}</td>
