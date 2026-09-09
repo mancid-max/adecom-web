@@ -1759,7 +1759,11 @@ function bindContent(secId) {
     if (!/\so\s/.test(t) && t.includes(',')) { const parts = t.split(/\s*,\s*/); t = parts.slice(0, -1).join(', ') + ' o ' + parts[parts.length - 1]; }
     const s = document.createElement('span');
     s.className = 'fhint pop'; s.innerHTML = `<b>←</b> Busca por ${t}`;
-    inp.insertAdjacentElement('afterend', s);
+    // Buscador + burbuja en un mismo bloque, para que nunca se separen al hacer wrap
+    const wrap = document.createElement('span');
+    wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap;max-width:100%';
+    if (inp.style.marginLeft) { wrap.style.marginLeft = inp.style.marginLeft; inp.style.marginLeft = ''; }
+    inp.replaceWith(wrap); wrap.appendChild(inp); wrap.appendChild(s);
     inp.classList.add('pop');
     setTimeout(() => { s.classList.remove('pop'); inp.classList.remove('pop'); }, 3600);
   });
