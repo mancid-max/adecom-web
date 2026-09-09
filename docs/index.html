@@ -2360,7 +2360,7 @@ async function init() {
   PEDS_ART = pa; DOCS = dv;
   const tsEl = document.getElementById('hdTs');
   tsEl.textContent = meta?.updated_str ? `Datos: ${meta.updated_str}` : '—';
-  tsEl.title = meta?.updated_str ? 'Última actualización desde Z:\\BI' : '';
+  tsEl.title = meta?.updated_str ? 'Última actualización de datos' : '';
 
   // Venta hoy
   const hoy = today();
