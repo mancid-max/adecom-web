@@ -247,6 +247,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 
 <div class="overlay" id="overlay"></div>
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
+<div class="det-ov" id="cajaOv" style="z-index:260"><div class="det-card"><div class="det-head"><div class="det-ttl" id="cajaTtl">Caja</div><button class="det-close" id="cajaClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cajaBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="detOv">
   <div class="det-panel">
     <div class="det-hd">
@@ -1996,8 +1997,24 @@ function bindContent(secId) {
     const pedMap = {};
     _peds.filter(p => (p.u_temp?.['44']||0) > 0).forEach(p => pedMap[p.pedido] = p);
     document.querySelectorAll('#vdBody tr[data-pid]').forEach(row => {
-      row.addEventListener('click', () => {
+      row.addEventListener('click', async () => {
         const p = pedMap[row.dataset.pid]; if (!p) return;
+        const cdata = await load('cajas.json');
+        const cajasAll = (!Array.isArray(cdata) && cdata?.cajas) || [];
+        const cajaFull = id => cajasAll.find(c => c.caja === id);
+        // Cobertura de una caja sobre el pedido (en bodega: vs saldo pendiente; ya despachada: vs lo pedido)
+        const cober = (caja) => {
+          const enBodega = caja.estado === 'bodega';
+          const byArt = {};
+          (caja.lineas || []).forEach(l => { const a = byArt[l.art] = byArt[l.art] || { cant: 0, tallas: [] }; a.cant += l.cant; a.tallas.push(`${l.talla}×${l.cant}`); });
+          const ped = {}; (p.lineas || []).forEach(l => ped[l.art] = l);
+          let cubre = 0, fuera = 0;
+          Object.entries(byArt).forEach(([art, a]) => { const pl = ped[art]; if (!pl) { fuera += a.cant; return; } cubre += Math.min(a.cant, enBodega ? pl.sal : pl.sol); });
+          const salTot = (p.lineas || []).reduce((s, l) => s + (enBodega ? l.sal : l.sol), 0);
+          const sinCaja = (p.lineas || []).filter(l => l.sal > 0 && !byArt[l.art]).length;
+          return { enBodega, byArt, ped, cubre, fuera, salTot, sinCaja, pct: salTot ? Math.round(cubre / salTot * 100) : 0 };
+        };
+        const coberBadge = (cv) => `<span style="background:${cv.pct >= 100 ? 'var(--ok10)' : 'var(--ac10)'};color:${cv.pct >= 100 ? 'var(--ok)' : 'var(--ac)'};border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap">Cubre ${fmt(cv.cubre)} de ${fmt(cv.salTot)} (${cv.pct}%)</span>`;
         const lineas44 = (p.lineas||[]).filter(l => l.temp === '44');
         const nombre = (p.nombre||p.rut||'').toUpperCase();
         document.getElementById('detTtl').textContent = `${nombre} — Pedido ${p.pedido} · T44`;
@@ -2005,28 +2022,26 @@ function bindContent(secId) {
         const meta = CACHE['meta.json'] || {};
         const cj = p.cajas || [];
         const cajasHtml = cj.length
-          ? cj.map(c => `<div class="cj-open" data-caja="${c.caja}" title="Ver contenido de la caja y qué cubre del pedido" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:5px 6px;margin:0 -6px;border-radius:8px;cursor:pointer">
-                <span class="chv" style="font-size:10px;color:var(--tx3)">▸</span>
+          ? cj.map(c => {
+              const full = cajaFull(c.caja); const cv = full ? cober(full) : null;
+              return `<div class="cj-open" data-caja="${c.caja}" title="Abrir contenido de la caja" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:5px 6px;margin:0 -6px;border-radius:8px;cursor:pointer">
+                <span style="font-size:14px">📦</span>
                 <span class="td-code">Caja ${String(c.caja).replace(/^0+/, '')}</span>
                 <span class="td-dim">${c.fecha}</span>
                 <span style="font-weight:700;color:${c.dias > 30 ? 'var(--er)' : c.dias > 14 ? 'var(--wa)' : 'var(--tx2)'}">${c.dias} días</span>
                 <span>${fmt(c.prendas)} prendas</span>
                 ${cajasEstadoBadge(c.estado)}
-              </div>
-              <div class="cj-detail" id="cjd-${c.caja}" style="display:none;margin:2px 0 8px"></div>`).join('')
+                ${cv ? coberBadge(cv) : ''}
+              </div>`;
+            }).join('')
           : `<span class="td-dim" style="font-size:12px">Sin cajas armadas para este pedido</span>`;
         // Contenido de una caja cruzado con el pedido: qué cubre y qué falta
         const buildCajaCobertura = (caja) => {
           if (!caja) return '<span class="td-dim" style="font-size:12px">No se encontró el detalle de esta caja</span>';
-          const enBodega = caja.estado === 'bodega';
-          const byArt = {};
-          (caja.lineas || []).forEach(l => { const a = byArt[l.art] = byArt[l.art] || { cant: 0, tallas: [] }; a.cant += l.cant; a.tallas.push(`${l.talla}×${l.cant}`); });
-          const ped = {}; (p.lineas || []).forEach(l => ped[l.art] = l);
-          let cubre = 0, fuera = 0;
+          const { enBodega, byArt, ped, cubre, fuera, salTot, sinCaja, pct } = cober(caja);
           const rows = Object.entries(byArt).map(([art, a]) => {
             const pl = ped[art];
-            const ref = pl ? (enBodega ? pl.sal : pl.sol) : 0;     // en bodega: compara con saldo pendiente; ya despachada: con lo pedido
-            const cov = Math.min(a.cant, ref); cubre += cov; if (!pl) fuera += a.cant;
+            const ref = pl ? (enBodega ? pl.sal : pl.sol) : 0;
             const est = !pl ? '<span style="color:var(--er);font-size:10px;font-weight:700">No está en el pedido</span>'
                       : a.cant >= ref ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completa</span>'
                       : `<span style="color:var(--wa);font-size:10px;font-weight:700">Parcial · faltan ${fmt(ref - a.cant)}</span>`;
@@ -2039,14 +2054,11 @@ function bindContent(secId) {
               <td style="padding:5px 8px">${est}</td>
             </tr>`;
           }).join('');
-          const salTot = (p.lineas || []).reduce((s, l) => s + (enBodega ? l.sal : l.sol), 0);
-          const pct = salTot ? Math.round(cubre / salTot * 100) : 0;
-          const sinCaja = (p.lineas || []).filter(l => l.sal > 0 && !byArt[l.art]).length;
           return `
-            <div style="background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;animation:cjPop .18s ease-out">
+            <div style="animation:cjPop .18s ease-out">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
-                <span style="font-size:18px">📦</span>
-                <span style="font-weight:700">Caja ${String(caja.caja).replace(/^0+/, '')} · ${fmt(caja.prendas)} prendas · ${Object.keys(byArt).length} artículos</span>
+                <span class="td-dim">${caja.fecha} · ${caja.dias} días en bodega · ${fmt(caja.prendas)} prendas · ${Object.keys(byArt).length} artículos</span>
+                ${cajasEstadoBadge(caja.estado)}
                 <span style="margin-left:auto;background:${pct >= 100 ? 'var(--ok10)' : 'var(--ac10)'};color:${pct >= 100 ? 'var(--ok)' : 'var(--ac)'};border-radius:20px;padding:3px 10px;font-weight:700">Cubre ${fmt(cubre)} de ${fmt(salTot)} ${enBodega ? 'pendientes' : 'pedidas'} (${pct}%)</span>
               </div>
               <div class="pbar" style="margin-bottom:8px"><div class="pbar-fill" style="width:${Math.min(100, pct)}%;background:${pct >= 100 ? 'var(--ok)' : 'var(--ac)'}"></div></div>
@@ -2119,23 +2131,19 @@ function bindContent(secId) {
             </tr></thead>
             <tbody>${rowsHtml || '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T44</td></tr>'}</tbody>
           </table>`;
-        // Click en una caja → abre su contenido y cobertura del pedido
-        document.querySelectorAll('#detBody .cj-open').forEach(el => el.addEventListener('click', async () => {
-          const box = document.getElementById('cjd-' + el.dataset.caja); if (!box) return;
-          const chv = el.querySelector('.chv');
-          if (box.style.display !== 'none') { box.style.display = 'none'; if (chv) chv.textContent = '▸'; return; }
-          if (!box.innerHTML) {
-            box.innerHTML = '<span class="td-dim" style="font-size:12px">Cargando…</span>';
-            const cdata = await load('cajas.json');
-            const caja = ((!Array.isArray(cdata) && cdata?.cajas) || []).find(c => c.caja === el.dataset.caja);
-            box.innerHTML = buildCajaCobertura(caja);
-          }
-          box.style.display = 'block'; if (chv) chv.textContent = '▾';
+        // Click en una caja → ventana emergente con su contenido y cobertura del pedido
+        document.querySelectorAll('#detBody .cj-open').forEach(el => el.addEventListener('click', () => {
+          const caja = cajaFull(el.dataset.caja);
+          document.getElementById('cajaTtl').textContent = `📦 Caja ${String(el.dataset.caja).replace(/^0+/, '')} — ${nombre} · Pedido ${p.pedido}`;
+          document.getElementById('cajaBody').innerHTML = buildCajaCobertura(caja);
+          document.getElementById('cajaOv').classList.add('open');
         }));
         document.getElementById('detOv').classList.add('open');
       });
     });
     document.getElementById('detClose')?.addEventListener('click', () => document.getElementById('detOv').classList.remove('open'));
+    document.getElementById('cajaClose')?.addEventListener('click', () => document.getElementById('cajaOv').classList.remove('open'));
+    document.getElementById('cajaOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     document.getElementById('detOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
   }
 
