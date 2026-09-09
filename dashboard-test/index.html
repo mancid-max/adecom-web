@@ -247,6 +247,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 
 <div class="overlay" id="overlay"></div>
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
+<div class="det-ov" id="pedOv" style="z-index:240"><div class="det-card"><div class="det-head"><div class="det-ttl" id="pedTtl">Pedido</div><button class="det-close" id="pedClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="pedBody"></div></div></div>
 <div class="det-ov" id="cajaOv" style="z-index:260"><div class="det-card"><div class="det-head"><div class="det-ttl" id="cajaTtl">Caja</div><button class="det-close" id="cajaClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cajaBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="detOv">
   <div class="det-panel">
@@ -1180,6 +1181,25 @@ function secReporteVenta() {
 }
 
 /* ── VENTA VS DESPACHO ──────────────────────────────────────── */
+/* Venta vs Despacho: agrupar pedidos T44 por cliente (RUT normalizado; si no hay RUT, por nombre) */
+const vdKey = p => (String(p.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '') || (p.nombre || '').toUpperCase());
+function vdGroups(peds) {
+  const m = new Map();
+  peds.filter(p => (p.u_temp?.['44'] || 0) > 0).forEach(p => {
+    const k = vdKey(p);
+    if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false });
+    const g = m.get(k);
+    g.pedidos.push(p); g.ped += p.u_temp['44'] || 0; g.desp += p.u_desp?.['44'] || 0; g.sal += p.u_sal?.['44'] || 0;
+    if (!g.cli && p.cli) g.cli = p.cli;
+    if (p.bloqueo) g.bloqueo = true;
+    (p.cajas || []).forEach(c => { if (c.estado === 'bodega') { g.cajasBod++; g.cajasPrendas += c.prendas; } });
+  });
+  const groups = [...m.values()];
+  groups.forEach(g => g.pedidos.sort((a, b) => (b.u_sal?.['44'] || 0) - (a.u_sal?.['44'] || 0)));
+  groups.sort((a, b) => b.sal - a.sal);
+  return groups;
+}
+
 async function secVentaDespacho() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>','Venta vs Despacho','Sin datos disponibles');
@@ -1190,27 +1210,27 @@ async function secVentaDespacho() {
   const totalSal  = t44.reduce((s,p) => s+(p.u_sal?.['44']||0), 0);
   const pct = totalPed ? (totalDesp/totalPed*100).toFixed(1) : 0;
 
-  t44.sort((a,b) => (b.u_sal?.['44']||0) - (a.u_sal?.['44']||0));
+  const groups = vdGroups(peds);   // una fila por cliente; sus pedidos se ven al abrir
 
-  const rowsHtml = t44.map(p => {
-    const ped44  = p.u_temp?.['44'] || 0;
-    const desp44 = p.u_desp?.['44'] || 0;
-    const sal44  = p.u_sal?.['44']  || 0;
+  const rowsHtml = groups.map(g => {
+    const ped44 = g.ped, desp44 = g.desp, sal44 = g.sal;
     const avancePct = ped44 ? Math.round(desp44/ped44*100) : 0;
-    const nombre = (p.nombre||p.rut||'').toUpperCase();
-    const cajasBod = (p.cajas || []).filter(c => c.estado === 'bodega');
-    const sinCupo  = !!(p.cli && p.cli.credito > 0 && p.cli.disponible <= 0);   // mismo criterio que el modal
+    const nombre = g.nombre;
+    const cli = g.cli;
+    const sinCupo  = !!(cli && cli.credito > 0 && cli.disponible <= 0);   // mismo criterio que el modal
+    const badge = (txt, bg, fg, title) => `<span title="${title}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">${txt}</span>`;
     const flags = [
-      cajasBod.length ? `<span title="${cajasBod.length} caja(s) armada(s) en bodega, ${cajasBod.reduce((s,c)=>s+c.prendas,0)} prendas" style="background:var(--ac10);color:var(--ac);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">📦 ${cajasBod.length}</span>` : '',
-      p.bloqueo ? '<span title="Pedido bloqueado en el ERP" style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">🔒 Bloqueado</span>' : '',
-      (p.cli && (p.cli.deuda > 0 || p.cli.cheques > 0)) ? `<span title="Deuda en cta. cte. ${fmtCLP(p.cli.deuda || 0)}${p.cli.cheques > 0 ? ' · cheques ' + fmtCLP(p.cli.cheques) : ''}" style="background:var(--wa10);color:var(--wa);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">Deuda ${fmtM((p.cli.deuda || 0) + (p.cli.cheques || 0))}</span>` : '',
-      sinCupo ? '<span title="Crédito agotado: sin cupo disponible" style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">Sin cupo</span>'
-        : (p.cli && p.cli.credito > 0 && p.cli.disponible > 0) ? `<span title="Cupo disponible ${fmtCLP(p.cli.disponible)} de ${fmtCLP(p.cli.credito)} de crédito" style="background:var(--ok10);color:var(--ok);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">Cupo ${fmtM(p.cli.disponible)}</span>` : '',
+      g.pedidos.length > 1 ? badge(`${g.pedidos.length} pedidos`, 'var(--sf2)', 'var(--tx2)', 'Pedidos T44 de este cliente') : '',
+      g.cajasBod ? badge(`📦 ${g.cajasBod}`, 'var(--ac10)', 'var(--ac)', `${g.cajasBod} caja(s) armada(s) en bodega, ${g.cajasPrendas} prendas`) : '',
+      g.bloqueo ? badge('🔒 Bloqueado', 'var(--er10)', 'var(--er)', 'Tiene pedido(s) bloqueado(s) en el ERP') : '',
+      (cli && (cli.deuda > 0 || cli.cheques > 0)) ? badge(`Deuda ${fmtM((cli.deuda || 0) + (cli.cheques || 0))}`, 'var(--wa10)', 'var(--wa)', `Deuda en cta. cte. ${fmtCLP(cli.deuda || 0)}${cli.cheques > 0 ? ' · cheques ' + fmtCLP(cli.cheques) : ''}`) : '',
+      sinCupo ? badge('Sin cupo', 'var(--er10)', 'var(--er)', 'Crédito agotado: sin cupo disponible')
+        : (cli && cli.credito > 0 && cli.disponible > 0) ? badge(`Cupo ${fmtM(cli.disponible)}`, 'var(--ok10)', 'var(--ok)', `Cupo disponible ${fmtCLP(cli.disponible)} de ${fmtCLP(cli.credito)} de crédito`) : '',
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((p.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-pid="${p.pedido}" style="cursor:pointer">
-      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||p.rut}</span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
-      <td class="td-dim">${p.ciudad||'—'}</td>
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-key="${esc(g.key)}" style="cursor:pointer">
+      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
+      <td class="td-dim">${g.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
       <td class="r td-num" style="color:${sal44>0?'var(--wa)':'var(--tx3)'}">${fmt(sal44)}</td>
@@ -1253,8 +1273,8 @@ async function secVentaDespacho() {
   </div>
   <div class="tbl-card">
     <div class="tbl-head">
-      <div class="card-ttl" style="margin:0">Pedidos T44 — Mayor Saldo Pendiente</div>
-      <span class="td-dim" style="margin-left:auto" id="vdCount">${t44.length} clientes</span>
+      <div class="card-ttl" style="margin:0">Clientes T44 — Mayor Saldo Pendiente · toca un cliente para ver sus pedidos</div>
+      <span class="td-dim" style="margin-left:auto" id="vdCount">${groups.length} clientes · ${t44.length} pedidos</span>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -1992,53 +2012,48 @@ function bindContent(secId) {
       });
     }
     document.querySelectorAll('#vdThead th[data-sort]').forEach(th => th.addEventListener('click', () => sortVD(th.dataset.sort)));
-    // Modal detalle por artículo al hacer click en fila de cliente
+    // Ventanas: cliente (detOv) → pedido (pedOv) → caja (cajaOv). Cada nivel con su X.
     const _peds = (typeof CACHE !== 'undefined' && CACHE['pedidos.json']) || [];
-    const pedMap = {};
-    _peds.filter(p => (p.u_temp?.['44']||0) > 0).forEach(p => pedMap[p.pedido] = p);
-    document.querySelectorAll('#vdBody tr[data-pid]').forEach(row => {
-      row.addEventListener('click', async () => {
-        const p = pedMap[row.dataset.pid]; if (!p) return;
-        const cdata = await load('cajas.json');
-        const cajasAll = (!Array.isArray(cdata) && cdata?.cajas) || [];
-        const cajaFull = id => cajasAll.find(c => c.caja === id);
-        // Cobertura de una caja sobre el pedido (en bodega: vs saldo pendiente; ya despachada: vs lo pedido)
-        const cober = (caja) => {
-          const enBodega = caja.estado === 'bodega';
-          const byArt = {};
-          (caja.lineas || []).forEach(l => { const a = byArt[l.art] = byArt[l.art] || { cant: 0, tallas: [] }; a.cant += l.cant; a.tallas.push(`${l.talla}×${l.cant}`); });
-          const ped = {}; (p.lineas || []).forEach(l => ped[l.art] = l);
-          let cubre = 0, fuera = 0;
-          Object.entries(byArt).forEach(([art, a]) => { const pl = ped[art]; if (!pl) { fuera += a.cant; return; } cubre += Math.min(a.cant, enBodega ? pl.sal : pl.sol); });
-          const salTot = (p.lineas || []).reduce((s, l) => s + (enBodega ? l.sal : l.sol), 0);
-          const sinCaja = (p.lineas || []).filter(l => l.sal > 0 && !byArt[l.art]).length;
-          return { enBodega, byArt, ped, cubre, fuera, salTot, sinCaja, pct: salTot ? Math.round(cubre / salTot * 100) : 0 };
-        };
-        const coberBadge = (cv) => `<span style="background:${cv.pct >= 100 ? 'var(--ok10)' : 'var(--ac10)'};color:${cv.pct >= 100 ? 'var(--ok)' : 'var(--ac)'};border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap">Cubre ${fmt(cv.cubre)} de ${fmt(cv.salTot)} (${cv.pct}%)</span>`;
-        const lineas44 = (p.lineas||[]).filter(l => l.temp === '44');
-        const nombre = (p.nombre||p.rut||'').toUpperCase();
-        document.getElementById('detTtl').textContent = `${nombre} — Pedido ${p.pedido} · T44`;
-        // Bloque: cajas armadas + ficha cliente (crédito / deuda / cupo) + bloqueo
-        const meta = CACHE['meta.json'] || {};
-        const cj = p.cajas || [];
-        const cajasHtml = cj.length
-          ? cj.map(c => {
-              const full = cajaFull(c.caja); const cv = full ? cober(full) : null;
-              return `<div class="cj-open" data-caja="${c.caja}" title="Abrir contenido de la caja" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:5px 6px;margin:0 -6px;border-radius:8px;cursor:pointer">
-                <span style="font-size:14px">📦</span>
-                <span class="td-code">Caja ${String(c.caja).replace(/^0+/, '')}</span>
-                <span class="td-dim">${c.fecha}</span>
-                <span style="font-weight:700;color:${c.dias > 30 ? 'var(--er)' : c.dias > 14 ? 'var(--wa)' : 'var(--tx2)'}">${c.dias} días</span>
-                <span>${fmt(c.prendas)} prendas</span>
-                ${cajasEstadoBadge(c.estado)}
-                ${cv ? coberBadge(cv) : ''}
-              </div>`;
-            }).join('')
-          : `<span class="td-dim" style="font-size:12px">Sin cajas armadas para este pedido</span>`;
-        // Contenido de una caja cruzado con el pedido: qué cubre y qué falta
-        const buildCajaCobertura = (caja) => {
+    const groupMap = {}; vdGroups(_peds).forEach(g => groupMap[g.key] = g);
+    const pedMapAll = {}; _peds.forEach(p => pedMapAll[p.pedido] = p);
+    let cajaFull = () => null;   // se resuelve al abrir (cajas.json)
+
+    // Cobertura de una caja sobre su pedido (en bodega: vs saldo pendiente; ya despachada: vs lo pedido)
+    const cober = (p, caja) => {
+      const enBodega = caja.estado === 'bodega';
+      const byArt = {};
+      (caja.lineas || []).forEach(l => { const a = byArt[l.art] = byArt[l.art] || { cant: 0, tallas: [] }; a.cant += l.cant; a.tallas.push(`${l.talla}×${l.cant}`); });
+      const ped = {}; (p.lineas || []).forEach(l => ped[l.art] = l);
+      let cubre = 0, fuera = 0;
+      Object.entries(byArt).forEach(([art, a]) => { const pl = ped[art]; if (!pl) { fuera += a.cant; return; } cubre += Math.min(a.cant, enBodega ? pl.sal : pl.sol); });
+      const salTot = (p.lineas || []).reduce((s, l) => s + (enBodega ? l.sal : l.sol), 0);
+      const sinCaja = (p.lineas || []).filter(l => l.sal > 0 && !byArt[l.art]).length;
+      return { enBodega, byArt, ped, cubre, fuera, salTot, sinCaja, pct: salTot ? Math.round(cubre / salTot * 100) : 0 };
+    };
+    const coberBadge = (cv) => `<span style="background:${cv.pct >= 100 ? 'var(--ok10)' : 'var(--ac10)'};color:${cv.pct >= 100 ? 'var(--ok)' : 'var(--ac)'};border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap">Cubre ${fmt(cv.cubre)} de ${fmt(cv.salTot)} (${cv.pct}%)</span>`;
+
+    // Lista de cajas de un pedido (cada una abre su ventana)
+    const cajasListHtml = (p) => {
+      const cj = p.cajas || [];
+      if (!cj.length) return `<span class="td-dim" style="font-size:12px">Sin cajas armadas</span>`;
+      return cj.map(c => {
+        const full = cajaFull(c.caja); const cv = full ? cober(p, full) : null;
+        return `<div class="cj-open" data-caja="${c.caja}" data-pid="${p.pedido}" title="Abrir contenido de la caja" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;padding:5px 6px;margin:0 -6px;border-radius:8px;cursor:pointer">
+          <span style="font-size:14px">📦</span>
+          <span class="td-code">Caja ${String(c.caja).replace(/^0+/, '')}</span>
+          <span class="td-dim">${c.fecha}</span>
+          <span style="font-weight:700;color:${c.dias > 30 ? 'var(--er)' : c.dias > 14 ? 'var(--wa)' : 'var(--tx2)'}">${c.dias} días</span>
+          <span>${fmt(c.prendas)} prendas</span>
+          ${cajasEstadoBadge(c.estado)}
+          ${cv ? coberBadge(cv) : ''}
+        </div>`;
+      }).join('');
+    };
+
+    // Contenido de una caja cruzado con el pedido: qué cubre y qué falta
+    const buildCajaCobertura = (p, caja) => {
           if (!caja) return '<span class="td-dim" style="font-size:12px">No se encontró el detalle de esta caja</span>';
-          const { enBodega, byArt, ped, cubre, fuera, salTot, sinCaja, pct } = cober(caja);
+          const { enBodega, byArt, ped, cubre, fuera, salTot, sinCaja, pct } = cober(p, caja);
           const rows = Object.entries(byArt).map(([art, a]) => {
             const pl = ped[art];
             const ref = pl ? (enBodega ? pl.sal : pl.sol) : 0;
@@ -2076,15 +2091,17 @@ function bindContent(secId) {
               ${sinCaja ? `<div class="td-dim" style="font-size:11px;margin-top:6px">${sinCaja} artículo(s) del pedido con saldo no vienen en esta caja</div>` : ''}
               ${fuera ? `<div style="font-size:11px;margin-top:4px;color:var(--er)">${fmt(fuera)} prenda(s) de la caja no corresponden a este pedido</div>` : ''}
             </div>`;
-        };
-        const cli = p.cli;
-        const money = (v, warn) => { v = v || 0; return `<span class="td-num" style="font-weight:700;color:${warn ? 'var(--er)' : 'var(--tx1)'}">${v < 0 ? '−' : ''}${fmtCLP(Math.abs(v))}</span>`; };
+    };
+
+    // Ficha de crédito del cliente
+    const money = (v, warn) => { v = v || 0; return `<span class="td-num" style="font-weight:700;color:${warn ? 'var(--er)' : 'var(--tx1)'}">${v < 0 ? '−' : ''}${fmtCLP(Math.abs(v))}</span>`; };
+    const cliHtmlFor = (cli) => {
         const sinLinea = cli && !(cli.credito > 0);                       // contado: sin línea de crédito asignada
         const sinCupo  = cli && cli.credito > 0 && cli.disponible <= 0;   // mismo criterio que el badge de la fila
         const cupoTag  = sinLinea ? '<span style="color:var(--tx3);font-size:10px;font-weight:700">Sin línea de crédito</span>'
                        : sinCupo  ? '<span style="color:var(--er);font-size:10px;font-weight:700">Sin cupo</span>'
                                   : '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Tiene cupo</span>';
-        const cliHtml = cli
+        return cli
           ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 16px;font-size:12px">
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Crédito</div>${money(cli.credito)}</div>
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Deuda (cta. cte.)</div>${money(cli.deuda, cli.deuda > 0)}</div>
@@ -2094,14 +2111,36 @@ function bindContent(secId) {
              </div>
              ${cli.fichas > 1 ? `<div class="td-dim" style="font-size:10px;margin-top:6px">Este RUT tiene ${cli.fichas} cuentas; se muestra la de mayor crédito${cli.deuda_otras > 0 ? ` (las otras deben ${fmtCLP(cli.deuda_otras)})` : ''}</div>` : ''}`
           : `<span class="td-dim" style="font-size:12px">Sin ficha de crédito para este cliente</span>`;
+    };
+
+    // Tarjeta resumen de un pedido (en la ventana del cliente): números + avance + cajas; click → ventana del pedido
+    const pedidoCardHtml = (p) => {
+      const ped44 = p.u_temp?.['44'] || 0, desp44 = p.u_desp?.['44'] || 0, sal44 = p.u_sal?.['44'] || 0;
+      const pct = ped44 ? Math.round(desp44 / ped44 * 100) : 0;
+      return `<div class="vd-ped" data-pid="${p.pedido}" title="Ver artículos del pedido" style="border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin:0 12px 10px;cursor:pointer">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
+          <span class="td-code" style="font-weight:700">Pedido ${p.pedido}</span>
+          <span class="td-dim">${p.fecha}</span>
+          ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">🔒 Bloqueado</span>' : ''}
+          <span style="margin-left:auto;color:var(--ac);font-weight:600;font-size:11px">Ver artículos ›</span>
+        </div>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0 6px;font-size:12px">
+          <span>Pedido <b class="td-num">${fmt(ped44)}</b></span>
+          <span>Despachado <b class="td-num" style="color:var(--ok)">${fmt(desp44)}</b></span>
+          <span>Saldo <b class="td-num" style="color:${sal44 > 0 ? 'var(--wa)' : 'var(--tx3)'}">${fmt(sal44)}</b></span>
+          <span style="display:flex;align-items:center;gap:6px"><span class="pbar" style="width:70px"><span class="pbar-fill" style="display:block;background:var(--ok);width:${pct}%"></span></span><span class="td-dim">${pct}%</span></span>
+        </div>
+        <div style="border-top:1px solid var(--bd);padding-top:6px">${cajasListHtml(p)}</div>
+      </div>`;
+    };
+
+    // Ventana del pedido: cajas + tabla de artículos
+    const pedidoDetailHtml = (p) => {
+        const lineas44 = (p.lineas||[]).filter(l => l.temp === '44');
+        const cj = p.cajas || [];
         const infoHtml = `
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:12px 12px 14px">
-            <div style="background:var(--sf2);border-radius:10px;padding:10px 14px">
-              <div style="font-size:11px;font-weight:700;margin-bottom:6px">📦 Cajas armadas ${cj.length ? `(${cj.length})` : ''}</div>${cajasHtml}
-            </div>
-            <div style="background:var(--sf2);border-radius:10px;padding:10px 14px">
-              <div style="font-size:11px;font-weight:700;margin-bottom:6px;display:flex;gap:8px;align-items:center">Cuenta cliente ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px">🔒 Pedido bloqueado</span>' : ''}</div>${cliHtml}
-            </div>
+          <div style="margin:12px 12px 14px;background:var(--sf2);border-radius:10px;padding:10px 14px">
+            <div style="font-size:11px;font-weight:700;margin-bottom:6px;display:flex;gap:8px;align-items:center">📦 Cajas armadas ${cj.length ? `(${cj.length})` : ''} ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px">🔒 Pedido bloqueado</span>' : ''}</div>${cajasListHtml(p)}
           </div>`;
         const rowsHtml = lineas44.map(l => {
           const clr = l.sal > 0 ? 'var(--wa)' : 'var(--ok)';
@@ -2118,7 +2157,7 @@ function bindContent(secId) {
             <td style="padding:8px 12px">${estado}</td>
           </tr>`;
         }).join('');
-        document.getElementById('detBody').innerHTML = infoHtml + `
+        return infoHtml + `
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="background:var(--sf2)">
               <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">ARTÍCULO</th>
@@ -2131,20 +2170,49 @@ function bindContent(secId) {
             </tr></thead>
             <tbody>${rowsHtml || '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T44</td></tr>'}</tbody>
           </table>`;
-        // Click en una caja → ventana emergente con su contenido y cobertura del pedido
-        document.querySelectorAll('#detBody .cj-open').forEach(el => el.addEventListener('click', () => {
-          const caja = cajaFull(el.dataset.caja);
-          document.getElementById('cajaTtl').textContent = `📦 Caja ${String(el.dataset.caja).replace(/^0+/, '')} — ${nombre} · Pedido ${p.pedido}`;
-          document.getElementById('cajaBody').innerHTML = buildCajaCobertura(caja);
-          document.getElementById('cajaOv').classList.add('open');
-        }));
+    };
+
+    // Click en una caja (en cualquier ventana) → ventana de la caja
+    const bindCajas = (root) => root.querySelectorAll('.cj-open').forEach(el => el.addEventListener('click', e => {
+      e.stopPropagation();
+      const p = pedMapAll[el.dataset.pid]; if (!p) return;
+      const caja = cajaFull(el.dataset.caja);
+      document.getElementById('cajaTtl').textContent = `📦 Caja ${String(el.dataset.caja).replace(/^0+/, '')} — ${(p.nombre || '').toUpperCase()} · Pedido ${p.pedido}`;
+      document.getElementById('cajaBody').innerHTML = buildCajaCobertura(p, caja);
+      document.getElementById('cajaOv').classList.add('open');
+    }));
+    // Click en un pedido → ventana del pedido
+    const openPedido = (p) => {
+      document.getElementById('pedTtl').textContent = `${(p.nombre || '').toUpperCase()} — Pedido ${p.pedido} · ${p.fecha}`;
+      const body = document.getElementById('pedBody');
+      body.innerHTML = pedidoDetailHtml(p);
+      bindCajas(body);
+      document.getElementById('pedOv').classList.add('open');
+    };
+    // Click en un cliente → ventana del cliente: cuenta + sus pedidos
+    document.querySelectorAll('#vdBody tr[data-key]').forEach(row => {
+      row.addEventListener('click', async () => {
+        const g = groupMap[row.dataset.key]; if (!g) return;
+        const cdata = await load('cajas.json');
+        const cajasAll = (!Array.isArray(cdata) && cdata?.cajas) || [];
+        cajaFull = id => cajasAll.find(c => c.caja === id);
+        document.getElementById('detTtl').textContent = `${g.nombre} — ${g.pedidos.length} pedido${g.pedidos.length > 1 ? 's' : ''} T44`;
+        const body = document.getElementById('detBody');
+        body.innerHTML = `
+          <div style="margin:12px 12px 14px;background:var(--sf2);border-radius:10px;padding:10px 14px">
+            <div style="font-size:11px;font-weight:700;margin-bottom:6px">Cuenta cliente</div>${cliHtmlFor(g.cli)}
+          </div>
+          <div style="margin:0 12px 8px;font-size:11px;font-weight:700;color:var(--tx2)">PEDIDOS T44 · ${fmt(g.ped)} pedidas · ${fmt(g.desp)} despachadas · ${fmt(g.sal)} pendientes</div>
+          ${g.pedidos.map(pedidoCardHtml).join('')}`;
+        body.querySelectorAll('.vd-ped').forEach(el => el.addEventListener('click', () => { const p = pedMapAll[el.dataset.pid]; if (p) openPedido(p); }));
+        bindCajas(body);
         document.getElementById('detOv').classList.add('open');
       });
     });
-    document.getElementById('detClose')?.addEventListener('click', () => document.getElementById('detOv').classList.remove('open'));
-    document.getElementById('cajaClose')?.addEventListener('click', () => document.getElementById('cajaOv').classList.remove('open'));
-    document.getElementById('cajaOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
-    document.getElementById('detOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+    [['detClose', 'detOv'], ['pedClose', 'pedOv'], ['cajaClose', 'cajaOv']].forEach(([btn, ov]) => {
+      document.getElementById(btn)?.addEventListener('click', () => document.getElementById(ov).classList.remove('open'));
+      document.getElementById(ov)?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+    });
   }
 
   // Cajas en Bodega — filtros + expandir contenido
