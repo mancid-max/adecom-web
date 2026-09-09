@@ -160,8 +160,8 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* Al abrir la sección: la burbuja y el buscador pulsan 3 veces para que se ubique el buscador */
 @keyframes hintPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(70,95,255,.45)}50%{transform:scale(1.08);box-shadow:0 0 0 8px rgba(70,95,255,0)}}
 @keyframes inputPulse{0%,100%{box-shadow:0 0 0 0 rgba(70,95,255,.5);border-color:var(--ac)}50%{box-shadow:0 0 0 6px rgba(70,95,255,0);border-color:var(--ac)}}
-.fhint.pop{animation:hintPulse 1.1s ease-in-out 3}
-.fsearch.pop{animation:inputPulse 1.1s ease-in-out 3}
+.fhint.pop{animation:hintPulse 1.2s ease-in-out 1}
+.fsearch.pop{animation:inputPulse 1.2s ease-in-out 1}
 @media (prefers-reduced-motion:reduce){.fhint.pop,.fsearch.pop{animation:none}}
 /* Inputs de búsqueda: lupa a la izquierda */
 .finput.fsearch{padding-left:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:9px center;background-size:14px 14px}
@@ -1765,7 +1765,7 @@ function bindContent(secId) {
     if (inp.style.marginLeft) { wrap.style.marginLeft = inp.style.marginLeft; inp.style.marginLeft = ''; }
     inp.replaceWith(wrap); wrap.appendChild(inp); wrap.appendChild(s);
     inp.classList.add('pop');
-    setTimeout(() => { s.classList.remove('pop'); inp.classList.remove('pop'); }, 3600);
+    setTimeout(() => { s.classList.remove('pop'); inp.classList.remove('pop'); }, 1400);
   });
 
   // [data-goto] → navegar
