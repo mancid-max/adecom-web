@@ -10,6 +10,27 @@ BI = r"Z:\BI"
 OUT      = os.path.dirname(os.path.abspath(__file__))
 DOCS_OUT = os.path.join(os.path.dirname(OUT), 'docs')
 
+# Copia local de la última versión buena de cada archivo de Z:\BI. Si el ERP está exportando
+# (borra y reescribe) o el export falló, se usa la copia en vez de abortar todo el build.
+BI_CACHE = os.path.join(os.path.dirname(OUT), 'data', 'bi_cache')
+os.makedirs(BI_CACHE, exist_ok=True)
+import shutil
+def bi_file(name):
+    src, cache = os.path.join(BI, name), os.path.join(BI_CACHE, name)
+    if os.path.exists(src) and os.path.getsize(src) > 0:
+        try:
+            if (not os.path.exists(cache) or os.path.getmtime(src) > os.path.getmtime(cache)
+                    or os.path.getsize(src) != os.path.getsize(cache)):
+                shutil.copy2(src, cache)
+        except Exception as ex:
+            print(f"  aviso: no se pudo copiar {name} a bi_cache: {ex}")
+        return src
+    if os.path.exists(cache):
+        print(f"  AVISO: {name} no esta en Z:\\BI - usando copia local del "
+              f"{datetime.fromtimestamp(os.path.getmtime(cache)).strftime('%d/%m/%Y %H:%M')}")
+        return cache
+    return src
+
 TEMP_MIN, TEMP_MAX = 27, 99  # Todas las temporadas disponibles
 def temp_valida(t):
     try: return TEMP_MIN <= int(t) <= TEMP_MAX
@@ -39,7 +60,7 @@ def stage_dias(ini, fin):
 
 # ── 1. TRAZABILIDAD ────────────────────────────────────────────
 print("Leyendo TRAZABILIDAD2.CSV...")
-with open(f"{BI}/TRAZABILIDAD2.CSV", encoding="latin-1") as f:
+with open(bi_file("TRAZABILIDAD2.CSV"), encoding="latin-1") as f:
     traza_rows = list(csv.DictReader(f, delimiter=';'))
 
 full_table = []
@@ -91,7 +112,7 @@ for r in traza_rows:
 
 # ── 2. PEDIDOS ─────────────────────────────────────────────────
 print("Leyendo PEDIDOS.CSV...")
-with open(f"{BI}/PEDIDOS.CSV", encoding="latin-1") as f:
+with open(bi_file("PEDIDOS.CSV"), encoding="latin-1") as f:
     ped_rows = list(csv.DictReader(f, delimiter=';'))
 
 pedidos_dict = {}
@@ -183,7 +204,7 @@ print("Leyendo ARCHIVO_TALLAS.CSV...")
 art_dict = {}  # {temp: {base: {mod: qty}}}
 tallas_fallback = False
 try:
-    with open(f"{BI}/ARCHIVO_TALLAS.CSV", encoding="latin-1") as f:
+    with open(bi_file("ARCHIVO_TALLAS.CSV"), encoding="latin-1") as f:
         for line in f:
             cells = [c.strip() for c in line.strip().split(';')]
             if len(cells) < 6 or not cells[0] or not cells[2]:
@@ -244,7 +265,7 @@ def calc_bruto(neto, tipo):
     return neto if tipo in EXENTOS else int(round(neto * 1.19))
 
 print("Leyendo VENTAS-TOD-2026.CSV...")
-with open(f"{BI}/VENTAS-TOD-2026.CSV", encoding="latin-1") as f:
+with open(bi_file("VENTAS-TOD-2026.CSV"), encoding="latin-1") as f:
     reader = csv.DictReader(f, delimiter=';')
     venta_rows = list(reader)
 
@@ -285,7 +306,7 @@ SUCURSALES_PRENDAS = {'01','02','04','05','10','12','33'}
 
 print("Leyendo SALDOSXLOCAL.CSV...")
 saldo_map = {}  # {art8: {'sucs': {suc: qty}, 'tallas': {talla: qty}}}
-saldo_file = os.path.join(BI, 'SALDOSXLOCAL.CSV')
+saldo_file = bi_file('SALDOSXLOCAL.CSV')
 try:
     with open(saldo_file, encoding='latin-1') as f:
         reader = csv.DictReader(f, delimiter=';')
@@ -408,7 +429,7 @@ except Exception as e:
 # estado: bodega (sin despachar) | despachada (sin factura) | facturada
 print("Leyendo CAJAS.TXT...")
 def _rut_norm(s): return str(s or '').strip().replace('.', '').replace('-', '').upper()
-cajas_file = os.path.join(BI, 'CAJAS.TXT')
+cajas_file = bi_file('CAJAS.TXT')
 cajas = []
 cajas_meta = {"archivo_fecha": "", "archivo_fecha_iso": ""}
 try:
@@ -477,7 +498,7 @@ print("Leyendo CLIENTE.Txt...")
 clientes_meta = {"archivo_fecha": ""}
 clientes = {}
 try:
-    cli_file = os.path.join(BI, 'CLIENTE.Txt')
+    cli_file = bi_file('CLIENTE.Txt')
     clientes_meta["archivo_fecha"] = datetime.fromtimestamp(os.path.getmtime(cli_file)).strftime('%d/%m/%Y')
     # Layout: 23 columnas. El ERP exporta la 'Ñ' como ';' → algunas filas traen 24 columnas y los índices
     # fijos se corren. Por eso: RUT se busca por patrón en las primeras columnas, Fpago por patrón 'NN - ',

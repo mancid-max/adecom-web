@@ -10,3 +10,5 @@ zoho_config.json
 supabase_config.json
 # Datos del dashboard: viven en Supabase Storage (bucket privado 'bi'), no en el repo publico
 docs/*.json
+# Copia local de la ultima version buena de Z:\BI (fallback cuando el ERP esta exportando)
+data/bi_cache/
