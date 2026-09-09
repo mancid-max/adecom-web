@@ -1197,7 +1197,6 @@ async function secVentaDespacho() {
     const sinCupo  = !!(p.cli && p.cli.credito > 0 && p.cli.disponible <= 0);   // mismo criterio que el modal
     const flags = [
       cajasBod.length ? `<span title="${cajasBod.length} caja(s) armada(s) en bodega, ${cajasBod.reduce((s,c)=>s+c.prendas,0)} prendas" style="background:var(--ac10);color:var(--ac);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">📦 ${cajasBod.length}</span>` : '',
-      p.bloqueo ? '<span title="Pedido bloqueado en el ERP" style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">🔒 Bloqueado</span>' : '',
       sinCupo ? '<span title="Crédito agotado: sin cupo disponible" style="background:var(--wa10);color:var(--wa);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">Sin cupo</span>' : '',
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
@@ -2030,7 +2029,7 @@ function bindContent(secId) {
               <div style="font-size:11px;font-weight:700;margin-bottom:6px">📦 Cajas armadas ${cj.length ? `(${cj.length})` : ''}</div>${cajasHtml}
             </div>
             <div style="background:var(--sf2);border-radius:10px;padding:10px 14px">
-              <div style="font-size:11px;font-weight:700;margin-bottom:6px;display:flex;gap:8px;align-items:center">Cuenta cliente ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px">🔒 Pedido bloqueado</span>' : ''}</div>${cliHtml}
+              <div style="font-size:11px;font-weight:700;margin-bottom:6px">Cuenta cliente</div>${cliHtml}
             </div>
           </div>`;
         const rowsHtml = lineas44.map(l => {
