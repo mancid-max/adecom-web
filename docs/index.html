@@ -1209,7 +1209,7 @@ async function secVentaDespacho() {
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
     return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((p.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-pid="${p.pedido}" style="cursor:pointer">
-      <td><div style="display:flex;align-items:center;gap:6px"><span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||p.rut}</span>${flags}</div></td>
+      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||p.rut}</span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
       <td class="td-dim">${p.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
