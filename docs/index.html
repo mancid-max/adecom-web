@@ -805,7 +805,7 @@ function secDetalleColor() {
 /* ── TOP 10 PEDIDOS ─────────────────────────────────────────── */
 async function secTop10() {
   const peds = await load('pedidos.json');
-  if (!peds.length) return '<div class="ph"><h3>Sin datos</h3><p>Sirve el archivo via serve.py</p></div>';
+  if (!peds.length) return '<div class="ph"><h3>Sin datos</h3><p>No hay información para mostrar</p></div>';
 
   const t44 = peds.filter(p => p.u_temp?.['44'] > 0 || p.temps?.includes('44'));
   t44.sort((a,b) => b.unidades - a.unidades);
@@ -973,7 +973,7 @@ function getEtapa(r) {
 
 async function secTabla() {
   const ft = await load('full_table.json');
-  if (!ft.length) return makePH('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>','Trazabilidad','Carga datos via serve.py');
+  if (!ft.length) return makePH('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>','Trazabilidad','Sin datos disponibles');
 
   const temps = [...new Set(ft.map(r => r.temporada).filter(Boolean))].sort();
   const tipos = [...new Set(ft.map(r => r.tipo).filter(Boolean))].sort();
@@ -1177,7 +1177,7 @@ function secReporteVenta() {
 /* ── VENTA VS DESPACHO ──────────────────────────────────────── */
 async function secVentaDespacho() {
   const peds = await load('pedidos.json');
-  if (!peds.length) return makePH('<rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>','Venta vs Despacho','Carga datos via serve.py');
+  if (!peds.length) return makePH('<rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>','Venta vs Despacho','Sin datos disponibles');
 
   const t44 = peds.filter(p => (p.u_temp?.['44'] || 0) > 0);
   const totalPed  = t44.reduce((s,p) => s+(p.u_temp?.['44']||0), 0);
@@ -1278,7 +1278,7 @@ async function secCajas() {
   const cajas = Array.isArray(data) ? [] : (data?.cajas || []);
   const cmeta = (!Array.isArray(data) && data?.meta) || {};
   const ICO = '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>';
-  if (!cajas.length) return makePH(ICO, 'Cajas en Bodega', 'Sin datos: CAJAS.TXT no encontrado en Z:\\BI');
+  if (!cajas.length) return makePH(ICO, 'Cajas en Bodega', 'Sin datos de cajas disponibles');
 
   const vendedores = [...new Set(cajas.map(c => c.vendedor).filter(Boolean))].sort();
   const tempsCj = [...new Set(cajas.flatMap(c => c.temps || []))].sort((a, b) => b.localeCompare(a));
@@ -1359,7 +1359,7 @@ async function secCajas() {
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div class="card-ttl" style="margin:0">Cajas armadas — toca una fila para ver el contenido</div>
-      <span class="td-dim" style="margin-left:auto" title="Última modificación de Z:\\BI\\CAJAS.TXT">CAJAS.TXT al ${cmeta.archivo_fecha || '—'}</span>
+      <span class="td-dim" style="margin-left:auto" title="Fecha del último registro de cajas">Cajas al ${cmeta.archivo_fecha || '—'}</span>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -1374,7 +1374,7 @@ async function secCajas() {
 /* ── CLIENTES INACTIVOS ─────────────────────────────────────── */
 async function secClientes() {
   const peds = await load('pedidos.json');
-  if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Carga datos via serve.py');
+  if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
   const base = peds.filter(p => p.saldo > 0 && p.dias > 0);
   base.sort((a,b) => b.saldo - a.saldo);
@@ -1640,7 +1640,7 @@ async function secPVC() {
     </div>
   </div>`;
 }
-const secER  = () => makePH('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>','Estado de Resultado','Resumen financiero mensual desde ESTADO DE RESULTADO 2026.CSV. Disponible en el dashboard principal.');
+const secER  = () => makePH('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>','Estado de Resultado','Resumen financiero mensual. Disponible en el dashboard principal.');
 
 /* ── ROUTER ─────────────────────────────────────────────────── */
 const SECS = {
@@ -2022,8 +2022,8 @@ function bindContent(secId) {
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Cupo disponible</div>${money(cli.disponible, sinCupo)} ${cupoTag}</div>
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Forma de pago</div><span>${cli.fpago || '—'}</span></div>
              </div>
-             <div class="td-dim" style="font-size:10px;margin-top:6px">Ficha CLIENTE.Txt al ${meta.clientes_fecha || '—'}${cli.fichas > 1 ? ` · ${cli.fichas} fichas con este RUT (se muestra la de mayor crédito${cli.deuda_otras > 0 ? `; otras fichas deben ${fmtCLP(cli.deuda_otras)}` : ''})` : ''}</div>`
-          : `<span class="td-dim" style="font-size:12px">Ficha de crédito no disponible en esta versión (RUT ${p.rut || '—'})</span>`;
+             ${cli.fichas > 1 ? `<div class="td-dim" style="font-size:10px;margin-top:6px">Este RUT tiene ${cli.fichas} cuentas; se muestra la de mayor crédito${cli.deuda_otras > 0 ? ` (las otras deben ${fmtCLP(cli.deuda_otras)})` : ''}</div>` : ''}`
+          : `<span class="td-dim" style="font-size:12px">Sin ficha de crédito para este cliente</span>`;
         const infoHtml = `
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:12px 12px 14px">
             <div style="background:var(--sf2);border-radius:10px;padding:10px 14px">
