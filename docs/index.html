@@ -1195,6 +1195,14 @@ function secReporteVenta() {
 /* ── VENTA VS DESPACHO ──────────────────────────────────────── */
 /* Venta vs Despacho: agrupar pedidos T44 por cliente (RUT normalizado; si no hay RUT, por nombre) */
 const vdKey = p => (String(p.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '') || (p.nombre || '').toUpperCase());
+/* Coincidencia de artículo ANCLADA. art8 = prefijo(2) + modelo(4) + color(2), ej 01441300 = modelo 4413, color 00.
+   Nunca subcadena libre: "4440" no debe calzar dentro de 01444400 (que es modelo 4444). */
+function artMatch(a, q) {
+  if (q.length === 4) return a.slice(2, 6) === q;                              // modelo exacto
+  if (q.length >= 8)  return a === q;                                          // código completo
+  if (q.length >= 5)  return a.startsWith(q) || a.slice(2).startsWith(q);      // escribiendo el código (con o sin prefijo)
+  return false;                                                                // menos de 4 dígitos: no es artículo
+}
 /* Producción pendiente por artículo (Trazabilidad): unidades con saldo por etapa; 'term' = en Terminación (última etapa) */
 function buildProdMap(ft) {
   const m = {};
@@ -1286,10 +1294,8 @@ async function secVentaDespacho() {
         : (cli && cli.credito > 0 && cli.disponible > 0) ? badge(`Cupo ${fmtM(cli.disponible)}`, 'var(--ok10)', 'var(--ok)', `Cupo disponible ${fmtCLP(cli.disponible)} de ${fmtCLP(cli.credito)} de crédito`) : '',
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
-    const artsArr = [...g.arts.entries()];
-    const artSearch = artsArr.map(([a]) => a).join(' ');                                   // "01441300 01443400 …" (el modelo 4413 cae como subcadena)
-    const artQ = artsArr.map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}`).join(',');    // cuánto pidió de cada artículo
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-arts="${artSearch}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
+    const artQ = [...g.arts.entries()].map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}`).join(',');   // artículo y cuánto pidió de cada uno
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
       <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span><span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
       <td class="td-dim">${g.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
@@ -2062,8 +2068,9 @@ function bindContent(secId) {
       const tm  = document.querySelector('#vdTermSegs .seg.on')?.dataset.tm || 'todo';
       const q   = (document.getElementById('vdSearch')?.value||'').trim().toLowerCase();
       const ciu = (document.getElementById('vdCiudad')?.value||'').toLowerCase();
-      const esArt = /^\d{3,}$/.test(q);      // 3+ dígitos → se busca también como artículo/modelo
-      let vis = 0, artSol = 0, artDesp = 0, artSal = 0;
+      const esArt = /^\d{4,}$/.test(q);      // 4+ dígitos → se busca también como artículo/modelo
+      const MAX_CHIPS = 4;
+      let vis = 0, nArt = 0, artSol = 0, artDesp = 0, artSal = 0;
       document.querySelectorAll('#vdBody tr[data-nombre]').forEach(row => {
         const pct = parseInt(row.dataset.avance)||0;
         const avOk = av === 'todo' ||
@@ -2071,8 +2078,13 @@ function bindContent(secId) {
           (av === 'parcial'  && pct > 0 && pct < 100) ||
           (av === 'completo' && pct >= 100);
         const tmOk = tm === 'todo' || (parseInt(row.dataset.term) || 0) > 0;
-        const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || (esArt && (row.dataset.arts || '').includes(q));
         const ciuOk = !ciu || row.dataset.ciudad === ciu;
+        // Artículos del cliente que coinciden con la búsqueda (mismo criterio para filtrar y para los chips)
+        const hits = esArt
+          ? (row.dataset.artq || '').split(',').filter(Boolean).map(s => s.split(':')).filter(([a]) => artMatch(a, q))
+          : [];
+        if (hits.length) nArt++;
+        const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || hits.length > 0;
         const ok = avOk && tmOk && qOk && ciuOk;
         row.style.display = ok ? '' : 'none';
         // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
@@ -2080,20 +2092,23 @@ function bindContent(secId) {
         if (hit) hit.innerHTML = '';
         if (ok) {
           vis++;
-          if (esArt && hit) {
-            const hits = (row.dataset.artq || '').split(',').filter(Boolean).map(s => s.split(':')).filter(([a]) => a.includes(q));
-            hits.forEach(([a, sol, desp, sal]) => {
-              artSol += +sol || 0; artDesp += +desp || 0; artSal += +sal || 0;
-            });
-            hit.innerHTML = hits.map(([a, sol, desp, sal]) =>
-              `<span title="Artículo ${a}: ${fmt(sol)} pedidas, ${fmt(desp)} despachadas, ${fmt(sal)} pendientes" style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap"><span class="td-code">${a}</span> · ${fmt(sol)} ped · <span style="color:${+sal > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(sal)} pend</span></span>`).join('');
+          if (hits.length && hit) {
+            hits.forEach(([, sol, desp, sal]) => { artSol += +sol || 0; artDesp += +desp || 0; artSal += +sal || 0; });
+            const extra = hits.length - MAX_CHIPS;
+            hit.innerHTML = hits.slice(0, MAX_CHIPS).map(([a, sol, desp, sal]) =>
+              `<span title="Artículo ${a}: ${fmt(sol)} pedidas, ${fmt(desp)} despachadas, ${fmt(sal)} pendientes" style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap"><span class="td-code">${a}</span> · ${fmt(sol)} ped · <span style="color:${+sal > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(sal)} pend</span></span>`).join('')
+              + (extra > 0 ? `<span class="td-dim" style="font-size:10px;font-weight:700">+${extra} más</span>` : '');
           }
         }
       });
       const el = document.getElementById('vdCount');
-      if (el) el.textContent = esArt && artSol
-        ? `${vis} clientes · artículo ${q}: ${fmt(artSol)} pedidas · ${fmt(artDesp)} despachadas · ${fmt(artSal)} pendientes`
-        : `${vis} clientes`;
+      if (el) {
+        const tot = `${fmt(artSol)} pedidas · ${fmt(artDesp)} despachadas · ${fmt(artSal)} pendientes`;
+        el.textContent = !esArt          ? `${vis} clientes`
+                       : nArt === 0      ? `Ningún cliente pidió ${q}`
+                       : vis === nArt    ? `${vis} clientes · artículo ${q}: ${tot}`
+                                         : `${vis} de ${nArt} clientes con ${q} · en pantalla: ${tot}`;
+      }
     }
     document.getElementById('vdSearch')?.addEventListener('input', applyVDFilters);
     document.getElementById('vdCiudad')?.addEventListener('change', applyVDFilters);
