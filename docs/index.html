@@ -398,7 +398,8 @@ async function load(file) {
 /* ── UTILS ──────────────────────────────────────────────────── */
 const fmt     = n => Math.round(n).toLocaleString('es-CL');
 const fmtCLP  = n => '$' + fmt(n);
-const fmtM    = n => n >= 1e6 ? '$'+(n/1e6).toFixed(2)+'M' : n >= 1e3 ? '$'+(n/1e3).toFixed(0)+'k' : fmtCLP(n);
+/*   = espacio que no permite cortar la línea entre el número y la unidad */
+const fmtM    = n => n >= 1e6 ? '$'+(n/1e6).toFixed(2)+' M' : n >= 1e3 ? '$'+(n/1e3).toFixed(0)+' k' : fmtCLP(n);
 /* Fecha LOCAL: con toISOString() (UTC) el dashboard saltaba al día siguiente cada tarde en Chile */
 const ymd     = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const today   = () => ymd(new Date());
