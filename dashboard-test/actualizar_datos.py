@@ -425,7 +425,7 @@ for art8, data in sorted(saldo_map.items()):
     # Tallas por sucursal (solo las que tienen stock), para el filtro por local
     tallas_suc, saldo_talla_suc = {}, {}
     for s, tt in data.get('t_suc', {}).items():
-        ts = {k: int(v) for k, v in sorted(tt.items(), key=lambda x: _tsort(x[0])) if int(v) > 0}
+        ts = {k: int(v) for k, v in sorted(tt.items(), key=lambda x: _tsort(x[0])) if int(v) != 0}
         if not ts:
             continue
         cs = data.get('ct_suc', {}).get(s, {})

@@ -1101,7 +1101,6 @@ async function secTabla() {
         <option value="Limpiado">Limpiado</option>
         <option value="Corte">Corte</option>
         <option value="Sin movimiento">Sin movimiento</option>
-        <option value="Sin movimiento">Sin movimiento</option>
       </select>
     </div>
     <div style="display:flex;align-items:center;gap:6px">
@@ -1541,32 +1540,45 @@ async function secClientes() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
-  // Una fila por CLIENTE (antes era una por pedido y el mismo cliente salía decenas de veces)
+  // Una fila por CLIENTE (antes era una por pedido y el mismo cliente salía decenas de veces).
+  // Los totales se guardan POR TRAMO de días: si no, un cliente entraba por su pedido más viejo
+  // y arrastraba al total el saldo de sus pedidos recientes.
+  const CL_TRAMOS = [0, 180, 270, 365];
   const gm = new Map();
   peds.filter(p => p.saldo > 0 && p.dias > 0).forEach(p => {
     const k = vdKey(p);
-    if (!gm.has(k)) gm.set(k, { nombre: (p.nombre||p.rut||'').toUpperCase(), ciudad: p.ciudad||'', unidades:0, despacho:0, saldo:0, valor_sal:0, dias:0, pedidos:0 });
+    if (!gm.has(k)) gm.set(k, {
+      nombre: (p.nombre||p.rut||'').toUpperCase(), ciudad: p.ciudad||'', dias: 0,
+      t: Object.fromEntries(CL_TRAMOS.map(x => [x, { u:0, d:0, s:0, v:0, n:0 }])),
+    });
     const g = gm.get(k);
-    g.unidades += p.unidades||0; g.despacho += p.despacho||0; g.saldo += p.saldo||0;
-    g.valor_sal += p.valor_sal||0; g.dias = Math.max(g.dias, p.dias||0); g.pedidos++;
+    g.dias = Math.max(g.dias, p.dias||0);
     if (!g.ciudad) g.ciudad = p.ciudad||'';
+    CL_TRAMOS.forEach(x => {
+      if ((p.dias||0) > x) {
+        const a = g.t[x];
+        a.u += p.unidades||0; a.d += p.despacho||0; a.s += p.saldo||0; a.v += p.valor_sal||0; a.n++;
+      }
+    });
   });
-  const base = [...gm.values()].sort((a,b) => b.saldo - a.saldo);
+  const base = [...gm.values()].sort((a,b) => b.t[0].s - a.t[0].s);
 
-  const rowsHtml = base.map(p => `<tr class="no-click"
+  const rowsHtml = base.map(p => {
+    const at = CL_TRAMOS.map(x => `data-u${x}="${p.t[x].u}" data-d${x}="${p.t[x].d}" data-s${x}="${p.t[x].s}" data-v${x}="${p.t[x].v}" data-n${x}="${p.t[x].n}"`).join(' ');
+    return `<tr class="no-click"
     data-nombre="${(p.nombre||'').toLowerCase().replace(/"/g,'&quot;')}"
     data-ciudad="${(p.ciudad||'').toLowerCase().replace(/"/g,'&quot;')}"
-    data-valor="${p.valor_sal||0}"
+    ${at}
     data-dias="${p.dias||0}">
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${p.nombre}${p.pedidos>1?` <span class="td-dim" style="font-size:10px">(${p.pedidos} pedidos)</span>`:''}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis"><span class="cl-nom">${p.nombre}</span><span class="cl-peds"></span></td>
     <td class="td-dim">${p.ciudad||'—'}</td>
-    <td class="r td-num">${fmt(p.unidades)}</td>
-    <td class="r td-dim">${fmt(p.despacho)}</td>
-    <td class="r td-num" style="color:var(--wa)">${fmt(p.saldo)}</td>
+    <td class="r td-num">${fmt(p.t[180].u)}</td>
+    <td class="r td-dim">${fmt(p.t[180].d)}</td>
+    <td class="r td-num" style="color:var(--wa)">${fmt(p.t[180].s)}</td>
     <td class="r td-dim" style="color:${(p.dias||0)>365?'var(--er)':'var(--wa)'}">${p.dias||0}</td>
-  </tr>`).join('');
+  </tr>`; }).join('');
 
-  const tot180 = base.filter(p => p.dias > 180);
+  const tot180 = base.filter(p => p.dias > 180).map(p => ({ dias: p.dias, valor_sal: p.t[180].v }));
   return `
   <div class="fbar" style="gap:8px;flex-wrap:wrap">
     <span class="flbl">Días sin despacho</span>
@@ -1981,7 +1993,9 @@ function bindContent(secId) {
           tipoOk &&
           (etapa === 'todo' || row.dataset.etapa === etapa) &&
           (temp  === 'todo' || row.dataset.temp  === temp) &&
-          (!art || (/^\d{4,}$/.test(art) ? artMatch(row.dataset.art.slice(0, 8), art) : row.dataset.art.includes(art))) &&
+          (!art || (/^\d{4,}$/.test(art)
+              ? (artMatch(row.dataset.art.slice(0, 8), art) || row.dataset.art.startsWith(art))
+              : row.dataset.art.includes(art))) &&
           (!oc  || row.dataset.oc.includes(oc));
         row.style.display = show ? '' : 'none';
         if (show) { vis++; NUM.forEach(k => tots[k] += parseInt(row.dataset[k])||0); }
@@ -2081,10 +2095,8 @@ function bindContent(secId) {
       const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
-        const esNeg  = row.dataset.neg === '1';
-        const tempOk = temp === 'neg' ? esNeg
-                     : (temp === 'all' ? !esNeg                       // los negativos solo con su propio filtro
-                     : row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40));
+        const tempOk = (temp === 'all' || temp === 'neg') ? true
+                     : row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40);
         const botaOk = bota === 'all' || row.dataset.bota === bota;
         const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
         const qty = suc === 'all'
@@ -2093,7 +2105,7 @@ function bindContent(secId) {
         const cajQty = suc === 'all'
           ? parseInt(row.dataset.cajall)||0
           : parseInt(row.dataset[`caj${suc}`])||0;
-        const show = tempOk && botaOk && srchOk && (esNeg ? qty !== 0 : qty > 0);
+        const show = tempOk && botaOk && srchOk && (temp === 'neg' ? qty < 0 : qty > 0);
         row.style.display = show ? '' : 'none';
         const cells = row.cells;
         if (cells[4]) { cells[4].textContent = show ? fmt(qty) : ''; cells[4].style.color = qty < 0 ? 'var(--er)' : ''; }
@@ -2106,10 +2118,10 @@ function bindContent(secId) {
           const tsl = suc === 'all' ? sib.dataset.tsal                   : (sib.dataset[`ts${suc}`] ?? '');
           const tcj = suc === 'all' ? (parseInt(sib.dataset.tcaj) || 0) : (parseInt(sib.dataset[`tc${suc}`]) || 0);
           const tc = sib.cells;
-          if (tc[4]) tc[4].textContent = fmt(tq);
+          if (tc[4]) { tc[4].textContent = fmt(tq); tc[4].style.color = tq < 0 ? 'var(--er)' : ''; }
           if (tc[5]) tc[5].textContent = tcj > 0 ? fmt(tcj) : '—';
           if (tc[6]) tc[6].textContent = tsl === '' ? '—' : fmt(parseInt(tsl) || 0);
-          sib.dataset.vacia = tq > 0 ? '' : '1';   // sin stock en esta sucursal: no se muestra al expandir
+          sib.dataset.vacia = tq !== 0 ? '' : '1';   // sin stock en esta sucursal: no se muestra al expandir
           sib.style.display = 'none';
           sib = sib.nextElementSibling;
         }
@@ -2541,7 +2553,16 @@ function bindContent(secId) {
         const show = dias > cutoff &&
           (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q));
         row.style.display = show ? '' : 'none';
-        if (show) { vis++; totalDias += dias; totalVal += parseInt(row.dataset.valor) || 0; }
+        if (!show) return;
+        // Las columnas y los totales corresponden SOLO a los pedidos que superan el filtro de días
+        const g = k => parseInt(row.dataset[`${k}${cutoff}`]) || 0;
+        const c = row.cells;
+        if (c[2]) c[2].textContent = fmt(g('u'));
+        if (c[3]) c[3].textContent = fmt(g('d'));
+        if (c[4]) c[4].textContent = fmt(g('s'));
+        const np = g('n'), el = row.querySelector('.cl-peds');
+        if (el) el.innerHTML = np > 1 ? ` <span class="td-dim" style="font-size:10px">(${np} pedidos)</span>` : '';
+        vis++; totalDias += dias; totalVal += g('v');
       });
       const el = id => document.getElementById(id);
       if (el('clCount'))  el('clCount').textContent  = `${vis} clientes`;
@@ -2798,12 +2819,6 @@ async function init(role) {
   _appLista = true;
   const esBodega = role === 'bodega';
 
-  // El menú primero, para que la navegación funcione desde el arranque
-  document.querySelectorAll('.nav-item[data-sec]').forEach(btn => {
-    btn.addEventListener('click', () => go(btn.dataset.sec, btn.dataset.ttl));
-  });
-  bindMobile();
-
   // Cargar datos base en paralelo + meta para timestamp real del build
   const [pa, dv, meta] = await Promise.all([
     load('pedidos_art.json'),
@@ -2830,6 +2845,11 @@ async function init(role) {
     }
   }
 
+  // Recién ahora se habilita el menú: antes un click quedaba descartado al pintar la sección inicial
+  document.querySelectorAll('.nav-item[data-sec]').forEach(btn => {
+    btn.addEventListener('click', () => go(btn.dataset.sec, btn.dataset.ttl));
+  });
+  bindMobile();
   // Bodega parte en Stock Bodega; admin en el Resumen
   await (esBodega ? go('stock', 'Stock Bodega') : go('resumen', 'Resumen General'));
 }
