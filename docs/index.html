@@ -187,6 +187,9 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* ── DETAIL MODAL ────────────────────────────────────────────── */
 .det-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
 .det-ov.open{display:flex}
+/* Venta vs Despacho: chip con lo pedido del artículo buscado */
+.vd-arthit:empty{display:none}
+.vd-arthit{display:flex;gap:4px;flex-wrap:wrap}
 /* Caja en detalle de pedido: hover + animación al abrir */
 .cj-open:hover{background:var(--ac10)}
 @keyframes cjPop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
@@ -1230,11 +1233,17 @@ function vdGroups(peds, prodMap = {}, cajasAll = []) {
   const m = new Map();
   peds.filter(p => (p.u_temp?.['44'] || 0) > 0).forEach(p => {
     const k = vdKey(p);
-    if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false, termArts: 0, termUnits: 0 });
+    if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false, termArts: 0, termUnits: 0, arts: new Map() });
     const g = m.get(k);
     g.pedidos.push(p); g.ped += p.u_temp['44'] || 0; g.desp += p.u_desp?.['44'] || 0; g.sal += p.u_sal?.['44'] || 0;
     if (!g.cli && p.cli) g.cli = p.cli;
     if (p.bloqueo) g.bloqueo = true;
+    // Artículos T44 del cliente (para buscar por artículo/modelo y ver cuánto pidió de cada uno)
+    (p.lineas || []).filter(l => l.temp === '44').forEach(l => {
+      const a = g.arts.get(l.art) || { sol: 0, desp: 0, sal: 0 };
+      a.sol += l.sol || 0; a.desp += l.desp || 0; a.sal += l.sal || 0;
+      g.arts.set(l.art, a);
+    });
     (p.cajas || []).forEach(c => { if (c.estado === 'bodega') { g.cajasBod++; g.cajasPrendas += c.prendas; } });
     const tm = pedidoTerm(p, prodMap, pedidoEnCaja(p, cajasAll)); g.termArts += tm.arts; g.termUnits += tm.units;
   });
@@ -1277,8 +1286,11 @@ async function secVentaDespacho() {
         : (cli && cli.credito > 0 && cli.disponible > 0) ? badge(`Cupo ${fmtM(cli.disponible)}`, 'var(--ok10)', 'var(--ok)', `Cupo disponible ${fmtCLP(cli.disponible)} de ${fmtCLP(cli.credito)} de crédito`) : '',
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
-      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
+    const artsArr = [...g.arts.entries()];
+    const artSearch = artsArr.map(([a]) => a).join(' ');                                   // "01441300 01443400 …" (el modelo 4413 cae como subcadena)
+    const artQ = artsArr.map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}`).join(',');    // cuánto pidió de cada artículo
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-arts="${artSearch}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
+      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span><span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
       <td class="td-dim">${g.ciudad||'—'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
@@ -1308,7 +1320,7 @@ async function secVentaDespacho() {
       <button class="seg on" data-tm="todo">Todos</button>
       <button class="seg" data-tm="term" title="Clientes con artículos pendientes (sin caja) en Terminación">🏁 En terminación</button>
     </div>
-    <input id="vdSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:180px">
+    <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
     <select id="vdCiudad" class="finput" style="width:140px"><option value="">Todas las ciudades</option></select>
   </div>
   <div class="kpi-grid">
@@ -2050,7 +2062,8 @@ function bindContent(secId) {
       const tm  = document.querySelector('#vdTermSegs .seg.on')?.dataset.tm || 'todo';
       const q   = (document.getElementById('vdSearch')?.value||'').trim().toLowerCase();
       const ciu = (document.getElementById('vdCiudad')?.value||'').toLowerCase();
-      let vis = 0;
+      const esArt = /^\d{3,}$/.test(q);      // 3+ dígitos → se busca también como artículo/modelo
+      let vis = 0, artSol = 0, artDesp = 0, artSal = 0;
       document.querySelectorAll('#vdBody tr[data-nombre]').forEach(row => {
         const pct = parseInt(row.dataset.avance)||0;
         const avOk = av === 'todo' ||
@@ -2058,14 +2071,29 @@ function bindContent(secId) {
           (av === 'parcial'  && pct > 0 && pct < 100) ||
           (av === 'completo' && pct >= 100);
         const tmOk = tm === 'todo' || (parseInt(row.dataset.term) || 0) > 0;
-        const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q);
+        const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || (esArt && (row.dataset.arts || '').includes(q));
         const ciuOk = !ciu || row.dataset.ciudad === ciu;
         const ok = avOk && tmOk && qOk && ciuOk;
         row.style.display = ok ? '' : 'none';
-        if (ok) vis++;
+        // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
+        const hit = row.querySelector('.vd-arthit');
+        if (hit) hit.innerHTML = '';
+        if (ok) {
+          vis++;
+          if (esArt && hit) {
+            const hits = (row.dataset.artq || '').split(',').filter(Boolean).map(s => s.split(':')).filter(([a]) => a.includes(q));
+            hits.forEach(([a, sol, desp, sal]) => {
+              artSol += +sol || 0; artDesp += +desp || 0; artSal += +sal || 0;
+            });
+            hit.innerHTML = hits.map(([a, sol, desp, sal]) =>
+              `<span title="Artículo ${a}: ${fmt(sol)} pedidas, ${fmt(desp)} despachadas, ${fmt(sal)} pendientes" style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap"><span class="td-code">${a}</span> · ${fmt(sol)} ped · <span style="color:${+sal > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(sal)} pend</span></span>`).join('');
+          }
+        }
       });
       const el = document.getElementById('vdCount');
-      if (el) el.textContent = `${vis} clientes`;
+      if (el) el.textContent = esArt && artSol
+        ? `${vis} clientes · artículo ${q}: ${fmt(artSol)} pedidas · ${fmt(artDesp)} despachadas · ${fmt(artSal)} pendientes`
+        : `${vis} clientes`;
     }
     document.getElementById('vdSearch')?.addEventListener('input', applyVDFilters);
     document.getElementById('vdCiudad')?.addEventListener('change', applyVDFilters);
