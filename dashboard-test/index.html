@@ -777,6 +777,9 @@ function secResumen() {
 function secDetalleColor() {
   const byTemp = buildByTemp();
   const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
+  // Si se llegó tocando una barra del Resumen, abrir ESA temporada y no siempre la activa
+  const iniT = (temps.includes(window._dcTemp) ? window._dcTemp : (temps.includes('44') ? '44' : temps[0]));
+  window._dcTemp = null;
 
   function buildColorRows(t) {
     const info = byTemp[t];
@@ -805,7 +808,7 @@ function secDetalleColor() {
 
   const tempCards = temps.map(t => {
     const info = byTemp[t], tc = tcFor(t);
-    return `<div class="temp-card${t==='44'?' sel':''}" data-temp-card="${t}">
+    return `<div class="temp-card${t===iniT?' sel':''}" data-temp-card="${t}">
       <div class="temp-badge-lg" style="background:${tc.bg};color:${tc.fg}">T${t}</div>
       <div class="temp-total">${fmt(info.total)}</div>
       <div class="temp-label">unidades</div>
@@ -818,7 +821,7 @@ function secDetalleColor() {
   <div class="fbar">
     <span class="flbl">Temporada</span>
     <div class="segs" id="dcSegs">
-      ${temps.map(t => `<button class="seg${t==='44'?' on':''}" data-t="${t}">T${t}</button>`).join('')}
+      ${temps.map(t => `<button class="seg${t===iniT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
     <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="margin-left:auto;width:180px">
   </div>
@@ -827,9 +830,9 @@ function secDetalleColor() {
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Modelo Base</th><th>Variantes</th><th class="r">Unidades</th><th class="r">▸</th></tr></thead>
-        <tbody id="dcBody">${buildColorRows('44')}</tbody>
+        <tbody id="dcBody">${buildColorRows(iniT)}</tbody>
       </table>
-      <div class="tbl-foot" id="dcFoot">${byTemp['44']?.modelos || 0} modelos en T44</div>
+      <div class="tbl-foot" id="dcFoot">${byTemp[iniT]?.modelos || 0} modelos en T${iniT}</div>
     </div>
   </div>`;
 }
@@ -1001,12 +1004,19 @@ function getEtapa(r) {
   const saldo = r.saldo || 0;
   // saldo=0 y tiene entrega → todo entregado a bodega
   if (saldo <= 0 && (r.bodega||0) > 0) return 'Bodega';
-  // Hay saldo pendiente: buscar la última etapa alcanzada (más avanzada primero)
+  // El ERP dice cuántas unidades hay pendientes EN cada etapa: se usa la más avanzada con pendientes
+  const pend = [['Terminación', r.p_terminacion], ['Lavandería', r.p_lavanderia], ['Limpiado', r.p_limpiado],
+                ['T.Externo', r.p_texterno], ['Costura', r.p_taller], ['Corte', r.p_corte]];
+  if (pend.some(([, v]) => v != null)) {
+    const hit = pend.find(([, v]) => (v || 0) > 0);
+    if (hit) return hit[0];
+  }
+  // Datos antiguos sin ese detalle: por la última etapa con fecha
   if ((r.terminacion||0) > 0) return 'Terminación';
   if ((r.lavanderia||0)  > 0) return 'Lavandería';
-  if ((r.taller||0)      > 0) return 'Costura';
-  if ((r.texterno||0)    > 0) return 'T.Externo';
   if ((r.limpiado||0)    > 0) return 'Limpiado';
+  if ((r.texterno||0)    > 0) return 'T.Externo';
+  if ((r.taller||0)      > 0) return 'Costura';
   if ((r.proceso||0)     > 0) return 'Corte';
   return 'Sin movimiento';
 }
@@ -1575,7 +1585,9 @@ function makePH(path, title, desc) {
     <h3>${title}</h3><p>${desc}</p></div>`;
 }
 /* ── PEDIDO VS CORTE ─────────────────────────────────────────── */
-const ETAPA_RANK = {'Terminación':6,'Lavandería':5,'Costura':4,'T.Externo':3,'Limpiado':2,'Corte':1,'Proceso':0,'Bodega':-1,'Sin movimiento':-2};
+/* Orden real del flujo, según las columnas del archivo del ERP:
+   Corte → Costura → T.Externo → Limpiado → Lavandería → Terminación → Bodega */
+const ETAPA_RANK = {'Terminación':6,'Lavandería':5,'Limpiado':4,'T.Externo':3,'Costura':2,'Corte':1,'Bodega':-1,'Sin movimiento':-2};
 const ETAPA_COLOR = {
   'Bodega':'var(--ok)','Terminación':'var(--ac)','Lavandería':'var(--wa)',
   'Costura':'#7c3aed','T.Externo':'#0891b2','Limpiado':'#16a34a',

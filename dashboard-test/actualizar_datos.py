@@ -62,16 +62,35 @@ def stage_dias(ini, fin):
 print("Leyendo TRAZABILIDAD2.CSV...")
 with open(bi_file("TRAZABILIDAD2.CSV"), encoding="latin-1") as f:
     traza_rows = list(csv.DictReader(f, delimiter=';'))
+# El CSV trae 4 columnas por etapa (inicio, fin, pendiente, días) pero solo la primera tiene nombre,
+# así que el DictReader pierde las otras tres. Se leen por índice.
+# El ORDEN de estas columnas es el flujo real de producción del ERP.
+ETAPA_IDX = [("Corte", 9), ("Taller", 13), ("Taller Ext", 17),
+             ("Limpiado", 21), ("Lavander", 25), ("Terminacion", 29)]
+with open(bi_file("TRAZABILIDAD2.CSV"), encoding="latin-1") as f:
+    _rd = csv.reader(f, delimiter=';')
+    next(_rd, None)
+    traza_raw = list(_rd)
+if len(traza_raw) != len(traza_rows):
+    print(f"  aviso: {len(traza_raw)} filas por índice vs {len(traza_rows)} por nombre")
+    traza_raw = [[]] * len(traza_rows)
+
+def _celda(raw, i):
+    v = str(raw[i]).strip() if len(raw) > i else ''
+    return '' if '  /  /' in v else v
 
 full_table = []
 traza_oc   = []
-for r in traza_rows:
+for r, raw in zip(traza_rows, traza_raw):
     art  = r['Articulo'].strip()
     temp = art[2:4] if len(art) >= 4 else ''
     if not temp_valida(temp):
         continue
     tipo_r = r['Tipo'].strip().upper()
     tipo = 'Muestras' if 'MUESTRA' in tipo_r else ('Set' if 'SET' in tipo_r else 'Producción')
+
+    # Unidades pendientes en cada etapa (columna 3 de cada bloque): dice dónde están de verdad
+    pend = {name: clean_int(raw[i + 2]) if len(raw) > i + 2 else 0 for name, i in ETAPA_IDX}
 
     full_table.append({
         "articulo": art, "corte": r['O.Corte'].strip(),
@@ -82,24 +101,20 @@ for r in traza_rows:
         "corte_u": has_date(r['Corte']), "taller": has_date(r['Taller']),
         "texterno": has_date(r['Taller Ext']), "limpiado": has_date(r['Limpiado']),
         "lavanderia": has_date(r['Lavander']), "terminacion": has_date(r['Terminacion']),
+        "p_corte": pend['Corte'], "p_taller": pend['Taller'], "p_texterno": pend['Taller Ext'],
+        "p_limpiado": pend['Limpiado'], "p_lavanderia": pend['Lavander'], "p_terminacion": pend['Terminacion'],
         "muestra": 1 if r['Muestras'].strip() else 0, "segunda": 0
     })
 
-    stage_cols = [("Corte","Corte"),("Taller","Taller"),("Taller Ext","Taller Ext"),
-                  ("Limpiado","Limpiado"),("Lavander","Lavander"),("Terminacion","Terminacion")]
+    # Fechas y días REALES de cada etapa (antes el 'fin' y los días se calculaban a ojo)
     stages = []
-    prev_fin = ''
-    for name, col in stage_cols:
-        ini_raw = str(r.get(col,'')).strip()
-        ini_raw = '' if '    ' in ini_raw else ini_raw
-        fin_raw = ''
-        if name == "Corte":      fin_raw = ini_raw
-        elif name == "Lavander": fin_raw = str(r.get('Terminacion','')).strip()
-        fin_raw = '' if '    ' in fin_raw else fin_raw
+    for name, i in ETAPA_IDX:
+        ini_raw, fin_raw = _celda(raw, i), _celda(raw, i + 1)
         stages.append({"name": name,
-                        "ini": fmt_date(ini_raw) if ini_raw else "",
-                        "fin": fmt_date(fin_raw) if fin_raw else "",
-                        "dias": stage_dias(ini_raw, fin_raw)})
+                       "ini": fmt_date(ini_raw) if ini_raw else "",
+                       "fin": fmt_date(fin_raw) if fin_raw else "",
+                       "pend": pend[name],
+                       "dias": clean_int(raw[i + 3]) if len(raw) > i + 3 else 0})
 
     traza_oc.append({
         "oc": r['O.Corte'].strip(), "tipo": r['Tipo'].strip(),
