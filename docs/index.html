@@ -829,23 +829,27 @@ function secDetalleColor() {
 
   return `
   <div class="temp-grid">${tempCards}</div>
-  <div class="fbar">
-    <span class="flbl">Temporada</span>
-    <div class="segs" id="dcSegs">
+  <div class="fbar" style="gap:8px;flex-wrap:wrap">
+    <span class="flbl" style="flex-shrink:0;width:46px">Temp</span>
+    <div class="segs" id="dcSegs" style="flex-wrap:wrap">
       ${temps.map(t => `<button class="seg${t===iniT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div>
     <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="margin-left:auto;width:180px">
   </div>
-  <div class="fbar" style="margin-top:8px;gap:8px;flex-wrap:wrap">
-    <span class="flbl">Bota</span>
-    <div class="segs" id="dcBotaSegs">
-      <button class="seg on" data-b="all">Todas</button>
-      ${dcBotas.map(b => `<button class="seg" data-b="${b.toLowerCase()}">${b}</button>`).join('')}
+  <div class="fbar" style="margin-top:8px;flex-direction:column;align-items:stretch;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
+      <span class="flbl" style="flex-shrink:0;width:46px">Bota</span>
+      <div class="segs" id="dcBotaSegs" style="flex-wrap:wrap;min-width:0;flex:1">
+        <button class="seg on" data-b="all">Todas</button>
+        ${dcBotas.map(b => `<button class="seg" data-b="${b.toLowerCase()}">${b}</button>`).join('')}
+      </div>
     </div>
-    <span class="flbl" style="margin-left:4px">Tiro</span>
-    <div class="segs" id="dcTiroSegs">
-      <button class="seg on" data-ti="all">Todos</button>
-      ${dcTiros.map(b => `<button class="seg" data-ti="${b.toLowerCase()}">${b}</button>`).join('')}
+    <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
+      <span class="flbl" style="flex-shrink:0;width:46px">Tiro</span>
+      <div class="segs" id="dcTiroSegs" style="flex-wrap:wrap;min-width:0;flex:1">
+        <button class="seg on" data-ti="all">Todos</button>
+        ${dcTiros.map(b => `<button class="seg" data-ti="${b.toLowerCase()}">${b}</button>`).join('')}
+      </div>
     </div>
   </div>
   <div class="tbl-card">
