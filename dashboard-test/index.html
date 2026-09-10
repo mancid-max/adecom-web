@@ -2547,8 +2547,11 @@ function bindContent(secId) {
       document.getElementById('vkNetoVal').textContent = fmtM(neto);
       document.getElementById('vkBrutoVal').textContent = fmtM(bruto);
       document.getElementById('vTblTtl').textContent = label;
-      document.getElementById('ventaBody').innerHTML = buildVentaTable(filtered.slice(0,200));
-      document.getElementById('ventaFoot').textContent = `${filtered.length} documentos · ${fmtCLP(neto)} neto`;
+      const TOPE = 200;   // la tabla muestra los primeros TOPE; los totales de arriba son de todo el período
+      document.getElementById('ventaBody').innerHTML = buildVentaTable(filtered.slice(0, TOPE));
+      document.getElementById('ventaFoot').textContent = filtered.length > TOPE
+        ? `${filtered.length} documentos · ${fmtCLP(neto)} neto — se listan los ${TOPE} más recientes; los totales de arriba son de todo el período`
+        : `${filtered.length} documentos · ${fmtCLP(neto)} neto`;
     }
 
     document.querySelectorAll('#ventaSegs .seg').forEach(btn => {
