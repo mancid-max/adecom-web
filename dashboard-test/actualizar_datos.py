@@ -187,7 +187,8 @@ def norm_bota(sc):
     if 'BALLOON' in s: return 'Balloon'
     if 'BERMUDA' in s: return 'Bermuda'
     if 'CALZA'   in s: return 'Calza'
-    return s.title() if s else ''
+    # El resto (FALLA NOTORIA, LINEA ARTE, BAGUI…) no son tipos de bota: no van al filtro
+    return ''
 
 mod_bota = {}
 for r in ped_rows:

@@ -92,7 +92,8 @@ html,body{overflow-x:hidden;max-width:100%}
 .kpi-ico.c-ok{background:var(--ok10);color:var(--ok)}
 .kpi-ico.c-wa{background:var(--wa10);color:var(--wa)}
 .kpi-ico.c-er{background:var(--er10);color:var(--er)}
-.kpi-val{font-size:26px;font-weight:800;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.kpi>div{min-width:0}
+.kpi-val{font-size:26px;font-weight:800;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .kpi-lbl{font-size:12px;font-weight:500;color:var(--tx2);margin-top:4px}
 .kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;margin-top:6px;padding:3px 8px;border-radius:20px}
 .d-up{background:var(--ok10);color:var(--ok)}
@@ -223,7 +224,11 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 }
 @media(max-width:960px){
   .chart-row{grid-template-columns:1fr}
-  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  /* en tablet el contenido se salía de la tarjeta */
+  .kpi{padding:13px 14px;gap:10px}
+  .kpi-ico{width:38px;height:38px}
+  .kpi-val{font-size:21px!important}
   .temp-grid{grid-template-columns:repeat(4,1fr)}
   .content{padding:14px;gap:14px}
   .header{padding:0 14px}
@@ -394,7 +399,9 @@ async function load(file) {
 const fmt     = n => Math.round(n).toLocaleString('es-CL');
 const fmtCLP  = n => '$' + fmt(n);
 const fmtM    = n => n >= 1e6 ? '$'+(n/1e6).toFixed(2)+'M' : n >= 1e3 ? '$'+(n/1e3).toFixed(0)+'k' : fmtCLP(n);
-const today   = () => new Date().toISOString().split('T')[0];
+/* Fecha LOCAL: con toISOString() (UTC) el dashboard saltaba al día siguiente cada tarde en Chile */
+const ymd     = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today   = () => ymd(new Date());
 
 /* ── Imprimir tabla: clona la tabla con solo las filas visibles y abre el diálogo de impresión ── */
 function printTable({ table, title, subtitle = '', landscape = true }) {
@@ -904,12 +911,13 @@ async function secStock() {
       const tallaRows = tallaEntries.map(([t, q]) => {
         const ts = r.saldo_talla?.[t];
         // Stock y saldo de esta talla en cada sucursal, para que el filtro por local sea real
-        const sucT = sucList.map(s => `data-t${s}="${r.tallas_suc?.[s]?.[t]||0}" data-ts${s}="${r.saldo_talla_suc?.[s]?.[t]||0}"`).join(' ');
-        return `<tr class="no-click st-talla-row" data-tq="${q}" data-tsal="${ts != null ? ts : ''}" ${sucT} style="display:none;background:var(--sf2)">
+        const sucT = sucList.map(s => `data-t${s}="${r.tallas_suc?.[s]?.[t]||0}" data-ts${s}="${r.saldo_talla_suc?.[s]?.[t]||0}" data-tc${s}="${Math.max(0,(r.tallas_suc?.[s]?.[t]||0)-(r.saldo_talla_suc?.[s]?.[t]||0))}"`).join(' ');
+        const cq = ts != null ? Math.max(0, q - ts) : 0;
+        return `<tr class="no-click st-talla-row" data-tq="${q}" data-tsal="${ts != null ? ts : ''}" data-tcaj="${cq}" ${sucT} style="display:none;background:var(--sf2)">
           <td></td><td></td><td></td>
           <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
-          <td></td>
+          <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${cq > 0 ? fmt(cq) : '—'}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${ts != null ? fmt(ts) : '—'}</td>
         </tr>`;
       }).join('');
@@ -1686,7 +1694,7 @@ async function secPVC() {
   const exMap = await load('pvc_ex.json');
   const ftMap = buildFtMap(ft);
   const byTemp = buildByTemp();
-  const temps = ['44','43','42','41'].filter(t => byTemp[t]);
+  const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
   const defT = temps[0] || '44';
 
   // Compute global KPIs for default temp
@@ -1742,7 +1750,7 @@ async function secPVC() {
       <div><div class="kpi-val" id="pvcKProg">${fmt(k.totalProg)}</div><div class="kpi-lbl">Total Corte</div></div>
     </div>
     <div class="kpi" style="cursor:default">
-      <div class="kpi-ico ${k.diff>=0?'c-ok':'c-er'}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></div>
+      <div class="kpi-ico ${k.diff>=0?'c-ok':'c-er'}" id="pvcKDiffIco"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></div>
       <div><div class="kpi-val" id="pvcKDiff" style="color:${k.diff>=0?'var(--ok)':'var(--er)'}">${k.diff>0?'+':''}${fmt(k.diff)}</div><div class="kpi-lbl">Diferencia (u)</div></div>
     </div>
   </div>
@@ -1822,6 +1830,11 @@ function bindContent(secId) {
   });
 
   // SVG bar chart → ir a detalle-color
+  // Al tocar una barra, abrir esa temporada (antes siempre caía en la activa)
+  window._dcTemp = null;
+  document.querySelectorAll('[data-bar-temp]').forEach(el => {
+    el.addEventListener('click', () => { window._dcTemp = el.dataset.barTemp; });
+  });
   document.querySelectorAll('[data-bar-temp]').forEach(el => {
     el.addEventListener('click', () => go('detalle-color', 'Detalle Pedido Color'));
   });
@@ -2023,8 +2036,10 @@ function bindContent(secId) {
         while (sib && sib.classList.contains('st-talla-row')) {
           const tq  = suc === 'all' ? (parseInt(sib.dataset.tq) || 0)   : (parseInt(sib.dataset[`t${suc}`])  || 0);
           const tsl = suc === 'all' ? sib.dataset.tsal                   : (sib.dataset[`ts${suc}`] ?? '');
+          const tcj = suc === 'all' ? (parseInt(sib.dataset.tcaj) || 0) : (parseInt(sib.dataset[`tc${suc}`]) || 0);
           const tc = sib.cells;
           if (tc[4]) tc[4].textContent = fmt(tq);
+          if (tc[5]) tc[5].textContent = tcj > 0 ? fmt(tcj) : '—';
           if (tc[6]) tc[6].textContent = tsl === '' ? '—' : fmt(parseInt(tsl) || 0);
           sib.dataset.vacia = tq > 0 ? '' : '1';   // sin stock en esta sucursal: no se muestra al expandir
           sib.style.display = 'none';
@@ -2511,6 +2526,8 @@ function bindContent(secId) {
       if (kpedEl)  kpedEl.textContent  = fmt(sumPed);
       if (kprogEl) kprogEl.textContent = fmt(sumCort);
       if (kdiffEl) { kdiffEl.textContent = (diff>0?'+':'')+fmt(diff); kdiffEl.style.color = diff>=0?'var(--ok)':'var(--er)'; }
+      const kico = document.getElementById('pvcKDiffIco');
+      if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || '44';
       const foot = document.getElementById('pvcFoot');
       if (foot) foot.textContent = `${visible} modelos T${t}`;
@@ -2554,6 +2571,8 @@ function bindContent(secId) {
       if (kpedEl) kpedEl.textContent = fmt(totalPed);
       if (kprogEl) kprogEl.textContent = fmt(totalProg);
       if (kdiffEl) { kdiffEl.textContent = (diff>0?'+':'')+fmt(diff); kdiffEl.style.color = diff>=0?'var(--ok)':'var(--er)'; }
+      const kico = document.getElementById('pvcKDiffIco');
+      if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
       const exMap2 = CACHE['pvc_ex.json'] || {};
       document.getElementById('pvcBody').innerHTML = buildPVCRows(t, ftMap, exMap2);
       // Reset filters when switching temp
@@ -2595,6 +2614,8 @@ function bindContent(secId) {
         btn.classList.add('on');
         const fechaInput = document.getElementById('ventaFecha');
         if (fechaInput) fechaInput.value = '';
+        const mesSel = document.getElementById('ventaMes');
+        if (mesSel) mesSel.value = '';        // si no, el desplegable seguía marcando otro mes
         const p = btn.dataset.vp;
         const hoy = today();
         let filtered, label;
@@ -2603,8 +2624,9 @@ function bindContent(secId) {
           filtered = hoyData.docs;
           label = hoyData.label;
         } else if (p === 'semana') {
-          const lunes = new Date(); lunes.setDate(lunes.getDate() - lunes.getDay() + 1);
-          const lunesStr = lunes.toISOString().split('T')[0];
+          const lunes = new Date();
+          lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));   // domingo daba el lunes siguiente
+          const lunesStr = ymd(lunes);
           filtered = DOCS.filter(d => d.fecha_iso >= lunesStr && d.fecha_iso <= hoy);
           label = 'Documentos de Esta Semana';
         } else if (p === 'mes') {
