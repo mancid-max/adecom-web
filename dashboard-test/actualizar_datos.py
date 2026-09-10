@@ -379,7 +379,8 @@ for art8, data in sorted(saldo_map.items()):
     color  = art8[6:8]
     total_prendas = sum(v for k, v in sucs.items() if k in SUCURSALES_PRENDAS)
     total_all = sum(sucs.values())
-    if total_all <= 0:
+    # El stock negativo del ERP (sobrevendido) también se publica, para poder detectarlo y limpiarlo
+    if total_all == 0 and not any(data.get('cajas', {}).values()):
         continue
     def _tsort(k):
         try: return int(k)
@@ -404,6 +405,7 @@ for art8, data in sorted(saldo_map.items()):
         "cajas": {k: int(v) for k, v in cajas_d.items()},
         "cajas_total": total_cajas,
         "saldo": max(0, int(total_prendas) - total_cajas),
+        "neg": 1 if total_prendas < 0 else 0,
         "tallas": tallas_sorted,
         "saldo_talla": saldo_talla,
         "tallas_suc": tallas_suc,

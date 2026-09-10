@@ -553,7 +553,13 @@ document.addEventListener('touchmove', e => {
   }
 }, { passive: true });
 document.addEventListener('touchend', e => {
-  if (IMG_Z.pinch) { if (e.touches.length === 0) { IMG_Z.pinch = null; if (IMG_Z.s <= 1.05) imgZoomReset(); } return; }
+  if (IMG_Z.pinch) {
+    if (e.touches.length === 1) {   // queda un dedo: seguir arrastrando sin tener que soltar
+      IMG_Z.pinch = null;
+      IMG_Z.drag = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, tx: IMG_Z.x, ty: IMG_Z.y };
+    } else if (e.touches.length === 0) { IMG_Z.pinch = null; if (IMG_Z.s <= 1.05) imgZoomReset(); }
+    return;
+  }
   const d = IMG_Z.drag; IMG_Z.drag = null;
   if (!d || IMG_Z.s > 1 || !e.target.closest('#imgOv')) return;
   const dx = e.changedTouches[0].clientX - d.x0;
@@ -923,7 +929,7 @@ async function secStock() {
       }).join('');
       const clickCls = tallaEntries.length ? '' : ' no-click';
       const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
-      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
+      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-neg="${r.neg||0}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
         <td class="td-code">${artImg(r.art)}${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
@@ -948,6 +954,7 @@ async function secStock() {
       <button class="seg on" data-t="all">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
       ${hasOld ? '<button class="seg" data-t="old" title="Colecciones anteriores a T40 que aún figuran con cajas">&lt; T40 con cajas</button>' : ''}
+      ${data.some(r => r.neg) ? '<button class="seg" data-t="neg" title="Artículos con stock negativo en el ERP: hay que corregirlos">⚠ Stock negativo</button>' : ''}
     </div>
   </div>
   ${botas.length ? `<div class="fbar" style="margin-top:8px;align-items:center">
@@ -1261,6 +1268,7 @@ function vdGroups(peds, prodMap = {}, cajasAll = []) {
     g.pedidos.push(p); g.ped += p.u_temp['44'] || 0; g.desp += p.u_desp?.['44'] || 0; g.sal += p.u_sal?.['44'] || 0;
     if (!g.cli && p.cli) g.cli = p.cli;
     if (p.bloqueo) g.bloqueo = true;
+    (g.ciudades = g.ciudades || new Set()).add((p.ciudad || '').toLowerCase());   // un cliente puede pedir a varias ciudades
     // Artículos T44 del cliente (para buscar por artículo/modelo y ver cuánto pidió de cada uno)
     (p.lineas || []).filter(l => l.temp === '44').forEach(l => {
       const a = g.arts.get(l.art) || { sol: 0, desp: 0, sal: 0 };
@@ -1310,9 +1318,10 @@ async function secVentaDespacho() {
     ].filter(Boolean).join('');
     const esc = s => String(s).replace(/"/g, '&quot;');
     const artQ = [...g.arts.entries()].map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}`).join(',');   // artículo y cuánto pidió de cada uno
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
+    const ciudades = [...(g.ciudades || [])].filter(Boolean);
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-key="${esc(g.key)}" style="cursor:pointer">
       <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span><span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
-      <td class="td-dim">${g.ciudad||'—'}</td>
+      <td class="td-dim">${(g.ciudad||'—')}${ciudades.length > 1 ? ` <span style="font-size:10px">+${ciudades.length-1}</span>` : ''}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
       <td class="r td-num" style="color:${sal44>0?'var(--wa)':'var(--tx3)'}">${fmt(sal44)}</td>
@@ -1793,12 +1802,15 @@ function secPermitida(secId) {
   return !!btn && !btn.hasAttribute('data-admin-only');
 }
 
+let _goSeq = 0;   // si se cambia de sección mientras otra carga, solo la última pinta
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
+  const seq = ++_goSeq;
   document.getElementById('hdTitle').textContent = title;
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
   const html = await SECS[secId]();
+  if (seq !== _goSeq) return;
   document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
   bindContent(secId);
 }
@@ -2003,7 +2015,7 @@ function bindContent(secId) {
   }
 
   // Stock Bodega — filters
-  if (secId === 'stock') {
+  if (secId === 'stock' && document.getElementById('stockBody')) {
     const SUC_NAMES_BIND = {
       '00':'Bod. S.Filomena','01':'Stock Perú','02':'Loc. Perú','04':'San Gerardo',
       '05':'Codegua','10':'Showroom','12':'Outlet S.Fil.','33':'Urrutia',
@@ -2016,7 +2028,10 @@ function bindContent(secId) {
       const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
-        const tempOk = temp === 'all' || row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40);
+        const esNeg  = row.dataset.neg === '1';
+        const tempOk = temp === 'neg' ? esNeg
+                     : (temp === 'all' ? !esNeg                       // los negativos solo con su propio filtro
+                     : row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40));
         const botaOk = bota === 'all' || row.dataset.bota === bota;
         const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
         const qty = suc === 'all'
@@ -2025,10 +2040,10 @@ function bindContent(secId) {
         const cajQty = suc === 'all'
           ? parseInt(row.dataset.cajall)||0
           : parseInt(row.dataset[`caj${suc}`])||0;
-        const show = tempOk && botaOk && srchOk && qty > 0;
+        const show = tempOk && botaOk && srchOk && (esNeg ? qty !== 0 : qty > 0);
         row.style.display = show ? '' : 'none';
         const cells = row.cells;
-        if (cells[4]) cells[4].textContent = show ? fmt(qty) : '';
+        if (cells[4]) { cells[4].textContent = show ? fmt(qty) : ''; cells[4].style.color = qty < 0 ? 'var(--er)' : ''; }
         if (cells[5]) cells[5].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
         if (cells[6]) cells[6].textContent = show ? fmt(Math.max(0, qty - cajQty)) : '';
         // Tallas: recalcular según la sucursal elegida y colapsarlas (se vuelven a abrir con un click)
@@ -2112,7 +2127,7 @@ function bindContent(secId) {
   // Venta vs Despacho — filters + sort
   if (secId === 'venta-despacho') {
     // Populate city dropdown
-    const ciudades = [...new Set([...document.querySelectorAll('#vdBody tr[data-ciudad]')].map(r => r.dataset.ciudad).filter(Boolean))].sort();
+    const ciudades = [...new Set([...document.querySelectorAll('#vdBody tr[data-ciudad]')].flatMap(r => (r.dataset.ciudades || r.dataset.ciudad || '').split('|')).filter(Boolean))].sort();
     const sel = document.getElementById('vdCiudad');
     ciudades.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c.charAt(0).toUpperCase()+c.slice(1); sel.appendChild(o); });
 
@@ -2131,13 +2146,13 @@ function bindContent(secId) {
           (av === 'parcial'  && pct > 0 && pct < 100) ||
           (av === 'completo' && pct >= 100);
         const tmOk = tm === 'todo' || (parseInt(row.dataset.term) || 0) > 0;
-        const ciuOk = !ciu || row.dataset.ciudad === ciu;
+        const ciuOk = !ciu || (row.dataset.ciudades || row.dataset.ciudad || '').split('|').includes(ciu);
         // Artículos del cliente que coinciden con la búsqueda (mismo criterio para filtrar y para los chips)
         const hits = esArt
           ? (row.dataset.artq || '').split(',').filter(Boolean).map(s => s.split(':')).filter(([a]) => artMatch(a, q))
           : [];
         if (hits.length) nArt++;
-        const qOk = !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || hits.length > 0;
+        const qOk = !q || row.dataset.nombre.includes(q) || (row.dataset.ciudades || row.dataset.ciudad || '').includes(q) || hits.length > 0;
         const ok = avOk && tmOk && qOk && ciuOk;
         row.style.display = ok ? '' : 'none';
         // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
