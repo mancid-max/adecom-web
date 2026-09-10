@@ -1412,10 +1412,14 @@ async function secCajas() {
     <span class="flbl" style="margin-left:4px">Antigüedad</span>
     <div class="segs" id="cjDiasSegs">
       <button class="seg on" data-d="0">Todas</button>
-      <button class="seg" data-d="7">+7 días</button>
-      <button class="seg" data-d="14">+14 días</button>
-      <button class="seg" data-d="30">+30 días</button>
+      <button class="seg" data-d="7">+1 semana</button>
+      <button class="seg" data-d="30">+1 mes</button>
+      <button class="seg" data-d="365">+1 año</button>
     </div>
+    <select id="cjMeses" class="finput" style="width:150px" title="Cajas con más de N meses en bodega">
+      <option value="">Más de… meses</option>
+      ${[1,2,3,4,5,6,9,12,18,24].map(n => `<option value="${n}">Más de ${n} ${n === 1 ? 'mes' : 'meses'}</option>`).join('')}
+    </select>
     <select id="cjVend" class="finput" style="width:160px"><option value="">Todos los vendedores</option>${vendedores.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('')}</select>
     <input id="cjSearch" class="finput fsearch" placeholder="Cliente, pedido, caja, artículo…" style="width:230px">
   </div>
@@ -2310,7 +2314,8 @@ function bindContent(secId) {
     function applyCjFilters() {
       const est  = document.querySelector('#cjEstadoSegs .seg.on')?.dataset.est || 'bodega';
       const temp = document.querySelector('#cjTempSegs .seg.on')?.dataset.t || 'all';
-      const minD = parseInt(document.querySelector('#cjDiasSegs .seg.on')?.dataset.d || '0') || 0;
+      const meses = parseInt(document.getElementById('cjMeses')?.value || '0') || 0;
+      const minD = meses ? Math.round(meses * 30.44) : (parseInt(document.querySelector('#cjDiasSegs .seg.on')?.dataset.d || '0') || 0);
       const vend = document.getElementById('cjVend')?.value || '';
       const q    = (document.getElementById('cjSearch')?.value || '').trim().toLowerCase();
       let n = 0, prendas = 0, valor = 0, viejas = 0;
@@ -2331,8 +2336,15 @@ function bindContent(secId) {
     }
     ['cjTempSegs', 'cjEstadoSegs', 'cjDiasSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
-      b.classList.add('on'); applyCjFilters();
+      b.classList.add('on');
+      if (id === 'cjDiasSegs') { const s = document.getElementById('cjMeses'); if (s) s.value = ''; }   // botón manda; se limpia "más de N meses"
+      applyCjFilters();
     })));
+    document.getElementById('cjMeses')?.addEventListener('change', e => {
+      if (e.target.value) { document.querySelectorAll('#cjDiasSegs .seg').forEach(x => x.classList.remove('on')); }
+      else { document.querySelector('#cjDiasSegs .seg[data-d="0"]')?.classList.add('on'); }
+      applyCjFilters();
+    });
     document.getElementById('cjVend')?.addEventListener('change', applyCjFilters);
     document.getElementById('cjSearch')?.addEventListener('input', applyCjFilters);
     document.querySelectorAll('#cjBody tr.cj-row').forEach(row => row.addEventListener('click', () => {
