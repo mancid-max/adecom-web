@@ -898,7 +898,9 @@ async function secStock() {
       const tallaEntries = Object.entries(r.tallas||{});
       const tallaRows = tallaEntries.map(([t, q]) => {
         const ts = r.saldo_talla?.[t];
-        return `<tr class="no-click st-talla-row" style="display:none;background:var(--sf2)">
+        // Stock y saldo de esta talla en cada sucursal, para que el filtro por local sea real
+        const sucT = sucList.map(s => `data-t${s}="${r.tallas_suc?.[s]?.[t]||0}" data-ts${s}="${r.saldo_talla_suc?.[s]?.[t]||0}"`).join(' ');
+        return `<tr class="no-click st-talla-row" data-tq="${q}" data-tsal="${ts != null ? ts : ''}" ${sucT} style="display:none;background:var(--sf2)">
           <td></td><td></td><td></td>
           <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
@@ -1992,11 +1994,20 @@ function bindContent(secId) {
         if (cells[4]) cells[4].textContent = show ? fmt(qty) : '';
         if (cells[5]) cells[5].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
         if (cells[6]) cells[6].textContent = show ? fmt(Math.max(0, qty - cajQty)) : '';
-        if (!show) {
-          // ocultar tallas si la fila padre se oculta
-          let sib = row.nextElementSibling;
-          while (sib && sib.classList.contains('st-talla-row')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
+        // Tallas: recalcular según la sucursal elegida y colapsarlas (se vuelven a abrir con un click)
+        let sib = row.nextElementSibling;
+        while (sib && sib.classList.contains('st-talla-row')) {
+          const tq  = suc === 'all' ? (parseInt(sib.dataset.tq) || 0)   : (parseInt(sib.dataset[`t${suc}`])  || 0);
+          const tsl = suc === 'all' ? sib.dataset.tsal                   : (sib.dataset[`ts${suc}`] ?? '');
+          const tc = sib.cells;
+          if (tc[4]) tc[4].textContent = fmt(tq);
+          if (tc[6]) tc[6].textContent = tsl === '' ? '—' : fmt(parseInt(tsl) || 0);
+          sib.dataset.vacia = tq > 0 ? '' : '1';   // sin stock en esta sucursal: no se muestra al expandir
+          sib.style.display = 'none';
+          sib = sib.nextElementSibling;
         }
+        const chv = row.querySelector('.chv');
+        if (chv) chv.textContent = '▸';
         if (show) { vis++; totalU += qty; }
       });
       const el = id => document.getElementById(id);
@@ -2039,12 +2050,15 @@ function bindContent(secId) {
           sib = sib.nextElementSibling;
         }
         sib = row.nextElementSibling;
+        let algunaVisible = false;
         while (sib && sib.classList.contains('st-talla-row')) {
-          sib.style.display = open ? 'none' : '';
+          const mostrar = !open && sib.dataset.vacia !== '1';   // tallas sin stock en la sucursal filtrada no se muestran
+          sib.style.display = mostrar ? '' : 'none';
+          if (mostrar) algunaVisible = true;
           sib = sib.nextElementSibling;
         }
         const chv = row.querySelector('.chv');
-        if (chv) chv.textContent = open ? '▸' : '▾';
+        if (chv) chv.textContent = algunaVisible ? '▾' : '▸';
       });
     });
     applyStockFilters();

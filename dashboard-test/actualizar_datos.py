@@ -335,7 +335,8 @@ try:
             art8  = code[:8]
             talla = code[8:10].lstrip('0') or code[8:10]
             if art8 not in saldo_map:
-                saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}, 'cajas_talla': {}}
+                saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}, 'cajas_talla': {},
+                                   't_suc': {}, 'ct_suc': {}}
             saldo_map[art8]['sucs'][suc] = saldo_map[art8]['sucs'].get(suc, 0) + qty
             saldo_map[art8]['cajas'][suc] = saldo_map[art8]['cajas'].get(suc, 0) + cajas
             # Las tallas SOLO de las sucursales de prendas, igual que 'prendas' y 'cajas_total':
@@ -343,6 +344,11 @@ try:
             if talla and suc in SUCURSALES_PRENDAS:
                 saldo_map[art8]['tallas'][talla] = saldo_map[art8]['tallas'].get(talla, 0) + qty
                 saldo_map[art8]['cajas_talla'][talla] = saldo_map[art8]['cajas_talla'].get(talla, 0) + cajas
+                # …y también por sucursal, para que al filtrar por local las tallas correspondan a ese local
+                ts = saldo_map[art8]['t_suc'].setdefault(suc, {})
+                ts[talla] = ts.get(talla, 0) + qty
+                cs = saldo_map[art8]['ct_suc'].setdefault(suc, {})
+                cs[talla] = cs.get(talla, 0) + cajas
 except FileNotFoundError:
     print("  SALDOSXLOCAL.CSV no encontrado en Z:\\BI")
 
@@ -365,6 +371,15 @@ for art8, data in sorted(saldo_map.items()):
     total_cajas = int(sum(v for k, v in cajas_d.items() if k in SUCURSALES_PRENDAS))
     tallas_sorted = {k: int(v) for k, v in sorted(tallas.items(), key=lambda x: _tsort(x[0]))}
     saldo_talla = {k: max(0, int(v) - int(cajas_talla.get(k, 0))) for k, v in tallas_sorted.items()}
+    # Tallas por sucursal (solo las que tienen stock), para el filtro por local
+    tallas_suc, saldo_talla_suc = {}, {}
+    for s, tt in data.get('t_suc', {}).items():
+        ts = {k: int(v) for k, v in sorted(tt.items(), key=lambda x: _tsort(x[0])) if int(v) > 0}
+        if not ts:
+            continue
+        cs = data.get('ct_suc', {}).get(s, {})
+        tallas_suc[s] = ts
+        saldo_talla_suc[s] = {k: max(0, v - int(cs.get(k, 0))) for k, v in ts.items()}
     saldos_bodega.append({
         "art": art8, "temp": t, "modelo": modelo, "color": color,
         "suc": {k: int(v) for k, v in sucs.items()},
@@ -373,6 +388,8 @@ for art8, data in sorted(saldo_map.items()):
         "saldo": max(0, int(total_prendas) - total_cajas),
         "tallas": tallas_sorted,
         "saldo_talla": saldo_talla,
+        "tallas_suc": tallas_suc,
+        "saldo_talla_suc": saldo_talla_suc,
         "prendas": int(total_prendas), "total": int(total_all),
         "bota": mod_bota.get(art8, '')
     })
