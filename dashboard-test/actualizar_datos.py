@@ -338,7 +338,9 @@ try:
                 saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}, 'cajas_talla': {}}
             saldo_map[art8]['sucs'][suc] = saldo_map[art8]['sucs'].get(suc, 0) + qty
             saldo_map[art8]['cajas'][suc] = saldo_map[art8]['cajas'].get(suc, 0) + cajas
-            if talla:
+            # Las tallas SOLO de las sucursales de prendas, igual que 'prendas' y 'cajas_total':
+            # si no, al expandir un artículo las tallas suman más que la columna Stock.
+            if talla and suc in SUCURSALES_PRENDAS:
                 saldo_map[art8]['tallas'][talla] = saldo_map[art8]['tallas'].get(talla, 0) + qty
                 saldo_map[art8]['cajas_talla'][talla] = saldo_map[art8]['cajas_talla'].get(talla, 0) + cajas
 except FileNotFoundError:
