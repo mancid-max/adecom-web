@@ -382,8 +382,9 @@ async function load(file) {
     } catch { data = null; }
     if (data === null) {
       try { data = await (await fetch(file + '?v=' + _VER, { cache: 'no-cache' })).json(); }
-      catch { data = []; }
+      catch { data = null; }
     }
+    if (data === null) return [];   // un fallo NO se cachea: si no, queda vacío para toda la sesión
     CACHE[file] = data;
   }
   return CACHE[file];
@@ -734,7 +735,7 @@ function secResumen() {
   </div>
 
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Top 15 Modelos T44 — toca una fila para ver colores</div></div>
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Modelos T44 — toca una fila para ver colores</div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>#</th><th>Modelo</th><th class="r">Unidades</th><th class="r">Colores</th><th>Participación</th></tr></thead>
@@ -825,7 +826,9 @@ async function secTop10() {
   const peds = await load('pedidos.json');
   if (!peds.length) return '<div class="ph"><h3>Sin datos</h3><p>No hay información para mostrar</p></div>';
 
-  const t44 = peds.filter(p => p.u_temp?.['44'] > 0 || p.temps?.includes('44'));
+  // Solo unidades T44: antes ordenaba y mostraba el total de todas las temporadas
+  const t44 = peds.filter(p => (p.u_temp?.['44'] || 0) > 0)
+    .map(p => ({ ...p, unidades: p.u_temp['44'], despacho: p.u_desp?.['44'] || 0, saldo: p.u_sal?.['44'] || 0 }));
   t44.sort((a,b) => b.unidades - a.unidades);
   const top10 = t44.slice(0, 10);
   const maxU = top10[0]?.unidades || 1;
@@ -874,9 +877,11 @@ async function secStock() {
     '34':'Telas','35':'Insumos'
   };
 
-  // Sucursales que realmente tienen stock en los datos
+  // Sucursales con stock. Solo las de prendas: las demás (central sin asignar, telas, insumos) no
+  // entran en Stock/Cajas/Saldo ni tienen desglose por talla, así que no deben salir en el filtro.
+  const SUC_PRENDAS = new Set(['01','02','04','05','10','12','33']);
   const allSucs = new Set();
-  data.forEach(r => Object.keys(r.suc||{}).forEach(s => allSucs.add(s)));
+  data.forEach(r => Object.keys(r.suc||{}).forEach(s => { if (SUC_PRENDAS.has(s)) allSucs.add(s); }));
   const sucList = [...allSucs].sort();
 
   const allTemps = [...new Set(data.map(r => r.temp).filter(Boolean))].sort();
@@ -1042,7 +1047,7 @@ async function secTabla() {
         <option value="T.Externo">T.Externo</option>
         <option value="Limpiado">Limpiado</option>
         <option value="Corte">Corte</option>
-        <option value="Proceso">Proceso</option>
+        <option value="Sin movimiento">Sin movimiento</option>
         <option value="Sin movimiento">Sin movimiento</option>
       </select>
     </div>
@@ -1232,7 +1237,7 @@ function pedidoEnCaja(p, cajasAll) {
 /* Pendiente sin caja que está en Terminación (lo "atacable" ya): artículos y unidades */
 function pedidoTerm(p, prodMap, enCaja) {
   let arts = 0, units = 0;
-  (p.lineas || []).forEach(l => {
+  (p.lineas || []).filter(l => l.temp === '44').forEach(l => {   // la sección es solo T44
     const falta = Math.max(0, (l.sal || 0) - (enCaja[l.art] || 0));
     const t = prodMap[l.art]?.term || 0;
     if (falta > 0 && t > 0) { arts++; units += Math.min(falta, t); }
@@ -1329,7 +1334,7 @@ async function secVentaDespacho() {
       <button class="seg" data-tm="term" title="Clientes con artículos pendientes (sin caja) en Terminación">🏁 En terminación</button>
     </div>
     <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
-    <select id="vdCiudad" class="finput" style="width:140px"><option value="">Todas las ciudades</option></select>
+    <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select>
   </div>
   <div class="kpi-grid">
     <div class="kpi sel" style="cursor:default">
@@ -1440,7 +1445,7 @@ async function secCajas() {
       <option value="">Más de… meses</option>
       ${[1,2,3,4,5,6,9,12,18,24].map(n => `<option value="${n}">Más de ${n} ${n === 1 ? 'mes' : 'meses'}</option>`).join('')}
     </select>
-    <select id="cjVend" class="finput" style="width:160px"><option value="">Todos los vendedores</option>${vendedores.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('')}</select>
+    <select id="cjVend" class="finput" style="width:190px"><option value="">Todos los vendedores</option>${vendedores.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('')}</select>
     <input id="cjSearch" class="finput fsearch" placeholder="Cliente, pedido, caja, artículo…" style="width:230px">
   </div>
   <div class="kpi-grid">
@@ -1481,14 +1486,24 @@ async function secClientes() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
-  const base = peds.filter(p => p.saldo > 0 && p.dias > 0);
-  base.sort((a,b) => b.saldo - a.saldo);
+  // Una fila por CLIENTE (antes era una por pedido y el mismo cliente salía decenas de veces)
+  const gm = new Map();
+  peds.filter(p => p.saldo > 0 && p.dias > 0).forEach(p => {
+    const k = vdKey(p);
+    if (!gm.has(k)) gm.set(k, { nombre: (p.nombre||p.rut||'').toUpperCase(), ciudad: p.ciudad||'', unidades:0, despacho:0, saldo:0, valor_sal:0, dias:0, pedidos:0 });
+    const g = gm.get(k);
+    g.unidades += p.unidades||0; g.despacho += p.despacho||0; g.saldo += p.saldo||0;
+    g.valor_sal += p.valor_sal||0; g.dias = Math.max(g.dias, p.dias||0); g.pedidos++;
+    if (!g.ciudad) g.ciudad = p.ciudad||'';
+  });
+  const base = [...gm.values()].sort((a,b) => b.saldo - a.saldo);
 
   const rowsHtml = base.map(p => `<tr class="no-click"
-    data-nombre="${(p.nombre||p.rut||'').toLowerCase()}"
-    data-ciudad="${(p.ciudad||'').toLowerCase()}"
+    data-nombre="${(p.nombre||'').toLowerCase().replace(/"/g,'&quot;')}"
+    data-ciudad="${(p.ciudad||'').toLowerCase().replace(/"/g,'&quot;')}"
+    data-valor="${p.valor_sal||0}"
     data-dias="${p.dias||0}">
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${(p.nombre||p.rut||'').toUpperCase()}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${p.nombre}${p.pedidos>1?` <span class="td-dim" style="font-size:10px">(${p.pedidos} pedidos)</span>`:''}</td>
     <td class="td-dim">${p.ciudad||'—'}</td>
     <td class="r td-num">${fmt(p.unidades)}</td>
     <td class="r td-dim">${fmt(p.despacho)}</td>
@@ -1651,7 +1666,7 @@ function buildPVCRows(t, ftMap, exMap) {
     // Texto buscable: modelo base, EX, números de OC, etapas
     const q = [item.base, ex?.ex_base || '', ...allOcs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)]
       .join(' ').toLowerCase();
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-ped="${item.total}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${item.total}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${allOcs.length} corte${allOcs.length>1?'s':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
@@ -1762,7 +1777,16 @@ const SECS = {
   'er':             () => Promise.resolve(secER()),
 };
 
+/* Con rol bodega solo se abren las secciones que su menú permite (bloquea también los atajos
+   desde el contenido: data-goto, barras del gráfico, etc.) */
+function secPermitida(secId) {
+  if (!window._bodegaMode) return true;
+  const btn = document.querySelector(`.nav-item[data-sec="${secId}"]`);
+  return !!btn && !btn.hasAttribute('data-admin-only');
+}
+
 async function go(secId, title) {
+  if (!secPermitida(secId)) return;
   document.getElementById('hdTitle').textContent = title;
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
@@ -1785,7 +1809,7 @@ function bindContent(secId) {
     s.className = 'fhint pop'; s.innerHTML = `<b>←</b> Busca por ${t}`;
     // Buscador + burbuja en un mismo bloque, para que nunca se separen al hacer wrap
     const wrap = document.createElement('span');
-    wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap;max-width:100%';
+    wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:100%';
     if (inp.style.marginLeft) { wrap.style.marginLeft = inp.style.marginLeft; inp.style.marginLeft = ''; }
     inp.replaceWith(wrap); wrap.appendChild(inp); wrap.appendChild(s);
     inp.classList.add('pop');
@@ -1879,7 +1903,7 @@ function bindContent(secId) {
           tipoOk &&
           (etapa === 'todo' || row.dataset.etapa === etapa) &&
           (temp  === 'todo' || row.dataset.temp  === temp) &&
-          (!art || row.dataset.art.includes(art)) &&
+          (!art || (/^\d{4,}$/.test(art) ? artMatch(row.dataset.art.slice(0, 8), art) : row.dataset.art.includes(art))) &&
           (!oc  || row.dataset.oc.includes(oc));
         row.style.display = show ? '' : 'none';
         if (show) { vis++; NUM.forEach(k => tots[k] += parseInt(row.dataset[k])||0); }
@@ -2115,6 +2139,15 @@ function bindContent(secId) {
           }
         }
       });
+      // Los 3 KPI de arriba siguen a la tabla filtrada
+      let kPed = 0, kDesp = 0, kSal = 0;
+      document.querySelectorAll('#vdBody tr[data-nombre]').forEach(row => {
+        if (row.style.display === 'none') return;
+        kPed += parseInt(row.dataset.ped) || 0; kDesp += parseInt(row.dataset.desp) || 0; kSal += parseInt(row.dataset.sal) || 0;
+      });
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      set('vdKPed', fmt(kPed)); set('vdKDesp', fmt(kDesp)); set('vdKSal', fmt(kSal));
+      set('vdKPct', `${kPed ? (kDesp / kPed * 100).toFixed(1) : 0}% avance`);
       const el = document.getElementById('vdCount');
       if (el) {
         const tot = `${fmt(artSol)} pedidas · ${fmt(artDesp)} despachadas · ${fmt(artSal)} pendientes`;
@@ -2304,7 +2337,7 @@ function bindContent(secId) {
             <td class="td-dim" style="padding:8px 8px">${l.color}</td>
             <td class="r td-num" style="padding:8px 12px">${fmt(l.sol)}</td>
             <td class="r td-num" style="padding:8px 12px;color:var(--ok);white-space:nowrap">${l.desp > 0 ? fmt(l.desp) : '—'}${ec ? ` <span title="En caja armada, pendiente de despacho" style="color:var(--ac);font-size:11px;font-weight:600">(+${fmt(Math.min(ec, l.sal))} en caja)</span>` : ''}</td>
-            <td class="r td-num" style="padding:8px 12px;color:${clr}">${l.sal > 0 ? fmt(l.sal) : '—'}</td>
+            <td class="r td-num" style="padding:8px 12px;color:${l.sal < 0 ? 'var(--ac)' : clr}">${l.sal !== 0 ? fmt(l.sal) : '—'}</td>
             <td style="padding:8px 12px">${estado}</td>
           </tr>`;
         }).join('');
@@ -2425,11 +2458,12 @@ function bindContent(secId) {
         const show = dias > cutoff &&
           (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q));
         row.style.display = show ? '' : 'none';
-        if (show) { vis++; totalDias += dias; }
+        if (show) { vis++; totalDias += dias; totalVal += parseInt(row.dataset.valor) || 0; }
       });
       const el = id => document.getElementById(id);
       if (el('clCount'))  el('clCount').textContent  = `${vis} clientes`;
       if (el('clKCount')) el('clKCount').textContent = vis;
+      if (el('clKValor')) el('clKValor').textContent = fmtM(totalVal);
       if (el('clKDias'))  el('clKDias').textContent  = vis ? Math.round(totalDias/vis) : 0;
       if (el('clTblTtl')) el('clTblTtl').textContent = `Clientes con Saldo Pendiente +${cutoff} días`;
       if (el('clKLbl'))   el('clKLbl').textContent   = `Clientes con saldo +${cutoff}d`;
@@ -2454,7 +2488,7 @@ function bindContent(secId) {
       let visible = 0, sumPed = 0, sumCort = 0;
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado;
-        const showEtapa  = etapa  === 'all' || row.dataset.etapa  === etapa;
+        const showEtapa  = etapa  === 'all' || (row.dataset.etapas || row.dataset.etapa || '').split('|').includes(etapa);
         const showQ      = !q || (row.dataset.q || '').includes(q);
         const show = showEstado && showEtapa && showQ;
         row.style.display = show ? '' : 'none';
@@ -2547,8 +2581,9 @@ function bindContent(secId) {
       document.getElementById('vkNetoVal').textContent = fmtM(neto);
       document.getElementById('vkBrutoVal').textContent = fmtM(bruto);
       document.getElementById('vTblTtl').textContent = label;
-      const TOPE = 200;   // la tabla muestra los primeros TOPE; los totales de arriba son de todo el período
-      document.getElementById('ventaBody').innerHTML = buildVentaTable(filtered.slice(0, TOPE));
+      const TOPE = 200;   // la tabla muestra los TOPE más recientes; los totales de arriba son de todo el período
+      const orden = filtered.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
+      document.getElementById('ventaBody').innerHTML = buildVentaTable(orden.slice(0, TOPE));
       document.getElementById('ventaFoot').textContent = filtered.length > TOPE
         ? `${filtered.length} documentos · ${fmtCLP(neto)} neto — se listan los ${TOPE} más recientes; los totales de arriba son de todo el período`
         : `${filtered.length} documentos · ${fmtCLP(neto)} neto`;
@@ -2659,7 +2694,20 @@ function bindMobile() {
 }
 
 /* ── INIT ────────────────────────────────────────────────────── */
-async function init() {
+/* Arranca SOLO con sesión iniciada (lo llama applyRole). Antes corría en DOMContentLoaded y,
+   sin sesión, dejaba los datos cacheados en vacío: al iniciar sesión el dashboard salía en cero. */
+let _appLista = false;
+async function init(role) {
+  if (_appLista) return;
+  _appLista = true;
+  const esBodega = role === 'bodega';
+
+  // El menú primero, para que la navegación funcione desde el arranque
+  document.querySelectorAll('.nav-item[data-sec]').forEach(btn => {
+    btn.addEventListener('click', () => go(btn.dataset.sec, btn.dataset.ttl));
+  });
+  bindMobile();
+
   // Cargar datos base en paralelo + meta para timestamp real del build
   const [pa, dv, meta] = await Promise.all([
     load('pedidos_art.json'),
@@ -2686,16 +2734,9 @@ async function init() {
     }
   }
 
-  await go('resumen', 'Resumen General');
-
-  document.querySelectorAll('.nav-item[data-sec]').forEach(btn => {
-    btn.addEventListener('click', () => go(btn.dataset.sec, btn.dataset.ttl));
-  });
-
-  bindMobile();
+  // Bodega parte en Stock Bodega; admin en el Resumen
+  await (esBodega ? go('stock', 'Stock Bodega') : go('resumen', 'Resumen General'));
 }
-
-document.addEventListener('DOMContentLoaded', init);
 </script>
 
 <!-- LOGIN OVERLAY -->
@@ -2725,13 +2766,12 @@ function applyRole(role, email) {
   document.getElementById('sbAvatar').textContent = name[0].toUpperCase();
   document.getElementById('sbName').textContent = name;
   document.getElementById('sbRole').textContent = role === 'admin' ? 'Administrador' : 'Bodega';
-  if (role === 'bodega') {
+  if (role !== 'admin') {
     window._bodegaMode = true;
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
-    const stockBtn = document.querySelector('.nav-item[data-sec="stock"]');
-    if (stockBtn) { stockBtn.click(); }
   }
   document.getElementById('loginOv').classList.add('hidden');
+  init(role);   // los datos se cargan recién ahora, con la sesión ya iniciada
 }
 
 async function authLogin() {
@@ -2743,7 +2783,7 @@ async function authLogin() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Ingresar';
   if (error) { err.textContent = 'Correo o contraseña incorrectos'; return; }
-  const role = data.user?.user_metadata?.role || 'admin';
+  const role = data.user?.user_metadata?.role || 'bodega';   // sin rol asignado → el acceso más restringido
   applyRole(role, email);
 }
 
@@ -2755,7 +2795,7 @@ async function authLogout() {
 async function authInit() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    const role = session.user?.user_metadata?.role || 'admin';
+    const role = session.user?.user_metadata?.role || 'bodega';   // sin rol asignado → el acceso más restringido
     applyRole(role, session.user.email);
   }
   // Enter key en inputs

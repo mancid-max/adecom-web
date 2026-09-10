@@ -305,7 +305,13 @@ docs_venta = list(docs_dict.values())
 SUCURSALES_PRENDAS = {'01','02','04','05','10','12','33'}
 
 print("Leyendo SALDOSXLOCAL.CSV...")
-saldo_map = {}  # {art8: {'sucs': {suc: qty}, 'tallas': {talla: qty}}}
+# OJO con la columna 'Cajas': NO es por bodega. Es un TOTAL por artículo+talla que el ERP repite
+# idéntico en la fila de cada bodega (verificado 2026-09-10: art 0144140038 sale con 29 cajas en la
+# bodega 04 y otras 29 en la 10, que son las mismas). Sumarla por bodega la duplicaba y dejaba
+# artículos con más cajas que stock. Se toma UNA vez por talla y se asigna a la bodega que concentra
+# el stock de esa talla, que es donde están físicamente.
+raw = {}        # {(art8, talla): {'cajas': n, 'sucs': {suc: qty}}}
+saldo_map = {}  # {art8: {'sucs': {suc: qty}, 'tallas': {talla: qty}, ...}}
 saldo_file = bi_file('SALDOSXLOCAL.CSV')
 try:
     with open(saldo_file, encoding='latin-1') as f:
@@ -334,21 +340,32 @@ try:
                 continue
             art8  = code[:8]
             talla = code[8:10].lstrip('0') or code[8:10]
-            if art8 not in saldo_map:
-                saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}, 'cajas_talla': {},
-                                   't_suc': {}, 'ct_suc': {}}
-            saldo_map[art8]['sucs'][suc] = saldo_map[art8]['sucs'].get(suc, 0) + qty
-            saldo_map[art8]['cajas'][suc] = saldo_map[art8]['cajas'].get(suc, 0) + cajas
-            # Las tallas SOLO de las sucursales de prendas, igual que 'prendas' y 'cajas_total':
-            # si no, al expandir un artículo las tallas suman más que la columna Stock.
+            d = raw.setdefault((art8, talla), {'cajas': 0, 'sucs': {}})
+            d['cajas'] = max(d['cajas'], cajas)          # mismo total repetido: tomarlo una vez
+            d['sucs'][suc] = d['sucs'].get(suc, 0) + qty
+
+    for (art8, talla), d in raw.items():
+        if art8 not in saldo_map:
+            saldo_map[art8] = {'sucs': {}, 'tallas': {}, 'cajas': {}, 'cajas_talla': {},
+                               't_suc': {}, 'ct_suc': {}}
+        e = saldo_map[art8]
+        for suc, qty in d['sucs'].items():
+            e['sucs'][suc] = e['sucs'].get(suc, 0) + qty
             if talla and suc in SUCURSALES_PRENDAS:
-                saldo_map[art8]['tallas'][talla] = saldo_map[art8]['tallas'].get(talla, 0) + qty
-                saldo_map[art8]['cajas_talla'][talla] = saldo_map[art8]['cajas_talla'].get(talla, 0) + cajas
-                # …y también por sucursal, para que al filtrar por local las tallas correspondan a ese local
-                ts = saldo_map[art8]['t_suc'].setdefault(suc, {})
+                e['tallas'][talla] = e['tallas'].get(talla, 0) + qty
+                ts = e['t_suc'].setdefault(suc, {})
                 ts[talla] = ts.get(talla, 0) + qty
-                cs = saldo_map[art8]['ct_suc'].setdefault(suc, {})
-                cs[talla] = cs.get(talla, 0) + cajas
+        # Las cajas de esta talla van completas a la bodega con más stock de la talla
+        cajas = d['cajas']
+        if cajas > 0:
+            prio = [(s, q) for s, q in d['sucs'].items() if s in SUCURSALES_PRENDAS] or list(d['sucs'].items())
+            principal = max(prio, key=lambda kv: (kv[1], kv[0]))[0] if prio else None
+            if principal:
+                e['cajas'][principal] = e['cajas'].get(principal, 0) + cajas
+                if talla and principal in SUCURSALES_PRENDAS:
+                    e['cajas_talla'][talla] = e['cajas_talla'].get(talla, 0) + cajas
+                    cs = e['ct_suc'].setdefault(principal, {})
+                    cs[talla] = cs.get(talla, 0) + cajas
 except FileNotFoundError:
     print("  SALDOSXLOCAL.CSV no encontrado en Z:\\BI")
 
