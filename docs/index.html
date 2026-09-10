@@ -612,7 +612,7 @@ function buildByTemp() {
     if (!byTemp[t]) byTemp[t] = { total:0, modelos:0, items:[] };
     byTemp[t].total += item.total;
     byTemp[t].modelos++;
-    byTemp[t].items.push({ base:item.base, total:item.total, colores:item.modelos.length, modelos:item.modelos });
+    byTemp[t].items.push({ base:item.base, total:item.total, colores:item.modelos.length, modelos:item.modelos, bota:item.bota||'', tiro:item.tiro||'' });
   }
   return byTemp;
 }
@@ -781,22 +781,29 @@ function secDetalleColor() {
   const iniT = (temps.includes(window._dcTemp) ? window._dcTemp : (temps.includes('44') ? '44' : temps[0]));
   window._dcTemp = null;
 
+  const dcArt = (t, base, color) => `01${t}${String(base).slice(-2)}${String(color).padStart(2,'0')}`;
+  const dcTag = (txt, bg, fg) => txt ? `<span style="background:${bg};color:${fg};border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap">${txt}</span>` : '';
+
   function buildColorRows(t) {
     const info = byTemp[t];
-    if (!info?.items?.length) return '<tr class="no-click"><td colspan="4" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos</td></tr>';
+    if (!info?.items?.length) return '<tr class="no-click"><td colspan="5" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos</td></tr>';
     const sorted = info.items.slice().sort((a,b) => b.total - a.total);
     const tc = tcFor(t);
     return sorted.map(item => {
-      const variantRows = (item.modelos || []).map(v =>
-        `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+      const variantRows = (item.modelos || []).map(v => {
+        const a = dcArt(t, item.base, v.mod);
+        return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+          <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
+          <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span></td>
           <td></td>
-          <td class="td-dim" style="padding-left:28px">└ color ${v.mod}</td>
           <td class="r td-num td-dim">${fmt(v.qty)}</td>
           <td class="r td-dim">—</td>
-        </tr>`
-      ).join('');
-      return `<tr data-expandable data-base="${item.base}" style="font-weight:600">
-        <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
+        </tr>`;
+      }).join('');
+      const bota = item.bota || '', tiro = item.tiro || '';
+      return `<tr data-expandable data-base="${item.base}" data-bota="${bota.toLowerCase()}" data-tiro="${tiro.toLowerCase()}" style="font-weight:600">
+        <td>${artImg(dcArt(t, item.base, (item.modelos||[{mod:'00'}])[0].mod))}<span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
+        <td><div style="display:flex;gap:4px;flex-wrap:wrap">${dcTag(bota, 'var(--ac10)', 'var(--ac)')}${dcTag(tiro, 'var(--sf2)', 'var(--tx2)')}</div></td>
         <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores > 1 ? 'es' : ''}</td>
         <td class="r td-num">${fmt(item.total)}</td>
         <td class="r td-dim">
@@ -805,6 +812,10 @@ function secDetalleColor() {
       </tr>${variantRows}`;
     }).join('');
   }
+
+  // Opciones de los filtros, tomadas de todas las temporadas
+  const dcBotas = [...new Set(temps.flatMap(t => (byTemp[t]?.items||[]).map(i => i.bota).filter(Boolean)))].sort();
+  const dcTiros = [...new Set(temps.flatMap(t => (byTemp[t]?.items||[]).map(i => i.tiro).filter(Boolean)))].sort();
 
   const tempCards = temps.map(t => {
     const info = byTemp[t], tc = tcFor(t);
@@ -825,11 +836,23 @@ function secDetalleColor() {
     </div>
     <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="margin-left:auto;width:180px">
   </div>
+  <div class="fbar" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+    <span class="flbl">Bota</span>
+    <div class="segs" id="dcBotaSegs">
+      <button class="seg on" data-b="all">Todas</button>
+      ${dcBotas.map(b => `<button class="seg" data-b="${b.toLowerCase()}">${b}</button>`).join('')}
+    </div>
+    <span class="flbl" style="margin-left:4px">Tiro</span>
+    <div class="segs" id="dcTiroSegs">
+      <button class="seg on" data-ti="all">Todos</button>
+      ${dcTiros.map(b => `<button class="seg" data-ti="${b.toLowerCase()}">${b}</button>`).join('')}
+    </div>
+  </div>
   <div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Modelo Base</th><th>Variantes</th><th class="r">Unidades</th><th class="r">▸</th></tr></thead>
+        <thead><tr><th>Modelo Base</th><th>Tipo</th><th>Variantes</th><th class="r">Unidades</th><th class="r">▸</th></tr></thead>
         <tbody id="dcBody">${buildColorRows(iniT)}</tbody>
       </table>
       <div class="tbl-foot" id="dcFoot">${byTemp[iniT]?.modelos || 0} modelos en T${iniT}</div>
@@ -1875,20 +1898,33 @@ function bindContent(secId) {
 
     function applyDcSearch() {
       const q = (document.getElementById('dcSearch')?.value || '').trim().toLowerCase();
-      let vis = 0;
+      const bota = document.querySelector('#dcBotaSegs .seg.on')?.dataset.b  || 'all';
+      const tiro = document.querySelector('#dcTiroSegs .seg.on')?.dataset.ti || 'all';
+      const t = document.querySelector('#dcSegs .seg.on')?.dataset.t || '';
+      let vis = 0, uds = 0;
       document.querySelectorAll('#dcBody tr[data-expandable]').forEach(row => {
-        const match = !q || (row.dataset.base || '').toLowerCase().includes(q);
+        const match = (!q || (row.dataset.base || '').toLowerCase().includes(q))
+          && (bota === 'all' || row.dataset.bota === bota)
+          && (tiro === 'all' || row.dataset.tiro === tiro);
         row.style.display = match ? '' : 'none';
         let sib = row.nextElementSibling;
         while (sib && sib.classList.contains('variant-row')) {
           if (!match) sib.style.display = 'none';
           sib = sib.nextElementSibling;
         }
-        if (match) vis++;
+        if (match) { vis++; uds += parseInt((row.cells[3]?.textContent || '0').replace(/\D/g, '')) || 0; }
       });
       const foot = document.getElementById('dcFoot');
-      if (foot && q) foot.textContent = `${vis} resultado${vis!==1?'s':''} para "${q}"`;
+      if (foot) {
+        const filtro = [bota !== 'all' ? bota : '', tiro !== 'all' ? tiro : ''].filter(Boolean).join(' · ');
+        foot.textContent = q ? `${vis} resultado${vis!==1?'s':''} para "${q}"`
+                             : `${vis} modelos en T${t}${filtro ? ' · ' + filtro : ''} · ${fmt(uds)} unidades`;
+      }
     }
+    ['dcBotaSegs', 'dcTiroSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); applyDcSearch();
+    })));
 
     document.querySelectorAll('#dcSegs .seg').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1898,10 +1934,10 @@ function bindContent(secId) {
         const srch = document.getElementById('dcSearch');
         if (srch) srch.value = '';
         document.getElementById('dcBody').innerHTML = buildColorRowsForTemp(byTemp, t);
-        document.getElementById('dcFoot').textContent = `${byTemp[t]?.modelos||0} modelos en T${t}`;
         document.querySelectorAll('[data-temp-card]').forEach(c =>
           c.classList.toggle('sel', c.dataset.tempCard === t));
         bindExpandRows();
+        applyDcSearch();
       });
     });
 
@@ -2692,19 +2728,25 @@ function bindContent(secId) {
 
 function buildColorRowsForTemp(byTemp, t) {
   const info = byTemp[t];
-  if (!info?.items?.length) return '<tr class="no-click"><td colspan="4" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos</td></tr>';
+  if (!info?.items?.length) return '<tr class="no-click"><td colspan="5" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos</td></tr>';
   const tc = tcFor(t);
+  const art = (base, color) => `01${t}${String(base).slice(-2)}${String(color).padStart(2,'0')}`;
+  const tag = (txt, bg, fg) => txt ? `<span style="background:${bg};color:${fg};border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap">${txt}</span>` : '';
   return info.items.slice().sort((a,b) => b.total-a.total).map(item => {
-    const variantRows = (item.modelos || []).map(v =>
-      `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+    const variantRows = (item.modelos || []).map(v => {
+      const a = art(item.base, v.mod);
+      return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+        <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
+        <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span></td>
         <td></td>
-        <td class="td-dim" style="padding-left:28px">└ color ${v.mod}</td>
         <td class="r td-num td-dim">${fmt(v.qty)}</td>
         <td class="r td-dim">—</td>
-      </tr>`
-    ).join('');
-    return `<tr data-expandable data-base="${item.base}" style="font-weight:600">
-      <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
+      </tr>`;
+    }).join('');
+    const bota = item.bota || '', tiro = item.tiro || '';
+    return `<tr data-expandable data-base="${item.base}" data-bota="${bota.toLowerCase()}" data-tiro="${tiro.toLowerCase()}" style="font-weight:600">
+      <td>${artImg(art(item.base, (item.modelos||[{mod:'00'}])[0].mod))}<span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${tag(bota,'var(--ac10)','var(--ac)')}${tag(tiro,'var(--sf2)','var(--tx2)')}</div></td>
       <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores>1?'es':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
       <td class="r td-dim">

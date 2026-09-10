@@ -202,15 +202,28 @@ def norm_bota(sc):
     if 'BALLOON' in s: return 'Balloon'
     if 'BERMUDA' in s: return 'Bermuda'
     if 'CALZA'   in s: return 'Calza'
-    # El resto (FALLA NOTORIA, LINEA ARTE, BAGUI…) no son tipos de bota: no van al filtro
+    if 'TOBILLO' in s: return 'Tobillo'
+    if 'CROOP'   in s or 'CROP' in s: return 'Croop'
+    if 'BAGUI'   in s: return 'Bagui'
+    # El resto (FALLA NOTORIA, LINEA ARTE…) no son tipos de bota: no van al filtro
+    return ''
+
+# SubCateg trae tiro + bota juntos: "CINTURA FLARE" = tiro alto, bota flare
+def norm_tiro(sc):
+    s = sc.strip().upper()
+    if s.startswith('CINTURA'): return 'Tiro alto'
+    if s.startswith('MEDIO'):   return 'Tiro medio'
+    if s.startswith('BAJO'):    return 'Tiro bajo'
     return ''
 
 mod_bota = {}
+mod_tiro = {}
 for r in ped_rows:
     art8 = r.get('ARTICULO','').strip()[:8]
     sc   = r.get('SubCateg','').strip()
     if art8 and sc:
         mod_bota[art8] = norm_bota(sc)
+        mod_tiro[art8] = norm_tiro(sc)
 
 # ── 2b. ARTÍCULOS POR TALLA (ARCHIVO_TALLAS.CSV) ───────────────────────────
 # Fuente correcta para unidades pedidas por artículo/modelo.
@@ -268,8 +281,12 @@ pedidos_art = []
 for temp, bases in art_dict.items():
     for base, mods in bases.items():
         total = sum(mods.values())
+        # Tiro y bota del modelo, tomados de sus variantes de color
+        arts = [f"01{temp}{base[-2:]}{str(m).zfill(2)}" for m in mods]
+        bota = next((mod_bota.get(a) for a in arts if mod_bota.get(a)), '')
+        tiro = next((mod_tiro.get(a) for a in arts if mod_tiro.get(a)), '')
         pedidos_art.append({
-            "temp": temp, "base": base, "total": total,
+            "temp": temp, "base": base, "total": total, "bota": bota, "tiro": tiro,
             "modelos": [{"mod": m, "qty": q} for m, q in sorted(mods.items())]
         })
 
