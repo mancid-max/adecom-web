@@ -1682,117 +1682,75 @@ function buildPVCRows(t, ftMap, exMap) {
   const tc = tcFor(t);
   if (!rawItems.length) return '<tr class="no-click"><td colspan="12" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
 
-  // Pre-calcular corteTotal y diff para ordenar por Diferencia desc
-  const items = rawItems.map(item => {
-    const suffix = item.base.slice(-2);
-    let ct = 0;
-    for (const v of (item.modelos||[])) {
-      const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-      ct += ftMap[art]?.pend || 0;
+  // Una fila por ARTÍCULO (modelo + color), igual que el informe "Artículos para corte" del ERP.
+  // A cortar = Saldo por entregar − Stock bodega(04) − Producción en proceso.
+  const filas = [];
+  for (const item of rawItems) {
+    for (const v of (item.modelos || [])) {
+      const mod = String(v.mod).padStart(2, '0');
+      const art = `01${t}${item.base.slice(-2)}${mod}`;
+      const ftr = ftMap[art] || {};
+      const sal = v.sal != null ? v.sal : v.qty;
+      const stk = STOCK_MAP[art] || 0;
+      const pro = ftr.pend || 0;
+      filas.push({ art, base: item.base, mod, ped: v.qty || 0, desp: v.desp || 0, sal, stk, pro,
+                   diff: stk + pro - sal, ocs: ftr.ocs || [], etapas: ftr.etapas || {},
+                   ex: exMap ? exMap[item.base] : null });
     }
-    const stkR = (item.modelos||[]).reduce((a, v) => a + (STOCK_MAP[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`] || 0), 0);
-    return { ...item, _ct: ct, _stk: stkR, _diff: stkR + ct - (item.saldo ?? item.total) };
-  }).sort((a, b) => {
-    if (a._diff >= 0 && b._diff >= 0) return b._diff - a._diff;   // ambos positivos: mayor primero
-    if (a._diff < 0  && b._diff < 0)  return a._diff - b._diff;   // ambos negativos: más negativo primero
-    return b._diff >= 0 ? 1 : -1;                                  // positivos antes que negativos
+  }
+  filas.sort((a, b) => {
+    if (a.diff >= 0 && b.diff >= 0) return b.diff - a.diff;   // ambos positivos: mayor primero
+    if (a.diff < 0  && b.diff < 0)  return a.diff - b.diff;   // ambos negativos: más negativo primero
+    return b.diff >= 0 ? 1 : -1;                               // positivos antes que negativos
   });
 
-  return items.map(item => {
-    const suffix = item.base.slice(-2);
-    let corteTotal = 0;
-    const modelEtapas = {};
-    const allOcs = [];
-    for (const v of (item.modelos || [])) {
-      const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-      const ftr = ftMap[art] || {};
-      corteTotal += ftr.corte || 0;
-      const artEtapas = Object.entries(ftr.etapas || {})
-        .sort((x,y) => (ETAPA_RANK[y[0]]??-2) - (ETAPA_RANK[x[0]]??-2));
-      for (const [e] of artEtapas) modelEtapas[e] = (modelEtapas[e]||0) + 1;
-      for (const oc of (ftr.ocs || [])) allOcs.push(oc);
-    }
-    // Desglose por color: cada artículo con su propio cálculo, para poder cuadrarlo
-    // contra el informe "Artículos para corte" del ERP, que se emite por artículo.
-    const colorRows = (item.modelos || []).map(v => {
-      const a = `01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`;
-      const vSal = v.sal != null ? v.sal : v.qty;
-      const vStk = STOCK_MAP[a] || 0;
-      const vPro = ftMap[a]?.pend || 0;
-      const vDif = vStk + vPro - vSal;
-      const vCls = vDif > 0 ? 'var(--ok)' : vDif < 0 ? 'var(--er)' : 'var(--tx3)';
-      return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
-        <td style="padding-left:28px">${artImg(a)}<span class="td-code" style="font-size:11px">${a}</span></td>
-        <td class="td-dim" style="font-size:11px">color ${v.mod}</td>
-        <td class="r td-num td-dim">${fmt(v.qty)}</td>
-        <td class="r td-num td-dim" style="color:var(--ok)">${v.desp ? fmt(v.desp) : '—'}</td>
-        <td class="r td-num td-dim" style="color:${vSal>0?'var(--wa)':'var(--tx3)'}">${vSal ? fmt(vSal) : '—'}</td>
-        <td class="r td-num td-dim" style="color:${vStk<0?'var(--er)':'var(--tx2)'}">${vStk ? fmt(vStk) : '—'}</td>
-        <td class="r td-num td-dim" style="color:var(--ac)">${vPro ? fmt(vPro) : '—'}</td>
-        <td class="r td-num" style="color:${vCls};font-weight:700">${vDif > 0 ? '+' : ''}${vDif ? fmt(vDif) : '—'}</td>
-        <td colspan="4" class="td-dim" style="font-size:10px">${vDif < 0 ? `a cortar ${fmt(-vDif)}` : ''}</td>
-      </tr>`;
-    }).join('');
-    const ocRows = allOcs.map((oc, idx) => {
-      const etClr = etapaClr(oc.etapa);
-      return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
-        <td></td>
-        <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
-        <td></td><td></td><td></td><td></td>
-        <td class="r td-dim">${oc.unidades ? fmt(oc.unidades)+' cort.' : '—'}</td>
-        <td class="r td-dim" style="color:${oc.saldo>0?'var(--wa)':'var(--tx3)'};">${oc.saldo ? fmt(oc.saldo)+' u.' : '—'}</td>
-        <td></td><td></td><td></td>
-        <td style="padding-left:6px"><span style="color:${etClr};font-size:10px;font-weight:600">${oc.etapa}</span></td>
-      </tr>`;
-    }).join('');
-    // Decisión real: lo que TENGO (stock en bodega) + lo que VIENE (cortado aún en producción)
-    // contra lo que DEBO (saldo = pedido − despachado). corteTotal ya no sirve: incluye lo despachado.
-    const sal  = item.saldo ?? item.total;
-    const stk  = (item.modelos||[]).reduce((a, v) => a + (STOCK_MAP[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`] || 0), 0);
-    const prod = (item.modelos||[]).reduce((a, v) => a + (ftMap[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`]?.pend || 0), 0);
-    const diff = stk + prod - sal;
-    const cls  = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)';
-    const estadoKey = diff > 0 ? 'ofrecer' : diff < 0 ? 'cortar' : 'ok';
-    // ESTADO
-    const estadoHtml = diff > 0
+  return filas.map(f => {
+    const cls = f.diff > 0 ? 'var(--ok)' : f.diff < 0 ? 'var(--er)' : 'var(--tx3)';
+    const estadoKey = f.diff > 0 ? 'ofrecer' : f.diff < 0 ? 'cortar' : 'ok';
+    const estadoHtml = f.diff > 0
       ? `<span style="background:var(--ok10);color:var(--ok);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▲ Ofrecer</span>`
-      : diff < 0
-        ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar más</span>`
+      : f.diff < 0
+        ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar ${fmt(-f.diff)}</span>`
         : `<span style="background:var(--sf2);color:var(--tx3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">✓ OK</span>`;
-    // EX
-    const ex = exMap ? exMap[item.base] : null;
-    const exHtml = ex?.ex_base
-      ? `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${ex.ex_base}</span>`
+    const exHtml = f.ex?.ex_base
+      ? `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${f.ex.ex_base}</span>`
       : `<span style="color:var(--tx3);font-size:11px">—</span>`;
-    const cantExHtml = ex?.ex_saldo > 0
-      ? `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${fmt(ex.ex_saldo)}</span>`
+    const cantExHtml = f.ex?.ex_saldo > 0
+      ? `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${fmt(f.ex.ex_saldo)}</span>`
       : `<span style="color:var(--bd2);font-size:12px">————</span>`;
-    // Etapa summary for model — ordenar por rango (etapa más avanzada primero)
-    const etapaEntries = Object.entries(modelEtapas)
-      .sort((a,b) => (ETAPA_RANK[b[0]]??-2) - (ETAPA_RANK[a[0]]??-2));
+    const etapaEntries = Object.entries(f.etapas).sort((a,b) => (ETAPA_RANK[b[0]]??-2) - (ETAPA_RANK[a[0]]??-2));
     const modelEtapaHtml = etapaEntries.length
       ? etapaEntries.slice(0,2).map(([e]) =>
           `<span style="display:inline-block;background:${etapaClr(e)}20;color:${etapaClr(e)};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-right:2px;white-space:nowrap">${e}</span>`
         ).join('')
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    // Texto buscable: modelo base, EX, números de OC, etapas
-    const q = [item.base, ex?.ex_base || '', ...allOcs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)]
-      .join(' ').toLowerCase();
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${item.total}" data-desp="${item.desp||0}" data-sal="${sal}" data-stk="${stk}" data-prod="${prod}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
-      <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
-      <td class="td-dim" style="font-weight:400">${allOcs.length} corte${allOcs.length>1?'s':''}</td>
-      <td class="r td-num">${fmt(item.total)}</td>
-      <td class="r td-num" style="color:var(--ok)">${item.desp ? fmt(item.desp) : '—'}</td>
-      <td class="r td-num" style="color:${sal>0?'var(--wa)':'var(--tx3)'}">${sal ? fmt(sal) : '—'}</td>
-      <td class="r td-num" style="color:${stk<0?'var(--er)':'var(--tx1)'}">${stk ? fmt(stk) : '—'}</td>
-      <td class="r td-num" style="color:var(--ac)">${prod ? fmt(prod) : '—'}</td>
-      <td class="r td-num" style="color:${cls}">${diff > 0 ? '+' : ''}${diff ? fmt(diff) : '—'}</td>
+    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)].join(' ').toLowerCase();
+
+    const ocRows = f.ocs.map((oc, idx) => `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+        <td></td>
+        <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
+        <td></td><td></td><td></td><td></td>
+        <td class="r td-dim">${oc.unidades ? fmt(oc.unidades)+' cort.' : '—'}</td>
+        <td class="r td-dim" style="color:${oc.saldo>0?'var(--wa)':'var(--tx3)'};">${oc.saldo ? fmt(oc.saldo)+' u.' : '—'}</td>
+        <td></td><td></td><td></td>
+        <td style="padding-left:6px"><span style="color:${etapaClr(oc.etapa)};font-size:10px;font-weight:600">${oc.etapa}</span></td>
+      </tr>`).join('');
+
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
+      <td>${artImg(f.art)}<span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${f.base}-${f.mod}</span></td>
+      <td class="td-dim" style="font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</td>
+      <td class="r td-num">${fmt(f.ped)}</td>
+      <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
+      <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}</td>
+      <td class="r td-num" style="color:${f.stk<0?'var(--er)':'var(--tx1)'}">${f.stk ? fmt(f.stk) : '—'}</td>
+      <td class="r td-num" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
+      <td class="r td-num" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
       <td style="text-align:center">${estadoHtml}</td>
       <td>${exHtml}</td>
       <td class="r">${cantExHtml}</td>
       <td style="padding-left:4px">${modelEtapaHtml}</td>
-    </tr>${colorRows}${ocRows}`;
+    </tr>${ocRows}`;
   }).join('');
 }
 
@@ -1869,7 +1827,7 @@ async function secPVC() {
   </div>
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Pedido vs Corte — toca una fila para ver cortes</div>
+      <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver sus cortes</div>
       <input id="pvcSearch" class="finput fsearch" placeholder="Modelo, OC o EX…" style="width:200px;margin-left:auto">
     </div>
     <div class="tbl-scroll">
@@ -1877,7 +1835,7 @@ async function secPVC() {
         <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en San Gerardo, igual que el informe de corte del ERP">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En producción</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody">${buildPVCRows(defT, ftMap, exMap)}</tbody>
       </table>
-      <div class="tbl-foot" id="pvcFoot">${byTemp[defT]?.modelos||0} modelos T${defT}</div>
+      <div class="tbl-foot" id="pvcFoot">artículos T${defT}</div>
     </div>
   </div>`;
 }
@@ -2730,7 +2688,7 @@ function bindContent(secId) {
       if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || '44';
       const foot = document.getElementById('pvcFoot');
-      if (foot) foot.textContent = `${visible} modelos T${t}`;
+      if (foot) foot.textContent = `${visible} artículos T${t}`;
     }
 
     document.querySelectorAll('#pvcEstadoSegs .seg').forEach(b => b.addEventListener('click', () => {
