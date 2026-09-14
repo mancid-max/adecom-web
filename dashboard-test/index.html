@@ -2098,6 +2098,7 @@ function bindContent(secId) {
       const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
       const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
       const soloNeg = document.querySelector('#stNegSegs .seg.on')?.dataset.n === 'neg';
+      const sucsBotones = [...document.querySelectorAll('#stSucSegs .seg[data-suc]')].map(b => b.dataset.suc).filter(x => x !== 'all');
       const bota = document.getElementById('stBotaSel')?.value || 'all';
       const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
@@ -2106,9 +2107,12 @@ function bindContent(secId) {
                      : row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40);
         const botaOk = bota === 'all' || row.dataset.bota === bota;
         const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
-        const qty = suc === 'all'
-          ? parseInt(row.dataset.prendas)||0
-          : parseInt(row.dataset[`s${suc}`])||0;
+        // Con "Todas" + Negativo se suma SOLO la parte negativa de cada bodega: con el neto, un
+        // positivo en otro local tapaba el negativo y el artículo no aparecía para corregirlo.
+        const qty = suc !== 'all'
+          ? (parseInt(row.dataset[`s${suc}`])||0)
+          : (soloNeg ? sucsBotones.reduce((a, x) => a + Math.min(0, parseInt(row.dataset[`s${x}`])||0), 0)
+                     : (parseInt(row.dataset.prendas)||0));
         const cajQty = suc === 'all'
           ? parseInt(row.dataset.cajall)||0
           : parseInt(row.dataset[`caj${suc}`])||0;
