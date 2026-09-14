@@ -985,9 +985,15 @@ async function secStock() {
       <button class="seg on" data-t="all">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
       ${hasOld ? '<button class="seg" data-t="old" title="Colecciones anteriores a T40 que aún figuran con cajas">&lt; T40 con cajas</button>' : ''}
-      ${data.some(r => r.neg) ? '<button class="seg" data-t="neg" title="Artículos con stock negativo en el ERP: hay que corregirlos">⚠ Stock negativo</button>' : ''}
     </div>
   </div>
+  ${data.some(r => r.neg) ? `<div class="fbar" style="margin-top:8px">
+    <span class="flbl">Stock</span>
+    <div class="segs" id="stNegSegs">
+      <button class="seg on" data-n="pos">Con stock</button>
+      <button class="seg" data-n="neg" title="Artículos con stock negativo en el ERP: hay que corregirlos">⚠ Negativo</button>
+    </div>
+  </div>` : ''}
   ${botas.length ? `<div class="fbar" style="margin-top:8px;align-items:center">
     <span class="flbl">Tipo</span>
     <select id="stBotaSel" style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;cursor:pointer;outline:none">
@@ -2091,11 +2097,12 @@ function bindContent(secId) {
     function applyStockFilters() {
       const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
       const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
+      const soloNeg = document.querySelector('#stNegSegs .seg.on')?.dataset.n === 'neg';
       const bota = document.getElementById('stBotaSel')?.value || 'all';
       const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
       let vis = 0, totalU = 0;
       document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
-        const tempOk = (temp === 'all' || temp === 'neg') ? true
+        const tempOk = temp === 'all' ? true
                      : row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40);
         const botaOk = bota === 'all' || row.dataset.bota === bota;
         const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
@@ -2105,7 +2112,7 @@ function bindContent(secId) {
         const cajQty = suc === 'all'
           ? parseInt(row.dataset.cajall)||0
           : parseInt(row.dataset[`caj${suc}`])||0;
-        const show = tempOk && botaOk && srchOk && (temp === 'neg' ? qty < 0 : qty > 0);
+        const show = tempOk && botaOk && srchOk && (soloNeg ? qty < 0 : qty > 0);
         row.style.display = show ? '' : 'none';
         const cells = row.cells;
         if (cells[4]) { cells[4].textContent = show ? fmt(qty) : ''; cells[4].style.color = qty < 0 ? 'var(--er)' : ''; }
@@ -2153,10 +2160,10 @@ function bindContent(secId) {
       document.querySelectorAll('#stSucSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyStockFilters();
     }));
-    document.querySelectorAll('#stTempSegs .seg').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#stTempSegs .seg').forEach(x => x.classList.remove('on'));
+    ['stTempSegs', 'stNegSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyStockFilters();
-    }));
+    })));
     document.getElementById('stBotaSel')?.addEventListener('change', applyStockFilters);
     document.getElementById('stSearch')?.addEventListener('input', applyStockFilters);
     // Expandir/colapsar tallas al hacer click en fila
