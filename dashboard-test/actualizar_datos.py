@@ -238,7 +238,9 @@ try:
             cells = [c.strip() for c in line.strip().split(';')]
             if len(cells) < 6 or not cells[0] or not cells[2]:
                 continue
-            if cells[3].lower() != 'ventas':
+            # Ventas (pedido), Despacho y saldo por artículo: el saldo es lo que realmente falta entregar
+            campo = {'ventas': 'v', 'despacho': 'd', 'saldo': 's', 'stock': 'k'}.get(cells[3].lower())
+            if not campo:
                 continue
             art  = cells[0]
             temp = art[2:4] if len(art) >= 4 else ''
@@ -257,7 +259,8 @@ try:
                 art_dict[temp] = {}
             if base not in art_dict[temp]:
                 art_dict[temp][base] = {}
-            art_dict[temp][base][mod] = art_dict[temp][base].get(mod, 0) + qty
+            e = art_dict[temp][base].setdefault(mod, {'v': 0, 'd': 0, 's': 0, 'k': 0})
+            e[campo] += qty
 except FileNotFoundError:
     print("  ARCHIVO_TALLAS.CSV no encontrado, usando PEDIDOS.CSV para artículos")
     tallas_fallback = True
@@ -274,20 +277,28 @@ except FileNotFoundError:
                 art_dict[temp] = {}
             if base not in art_dict[temp]:
                 art_dict[temp][base] = {}
-            art_dict[temp][base][mod] = art_dict[temp][base].get(mod, 0) + sol
+            e = art_dict[temp][base].setdefault(mod, {'v': 0, 'd': 0, 's': 0, 'k': 0})
+            e['v'] += sol
+            e['d'] += clean_int(r.get('DESPACHADO', 0))
+            e['s'] += clean_int(r.get('saldo', 0))
 
 # Construir pedidos_art: lista de {temp, base, total, modelos:[{mod,qty}]}
 pedidos_art = []
 for temp, bases in art_dict.items():
     for base, mods in bases.items():
-        total = sum(mods.values())
+        total = sum(v['v'] for v in mods.values())
+        desp  = sum(v['d'] for v in mods.values())
+        sal   = sum(v['s'] for v in mods.values())
+        stk   = sum(v['k'] for v in mods.values())
         # Tiro y bota del modelo, tomados de sus variantes de color
         arts = [f"01{temp}{base[-2:]}{str(m).zfill(2)}" for m in mods]
         bota = next((mod_bota.get(a) for a in arts if mod_bota.get(a)), '')
         tiro = next((mod_tiro.get(a) for a in arts if mod_tiro.get(a)), '')
         pedidos_art.append({
-            "temp": temp, "base": base, "total": total, "bota": bota, "tiro": tiro,
-            "modelos": [{"mod": m, "qty": q} for m, q in sorted(mods.items())]
+            "temp": temp, "base": base, "total": total, "desp": desp, "saldo": sal, "stock": stk,
+            "bota": bota, "tiro": tiro,
+            "modelos": [{"mod": m, "qty": q['v'], "desp": q['d'], "sal": q['s'], "stock": q['k']}
+                        for m, q in sorted(mods.items())]
         })
 
 # ── 3. VENTAS ──────────────────────────────────────────────────

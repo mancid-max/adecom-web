@@ -614,7 +614,8 @@ function buildByTemp() {
     if (!byTemp[t]) byTemp[t] = { total:0, modelos:0, items:[] };
     byTemp[t].total += item.total;
     byTemp[t].modelos++;
-    byTemp[t].items.push({ base:item.base, total:item.total, colores:item.modelos.length, modelos:item.modelos, bota:item.bota||'', tiro:item.tiro||'' });
+    byTemp[t].items.push({ base:item.base, total:item.total, desp:item.desp||0, saldo:item.saldo||0, stock:item.stock||0,
+                           colores:item.modelos.length, modelos:item.modelos, bota:item.bota||'', tiro:item.tiro||'' });
   }
   return byTemp;
 }
@@ -1669,7 +1670,7 @@ function buildPVCRows(t, ftMap, exMap) {
   const byTemp = buildByTemp();
   const rawItems = byTemp[t]?.items || [];
   const tc = tcFor(t);
-  if (!rawItems.length) return '<tr class="no-click"><td colspan="10" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
+  if (!rawItems.length) return '<tr class="no-click"><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
 
   // Pre-calcular corteTotal y diff para ordenar por Diferencia desc
   const items = rawItems.map(item => {
@@ -1679,7 +1680,7 @@ function buildPVCRows(t, ftMap, exMap) {
       const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
       ct += ftMap[art]?.corte || 0;
     }
-    return { ...item, _ct: ct, _diff: ct - item.total };
+    return { ...item, _ct: ct, _diff: ct - (item.saldo ?? item.total) };
   }).sort((a, b) => {
     if (a._diff >= 0 && b._diff >= 0) return b._diff - a._diff;   // ambos positivos: mayor primero
     if (a._diff < 0  && b._diff < 0)  return a._diff - b._diff;   // ambos negativos: más negativo primero
@@ -1705,16 +1706,16 @@ function buildPVCRows(t, ftMap, exMap) {
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
         <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
-        <td></td>
+        <td></td><td></td><td></td>
         <td class="r td-dim">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
-        <td></td>
         <td class="r td-dim" style="color:${oc.saldo>0?'var(--wa)':'var(--tx3)'};">${oc.saldo ? fmt(oc.saldo)+' u.' : '—'}</td>
         <td></td><td></td><td></td>
         <td style="padding-left:6px"><span style="color:${etClr};font-size:10px;font-weight:600">${oc.etapa}</span></td>
       </tr>`;
     }).join('');
-    const diff = corteTotal - item.total;
-    const pct  = item.total ? (corteTotal / item.total * 100).toFixed(0) : 0;
+    // Lo que falta cortar se mide contra el SALDO pendiente (pedido − despachado), no contra el pedido total
+    const sal  = item.saldo ?? item.total;
+    const diff = corteTotal - sal;
     const cls  = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)';
     const estadoKey = diff > 0 ? 'ofrecer' : diff < 0 ? 'cortar' : 'ok';
     // ESTADO
@@ -1743,12 +1744,13 @@ function buildPVCRows(t, ftMap, exMap) {
     // Texto buscable: modelo base, EX, números de OC, etapas
     const q = [item.base, ex?.ex_base || '', ...allOcs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)]
       .join(' ').toLowerCase();
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${item.total}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${item.total}" data-desp="${item.desp||0}" data-sal="${sal}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${allOcs.length} corte${allOcs.length>1?'s':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
+      <td class="r td-num" style="color:var(--ok)">${item.desp ? fmt(item.desp) : '—'}</td>
+      <td class="r td-num" style="color:${sal>0?'var(--wa)':'var(--tx3)'}">${sal ? fmt(sal) : '—'}</td>
       <td class="r td-num">${corteTotal ? fmt(corteTotal) : '—'}</td>
-      <td class="r td-dim">${corteTotal ? `${pct}%` : '—'}</td>
       <td class="r td-num" style="color:${cls}">${diff > 0 ? '+' : ''}${diff ? fmt(diff) : '—'}</td>
       <td style="text-align:center">${estadoHtml}</td>
       <td>${exHtml}</td>
@@ -1769,16 +1771,17 @@ async function secPVC() {
   // Compute global KPIs for default temp
   function kpis(t) {
     const items = byTemp[t]?.items || [];
-    let totalPed = 0, totalProg = 0;
+    let totalPed = 0, totalSal = 0, totalProg = 0;
     for (const item of items) {
       const suffix = item.base.slice(-2);
       totalPed += item.total;
+      totalSal += item.saldo ?? item.total;
       for (const v of (item.modelos||[])) {
         const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
         totalProg += ftMap[art]?.corte || 0;
       }
     }
-    return { totalPed, totalProg, diff: totalProg - totalPed };
+    return { totalPed, totalSal, totalProg, diff: totalProg - totalSal };
   }
   const k = kpis(defT);
 
@@ -1815,6 +1818,10 @@ async function secPVC() {
       <div><div class="kpi-val" id="pvcKPed">${fmt(k.totalPed)}</div><div class="kpi-lbl">Total Pedido</div></div>
     </div>
     <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+      <div><div class="kpi-val" id="pvcKSal">${fmt(k.totalSal)}</div><div class="kpi-lbl">Saldo pendiente</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/><polyline points="6 3 12 9 18 3"/><line x1="12" y1="21" x2="12" y2="9"/></svg></div>
       <div><div class="kpi-val" id="pvcKProg">${fmt(k.totalProg)}</div><div class="kpi-lbl">Total Corte</div></div>
     </div>
@@ -1830,7 +1837,7 @@ async function secPVC() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Cortado</th><th class="r">%</th><th class="r">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
+        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r">Cortado</th><th class="r" title="Cortado − Saldo pendiente">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody">${buildPVCRows(defT, ftMap, exMap)}</tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">${byTemp[defT]?.modelos||0} modelos T${defT}</div>
@@ -2653,7 +2660,7 @@ function bindContent(secId) {
       const etapa  = document.querySelector('#pvcEtapaSegs .seg.on')?.dataset.etapa  || 'all';
       const q      = (document.getElementById('pvcSearch')?.value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
-      let visible = 0, sumPed = 0, sumCort = 0;
+      let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0;
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado;
         const showEtapa  = etapa  === 'all' || (row.dataset.etapas || row.dataset.etapa || '').split('|').includes(etapa);
@@ -2668,11 +2675,14 @@ function bindContent(secId) {
         if (show) {
           visible++;
           sumPed  += parseInt(row.dataset.ped  || 0);
+          sumSal  += parseInt(row.dataset.sal  || 0);
           sumCort += parseInt(row.dataset.cort || 0);
         }
       });
       // Actualizar KPIs con los totales filtrados
-      const diff = sumCort - sumPed;
+      const diff = sumCort - sumSal;
+      const ksalEl = document.getElementById('pvcKSal');
+      if (ksalEl) ksalEl.textContent = fmt(sumSal);
       const kpedEl  = document.getElementById('pvcKPed');
       const kprogEl = document.getElementById('pvcKProg');
       const kdiffEl = document.getElementById('pvcKDiff');
@@ -2708,16 +2718,19 @@ function bindContent(secId) {
       const byTemp = buildByTemp();
       // Update KPIs
       const items = byTemp[t]?.items || [];
-      let totalPed = 0, totalProg = 0;
+      let totalPed = 0, totalSal = 0, totalProg = 0;
       for (const item of items) {
         const suffix = item.base.slice(-2);
         totalPed += item.total;
+        totalSal += item.saldo ?? item.total;
         for (const v of (item.modelos||[])) {
           const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
           totalProg += ftMap[art]?.corte || 0;
         }
       }
-      const diff = totalProg - totalPed;
+      const diff = totalProg - totalSal;
+      const ksal = document.getElementById('pvcKSal');
+      if (ksal) ksal.textContent = fmt(totalSal);
       const kpedEl = document.getElementById('pvcKPed');
       const kprogEl = document.getElementById('pvcKProg');
       const kdiffEl = document.getElementById('pvcKDiff');
