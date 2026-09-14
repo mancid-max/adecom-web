@@ -264,6 +264,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 
 <div class="overlay" id="overlay"></div>
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
+<div class="det-ov" id="cliOv" style="z-index:250"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cliTtl">Cliente</div><button class="det-close" id="cliClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cliBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="pedOv" style="z-index:240"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="pedTtl">Pedido</div><button class="det-close" id="pedClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="pedBody"></div></div></div>
 <div class="det-ov" id="cajaOv" style="z-index:260"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cajaTtl">Caja</div><button class="det-close" id="cajaClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cajaBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="detOv">
@@ -1573,16 +1574,15 @@ async function secClientes() {
 
   const base = clInactivos(peds);
   const esc = s => String(s||'').replace(/"/g,'&quot;');
-  const rowsHtml = base.map(c => `<tr class="no-click"
+  const rowsHtml = base.map((c, i) => `<tr data-i="${i}" title="Ver cuánto compró en cada colección" style="cursor:pointer"
     data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}"
-    data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}">
-    <td style="max-width:210px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
+    data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}"
+    data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}">
+    <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
     <td class="td-dim">${c.rut||'—'}</td>
     <td class="td-dim">${c.ciudad||'—'}</td>
     <td class="td-dim">${c.vendedor||'—'}</td>
     <td style="white-space:nowrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}" style="padding:1px 6px;font-size:9px;margin-right:2px">${t}</span>`).join('')}</td>
-    <td class="r td-num">${fmt(c.unidades)}</td>
-    <td class="td-dim">${c.ultF||'—'}</td>
   </tr>`).join('');
 
   const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
@@ -1611,14 +1611,14 @@ async function secClientes() {
   </div>
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT}</div>
+      <div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT} — toca un cliente para ver cuánto compró</div>
       <span class="td-dim" style="margin-left:auto" id="clCount">${base.length} clientes</span>
       <button class="seg" id="clCopiar" style="border:1px solid var(--bd2)">📋 Copiar</button>
       <button class="seg" id="clPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Cliente</th><th>RUT</th><th>Ciudad</th><th>Vendedor</th><th title="Colecciones T40–T43 en que compró">Compró en</th><th class="r">Unidades</th><th>Última compra</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>RUT</th><th>Ciudad</th><th>Vendedor</th><th title="Colecciones T40–T43 en que compró">Compró en</th></tr></thead>
         <tbody id="clBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
