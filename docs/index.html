@@ -2661,11 +2661,13 @@ function bindContent(secId) {
         const showEtapa  = etapa  === 'all' || (row.dataset.etapas || row.dataset.etapa || '').split('|').includes(etapa);
         // Una búsqueda numérica compara contra el modelo, el artículo, la OC o el EX completos:
         // con subcadena libre, "4440" también calzaba dentro de 01444400, que es el modelo 4444.
-        const showQ = !q || (/^\d+$/.test(q)
-          ? (row.dataset.q || '').split(' ').some(w => w === q
-              || (w.length >= 8 && w.startsWith(q))
-              || (/^\d{8,}$/.test(w) && artMatch(w.slice(0, 8), q)))
-          : (row.dataset.q || '').includes(q));
+        const showQ = !q || (!/^\d+$/.test(q)
+          ? (row.dataset.q || '').includes(q)
+          : (row.dataset.q || '').split(' ').some(w => q.length < 4
+              ? w.startsWith(q)                                   // 1–3 dígitos: prefijo (44 → todos los 44xx)
+              : (w === q                                          // modelo, OC o EX exactos
+                 || (w.length >= 8 && w.startsWith(q))            // código escrito de a poco
+                 || (/^\d{8,}$/.test(w) && artMatch(w.slice(0, 8), q)))));
         const show = showEstado && showEtapa && showQ;
         row.style.display = show ? '' : 'none';
         let next = row.nextElementSibling;
