@@ -1542,84 +1542,86 @@ async function secCajas() {
 }
 
 /* ── CLIENTES INACTIVOS ─────────────────────────────────────── */
+/* Inactivo = compró en alguna colección T40–T43 y NO compró en la activa (T44) */
+const CL_BASE = ['40','41','42','43'];
+const CL_ACT  = '44';
+
+function clInactivos(peds) {
+  const gm = new Map();
+  peds.forEach(p => {
+    const k = vdKey(p);
+    if (!gm.has(k)) gm.set(k, { nombre:(p.nombre||p.rut||'').toUpperCase(), rut:p.rut||'', ciudad:p.ciudad||'',
+                                vendedor:p.vendedor||'', temps:new Set(), u:{}, ult:'', ultF:'' });
+    const g = gm.get(k);
+    if (!g.ciudad)   g.ciudad = p.ciudad||'';
+    if (!g.vendedor) g.vendedor = p.vendedor||'';
+    Object.entries(p.u_temp||{}).forEach(([t,u]) => { if (u>0) { g.temps.add(t); g.u[t]=(g.u[t]||0)+u; } });
+    if ((p.fecha_iso||'') > g.ult) { g.ult = p.fecha_iso||''; g.ultF = p.fecha||''; }
+  });
+  return [...gm.values()]
+    .filter(g => CL_BASE.some(t => g.temps.has(t)) && !g.temps.has(CL_ACT))
+    .map(g => {
+      const compradas = [...g.temps].filter(t => CL_BASE.includes(t)).sort((a,b)=>+b-+a);
+      return { ...g, compradas, ultTemp: compradas[0] || '', unidades: CL_BASE.reduce((s,t)=>s+(g.u[t]||0),0) };
+    })
+    .sort((a,b) => b.unidades - a.unidades);
+}
+
 async function secClientes() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
-  // Una fila por CLIENTE (antes era una por pedido y el mismo cliente salía decenas de veces).
-  // Los totales se guardan POR TRAMO de días: si no, un cliente entraba por su pedido más viejo
-  // y arrastraba al total el saldo de sus pedidos recientes.
-  const CL_TRAMOS = [0, 180, 270, 365];
-  const gm = new Map();
-  peds.filter(p => p.saldo > 0 && p.dias > 0).forEach(p => {
-    const k = vdKey(p);
-    if (!gm.has(k)) gm.set(k, {
-      nombre: (p.nombre||p.rut||'').toUpperCase(), ciudad: p.ciudad||'', dias: 0,
-      t: Object.fromEntries(CL_TRAMOS.map(x => [x, { u:0, d:0, s:0, v:0, n:0 }])),
-    });
-    const g = gm.get(k);
-    g.dias = Math.max(g.dias, p.dias||0);
-    if (!g.ciudad) g.ciudad = p.ciudad||'';
-    CL_TRAMOS.forEach(x => {
-      if ((p.dias||0) > x) {
-        const a = g.t[x];
-        a.u += p.unidades||0; a.d += p.despacho||0; a.s += p.saldo||0; a.v += p.valor_sal||0; a.n++;
-      }
-    });
-  });
-  const base = [...gm.values()].sort((a,b) => b.t[0].s - a.t[0].s);
+  const base = clInactivos(peds);
+  const esc = s => String(s||'').replace(/"/g,'&quot;');
+  const rowsHtml = base.map(c => `<tr class="no-click"
+    data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}"
+    data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}">
+    <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
+    <td class="td-dim">${c.rut||'—'}</td>
+    <td class="td-dim">${c.ciudad||'—'}</td>
+    <td class="td-dim">${c.vendedor||'—'}</td>
+    <td><div style="display:flex;gap:3px;flex-wrap:wrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}">T${t}</span>`).join('')}</div></td>
+    <td class="r td-num">${fmt(c.unidades)}</td>
+    <td class="td-dim">${c.ultF||'—'}</td>
+  </tr>`).join('');
 
-  const rowsHtml = base.map(p => {
-    const at = CL_TRAMOS.map(x => `data-u${x}="${p.t[x].u}" data-d${x}="${p.t[x].d}" data-s${x}="${p.t[x].s}" data-v${x}="${p.t[x].v}" data-n${x}="${p.t[x].n}"`).join(' ');
-    return `<tr class="no-click"
-    data-nombre="${(p.nombre||'').toLowerCase().replace(/"/g,'&quot;')}"
-    data-ciudad="${(p.ciudad||'').toLowerCase().replace(/"/g,'&quot;')}"
-    ${at}
-    data-dias="${p.dias||0}">
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis"><span class="cl-nom">${p.nombre}</span><span class="cl-peds"></span></td>
-    <td class="td-dim">${p.ciudad||'—'}</td>
-    <td class="r td-num">${fmt(p.t[180].u)}</td>
-    <td class="r td-dim">${fmt(p.t[180].d)}</td>
-    <td class="r td-num" style="color:var(--wa)">${fmt(p.t[180].s)}</td>
-    <td class="r td-dim" style="color:${(p.dias||0)>365?'var(--er)':'var(--wa)'}">${p.dias||0}</td>
-  </tr>`; }).join('');
-
-  const tot180 = base.filter(p => p.dias > 180).map(p => ({ dias: p.dias, valor_sal: p.t[180].v }));
+  const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
   <div class="fbar" style="gap:8px;flex-wrap:wrap">
-    <span class="flbl">Días sin despacho</span>
-    <div class="segs" id="clDiasSegs">
-      <button class="seg" data-d="0">Todos</button>
-      <button class="seg on" data-d="180">+180 días</button>
-      <button class="seg" data-d="270">+270 días</button>
-      <button class="seg" data-d="365">+365 días</button>
+    <span class="flbl">Última colección comprada</span>
+    <div class="segs" id="clUltSegs">
+      <button class="seg on" data-u="all">Todas</button>
+      ${ultimas.map(t => `<button class="seg" data-u="${t}">T${t}</button>`).join('')}
     </div>
-    <input id="clSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:180px">
+    <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px">
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
-      <div><div class="kpi-val" id="clKCount">${tot180.length}</div><div class="kpi-lbl" id="clKLbl">Clientes con saldo +180d</div></div>
+      <div><div class="kpi-val" id="clKCount">${base.length}</div><div class="kpi-lbl">Clientes sin comprar en T${CL_ACT}</div></div>
     </div>
     <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-      <div><div class="kpi-val" id="clKValor" style="font-size:20px">${fmtM(tot180.reduce((s,p)=>s+(p.valor_sal||0),0))}</div><div class="kpi-lbl">Valor saldo pendiente</div></div>
+      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+      <div><div class="kpi-val" id="clKUds">${fmt(base.reduce((s,c)=>s+c.unidades,0))}</div><div class="kpi-lbl">Unidades que compraban (T40–T43)</div></div>
     </div>
     <div class="kpi" style="cursor:default">
-      <div class="kpi-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-      <div><div class="kpi-val" id="clKDias">${tot180.length ? Math.round(tot180.reduce((s,p)=>s+(p.dias||0),0)/tot180.length) : 0}</div><div class="kpi-lbl">Días promedio sin despacho</div></div>
+      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div><div class="kpi-val" id="clKProm">${base.length ? fmt(Math.round(base.reduce((s,c)=>s+c.unidades,0)/base.length)) : 0}</div><div class="kpi-lbl">Promedio por cliente</div></div>
     </div>
   </div>
   <div class="tbl-card">
-    <div class="tbl-head">
-      <div class="card-ttl" style="margin:0" id="clTblTtl">Clientes con Saldo Pendiente +180 días</div>
-      <span class="td-dim" style="margin-left:auto" id="clCount">${tot180.length} clientes</span>
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT}</div>
+      <span class="td-dim" style="margin-left:auto" id="clCount">${base.length} clientes</span>
+      <button class="seg" id="clCopiar" style="border:1px solid var(--bd2)">📋 Copiar</button>
+      <button class="seg" id="clPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Desp.</th><th class="r">Saldo u.</th><th class="r">Días</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>RUT</th><th>Ciudad</th><th>Vendedor</th><th>Colecciones compradas</th><th class="r">Unidades T40–T43</th><th>Última compra</th></tr></thead>
         <tbody id="clBody">${rowsHtml}</tbody>
       </table>
+      <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
     </div>
   </div>`;
 }
@@ -2555,42 +2557,63 @@ function bindContent(secId) {
 
   // Clientes Inactivos — filters
   if (secId === 'clientes') {
-    let cutoff = 180;
+    function filasVisibles() {
+      return [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(r => r.style.display !== 'none');
+    }
     function applyClFilters() {
-      const q = (document.getElementById('clSearch')?.value||'').trim().toLowerCase();
-      let vis = 0, totalVal = 0, totalDias = 0;
+      const q   = (document.getElementById('clSearch')?.value||'').trim().toLowerCase();
+      const ult = document.querySelector('#clUltSegs .seg.on')?.dataset.u || 'all';
+      let vis = 0, uds = 0;
       document.querySelectorAll('#clBody tr[data-nombre]').forEach(row => {
-        const dias = parseInt(row.dataset.dias)||0;
-        const show = dias > cutoff &&
-          (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q));
+        const show = (ult === 'all' || row.dataset.ult === ult) &&
+          (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q));
         row.style.display = show ? '' : 'none';
-        if (!show) return;
-        // Las columnas y los totales corresponden SOLO a los pedidos que superan el filtro de días
-        const g = k => parseInt(row.dataset[`${k}${cutoff}`]) || 0;
-        const c = row.cells;
-        if (c[2]) c[2].textContent = fmt(g('u'));
-        if (c[3]) c[3].textContent = fmt(g('d'));
-        if (c[4]) c[4].textContent = fmt(g('s'));
-        const np = g('n'), el = row.querySelector('.cl-peds');
-        if (el) el.innerHTML = np > 1 ? ` <span class="td-dim" style="font-size:10px">(${np} pedidos)</span>` : '';
-        vis++; totalDias += dias; totalVal += g('v');
+        if (show) { vis++; uds += parseInt(row.dataset.u) || 0; }
       });
       const el = id => document.getElementById(id);
       if (el('clCount'))  el('clCount').textContent  = `${vis} clientes`;
       if (el('clKCount')) el('clKCount').textContent = vis;
-      if (el('clKValor')) el('clKValor').textContent = fmtM(totalVal);
-      if (el('clKDias'))  el('clKDias').textContent  = vis ? Math.round(totalDias/vis) : 0;
-      if (el('clTblTtl')) el('clTblTtl').textContent = `Clientes con Saldo Pendiente +${cutoff} días`;
-      if (el('clKLbl'))   el('clKLbl').textContent   = `Clientes con saldo +${cutoff}d`;
+      if (el('clKUds'))   el('clKUds').textContent   = fmt(uds);
+      if (el('clKProm'))  el('clKProm').textContent  = vis ? fmt(Math.round(uds/vis)) : 0;
+      if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades`;
     }
     document.getElementById('clSearch')?.addEventListener('input', applyClFilters);
-    document.querySelectorAll('#clDiasSegs .seg').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#clDiasSegs .seg').forEach(x => x.classList.remove('on'));
-      b.classList.add('on');
-      cutoff = parseInt(b.dataset.d)||0;
-      applyClFilters();
+    document.querySelectorAll('#clUltSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#clUltSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); applyClFilters();
     }));
-    applyClFilters(); // apply 180d default
+
+    // Copiar la lista visible al portapapeles, lista para pegar en un chat o en Excel
+    document.getElementById('clCopiar')?.addEventListener('click', async (e) => {
+      const filas = filasVisibles();
+      const txt = [`Clientes que compraron en T40-T43 y no en T44 — ${filas.length} clientes`, '']
+        .concat(filas.map(r => {
+          const c = r.cells;
+          return `${c[0].textContent.trim()} · ${c[2].textContent.trim()} · ${c[3].textContent.trim()} · ${c[5].textContent.trim()} u · última compra ${c[6].textContent.trim()} (${c[4].textContent.trim()})`;
+        })).join('\n');
+      const btn = e.currentTarget, antes = btn.textContent;
+      try { await navigator.clipboard.writeText(txt); }
+      catch {
+        const ta = document.createElement('textarea');
+        ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch {}
+        ta.remove();
+      }
+      btn.textContent = `✓ ${filas.length} copiados`;
+      setTimeout(() => { btn.textContent = antes; }, 2000);
+    });
+
+    document.getElementById('clPrint')?.addEventListener('click', () => {
+      const ult = document.querySelector('#clUltSegs .seg.on')?.textContent.trim() || 'Todas';
+      const q   = (document.getElementById('clSearch')?.value||'').trim();
+      const parts = [`Última colección comprada: ${ult}`];
+      if (q) parts.push(`Búsqueda: ${q}`);
+      printTable({ table: document.getElementById('clBody')?.closest('table'),
+                   title: 'Clientes que compraron en T40–T43 y no en T44', subtitle: parts.join(' · ') });
+    });
+
+    applyClFilters();
   }
 
   // Pedido vs Corte — temp switcher
