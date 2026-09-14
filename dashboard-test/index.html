@@ -2589,7 +2589,8 @@ function bindContent(secId) {
       const txt = [`Clientes que compraron en T40-T43 y no en T44 — ${filas.length} clientes`, '']
         .concat(filas.map(r => {
           const c = r.cells;
-          return `${c[0].textContent.trim()} · ${c[2].textContent.trim()} · ${c[3].textContent.trim()} · ${c[5].textContent.trim()} u · última compra ${c[6].textContent.trim()} (${c[4].textContent.trim()})`;
+          const uds = (r.dataset.uds || '').split(',').filter(Boolean).map(x => { const [t, u] = x.split(':'); return `T${t}: ${fmt(+u)}`; }).join(', ');
+          return `${c[0].textContent.trim()} · ${c[2].textContent.trim()} · ${c[3].textContent.trim()} · ${fmt(parseInt(r.dataset.u) || 0)} u (${uds}) · última compra ${r.dataset.ultf || '—'}`;
         })).join('\n');
       const btn = e.currentTarget, antes = btn.textContent;
       try { await navigator.clipboard.writeText(txt); }
@@ -2612,6 +2613,35 @@ function bindContent(secId) {
       printTable({ table: document.getElementById('clBody')?.closest('table'),
                    title: 'Clientes que compraron en T40–T43 y no en T44', subtitle: parts.join(' · ') });
     });
+
+    // Click en un cliente → ventana con cuánto compró en cada colección
+    document.querySelectorAll('#clBody tr[data-i]').forEach(row => row.addEventListener('click', () => {
+      const uds = (row.dataset.uds || '').split(',').filter(Boolean).map(x => { const [t, u] = x.split(':'); return { t, u: +u || 0 }; });
+      const tot = uds.reduce((a, x) => a + x.u, 0);
+      const max = Math.max(1, ...uds.map(x => x.u));
+      const c = row.cells;
+      document.getElementById('cliTtl').textContent = c[0].textContent.trim();
+      document.getElementById('cliBody').innerHTML = `
+        <div class="td-dim" style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:12px">
+          <span>RUT ${c[1].textContent.trim()}</span><span>·</span><span>${c[2].textContent.trim()}</span>
+          <span>·</span><span>${c[3].textContent.trim()}</span><span>·</span><span>Última compra ${row.dataset.ultf || '—'}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${uds.map(x => `<div style="display:flex;align-items:center;gap:10px">
+            <span class="badge ${tcFor(x.t).cls}" style="width:42px;justify-content:center">T${x.t}</span>
+            <span class="pbar" style="flex:1;max-width:320px"><span class="pbar-fill" style="display:block;background:var(--ac);width:${Math.round(x.u / max * 100)}%"></span></span>
+            <span class="td-num" style="font-weight:700;min-width:60px;text-align:right">${fmt(x.u)}</span>
+            <span class="td-dim" style="font-size:11px;min-width:42px;text-align:right">${tot ? Math.round(x.u / tot * 100) : 0}%</span>
+          </div>`).join('')}
+        </div>
+        <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:13px">
+          <span>Total T40–T43</span><span class="td-num">${fmt(tot)} unidades</span>
+        </div>
+        <div class="td-dim" style="font-size:11px;margin-top:8px">No registra compras en T${CL_ACT}</div>`;
+      document.getElementById('cliOv').classList.add('open');
+    }));
+    document.getElementById('cliClose')?.addEventListener('click', () => document.getElementById('cliOv').classList.remove('open'));
+    document.getElementById('cliOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
     applyClFilters();
   }
