@@ -360,16 +360,16 @@ try:
                 cajas = float(str(r.get('Cajas', '0')).strip() or 0)
             except:
                 cajas = 0
-            if qty <= 0 and cajas <= 0:
-                continue
+            if qty == 0 and cajas <= 0:
+                continue   # el stock NEGATIVO sí entra: hay que verlo para corregirlo en el ERP
             if not code.startswith('01') or len(code) < 10:
                 continue
             try:
                 t_num = int(code[2:4])
             except:
                 continue
-            # T40–T44 siempre; colecciones anteriores solo si tienen cajas (para limpiar ese dato)
-            if not (40 <= t_num <= 44) and cajas <= 0:
+            # T40–T44 siempre; colecciones anteriores solo si tienen cajas o stock negativo (para limpiar el dato)
+            if not (40 <= t_num <= 44) and cajas <= 0 and qty >= 0:
                 continue
             art8  = code[:8]
             talla = code[8:10].lstrip('0') or code[8:10]
