@@ -1644,12 +1644,12 @@ const ETAPA_COLOR = {
 };
 function etapaClr(e) { return ETAPA_COLOR[e] || 'var(--tx3)'; }
 
-/* Disponible real por artículo: el saldo de Stock Bodega (stock de todos los locales − cajas ya
-   comprometidas). El 'stock' de ARCHIVO_TALLAS solo cuenta San Gerardo y dejaba fuera el resto. */
+/* Stock por artículo en SAN GERARDO (bodega 04), igual que el informe "Artículos para corte" del
+   ERP, que calcula A CORTE = Saldo por entregar − Stock bodega(04) − Producción en proceso. */
 let STOCK_MAP = {};
 function buildStockMap(sb) {
   const m = {};
-  (Array.isArray(sb) ? sb : []).forEach(r => { m[r.art] = (r.saldo != null ? r.saldo : (r.prendas || 0)); });
+  (Array.isArray(sb) ? sb : []).forEach(r => { m[r.art] = (r.suc && r.suc['04']) || 0; });
   return m;
 }
 
@@ -1853,7 +1853,7 @@ async function secPVC() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en bodega hoy">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En producción</th><th class="r" title="Stock + En producción − Saldo pendiente">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
+        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en San Gerardo, igual que el informe de corte del ERP">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En producción</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody">${buildPVCRows(defT, ftMap, exMap)}</tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">${byTemp[defT]?.modelos||0} modelos T${defT}</div>
