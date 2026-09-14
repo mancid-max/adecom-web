@@ -1576,11 +1576,11 @@ async function secClientes() {
   const rowsHtml = base.map(c => `<tr class="no-click"
     data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}"
     data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}">
-    <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
+    <td style="max-width:210px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
     <td class="td-dim">${c.rut||'—'}</td>
     <td class="td-dim">${c.ciudad||'—'}</td>
     <td class="td-dim">${c.vendedor||'—'}</td>
-    <td><div style="display:flex;gap:3px;flex-wrap:wrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}">T${t}</span>`).join('')}</div></td>
+    <td style="white-space:nowrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}" style="padding:1px 6px;font-size:9px;margin-right:2px">${t}</span>`).join('')}</td>
     <td class="r td-num">${fmt(c.unidades)}</td>
     <td class="td-dim">${c.ultF||'—'}</td>
   </tr>`).join('');
@@ -1618,7 +1618,7 @@ async function secClientes() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Cliente</th><th>RUT</th><th>Ciudad</th><th>Vendedor</th><th>Colecciones compradas</th><th class="r">Unidades T40–T43</th><th>Última compra</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>RUT</th><th>Ciudad</th><th>Vendedor</th><th title="Colecciones T40–T43 en que compró">Compró en</th><th class="r">Unidades</th><th>Última compra</th></tr></thead>
         <tbody id="clBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
