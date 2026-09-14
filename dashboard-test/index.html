@@ -131,6 +131,8 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .td-num{font-variant-numeric:tabular-nums;font-weight:600}
 .td-dim{color:var(--tx2);font-size:12px}
 .td-code{font-family:ui-monospace,monospace;font-size:12px;color:var(--tx2)}
+.tbl-compacta td{padding-left:9px;padding-right:9px}
+.tbl-compacta .art-thumb{width:26px;height:34px;margin-right:6px}
 .tbl-foot{font-size:11px;color:var(--tx3);padding:9px 16px;border-top:1px solid var(--bd)}
 
 /* ── BADGES ──────────────────────────────────────────────────── */
@@ -1680,7 +1682,7 @@ function buildPVCRows(t, ftMap, exMap) {
   const byTemp = buildByTemp();
   const rawItems = byTemp[t]?.items || [];
   const tc = tcFor(t);
-  if (!rawItems.length) return '<tr class="no-click"><td colspan="12" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
+  if (!rawItems.length) return '<tr class="no-click"><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
 
   // Una fila por ARTÍCULO (modelo + color), igual que el informe "Artículos para corte" del ERP.
   // A cortar = Saldo por entregar − Stock bodega(04) − Producción en proceso.
@@ -1728,7 +1730,6 @@ function buildPVCRows(t, ftMap, exMap) {
     const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)].join(' ').toLowerCase();
 
     const ocRows = f.ocs.map((oc, idx) => `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
-        <td></td>
         <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
         <td></td><td></td><td></td><td></td>
         <td class="r td-dim">${oc.unidades ? fmt(oc.unidades)+' cort.' : '—'}</td>
@@ -1738,8 +1739,7 @@ function buildPVCRows(t, ftMap, exMap) {
       </tr>`).join('');
 
     return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
-      <td>${artImg(f.art)}<span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${f.base}-${f.mod}</span></td>
-      <td class="td-dim" style="font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</td>
+      <td style="white-space:nowrap">${artImg(f.art)}<span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}</td>
       <td class="r td-num">${fmt(f.ped)}</td>
       <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
       <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}</td>
@@ -1832,8 +1832,8 @@ async function secPVC() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en San Gerardo, igual que el informe de corte del ERP">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En producción</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
-        <tbody id="pvcBody">${buildPVCRows(defT, ftMap, exMap)}</tbody>
+        <thead><tr><th>Artículo</th><th class="r">Pedido</th><th class="r" title="Ya despachado">Desp.</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en San Gerardo, igual que el informe de corte del ERP">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center">Estado</th><th>EX</th><th class="r" title="Saldo del modelo EX">Cant.</th><th>Dónde</th></tr></thead>
+        <tbody id="pvcBody" class="tbl-compacta">${buildPVCRows(defT, ftMap, exMap)}</tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">artículos T${defT}</div>
     </div>
