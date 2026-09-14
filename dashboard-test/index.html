@@ -1644,6 +1644,15 @@ const ETAPA_COLOR = {
 };
 function etapaClr(e) { return ETAPA_COLOR[e] || 'var(--tx3)'; }
 
+/* Disponible real por artículo: el saldo de Stock Bodega (stock de todos los locales − cajas ya
+   comprometidas). El 'stock' de ARCHIVO_TALLAS solo cuenta San Gerardo y dejaba fuera el resto. */
+let STOCK_MAP = {};
+function buildStockMap(sb) {
+  const m = {};
+  (Array.isArray(sb) ? sb : []).forEach(r => { m[r.art] = (r.saldo != null ? r.saldo : (r.prendas || 0)); });
+  return m;
+}
+
 function buildFtMap(ft) {
   const m = {};
   for (const r of ft) {
@@ -1681,7 +1690,8 @@ function buildPVCRows(t, ftMap, exMap) {
       const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
       ct += ftMap[art]?.pend || 0;
     }
-    return { ...item, _ct: ct, _diff: (item.stock||0) + ct - (item.saldo ?? item.total) };
+    const stkR = (item.modelos||[]).reduce((a, v) => a + (STOCK_MAP[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`] || 0), 0);
+    return { ...item, _ct: ct, _stk: stkR, _diff: stkR + ct - (item.saldo ?? item.total) };
   }).sort((a, b) => {
     if (a._diff >= 0 && b._diff >= 0) return b._diff - a._diff;   // ambos positivos: mayor primero
     if (a._diff < 0  && b._diff < 0)  return a._diff - b._diff;   // ambos negativos: más negativo primero
@@ -1717,7 +1727,7 @@ function buildPVCRows(t, ftMap, exMap) {
     // Decisión real: lo que TENGO (stock en bodega) + lo que VIENE (cortado aún en producción)
     // contra lo que DEBO (saldo = pedido − despachado). corteTotal ya no sirve: incluye lo despachado.
     const sal  = item.saldo ?? item.total;
-    const stk  = item.stock || 0;
+    const stk  = (item.modelos||[]).reduce((a, v) => a + (STOCK_MAP[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`] || 0), 0);
     const prod = (item.modelos||[]).reduce((a, v) => a + (ftMap[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`]?.pend || 0), 0);
     const diff = stk + prod - sal;
     const cls  = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)';
@@ -1768,6 +1778,7 @@ function buildPVCRows(t, ftMap, exMap) {
 async function secPVC() {
   const ft = await load('full_table.json');
   const exMap = await load('pvc_ex.json');
+  STOCK_MAP = buildStockMap(await load('saldos_bodega.json'));
   const ftMap = buildFtMap(ft);
   const byTemp = buildByTemp();
   const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
@@ -1781,10 +1792,9 @@ async function secPVC() {
       const suffix = item.base.slice(-2);
       totalPed += item.total;
       totalSal += item.saldo ?? item.total;
-      totalProg += item.stock || 0;
       for (const v of (item.modelos||[])) {
         const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-        totalProg += ftMap[art]?.pend || 0;
+        totalProg += (ftMap[art]?.pend || 0) + (STOCK_MAP[art] || 0);
       }
     }
     return { totalPed, totalSal, totalProg, diff: totalProg - totalSal };
@@ -2729,10 +2739,9 @@ function bindContent(secId) {
         const suffix = item.base.slice(-2);
         totalPed += item.total;
         totalSal += item.saldo ?? item.total;
-        totalProg += item.stock || 0;
         for (const v of (item.modelos||[])) {
           const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-          totalProg += ftMap[art]?.pend || 0;
+          totalProg += (ftMap[art]?.pend || 0) + (STOCK_MAP[art] || 0);
         }
       }
       const diff = totalProg - totalSal;
