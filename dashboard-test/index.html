@@ -1712,6 +1712,27 @@ function buildPVCRows(t, ftMap, exMap) {
       for (const [e] of artEtapas) modelEtapas[e] = (modelEtapas[e]||0) + 1;
       for (const oc of (ftr.ocs || [])) allOcs.push(oc);
     }
+    // Desglose por color: cada artículo con su propio cálculo, para poder cuadrarlo
+    // contra el informe "Artículos para corte" del ERP, que se emite por artículo.
+    const colorRows = (item.modelos || []).map(v => {
+      const a = `01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`;
+      const vSal = v.sal != null ? v.sal : v.qty;
+      const vStk = STOCK_MAP[a] || 0;
+      const vPro = ftMap[a]?.pend || 0;
+      const vDif = vStk + vPro - vSal;
+      const vCls = vDif > 0 ? 'var(--ok)' : vDif < 0 ? 'var(--er)' : 'var(--tx3)';
+      return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+        <td style="padding-left:28px">${artImg(a)}<span class="td-code" style="font-size:11px">${a}</span></td>
+        <td class="td-dim" style="font-size:11px">color ${v.mod}</td>
+        <td class="r td-num td-dim">${fmt(v.qty)}</td>
+        <td class="r td-num td-dim" style="color:var(--ok)">${v.desp ? fmt(v.desp) : '—'}</td>
+        <td class="r td-num td-dim" style="color:${vSal>0?'var(--wa)':'var(--tx3)'}">${vSal ? fmt(vSal) : '—'}</td>
+        <td class="r td-num td-dim" style="color:${vStk<0?'var(--er)':'var(--tx2)'}">${vStk ? fmt(vStk) : '—'}</td>
+        <td class="r td-num td-dim" style="color:var(--ac)">${vPro ? fmt(vPro) : '—'}</td>
+        <td class="r td-num" style="color:${vCls};font-weight:700">${vDif > 0 ? '+' : ''}${vDif ? fmt(vDif) : '—'}</td>
+        <td colspan="4" class="td-dim" style="font-size:10px">${vDif < 0 ? `a cortar ${fmt(-vDif)}` : ''}</td>
+      </tr>`;
+    }).join('');
     const ocRows = allOcs.map((oc, idx) => {
       const etClr = etapaClr(oc.etapa);
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
@@ -1771,7 +1792,7 @@ function buildPVCRows(t, ftMap, exMap) {
       <td>${exHtml}</td>
       <td class="r">${cantExHtml}</td>
       <td style="padding-left:4px">${modelEtapaHtml}</td>
-    </tr>${ocRows}`;
+    </tr>${colorRows}${ocRows}`;
   }).join('');
 }
 
