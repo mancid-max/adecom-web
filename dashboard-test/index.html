@@ -1648,9 +1648,10 @@ function buildFtMap(ft) {
   const m = {};
   for (const r of ft) {
     const a = (r.articulo||'').trim();
-    if (!m[a]) m[a] = { corte:0, bodega:0, etapas:{}, ocs:[] };
+    if (!m[a]) m[a] = { corte:0, bodega:0, pend:0, etapas:{}, ocs:[] };
     m[a].corte  += r.proceso||0;
     m[a].bodega += r.bodega||0;
+    m[a].pend   += Math.max(0, r.saldo||0);   // cortado que todavía NO llega a bodega
     const et = getEtapa(r);
     // Guardar cada OC individual para mostrar en filas expandibles
     m[a].ocs.push({ oc: (r.corte||'').trim(), unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
@@ -1670,7 +1671,7 @@ function buildPVCRows(t, ftMap, exMap) {
   const byTemp = buildByTemp();
   const rawItems = byTemp[t]?.items || [];
   const tc = tcFor(t);
-  if (!rawItems.length) return '<tr class="no-click"><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
+  if (!rawItems.length) return '<tr class="no-click"><td colspan="12" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
 
   // Pre-calcular corteTotal y diff para ordenar por Diferencia desc
   const items = rawItems.map(item => {
@@ -1678,9 +1679,9 @@ function buildPVCRows(t, ftMap, exMap) {
     let ct = 0;
     for (const v of (item.modelos||[])) {
       const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-      ct += ftMap[art]?.corte || 0;
+      ct += ftMap[art]?.pend || 0;
     }
-    return { ...item, _ct: ct, _diff: ct - (item.saldo ?? item.total) };
+    return { ...item, _ct: ct, _diff: (item.stock||0) + ct - (item.saldo ?? item.total) };
   }).sort((a, b) => {
     if (a._diff >= 0 && b._diff >= 0) return b._diff - a._diff;   // ambos positivos: mayor primero
     if (a._diff < 0  && b._diff < 0)  return a._diff - b._diff;   // ambos negativos: más negativo primero
@@ -1706,16 +1707,19 @@ function buildPVCRows(t, ftMap, exMap) {
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td></td>
         <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
-        <td></td><td></td><td></td>
-        <td class="r td-dim">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
+        <td></td><td></td><td></td><td></td>
+        <td class="r td-dim">${oc.unidades ? fmt(oc.unidades)+' cort.' : '—'}</td>
         <td class="r td-dim" style="color:${oc.saldo>0?'var(--wa)':'var(--tx3)'};">${oc.saldo ? fmt(oc.saldo)+' u.' : '—'}</td>
         <td></td><td></td><td></td>
         <td style="padding-left:6px"><span style="color:${etClr};font-size:10px;font-weight:600">${oc.etapa}</span></td>
       </tr>`;
     }).join('');
-    // Lo que falta cortar se mide contra el SALDO pendiente (pedido − despachado), no contra el pedido total
+    // Decisión real: lo que TENGO (stock en bodega) + lo que VIENE (cortado aún en producción)
+    // contra lo que DEBO (saldo = pedido − despachado). corteTotal ya no sirve: incluye lo despachado.
     const sal  = item.saldo ?? item.total;
-    const diff = corteTotal - sal;
+    const stk  = item.stock || 0;
+    const prod = (item.modelos||[]).reduce((a, v) => a + (ftMap[`01${t}${item.base.slice(-2)}${v.mod.padStart(2,'0')}`]?.pend || 0), 0);
+    const diff = stk + prod - sal;
     const cls  = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)';
     const estadoKey = diff > 0 ? 'ofrecer' : diff < 0 ? 'cortar' : 'ok';
     // ESTADO
@@ -1744,13 +1748,14 @@ function buildPVCRows(t, ftMap, exMap) {
     // Texto buscable: modelo base, EX, números de OC, etapas
     const q = [item.base, ex?.ex_base || '', ...allOcs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)]
       .join(' ').toLowerCase();
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${item.total}" data-desp="${item.desp||0}" data-sal="${sal}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
+    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${item.total}" data-desp="${item.desp||0}" data-sal="${sal}" data-stk="${stk}" data-prod="${prod}" data-cort="${corteTotal}" data-ocs="${allOcs.length}" data-q="${q}" style="font-weight:600">
       <td><span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
       <td class="td-dim" style="font-weight:400">${allOcs.length} corte${allOcs.length>1?'s':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
       <td class="r td-num" style="color:var(--ok)">${item.desp ? fmt(item.desp) : '—'}</td>
       <td class="r td-num" style="color:${sal>0?'var(--wa)':'var(--tx3)'}">${sal ? fmt(sal) : '—'}</td>
-      <td class="r td-num">${corteTotal ? fmt(corteTotal) : '—'}</td>
+      <td class="r td-num" style="color:${stk<0?'var(--er)':'var(--tx1)'}">${stk ? fmt(stk) : '—'}</td>
+      <td class="r td-num" style="color:var(--ac)">${prod ? fmt(prod) : '—'}</td>
       <td class="r td-num" style="color:${cls}">${diff > 0 ? '+' : ''}${diff ? fmt(diff) : '—'}</td>
       <td style="text-align:center">${estadoHtml}</td>
       <td>${exHtml}</td>
@@ -1776,9 +1781,10 @@ async function secPVC() {
       const suffix = item.base.slice(-2);
       totalPed += item.total;
       totalSal += item.saldo ?? item.total;
+      totalProg += item.stock || 0;
       for (const v of (item.modelos||[])) {
         const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-        totalProg += ftMap[art]?.corte || 0;
+        totalProg += ftMap[art]?.pend || 0;
       }
     }
     return { totalPed, totalSal, totalProg, diff: totalProg - totalSal };
@@ -1823,7 +1829,7 @@ async function secPVC() {
     </div>
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/><polyline points="6 3 12 9 18 3"/><line x1="12" y1="21" x2="12" y2="9"/></svg></div>
-      <div><div class="kpi-val" id="pvcKProg">${fmt(k.totalProg)}</div><div class="kpi-lbl">Total Corte</div></div>
+      <div><div class="kpi-val" id="pvcKProg">${fmt(k.totalProg)}</div><div class="kpi-lbl">Stock + En producción</div></div>
     </div>
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico ${k.diff>=0?'c-ok':'c-er'}" id="pvcKDiffIco"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></div>
@@ -1837,7 +1843,7 @@ async function secPVC() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r">Cortado</th><th class="r" title="Cortado − Saldo pendiente">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
+        <thead><tr><th>Modelo</th><th>Cortes</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en bodega hoy">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En producción</th><th class="r" title="Stock + En producción − Saldo pendiente">Diferencia</th><th style="text-align:center">Estado</th><th>EX</th><th class="r">Cant. EX</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody">${buildPVCRows(defT, ftMap, exMap)}</tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">${byTemp[defT]?.modelos||0} modelos T${defT}</div>
@@ -2676,7 +2682,7 @@ function bindContent(secId) {
           visible++;
           sumPed  += parseInt(row.dataset.ped  || 0);
           sumSal  += parseInt(row.dataset.sal  || 0);
-          sumCort += parseInt(row.dataset.cort || 0);
+          sumCort += (parseInt(row.dataset.stk || 0) + parseInt(row.dataset.prod || 0));
         }
       });
       // Actualizar KPIs con los totales filtrados
@@ -2723,9 +2729,10 @@ function bindContent(secId) {
         const suffix = item.base.slice(-2);
         totalPed += item.total;
         totalSal += item.saldo ?? item.total;
+        totalProg += item.stock || 0;
         for (const v of (item.modelos||[])) {
           const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-          totalProg += ftMap[art]?.corte || 0;
+          totalProg += ftMap[art]?.pend || 0;
         }
       }
       const diff = totalProg - totalSal;
