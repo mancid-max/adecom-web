@@ -635,6 +635,56 @@ for p in pedidos:
     p['bloqueo'] = p['pedido'] in bloqueados
     p['cajas']   = cajas_por_pedido.get(p['pedido'], [])
 
+# ── 8. ESTADO DE RESULTADO (Z:\CAS) ────────────────────────────
+# Informe de pérdidas y ganancias del contador. Formato ';' con dos tipos de fila:
+#   secciones  -> ;NN;NOMBRE;mes;%;acumulado;%          (NN de 2 dígitos: 01..20)
+#   cuentas    -> ;NNNNNN;Nombre;;mes;acumulado         (código de cuenta de 6 dígitos)
+print("Leyendo ESTADO DE RESULTADO...")
+ER_FILE = r"Z:\CAS\ESTADO DE RESULTADO 2026.TXT"
+ER_RESULTADO = {'03', '09', '15', '16', '18', '20'}   # filas de resultado, no de gasto
+estado_resultado = {"titulo": "", "periodo": "", "archivo_fecha": "", "secciones": []}
+try:
+    def _num(x):
+        x = str(x).strip().replace('.', '')
+        try: return int(float(x))
+        except: return 0
+    def _pct(x):
+        x = str(x).strip()
+        try: return float(x)
+        except: return 0.0
+    _mt = datetime.fromtimestamp(os.path.getmtime(ER_FILE))
+    estado_resultado["archivo_fecha"] = _mt.strftime('%d/%m/%Y')
+    with open(ER_FILE, encoding='latin-1', errors='replace') as f:
+        lineas = f.read().splitlines()
+    for ln in lineas:
+        t = ln.strip().strip(';').strip()
+        if 'PERDIDA Y GANANCIA' in t.upper():
+            estado_resultado["titulo"] = t
+            estado_resultado["periodo"] = t.split(' A ')[-1].strip() if ' A ' in t else ''
+            break
+    sec = None
+    for ln in lineas:
+        c = [x.strip() for x in ln.split(';')]
+        if len(c) < 3 or not c[1] or not c[1].isdigit():
+            continue
+        if len(c[1]) <= 2:                                   # cabecera de sección
+            sec = {"linea": c[1].zfill(2), "nombre": c[2].strip(),
+                   "mes": _num(c[3] if len(c) > 3 else 0), "pct_mes": _pct(c[4] if len(c) > 4 else 0),
+                   "acum": _num(c[5] if len(c) > 5 else 0), "pct_acum": _pct(c[6] if len(c) > 6 else 0),
+                   "resultado": 1 if c[1].zfill(2) in ER_RESULTADO else 0, "cuentas": []}
+            estado_resultado["secciones"].append(sec)
+        elif sec is not None:                                 # cuenta dentro de la sección
+            m, a = _num(c[4] if len(c) > 4 else 0), _num(c[5] if len(c) > 5 else 0)
+            if m or a:
+                sec["cuentas"].append({"cuenta": c[1], "nombre": c[2].strip(), "mes": m, "acum": a})
+    print(f"  {estado_resultado['periodo'] or '?'}: {len(estado_resultado['secciones'])} secciones, "
+          f"{sum(len(x['cuentas']) for x in estado_resultado['secciones'])} cuentas "
+          f"(archivo del {estado_resultado['archivo_fecha']})")
+except FileNotFoundError:
+    print("  ESTADO DE RESULTADO no encontrado en Z:\CAS")
+except Exception as ex:
+    print(f"  ESTADO DE RESULTADO: {ex}")
+
 # ── Guardar ────────────────────────────────────────────────────
 from datetime import datetime
 NOW = datetime.now()
@@ -651,7 +701,7 @@ DATASETS = [("full_table", full_table), ("traza_oc", traza_oc),
             ("pedidos", pedidos), ("docs_venta", docs_venta),
             ("pedidos_art", pedidos_art),
             ("saldos_bodega", saldos_bodega), ("pvc_ex", pvc_ex),
-            ("cajas", cajas_out),
+            ("cajas", cajas_out), ("estado_resultado", estado_resultado),
             ("meta", meta)]
 
 for name, data in DATASETS:

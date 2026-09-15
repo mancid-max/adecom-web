@@ -11,7 +11,7 @@ ROOT   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC    = os.path.join(ROOT, 'dashboard-test')
 BUCKET = 'bi'
 FILES  = ['full_table.json', 'traza_oc.json', 'pedidos.json', 'docs_venta.json',
-          'pedidos_art.json', 'saldos_bodega.json', 'pvc_ex.json', 'cajas.json', 'meta.json']
+          'pedidos_art.json', 'saldos_bodega.json', 'pvc_ex.json', 'cajas.json', 'estado_resultado.json', 'meta.json']
 
 def main():
     cfg = json.load(open(os.path.join(ROOT, 'supabase_config.json'), encoding='utf-8'))

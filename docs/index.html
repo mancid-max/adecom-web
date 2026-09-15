@@ -1839,7 +1839,69 @@ async function secPVC() {
     </div>
   </div>`;
 }
-const secER  = () => makePH('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>','Estado de Resultado','Resumen financiero mensual. Disponible en el dashboard principal.');
+/* ── ESTADO DE RESULTADO ─────────────────────────────────────── */
+async function secER() {
+  const d = await load('estado_resultado.json');
+  const secs = (d && !Array.isArray(d) && d.secciones) || [];
+  if (!secs.length) return makePH('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>','Estado de Resultado','Sin datos disponibles');
+
+  const get = k => secs.find(x => x.linea === k) || { mes:0, acum:0, pct_mes:0, pct_acum:0, nombre:'' };
+  const ing = get('01'), cos = get('02'), mar = get('03'), gad = get('04'), gve = get('05'),
+        ope = get('09'), noOpe = get('15'), uti = get('20');
+  const gastosMes = gad.mes + gve.mes;
+  const money = v => (v < 0 ? '−' : '') + fmtM(Math.abs(v));
+  const kpi = (id, ico, cls, val, lbl, sub) => `
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico ${cls}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ico}</svg></div>
+      <div style="min-width:0"><div class="kpi-val" id="${id}" style="font-size:20px">${val}</div><div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu" id="${id}Sub">${sub}</div>` : ''}</div>
+    </div>`;
+
+  const filas = secs.map(x => {
+    const cuentas = (x.cuentas || []).slice().sort((a, b) => b.acum - a.acum);
+    const detalle = cuentas.map(c => `<tr class="no-click er-cta" data-mes="${c.mes}" data-acum="${c.acum}" style="display:none;background:var(--sf2)">
+        <td class="td-dim" style="padding-left:30px;font-size:11px;white-space:normal"><span class="td-code">${c.cuenta}</span> ${c.nombre}</td>
+        <td class="r td-num td-dim" style="font-size:11px">${fmtCLP(c.mes)}</td>
+        <td class="r td-dim" style="font-size:11px">${ing.mes ? (c.mes / ing.mes * 100).toFixed(1) + '%' : '—'}</td>
+      </tr>`).join('');
+    const esRes = !!x.resultado;
+    return `<tr class="er-row${cuentas.length ? '' : ' no-click'}" data-linea="${x.linea}" data-mes="${x.mes}" data-acum="${x.acum}" data-pm="${x.pct_mes}" data-pa="${x.pct_acum}"
+        style="${esRes ? 'background:var(--sf2);font-weight:700' : 'font-weight:500'}${cuentas.length ? ';cursor:pointer' : ''}">
+        <td>${esRes ? '' : `<span class="td-code" style="color:var(--tx3);font-size:11px;margin-right:6px">${x.linea}</span>`}${x.nombre}${cuentas.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);margin-left:6px">▸</span><span class="td-dim" style="font-size:10px;margin-left:4px;font-weight:400">${cuentas.length} cuentas</span>` : ''}</td>
+        <td class="r td-num" style="color:${x.mes < 0 ? 'var(--er)' : 'var(--tx1)'}">${money(x.mes)}</td>
+        <td class="r td-dim">${x.pct_mes ? x.pct_mes.toFixed(1) + '%' : '—'}</td>
+      </tr>${detalle}`;
+  }).join('');
+
+  return `
+  <div class="fbar" style="gap:8px;flex-wrap:wrap">
+    <span class="flbl">Período</span>
+    <div class="segs" id="erSegs">
+      <button class="seg on" data-p="mes">${d.periodo || 'Este mes'}</button>
+      <button class="seg" data-p="acum">Acumulado del año</button>
+    </div>
+    <span class="td-dim" style="margin-left:auto;font-size:11px">Informe del ${d.archivo_fecha || '—'}</span>
+  </div>
+  <div class="kpi-grid">
+    ${kpi('erKIng', '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 'c-ac', money(ing.mes), 'Ingresos', '')}
+    ${kpi('erKCos', '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>', 'c-wa', money(cos.mes), 'Costo de explotación', `${cos.pct_mes.toFixed(1)}% de ingresos`)}
+    ${kpi('erKMar', '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'c-ok', money(mar.mes), 'Margen', `${mar.pct_mes.toFixed(1)}% de ingresos`)}
+    ${kpi('erKGas', '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', 'c-er', money(gastosMes), 'Gastos admin. y ventas', '')}
+    ${kpi('erKUti', '<path d="m3 17 6-6 4 4 8-8"/><polyline points="21 7 21 13 15 13"/>', uti.mes < 0 ? 'c-er' : 'c-ok', money(uti.mes), 'Resultado del ejercicio', `Operacional ${money(ope.mes)}`)}
+  </div>
+  <div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div class="card-ttl" style="margin:0" id="erTtl">${d.titulo || 'Estado de Resultado'}</div>
+      <button class="seg" id="erPrint" style="margin-left:auto;border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Cuenta</th><th class="r" id="erColVal">${d.periodo || 'Mes'}</th><th class="r">% ingresos</th></tr></thead>
+        <tbody id="erBody">${filas}</tbody>
+      </table>
+      <div class="tbl-foot" id="erFoot">Resultado no operacional ${money(noOpe.mes)} · ${secs.length} líneas</div>
+    </div>
+  </div>`;
+}
 
 /* ── ROUTER ─────────────────────────────────────────────────── */
 const SECS = {
@@ -1853,7 +1915,7 @@ const SECS = {
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
   'venta-despacho': () => secVentaDespacho(),
   'clientes':       () => secClientes(),
-  'er':             () => Promise.resolve(secER()),
+  'er':             () => secER(),
 };
 
 /* Con rol bodega solo se abren las secciones que su menú permite (bloquea también los atajos
@@ -2555,6 +2617,56 @@ function bindContent(secId) {
       const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
     }));
     applyCjFilters();
+  }
+
+  // Estado de Resultado
+  if (secId === 'er' && document.getElementById('erBody')) {
+    const money = v => (v < 0 ? '−' : '') + fmtM(Math.abs(v));
+    const lin = k => [...document.querySelectorAll('#erBody .er-row')].find(x => x.dataset.linea === k);
+    function applyEr() {
+      const p = document.querySelector('#erSegs .seg.on')?.dataset.p || 'mes';
+      const col = p === 'mes' ? 'mes' : 'acum';
+      const ings = parseInt(lin('01')?.dataset[col]) || 0;
+      document.querySelectorAll('#erBody .er-row, #erBody .er-cta').forEach(row => {
+        const v = parseInt(row.dataset[col]) || 0;
+        const c = row.cells, esCta = row.classList.contains('er-cta');
+        if (c[1]) { c[1].textContent = esCta ? fmtCLP(v) : money(v); c[1].style.color = v < 0 ? 'var(--er)' : 'var(--tx1)'; }
+        if (c[2]) {
+          const pct = esCta ? (ings ? v / ings * 100 : 0) : (parseFloat(row.dataset[p === 'mes' ? 'pm' : 'pa']) || 0);
+          c[2].textContent = pct ? pct.toFixed(1) + '%' : '—';
+        }
+      });
+      const g = k => parseInt(lin(k)?.dataset[col]) || 0;
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      const cos = g('02'), mar = g('03'), gas = g('04') + g('05'), ope = g('09'), uti = g('20'), noOpe = g('15');
+      set('erKIng', money(ings)); set('erKCos', money(cos)); set('erKMar', money(mar));
+      set('erKGas', money(gas));  set('erKUti', money(uti));
+      set('erKCosSub', ings ? `${(cos / ings * 100).toFixed(1)}% de ingresos` : '—');
+      set('erKMarSub', ings ? `${(mar / ings * 100).toFixed(1)}% de ingresos` : '—');
+      set('erKUtiSub', `Operacional ${money(ope)}`);
+      const uEl = document.getElementById('erKUti');
+      if (uEl) uEl.style.color = uti < 0 ? 'var(--er)' : 'var(--ok)';
+      set('erColVal', document.querySelector('#erSegs .seg.on')?.textContent.trim() || 'Mes');
+      set('erFoot', `Resultado no operacional ${money(noOpe)} · ${document.querySelectorAll('#erBody .er-row').length} líneas`);
+    }
+    document.querySelectorAll('#erSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#erSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); applyEr();
+    }));
+    document.querySelectorAll('#erBody .er-row:not(.no-click)').forEach(row => row.addEventListener('click', () => {
+      let open = false, sib = row.nextElementSibling;
+      while (sib && sib.classList.contains('er-cta')) { if (sib.style.display !== 'none') open = true; sib = sib.nextElementSibling; }
+      sib = row.nextElementSibling;
+      while (sib && sib.classList.contains('er-cta')) { sib.style.display = open ? 'none' : ''; sib = sib.nextElementSibling; }
+      const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
+    }));
+    document.getElementById('erPrint')?.addEventListener('click', () => {
+      printTable({ table: document.getElementById('erBody')?.closest('table'),
+                   title: document.getElementById('erTtl')?.textContent || 'Estado de Resultado',
+                   subtitle: document.querySelector('#erSegs .seg.on')?.textContent.trim() || '',
+                   landscape: false });
+    });
+    applyEr();
   }
 
   // Clientes Inactivos — filters
