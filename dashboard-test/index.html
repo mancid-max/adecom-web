@@ -268,6 +268,17 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
 <div class="det-ov" id="cliOv" style="z-index:250"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cliTtl">Cliente</div><button class="det-close" id="cliClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cliBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="pedOv" style="z-index:240"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="pedTtl">Pedido</div><button class="det-close" id="pedClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="pedBody"></div></div></div>
+<div class="det-ov" id="vdMultiOv" style="z-index:250"><div class="det-panel" style="width:min(460px,94vw)"><div class="det-hd"><div class="det-ttl">Buscar varios artículos</div><button class="det-close" id="vdMultiClose" aria-label="Cerrar">✕</button></div>
+  <div class="det-body" style="padding:14px 16px">
+    <div class="td-dim" style="font-size:12px;margin-bottom:10px">Escribe un artículo o modelo en cada casilla. Se muestran los clientes que pidieron <b>todos</b>.</div>
+    <div id="vdMultiList" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <button class="seg" id="vdMultiAdd" style="border:1px solid var(--bd2)">+ Agregar otro</button>
+      <span style="flex:1"></span>
+      <button class="seg" id="vdMultiClear" style="border:1px solid var(--bd2)">Limpiar</button>
+      <button id="vdMultiGo" style="background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-weight:700;cursor:pointer">Buscar</button>
+    </div>
+  </div></div></div>
 <div class="det-ov" id="cajaOv" style="z-index:260"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cajaTtl">Caja</div><button class="det-close" id="cajaClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cajaBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="detOv">
   <div class="det-panel">
@@ -1406,6 +1417,7 @@ async function secVentaDespacho() {
       <button class="seg" data-cj="con" title="Clientes con caja armada en bodega">📦 Con caja</button>
     </div>
     <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
+    <button class="seg" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select>
   </div>
   <div class="kpi-grid">
@@ -2287,8 +2299,13 @@ function bindContent(secId) {
       const cj  = document.querySelector('#vdCajaSegs .seg.on')?.dataset.cj || 'todo';
       const q   = (document.getElementById('vdSearch')?.value||'').trim().toLowerCase();
       const ciu = (document.getElementById('vdCiudad')?.value||'').toLowerCase();
-      const esArt = /^\d{4,}$/.test(q);      // 4+ dígitos → se busca también como artículo/modelo
-      const MAX_CHIPS = 4;
+      // "4402" → un artículo; "4222 4234" → clientes que pidieron TODOS; "camila 4402" → cliente + artículo
+      const toks  = q.split(/[\s,;]+/).filter(Boolean);
+      const arts  = [...new Set(toks.filter(t => /^\d{4,}$/.test(t)))];
+      const texto = toks.filter(t => !/^\d{4,}$/.test(t)).join(' ');
+      const esArt = arts.length > 0;
+      const artLabel = arts.join(' + ');
+      const MAX_CHIPS = Math.max(4, arts.length * 2);
       let vis = 0, nArt = 0, artSol = 0, artDesp = 0, artSal = 0;
       let cajaFaltaCli = 0, cajaFaltaU = 0;                       // clientes con caja a los que les falta el artículo buscado
       const faltaByArt = {}, termByArt = {};                      // lo que falta por artículo vs. lo que hay en Terminación (stock por artículo, no por cliente)
@@ -2303,11 +2320,19 @@ function bindContent(secId) {
         const cjOk = cj === 'todo' || nCajas > 0;
         const ciuOk = !ciu || (row.dataset.ciudades || row.dataset.ciudad || '').split('|').includes(ciu);
         // Artículos del cliente que coinciden con la búsqueda (mismo criterio para filtrar y para los chips)
-        const hits = esArt
-          ? (row.dataset.artq || '').split(',').filter(Boolean).map(s => s.split(':')).filter(([a]) => artMatch(a, q))
-          : [];
-        if (hits.length) nArt++;
-        const qOk = !q || row.dataset.nombre.includes(q) || (row.dataset.ciudades || row.dataset.ciudad || '').includes(q) || hits.length > 0;
+        let hits = [], allHit = false;
+        if (esArt) {
+          const artq = (row.dataset.artq || '').split(',').filter(Boolean).map(s => s.split(':'));
+          const porTok = arts.map(t => artq.filter(([a]) => artMatch(a, t)));
+          allHit = porTok.every(h => h.length > 0);                       // tiene que haber pedido cada uno de los buscados
+          if (allHit) {   // alternando artículos (1º de cada uno, luego 2º de cada uno…) para que todos los buscados tengan chip
+            const seen = new Set(), maxLen = Math.max(...porTok.map(h => h.length));
+            for (let i = 0; i < maxLen; i++) porTok.forEach(h => { const x = h[i]; if (x && !seen.has(x[0])) { seen.add(x[0]); hits.push(x); } });
+          }
+        }
+        if (allHit) nArt++;
+        const textoOk = !texto || row.dataset.nombre.includes(texto) || (row.dataset.ciudades || row.dataset.ciudad || '').includes(texto);
+        const qOk = !q || (esArt ? (allHit && textoOk) : textoOk);
         const ok = avOk && tmOk && cjOk && qOk && ciuOk;
         row.style.display = ok ? '' : 'none';
         // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
@@ -2325,8 +2350,9 @@ function bindContent(secId) {
               }
             });
             if (faltaCli) cajaFaltaCli++;
-            const extra = hits.length - MAX_CHIPS;
-            hit.innerHTML = hits.slice(0, MAX_CHIPS).map(([a, sol, desp, sal, caja, term]) => {
+            const cap = arts.length > 1 ? hits.length : MAX_CHIPS;   // con varios artículos se muestran todos
+            const extra = hits.length - cap;
+            hit.innerHTML = hits.slice(0, cap).map(([a, sol, desp, sal, caja, term]) => {
               const pend = +sal || 0, enCaja = +caja || 0, enTerm = +term || 0;
               const falta = Math.max(0, pend - enCaja);
               // Si el cliente tiene caja armada: ¿este artículo ya está adentro o falta? Y si falta, ¿está en Terminación para apurarlo?
@@ -2361,13 +2387,51 @@ function bindContent(secId) {
         // Cuánto de lo que falta se puede cubrir con lo que hay en Terminación: por artículo, topado al stock real
         const cajaFaltaTermU = Object.keys(faltaByArt).reduce((t, a) => t + Math.min(faltaByArt[a], termByArt[a] || 0), 0);
         const faltaTxt = cajaFaltaCli ? ` · a ${cajaFaltaCli} con caja le${cajaFaltaCli === 1 ? '' : 's'} falta${cajaFaltaU === 1 ? '' : 'n'} ${fmt(cajaFaltaU)} u.${cajaFaltaTermU ? ` (${fmt(cajaFaltaTermU)} en terminación)` : ''}` : '';
+        const multi = arts.length > 1;
+        const lista = arts.length > 1 ? arts.slice(0, -1).join(', ') + ' y ' + arts[arts.length - 1] : artLabel;
+        const quien = vis === 1 ? '1 cliente pidió' : `${vis} clientes pidieron`;
         el.textContent = !esArt          ? `${vis} clientes`
-                       : nArt === 0      ? `Ningún cliente pidió ${q}`
-                       : vis === nArt    ? `${vis} clientes · artículo ${q}: ${tot}${faltaTxt}`
-                                         : `${vis} de ${nArt} clientes con ${q} · en pantalla: ${tot}${faltaTxt}`;
+                       : nArt === 0      ? (multi ? `Ningún cliente pidió ${lista} juntos` : `Ningún cliente pidió ${artLabel}`)
+                       : vis === nArt    ? (multi ? `${quien} los ${arts.length} artículos (${lista}): ${tot}${faltaTxt}`
+                                                  : `${vis} clientes · artículo ${artLabel}: ${tot}${faltaTxt}`)
+                                         : `${vis} de ${nArt} clientes con ${lista} · en pantalla: ${tot}${faltaTxt}`;
       }
     }
     document.getElementById('vdSearch')?.addEventListener('input', applyVDFilters);
+    // Varios artículos: casillas en un modal; al buscar se escriben en el buscador separados por espacio
+    (function () {
+      const ov = document.getElementById('vdMultiOv'), list = document.getElementById('vdMultiList');
+      if (!ov || !list) return;
+      if (ov.dataset.bound) { document.getElementById('vdMultiBtn')?.addEventListener('click', ov._open); return; }
+      ov.dataset.bound = '1';
+      const addRow = (val = '') => {
+        const inp = document.createElement('input');
+        inp.className = 'finput'; inp.placeholder = `Artículo ${list.children.length + 1} (ej. 4222)`; inp.value = val;
+        inp.style.cssText = 'width:100%'; inp.inputMode = 'numeric';
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+        list.appendChild(inp); return inp;
+      };
+      const codes = () => [...new Set([...list.querySelectorAll('input')].flatMap(i => i.value.split(/[\s,;\-\/]+/)).map(v => v.replace(/\D/g, '')).filter(v => v.length >= 4))];
+      const go = () => {
+        const c = codes(); const box = document.getElementById('vdSearch');
+        if (!c.length) { list.querySelector('input')?.focus(); return; }
+        box.value = c.join(' '); box.dispatchEvent(new Event('input')); ov.classList.remove('open');
+      };
+      const open = () => {
+        list.innerHTML = '';
+        const cur = (document.getElementById('vdSearch')?.value || '').split(/[\s,;]+/).filter(t => /^\d{4,}$/.test(t));
+        (cur.length ? cur : ['', '']).forEach(v => addRow(v));
+        if (cur.length === 1) addRow('');
+        ov.classList.add('open'); setTimeout(() => (list.querySelector('input:placeholder-shown') || list.querySelector('input'))?.focus(), 50);
+      };
+      ov._open = open;
+      document.getElementById('vdMultiBtn')?.addEventListener('click', open);
+      document.getElementById('vdMultiAdd')?.addEventListener('click', () => addRow('').focus());
+      document.getElementById('vdMultiClear')?.addEventListener('click', () => { list.innerHTML = ''; addRow(''); addRow(''); const box = document.getElementById('vdSearch'); box.value = ''; box.dispatchEvent(new Event('input')); });
+      document.getElementById('vdMultiGo')?.addEventListener('click', go);
+      document.getElementById('vdMultiClose')?.addEventListener('click', () => ov.classList.remove('open'));
+      ov.addEventListener('click', e => { if (e.target === e.currentTarget) ov.classList.remove('open'); });
+    })();
     document.getElementById('vdCiudad')?.addEventListener('change', applyVDFilters);
     ['vdAvanceSegs', 'vdTermSegs', 'vdCajaSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
