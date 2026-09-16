@@ -587,6 +587,17 @@ try:
     # y Tipo..Disponible se leen desde la cola (las 4 últimas columnas Contacto/Fono/Mail/Observacion son fijas).
     _RUT_RE   = _re.compile(r'^\d{1,2}\.\d{3}\.\d{3}-[\dKk]$')
     _FPAGO_RE = _re.compile(r'^\d{2} - ')
+    _NUM_RE   = _re.compile(r'^-?\d+$')
+    # El ERP cambia el número de columnas del export (23 en sept-2026, 24 después) y además exporta la Ñ
+    # como ';'. Por eso el bloque Tipo/Credito/Ctacte/Cheques/Disponible NO se lee por posición fija:
+    # se busca el patrón "1 dígito + 4 montos + (Contacto, Fono, Mail) + bloqueo N/S" en cualquier posición.
+    def _ancla(x):
+        for i in range(len(x) - 9):
+            if (len(x[i]) == 1 and x[i].isdigit() and all(_NUM_RE.match(x[i + k]) for k in (1, 2, 3, 4))
+                    and x[i + 8] in ('N', 'S')):
+                return i
+        return None
+    sin_ancla = 0
     fichas = {}          # rut -> [ficha, ...]  (un RUT puede tener varias fichas: sucursales / razones sociales)
     descartadas = 0
     with open(cli_file, encoding='latin-1', errors='replace') as f:
@@ -600,9 +611,13 @@ try:
             if not rut_raw:
                 descartadas += 1; continue
             fpago = next((c for c in x[7:12] if _FPAGO_RE.match(c)), '')
+            i = _ancla(x)
+            if i is None:
+                sin_ancla += 1; descartadas += 1; continue
             ficha = {
-                "razon": x[0], "credito": clean_int(x[-8]), "deuda": clean_int(x[-7]), "cheques": clean_int(x[-6]),
-                "disponible": clean_int(x[-5]), "fpago": fpago, "tipo": x[-9],
+                "razon": x[0], "tipo": int(x[i]),
+                "credito": clean_int(x[i + 1]), "deuda": clean_int(x[i + 2]), "cheques": clean_int(x[i + 3]),
+                "disponible": clean_int(x[i + 4]), "fpago": fpago, "bloqueo_ficha": x[i + 8],
             }
             fichas.setdefault(_rut_norm(rut_raw).lstrip('0'), []).append(ficha)
     # Regla de merge por RUT: ficha principal = mayor crédito (empate → mayor deuda); se informa cuántas fichas hay
@@ -612,7 +627,13 @@ try:
         principal['fichas'] = len(lst)
         principal['deuda_otras'] = sum(c['deuda'] for c in lst[1:])   # deuda en otras fichas del mismo RUT
         clientes[k] = principal
-    print(f"  CLIENTE.Txt del {clientes_meta['archivo_fecha']}: {len(clientes)} clientes ({sum(len(v) for v in fichas.values())} fichas, {descartadas} filas descartadas)")
+    print(f"  CLIENTE.Txt del {clientes_meta['archivo_fecha']}: {len(clientes)} clientes ({sum(len(v) for v in fichas.values())} fichas, {descartadas} filas descartadas, {sin_ancla} sin patrón)")
+    if sin_ancla > 5:
+        print(f"  AVISO: {sin_ancla} fichas sin el patrón Tipo/Credito/.../bloqueo: revisar si cambió el formato de CLIENTE.Txt")
+    _chk = clientes.get('770000000', None)
+    _tipos = {}
+    for c in clientes.values(): _tipos[c['tipo']] = _tipos.get(c['tipo'], 0) + 1
+    print(f"  tipos de cliente: {dict(sorted(_tipos.items()))}")
 except FileNotFoundError:
     print("  CLIENTE.Txt no encontrado")
 

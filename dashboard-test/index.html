@@ -1324,7 +1324,7 @@ function vdGroups(peds, prodMap = {}, cajasAll = []) {
     if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false, termArts: 0, termUnits: 0, arts: new Map() });
     const g = m.get(k);
     g.pedidos.push(p); g.ped += p.u_temp['44'] || 0; g.desp += p.u_desp?.['44'] || 0; g.sal += p.u_sal?.['44'] || 0;
-    if (!g.cli && p.cli) g.cli = p.cli;
+    if (!g.cli && p.cli) { g.cli = p.cli; g.tipo = parseInt(p.cli.tipo) || 0; }
     if (p.bloqueo) g.bloqueo = true;
     (g.ciudades = g.ciudades || new Set()).add((p.ciudad || '').toLowerCase());   // un cliente puede pedir a varias ciudades
     // Artículos T44 del cliente (para buscar por artículo/modelo y ver cuánto pidió de cada uno)
@@ -1381,9 +1381,10 @@ async function secVentaDespacho() {
     const esc = s => String(s).replace(/"/g, '&quot;');
     const artQ = [...g.arts.entries()].map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}:${v.caja || 0}:${v.term || 0}`).join(',');   // artículo: pedido, despachado, pendiente, en caja, en terminación
     const ciudades = [...(g.ciudades || [])].filter(Boolean);
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-key="${esc(g.key)}" style="cursor:pointer">
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-tipo="${g.tipo ? g.tipo : 9}" data-key="${esc(g.key)}" style="cursor:pointer">
       <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span><span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
       <td class="td-dim">${(g.ciudad||'—')}${ciudades.length > 1 ? ` <span style="font-size:10px">+${ciudades.length-1}</span>` : ''}</td>
+      <td style="text-align:center">${g.tipo ? `<span title="Tipo de cliente en la ficha del ERP" style="background:${g.tipo === 1 ? 'var(--ac10)' : 'var(--sf2)'};color:${g.tipo === 1 ? 'var(--ac)' : 'var(--tx2)'};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">Tipo ${g.tipo}</span>` : '<span class="td-dim" style="font-size:10px">—</span>'}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
       <td class="r td-num" style="color:${sal44>0?'var(--wa)':'var(--tx3)'}">${fmt(sal44)}</td>
@@ -1445,6 +1446,7 @@ async function secVentaDespacho() {
         <thead><tr id="vdThead">
           <th>Cliente</th>
           <th>Ciudad</th>
+          <th data-sort="tipo" style="cursor:pointer;text-align:center" title="Ordena por tipo de cliente: tipo 1 primero">Tipo <span class="si">↕</span></th>
           <th class="r" data-sort="ped" style="cursor:pointer">Pedido <span class="si">↕</span></th>
           <th class="r" data-sort="desp" style="cursor:pointer">Despachado <span class="si">↕</span></th>
           <th class="r" data-sort="sal" style="cursor:pointer">Saldo <span class="si">↕</span></th>
@@ -2442,13 +2444,14 @@ function bindContent(secId) {
     // Sort
     let vdSortCol = null, vdSortDir = -1;
     function sortVD(col) {
-      if (vdSortCol === col) { vdSortDir *= -1; } else { vdSortCol = col; vdSortDir = (col === 'nombre' || col === 'ciudad') ? 1 : -1; }
+      if (vdSortCol === col) { vdSortDir *= -1; } else { vdSortCol = col; vdSortDir = (col === 'nombre' || col === 'ciudad' || col === 'tipo') ? 1 : -1; }
       const tbody = document.getElementById('vdBody');
       const rows = [...tbody.querySelectorAll('tr[data-nombre]')];
       const isText = col === 'nombre' || col === 'ciudad';
       rows.sort((a, b) => {
         const av = a.dataset[col] || '', bv = b.dataset[col] || '';
-        return isText ? av.localeCompare(bv, 'es') * vdSortDir : ((parseInt(av)||0) - (parseInt(bv)||0)) * vdSortDir;
+        const d = isText ? av.localeCompare(bv, 'es') * vdSortDir : ((parseInt(av)||0) - (parseInt(bv)||0)) * vdSortDir;
+        return d || ((parseInt(b.dataset.sal)||0) - (parseInt(a.dataset.sal)||0));   // empate: mayor saldo pendiente primero
       });
       rows.forEach(r => tbody.appendChild(r));
       document.querySelectorAll('#vdThead th[data-sort]').forEach(th => {
@@ -2556,6 +2559,7 @@ function bindContent(secId) {
                                   : '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Tiene cupo</span>';
         return cli
           ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 16px;font-size:12px">
+               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Tipo</div>${parseInt(cli.tipo) ? `Tipo ${parseInt(cli.tipo)}` : '<span class="td-dim">—</span>'}</div>
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Crédito</div>${money(cli.credito)}</div>
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Deuda (cta. cte.)</div>${money(cli.deuda, cli.deuda > 0)}</div>
                <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Cheques</div>${money(cli.cheques, cli.cheques > 0)}</div>
