@@ -1358,6 +1358,7 @@ async function secVentaDespacho() {
   const ftAll = await load('full_table.json');
   const cdata = await load('cajas.json');
   const cajasAll = (!Array.isArray(cdata) && cdata?.cajas) || [];
+  await load('saldos_bodega.json');   // stock por artículo: explica por qué un pendiente no está en producción (ya está en bodega)
   const prodMap = buildProdMap(ftAll);
   const groups = vdGroups(peds, prodMap, cajasAll);   // una fila por cliente; sus pedidos se ven al abrir
 
@@ -2460,6 +2461,12 @@ function bindContent(secId) {
     const _peds = (typeof CACHE !== 'undefined' && CACHE['pedidos.json']) || [];
     const prodMap = buildProdMap(CACHE['full_table.json'] || []);
     const cajasAllB = (!Array.isArray(CACHE['cajas.json']) && CACHE['cajas.json']?.cajas) || [];
+    // Stock en San Gerardo (donde se arman las cajas) descontando lo ya encajado: si un pendiente está ahí, no necesita producción
+    const bodMap = {};
+    (Array.isArray(CACHE['saldos_bodega.json']) ? CACHE['saldos_bodega.json'] : []).forEach(r => {
+      const sg = (r.suc && r.suc['04']) || 0;
+      bodMap[r.art] = { sg, disp: Math.max(0, sg - (r.cajas_total || 0)), otras: (r.prendas || 0) - sg };
+    });
     const groupMap = {}; vdGroups(_peds, prodMap, cajasAllB).forEach(g => groupMap[g.key] = g);
     const pedMapAll = {}; _peds.forEach(p => pedMapAll[p.pedido] = p);
     let cajaFull = () => null;   // se resuelve al abrir (cajas.json)
@@ -2597,10 +2604,16 @@ function bindContent(secId) {
           const ec = enCaja[l.art] || 0;
           const falta = Math.max(0, l.sal - ec);          // pendiente que NO está en caja
           const pr = prodMap[l.art];
+          const bd = bodMap[l.art];
+          const disp = bd ? bd.disp : 0;
+          const bodTip = bd ? `Stock en San Gerardo ${fmt(bd.sg)}, ya en cajas armadas ${fmt(bd.sg - bd.disp)} → disponible ${fmt(disp)}${bd.otras > 0 ? ` · en otros locales ${fmt(bd.otras)}` : ''}` : '';
+          const prodOnly = pr?.term > 0 ? `<span style="color:#6d28d9;font-size:10px;font-weight:700">🏁 En terminación (${fmt(Math.min(falta, pr.term))})</span>`
+                         : pr ? `<span style="color:${etapaClr(pr.top)};font-size:10px">En ${pr.top} (${fmt(pr.topU)})</span>` : '';
+          // Lo que falta puede estar YA en bodega (listo para encajar); si no alcanza, se muestra además lo que viene de producción
           const prodTag = falta > 0
-            ? (pr?.term > 0 ? `<span style="color:#6d28d9;font-size:10px;font-weight:700">🏁 En terminación (${fmt(Math.min(falta, pr.term))})</span>`
-              : pr ? `<span style="color:${etapaClr(pr.top)};font-size:10px">En ${pr.top} (${fmt(pr.topU)})</span>`
-              : '<span style="color:var(--tx3);font-size:10px">Sin producción</span>')
+            ? (disp >= falta ? `<span title="${bodTip}" style="color:var(--ok);font-size:10px;font-weight:700">🏬 En bodega (${fmt(disp)} disp.)</span>`
+              : disp > 0     ? [`<span title="${bodTip}" style="color:var(--ok);font-size:10px;font-weight:700">🏬 En bodega ${fmt(disp)} de ${fmt(falta)}</span>`, prodOnly].filter(Boolean).join('<br>')
+              : prodOnly || '<span style="color:var(--tx3);font-size:10px">Sin producción</span>')
             : '';
           const estado = l.sal <= 0 ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completo</span>'
                        : ec >= l.sal ? '<span style="color:var(--ac);font-size:10px;font-weight:700">📦 Listo en caja</span>'
