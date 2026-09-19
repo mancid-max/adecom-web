@@ -12,3 +12,7 @@ supabase_config.json
 docs/*.json
 # Copia local de la ultima version buena de Z:\BI (fallback cuando el ERP esta exportando)
 data/bi_cache/
+# Llevan la API key de Anthropic en texto plano: nunca deben subirse al repo publico
+crm.py
+crm_server.py
+netlify_functions/
