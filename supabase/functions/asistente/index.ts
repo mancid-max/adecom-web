@@ -44,9 +44,24 @@ async function datos<T = any>(archivo: string): Promise<T> {
 
 /* ── Reglas de negocio (verificadas contra el informe de corte del ERP) ────── */
 const SUC_NOMBRE: Record<string, string> = {
-  "01": "Stock Perú", "02": "Mohicano Centro", "04": "San Gerardo", "05": "Mohicano Sur",
-  "10": "Outlet Kennedy", "12": "Outlet", "33": "Magic World",
+  "00": "Bod. S.Filomena", "01": "Stock Perú", "02": "Loc. Perú", "04": "San Gerardo",
+  "05": "Codegua", "10": "Showroom", "12": "Outlet S.Fil.", "33": "Urrutia",
+  "34": "Telas", "35": "Insumos",
 };
+const nombreSuc = (s: string) => SUC_NOMBRE[s] ?? `Sucursal ${s}`;
+/** Stock repartido por local. Toda cifra de stock debe decir de qué bodega es. */
+function porSucursal(bod: any) {
+  return Object.entries(bod?.suc ?? {})
+    .filter(([, u]) => (u as number) !== 0)
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+    .map(([s, u]) => {
+      const enCajas = (bod?.cajas ?? {})[s] ?? 0;
+      return {
+        sucursal: nombreSuc(s), codigo_sucursal: s, unidades: u as number,
+        en_cajas_armadas: enCajas, libre: (u as number) - enCajas,
+      };
+    });
+}
 const BODEGA_CORTE = "04"; // El informe "Artículos para corte" del ERP solo descuenta San Gerardo.
 
 const ETAPAS: Array<[string, string]> = [
@@ -280,10 +295,9 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
       return {
         articulo: `${modelo}-${mod}`, codigo: cod,
         pedido: v.qty ?? 0, despachado: v.desp ?? 0, saldo_por_entregar: sal,
+        stock_por_sucursal: porSucursal(bod),
+        stock_total_todas_las_sucursales: Object.values(bod?.suc ?? {}).reduce((t: number, u) => t + (u as number), 0),
         stock_san_gerardo: stk,
-        stock_otros_locales: Object.entries(bod?.suc ?? {})
-          .filter(([s]) => s !== BODEGA_CORTE)
-          .map(([s, u]) => `${SUC_NOMBRE[s] ?? s}: ${u}`),
         comprometido_en_cajas_armadas: enCajasSG,
         libre_en_bodega_hoy: libre,
         stock_por_talla_libre: (bod?.saldo_talla_suc ?? {})[BODEGA_CORTE] ?? {},
@@ -294,7 +308,8 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
         })),
         a_cortar: Math.max(0, sal - stk - prod),
         sobra_para_ofrecer: Math.max(0, stk + prod - sal),
-        como_leerlo: `libre_en_bodega_hoy (${libre}) = lo que puedes tomar de San Gerardo ahora mismo. ` +
+        como_leerlo: `Todas estas cifras salvo stock_por_sucursal y stock_total_todas_las_sucursales son de SAN GERARDO. ` +
+          `libre_en_bodega_hoy (${libre}) = lo que puedes tomar de San Gerardo ahora mismo. ` +
           `sobra_para_ofrecer (${Math.max(0, stk + prod - sal)}) = cuánto excede la demanda contando lo que viene en producción. ` +
           `Son cifras distintas: no las presentes como si fueran la misma.`,
       };
@@ -348,7 +363,7 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
           ...x,
           ya_en_caja: enCaja[x.codigo] ?? 0,
           falta_por_encajar: Math.max(0, x.falta - (enCaja[x.codigo] ?? 0)),
-          hay_en_bodega: stock.get(x.codigo) ?? 0,
+          hay_en_san_gerardo: stock.get(x.codigo) ?? 0,
           en_produccion: enProduccion(ocs.get(x.codigo) ?? []),
         }))
         .sort((a: any, b: any) => b.falta - a.falta);
@@ -511,6 +526,14 @@ Vocabulario del negocio:
 - En producción: prendas ya cortadas que todavía no llegan a bodega.
 - Caja armada: pedido ya empacado en bodega, esperando despacho.
 - EX: el modelo equivalente de la temporada anterior.
+
+Stock (regla estricta):
+- NUNCA des una cifra de stock sin decir de qué bodega es. "Hay 285" está mal; "hay 285 en San Gerardo" está bien.
+- Cuando pregunten por stock de un artículo, muestra el desglose por sucursal, no solo el total.
+- Si el artículo está en varias bodegas, dilo: lo que está fuera de San Gerardo no sirve para armar despachos.
+- Las bodegas son: San Gerardo (04, donde se arma el despacho), Bod. S.Filomena (00), Stock Perú (01),
+  Loc. Perú (02), Codegua (05), Showroom (10), Outlet S.Fil. (12) y Urrutia (33).
+- El stock negativo es real y sale de prendas despachadas que nunca se ingresaron: dilo tal cual, no lo escondas.
 
 Reglas:
 - Usa SIEMPRE las herramientas para cualquier dato. Nunca inventes ni estimes cifras.
