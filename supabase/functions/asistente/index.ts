@@ -633,7 +633,7 @@ Fechas:
 async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ answer: string; pasos: string[]; uso: any }> {
   const mensajes: any[] = [...historial, { role: "user", content: pregunta }];
   const pasos: string[] = [];
-  const uso = { entrada: 0, salida: 0, llamadas: 0 };   // para poder mirar el gasto
+  const uso = { entrada: 0, salida: 0, cache_escrito: 0, cache_leido: 0, llamadas: 0 };
 
   for (let vuelta = 0; vuelta < 8; vuelta++) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -644,14 +644,38 @@ async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ a
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 2000, system: SISTEMA.replace("{{HOY}}", hoyEnChile()),
-        tools: TOOLS, messages: mensajes,
+        model: MODEL, max_tokens: 2000,
+        // La fecha va al final para que el resto del texto sea idéntico y se pueda cachear
+        system: [{
+          type: "text",
+          text: SISTEMA.replace("{{HOY}}", hoyEnChile()),
+          cache_control: { type: "ephemeral" },
+        }],
+        tools: TOOLS.map((t, i) =>
+          i === TOOLS.length - 1 ? { ...t, cache_control: { type: "ephemeral" } } : t),
+        messages: mensajes,
       }),
     });
-    if (!r.ok) throw new Error(`Anthropic ${r.status}: ${(await r.text()).slice(0, 300)}`);
+    if (!r.ok) {
+      const crudo = await r.text();
+      const detalle = (() => { try { return JSON.parse(crudo)?.error?.message ?? crudo; } catch { return crudo; } })();
+      const err: any = new Error(String(detalle).slice(0, 300));
+      if (/credit balance|billing|quota/i.test(String(detalle))) {
+        err.amistoso = "Se acabó el saldo de la cuenta. Hay que recargar en console.anthropic.com para que el asistente vuelva a responder. El resto del dashboard sigue funcionando normal.";
+      } else if (r.status === 429) {
+        err.amistoso = "Muchas preguntas seguidas. Espera unos segundos y vuelve a intentar.";
+      } else if (r.status === 529 || r.status >= 500) {
+        err.amistoso = "El asistente está saturado en este momento. Intenta de nuevo en un minuto.";
+      } else if (r.status === 401) {
+        err.amistoso = "La clave del asistente ya no es válida o venció. Hay que renovarla.";
+      }
+      throw err;
+    }
     const data = await r.json();
     uso.entrada += data.usage?.input_tokens ?? 0;
     uso.salida  += data.usage?.output_tokens ?? 0;
+    uso.cache_escrito += data.usage?.cache_creation_input_tokens ?? 0;
+    uso.cache_leido   += data.usage?.cache_read_input_tokens ?? 0;
     uso.llamadas++;
 
     if (data.stop_reason === "tool_use") {
@@ -704,6 +728,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ answer, pasos, uso }), { headers: cabeceras });
   } catch (e) {
     console.error("asistente:", e);
-    return new Response(JSON.stringify({ error: "No pude responder ahora. " + String((e as Error).message ?? e).slice(0, 200) }), { status: 500, headers: cabeceras });
+    const amistoso = (e as any)?.amistoso;
+    return new Response(
+      JSON.stringify({ error: amistoso ?? ("No pude responder ahora. " + String((e as Error).message ?? e).slice(0, 200)) }),
+      { status: 500, headers: cabeceras });
   }
 });
