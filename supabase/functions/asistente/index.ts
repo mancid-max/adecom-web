@@ -475,6 +475,17 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
 }
 
 /* ── Modelo ───────────────────────────────────────────────────────────────── */
+/** Hoy en Chile. Sin esto el modelo asume el año de su entrenamiento y busca en fechas que no existen. */
+function hoyEnChile(): string {
+  const f = new Intl.DateTimeFormat("es-CL", {
+    timeZone: "America/Santiago", weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }).format(new Date());
+  const iso = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  return `${f} (${iso})`;
+}
+
 const SISTEMA = `Eres el asistente de ADECOM, el sistema de Mohicano Jeans, una fábrica de jeans de mujer en Chile que vende al por mayor.
 Le respondes a Manu y a su equipo sobre producción, pedidos, despachos, stock y ventas.
 
@@ -497,7 +508,12 @@ Reglas:
 - Usa SIEMPRE las herramientas para cualquier dato. Nunca inventes ni estimes cifras.
 - Si una herramienta no trae el dato, dilo claramente en vez de suponer.
 - Cuando la pregunta no diga temporada, asume la T44.
-- Si te piden algo que ninguna herramienta cubre, dilo y sugiere qué sí puedes responder.`;
+- Si te piden algo que ninguna herramienta cubre, dilo y sugiere qué sí puedes responder.
+- Si la pregunta es amplia ("¿cómo va la 44?"), parte con los tres o cuatro números que importan, no con uno solo.
+
+Fechas:
+- HOY es {{HOY}}. Cuando digan "hoy", "ayer", "esta semana" o una fecha sin año, calcúlalo desde ahí.
+- Nunca supongas otro año: el año en curso es el de la fecha de arriba.`;
 
 async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ answer: string; pasos: string[] }> {
   const mensajes: any[] = [...historial, { role: "user", content: pregunta }];
@@ -512,7 +528,8 @@ async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ a
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 2000, system: SISTEMA, tools: TOOLS, messages: mensajes,
+        model: MODEL, max_tokens: 2000, system: SISTEMA.replace("{{HOY}}", hoyEnChile()),
+        tools: TOOLS, messages: mensajes,
       }),
     });
     if (!r.ok) throw new Error(`Anthropic ${r.status}: ${(await r.text()).slice(0, 300)}`);
