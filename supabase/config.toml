@@ -1,0 +1,6 @@
+project_id = "kdtydxihrflhziclgiof"
+
+[functions.asistente]
+# La función valida la sesión por su cuenta con auth.getUser(token). Se deja en false
+# para que el navegador pueda hacer el preflight (OPTIONS) antes de cada consulta.
+verify_jwt = false

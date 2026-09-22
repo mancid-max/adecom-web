@@ -131,6 +131,27 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .td-num{font-variant-numeric:tabular-nums;font-weight:600}
 .td-dim{color:var(--tx2);font-size:12px}
 .td-code{font-family:ui-monospace,monospace;font-size:12px;color:var(--tx2)}
+/* Asistente */
+#iaBtn{position:fixed;right:20px;bottom:20px;z-index:190;width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--ac);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;transition:transform .12s}
+#iaBtn:hover{transform:scale(1.06)}
+#iaBtn.on{display:flex}
+#iaOv .det-panel{width:min(620px,96vw);height:min(660px,88vh)}
+#iaChat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.ia-msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.ia-yo{align-self:flex-end;background:var(--ac);color:#fff;border-bottom-right-radius:3px}
+.ia-bot{align-self:flex-start;background:var(--sf2);color:var(--tx1);border-bottom-left-radius:3px}
+.ia-bot b{font-weight:700}
+.ia-bot table{border-collapse:collapse;margin:6px 0;font-size:12px}
+.ia-bot td,.ia-bot th{border:1px solid var(--bd);padding:3px 8px;text-align:left}
+.ia-err{align-self:flex-start;background:var(--er10);color:var(--er);border-bottom-left-radius:3px}
+.ia-pensando{align-self:flex-start;color:var(--tx3);font-size:12px;font-style:italic}
+#iaForm{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd);align-items:flex-end}
+#iaInput{flex:1;resize:none;max-height:110px;min-height:38px;font-family:inherit;font-size:13px;line-height:1.4}
+#iaSend{background:var(--ac);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;font-size:13px}
+#iaSend:disabled{opacity:.5;cursor:default}
+.ia-sug{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:5px 11px;font-size:11.5px;cursor:pointer;color:var(--tx2);text-align:left}
+.ia-sug:hover{border-color:var(--ac);color:var(--ac)}
 .tbl-compacta td{padding-left:9px;padding-right:9px}
 .tbl-compacta .art-thumb{width:26px;height:34px;margin-right:6px}
 .tbl-foot{font-size:11px;color:var(--tx3);padding:9px 16px;border-top:1px solid var(--bd)}
@@ -279,6 +300,16 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
       <button id="vdMultiGo" style="background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-weight:700;cursor:pointer">Buscar</button>
     </div>
   </div></div></div>
+<button id="iaBtn" title="Preguntar al asistente" aria-label="Preguntar al asistente">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+</button>
+<div class="det-ov" id="iaOv" style="z-index:280"><div class="det-panel">
+  <div class="det-hd"><div class="det-ttl">Asistente ADECOM</div>
+    <button class="det-close" id="iaLimpiar" title="Empezar de nuevo" aria-label="Empezar de nuevo" style="margin-right:6px;width:auto;padding:0 10px;font-size:12px">Limpiar</button>
+    <button class="det-close" id="iaClose" aria-label="Cerrar">✕</button></div>
+  <div id="iaChat"></div>
+  <form id="iaForm"><textarea id="iaInput" class="finput" rows="1" placeholder="Pregunta lo que necesites…" maxlength="1000"></textarea><button id="iaSend" type="submit">Enviar</button></form>
+</div></div>
 <div class="det-ov" id="cajaOv" style="z-index:260"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cajaTtl">Caja</div><button class="det-close" id="cajaClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cajaBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="detOv">
   <div class="det-panel">
@@ -3229,6 +3260,112 @@ const SUPA_URL  = 'https://kdtydxihrflhziclgiof.supabase.co';
 const SUPA_KEY  = 'sb_publishable_37ce4uK_RG8o9pP-Jdf2Xw_3eWgqJQy';
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+/* ── Asistente ─────────────────────────────────────────────────────────────
+   La pregunta va a una función en Supabase que consulta los datos y responde.
+   La clave del modelo vive allá: nunca llega al navegador. */
+const IA_URL = SUPA_URL + '/functions/v1/asistente';
+let IA_HIST = [];
+
+const IA_SUGERENCIAS = [
+  '¿Cómo va la temporada 44?',
+  '¿Qué artículos falta cortar?',
+  '¿Cuánto vendí hoy?',
+  '¿Qué cajas llevan más tiempo esperando?',
+  '¿Qué clientes no han comprado la 44?',
+];
+
+function iaEscapar(t) {
+  return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+/* Formato mínimo: negritas, viñetas y saltos de línea. No se interpreta nada más. */
+function iaFormato(t) {
+  return iaEscapar(t)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/^[-*]\s+/gm, '• ');
+}
+function iaBurbuja(clase, html) {
+  const chat = document.getElementById('iaChat');
+  const d = document.createElement('div');
+  d.className = 'ia-msg ' + clase;
+  d.innerHTML = html;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+function iaBienvenida() {
+  const chat = document.getElementById('iaChat');
+  if (!chat) return;
+  chat.innerHTML = '';
+  IA_HIST = [];
+  iaBurbuja('ia-bot', 'Hola. Pregúntame sobre pedidos, producción, stock, cajas o ventas.');
+  const cont = document.createElement('div');
+  cont.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-self:flex-start;max-width:88%';
+  IA_SUGERENCIAS.forEach(q => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'ia-sug'; b.textContent = q;
+    b.addEventListener('click', () => { document.getElementById('iaInput').value = q; iaPreguntar(); });
+    cont.appendChild(b);
+  });
+  chat.appendChild(cont);
+}
+async function iaPreguntar() {
+  const input = document.getElementById('iaInput');
+  const btn   = document.getElementById('iaSend');
+  const q = (input.value || '').trim();
+  if (!q || btn.disabled) return;
+  input.value = ''; input.style.height = 'auto';
+  document.querySelectorAll('#iaChat .ia-sug').forEach(b => b.parentElement?.remove());
+  iaBurbuja('ia-yo', iaEscapar(q));
+  btn.disabled = true;
+  const esperando = iaBurbuja('ia-pensando', 'Revisando los datos…');
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    const r = await fetch(IA_URL, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pregunta: q, historial: IA_HIST.slice(-6) }),
+    });
+    const data = await r.json().catch(() => ({}));
+    esperando.remove();
+    if (!r.ok || data.error) throw new Error(data.error || ('El asistente respondió ' + r.status));
+    iaBurbuja('ia-bot', iaFormato(data.answer));
+    IA_HIST.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
+  } catch (e) {
+    esperando.remove();
+    const msg = String(e.message || e);
+    iaBurbuja('ia-err', /Failed to fetch|NetworkError/i.test(msg)
+      ? 'No pude contactar al asistente. Puede que todavía no esté publicado.'
+      : iaEscapar(msg));
+  } finally {
+    btn.disabled = false;
+    input.focus();
+  }
+}
+function iaIniciar() {
+  const btn = document.getElementById('iaBtn'), ov = document.getElementById('iaOv');
+  if (!btn || !ov || btn.dataset.listo) return;
+  btn.dataset.listo = '1';
+  btn.classList.add('on');
+  const abrir = () => {
+    if (!document.getElementById('iaChat').children.length) iaBienvenida();
+    ov.classList.add('open');
+    setTimeout(() => document.getElementById('iaInput')?.focus(), 60);
+  };
+  btn.addEventListener('click', abrir);
+  document.getElementById('iaClose').addEventListener('click', () => ov.classList.remove('open'));
+  document.getElementById('iaLimpiar').addEventListener('click', iaBienvenida);
+  ov.addEventListener('click', e => { if (e.target === e.currentTarget) ov.classList.remove('open'); });
+  document.getElementById('iaForm').addEventListener('submit', e => { e.preventDefault(); iaPreguntar(); });
+  const input = document.getElementById('iaInput');
+  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px'; });
+  input.addEventListener('keydown', e => {   // Enter envía, Shift+Enter hace salto de línea
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); iaPreguntar(); }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.classList.remove('open'); });
+}
+
 function applyRole(role, email) {
   const name = email.split('@')[0];
   document.getElementById('sbAvatar').textContent = name[0].toUpperCase();
@@ -3239,6 +3376,7 @@ function applyRole(role, email) {
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
   }
   document.getElementById('loginOv').classList.add('hidden');
+  iaIniciar();  // el asistente solo existe con sesión iniciada
   init(role);   // los datos se cargan recién ahora, con la sesión ya iniciada
 }
 
