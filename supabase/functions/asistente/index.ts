@@ -272,6 +272,11 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
       const sal = v.sal ?? v.qty ?? 0;
       const stk = bod?.suc?.[BODEGA_CORTE] ?? 0;
       const prod = enProduccion(misOcs);
+      // Dos cifras distintas que NO hay que mezclar, ambas solo de San Gerardo:
+      //   libre  = lo que puedo tomar hoy de bodega (ya descontadas las cajas armadas de otros pedidos)
+      //   sobra  = cuánto excede la demanda una vez cubierto todo lo pendiente
+      const enCajasSG = (bod?.cajas ?? {})[BODEGA_CORTE] ?? 0;
+      const libre = stk - enCajasSG;
       return {
         articulo: `${modelo}-${mod}`, codigo: cod,
         pedido: v.qty ?? 0, despachado: v.desp ?? 0, saldo_por_entregar: sal,
@@ -279,9 +284,9 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
         stock_otros_locales: Object.entries(bod?.suc ?? {})
           .filter(([s]) => s !== BODEGA_CORTE)
           .map(([s, u]) => `${SUC_NOMBRE[s] ?? s}: ${u}`),
-        comprometido_en_cajas: bod?.cajas_total ?? 0,
-        disponible_para_encajar: bod?.saldo ?? 0,
-        stock_por_talla: bod?.saldo_talla ?? {},
+        comprometido_en_cajas_armadas: enCajasSG,
+        libre_en_bodega_hoy: libre,
+        stock_por_talla_libre: (bod?.saldo_talla_suc ?? {})[BODEGA_CORTE] ?? {},
         en_produccion: prod,
         ordenes_de_corte: misOcs.map((r) => ({
           oc: r.corte, fecha: r.fecha, programado: r.programa, cortado: r.proceso,
@@ -289,6 +294,9 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
         })),
         a_cortar: Math.max(0, sal - stk - prod),
         sobra_para_ofrecer: Math.max(0, stk + prod - sal),
+        como_leerlo: `libre_en_bodega_hoy (${libre}) = lo que puedes tomar de San Gerardo ahora mismo. ` +
+          `sobra_para_ofrecer (${Math.max(0, stk + prod - sal)}) = cuánto excede la demanda contando lo que viene en producción. ` +
+          `Son cifras distintas: no las presentes como si fueran la misma.`,
       };
     });
     return {
@@ -515,9 +523,10 @@ Fechas:
 - HOY es {{HOY}}. Cuando digan "hoy", "ayer", "esta semana" o una fecha sin año, calcúlalo desde ahí.
 - Nunca supongas otro año: el año en curso es el de la fecha de arriba.`;
 
-async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ answer: string; pasos: string[] }> {
+async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ answer: string; pasos: string[]; uso: any }> {
   const mensajes: any[] = [...historial, { role: "user", content: pregunta }];
   const pasos: string[] = [];
+  const uso = { entrada: 0, salida: 0, llamadas: 0 };   // para poder mirar el gasto
 
   for (let vuelta = 0; vuelta < 8; vuelta++) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -534,6 +543,9 @@ async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ a
     });
     if (!r.ok) throw new Error(`Anthropic ${r.status}: ${(await r.text()).slice(0, 300)}`);
     const data = await r.json();
+    uso.entrada += data.usage?.input_tokens ?? 0;
+    uso.salida  += data.usage?.output_tokens ?? 0;
+    uso.llamadas++;
 
     if (data.stop_reason === "tool_use") {
       mensajes.push({ role: "assistant", content: data.content });
@@ -550,9 +562,9 @@ async function preguntarAClaude(pregunta: string, historial: any[]): Promise<{ a
       continue;
     }
     const texto = (data.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
-    return { answer: texto || "No pude armar una respuesta.", pasos };
+    return { answer: texto || "No pude armar una respuesta.", pasos, uso };
   }
-  return { answer: "La consulta dio demasiadas vueltas. Prueba preguntando algo más específico.", pasos };
+  return { answer: "La consulta dio demasiadas vueltas. Prueba preguntando algo más específico.", pasos, uso };
 }
 
 /* ── Entrada ──────────────────────────────────────────────────────────────── */
@@ -581,8 +593,8 @@ Deno.serve(async (req) => {
       ? body.historial.filter((m: any) => (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string").slice(-6)
       : [];
 
-    const { answer, pasos } = await preguntarAClaude(pregunta, historial);
-    return new Response(JSON.stringify({ answer, pasos }), { headers: cabeceras });
+    const { answer, pasos, uso } = await preguntarAClaude(pregunta, historial);
+    return new Response(JSON.stringify({ answer, pasos, uso }), { headers: cabeceras });
   } catch (e) {
     console.error("asistente:", e);
     return new Response(JSON.stringify({ error: "No pude responder ahora. " + String((e as Error).message ?? e).slice(0, 200) }), { status: 500, headers: cabeceras });
