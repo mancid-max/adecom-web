@@ -972,13 +972,13 @@ async function secStock() {
 
   const SUC_NAMES = {
     '00':'Bod. S.Filomena','01':'Stock Perú','02':'Loc. Perú','04':'San Gerardo',
-    '05':'Codegua','10':'Showroom','12':'Outlet S.Fil.','33':'Urrutia',
+    '05':'Codegua','08':'Bodega 08','10':'Showroom','12':'Outlet S.Fil.','33':'Urrutia',
     '34':'Telas','35':'Insumos'
   };
 
   // Sucursales con stock. Solo las de prendas: las demás (central sin asignar, telas, insumos) no
   // entran en Stock/Cajas/Saldo ni tienen desglose por talla, así que no deben salir en el filtro.
-  const SUC_PRENDAS = new Set(['01','02','04','05','10','12','33']);
+  const SUC_PRENDAS = new Set(['00','01','02','04','05','08','10','12','33']);
   const allSucs = new Set();
   data.forEach(r => Object.keys(r.suc||{}).forEach(s => { if (SUC_PRENDAS.has(s)) allSucs.add(s); }));
   const sucList = [...allSucs].sort();
@@ -2233,7 +2233,7 @@ function bindContent(secId) {
   if (secId === 'stock' && document.getElementById('stockBody')) {
     const SUC_NAMES_BIND = {
       '00':'Bod. S.Filomena','01':'Stock Perú','02':'Loc. Perú','04':'San Gerardo',
-      '05':'Codegua','10':'Showroom','12':'Outlet S.Fil.','33':'Urrutia',
+      '05':'Codegua','08':'Bodega 08','10':'Showroom','12':'Outlet S.Fil.','33':'Urrutia',
       '34':'Telas','35':'Insumos'
     };
     function applyStockFilters() {

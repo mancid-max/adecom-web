@@ -45,7 +45,7 @@ async function datos<T = any>(archivo: string): Promise<T> {
 /* ── Reglas de negocio (verificadas contra el informe de corte del ERP) ────── */
 const SUC_NOMBRE: Record<string, string> = {
   "00": "Bod. S.Filomena", "01": "Stock Perú", "02": "Loc. Perú", "04": "San Gerardo",
-  "05": "Codegua", "10": "Showroom", "12": "Outlet S.Fil.", "33": "Urrutia",
+  "05": "Codegua", "08": "Bodega 08", "10": "Showroom", "12": "Outlet S.Fil.", "33": "Urrutia",
   "34": "Telas", "35": "Insumos",
 };
 const nombreSuc = (s: string) => SUC_NOMBRE[s] ?? `Sucursal ${s}`;

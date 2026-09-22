@@ -346,7 +346,7 @@ for d in docs_dict.values():
 docs_venta = list(docs_dict.values())
 
 # ── 4. SALDOS POR LOCAL (SALDOSXLOCAL.CSV desde Z:\BI) ────────
-SUCURSALES_PRENDAS = {'01','02','04','05','10','12','33'}
+SUCURSALES_PRENDAS = {'00','01','02','04','05','08','10','12','33'}   # todas las que tienen prendas; fuera telas (34) e insumos (35)
 
 print("Leyendo SALDOSXLOCAL.CSV...")
 # OJO con la columna 'Cajas': NO es por bodega. Es un TOTAL por artículo+talla que el ERP repite
