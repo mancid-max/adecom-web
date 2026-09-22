@@ -148,8 +148,11 @@ body.ia-open #iaBtn{display:none}
 .ia-yo{align-self:flex-end;background:var(--ac);color:#fff;border-bottom-right-radius:3px}
 .ia-bot{align-self:flex-start;background:var(--sf2);color:var(--tx1);border-bottom-left-radius:3px}
 .ia-bot b{font-weight:700}
-.ia-bot table{border-collapse:collapse;margin:6px 0;font-size:12px}
-.ia-bot td,.ia-bot th{border:1px solid var(--bd);padding:3px 8px;text-align:left}
+.ia-bot table{border-collapse:collapse;margin:8px 0;font-size:12px;width:100%;display:block;overflow-x:auto}
+.ia-bot td,.ia-bot th{border:1px solid var(--bd);padding:4px 9px;text-align:left;white-space:nowrap}
+.ia-bot th{background:var(--sf2);font-weight:700;font-size:11px;color:var(--tx2)}
+.ia-msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.ia-bot{max-width:96%}
 .ia-err{align-self:flex-start;background:var(--er10);color:var(--er);border-bottom-left-radius:3px}
 .ia-pensando{align-self:flex-start;color:var(--tx3);font-size:12px;font-style:italic}
 #iaForm{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd);align-items:flex-end}
@@ -158,7 +161,6 @@ body.ia-open #iaBtn{display:none}
 #iaSend:disabled{opacity:.5;cursor:default}
 .ia-sug{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:5px 11px;font-size:11.5px;cursor:pointer;color:var(--tx2);text-align:left}
 .ia-sug:hover{border-color:var(--ac);color:var(--ac)}
-.ia-uso{align-self:center;color:var(--tx3);font-size:10px;margin-top:-6px}
 .tbl-compacta td{padding-left:9px;padding-right:9px}
 .tbl-compacta .art-thumb{width:26px;height:34px;margin-right:6px}
 .tbl-foot{font-size:11px;color:var(--tx3);padding:9px 16px;border-top:1px solid var(--bd)}
@@ -3284,11 +3286,33 @@ const IA_SUGERENCIAS = [
 function iaEscapar(t) {
   return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-/* Formato mínimo: negritas, viñetas y saltos de línea. No se interpreta nada más. */
+/* Formato mínimo: negritas, viñetas, saltos de línea y tablas. Todo se escapa antes. */
+const iaLinea = t => t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^[-*]\s+/, '• ');
+const iaCeldas = l => l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+const iaEsFila = l => /^\s*\|.*\|\s*$/.test(l);
+const iaEsSeparador = l => /^\s*\|[\s:|-]*\|\s*$/.test(l) && l.includes('-');
+
 function iaFormato(t) {
-  return iaEscapar(t)
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/^[-*]\s+/gm, '• ');
+  const lineas = iaEscapar(t).split('\n');
+  const salida = [];
+  for (let i = 0; i < lineas.length; i++) {
+    // Tabla: una fila de encabezado seguida de la línea de guiones
+    if (iaEsFila(lineas[i]) && iaEsSeparador(lineas[i + 1] || '')) {
+      const enc = iaCeldas(lineas[i]);
+      const filas = [];
+      i += 2;
+      while (i < lineas.length && iaEsFila(lineas[i])) filas.push(iaCeldas(lineas[i++]));
+      i--;
+      const num = c => /^[+\-−]?[\d.,$%]+$/.test(c.replace(/<[^>]*>/g, '').trim());
+      salida.push('<table><thead><tr>' + enc.map(c => `<th>${iaLinea(c)}</th>`).join('') + '</tr></thead><tbody>' +
+        filas.map(f => '<tr>' + f.map((c, j) =>
+          `<td${j > 0 && num(c) ? ' style="text-align:right"' : ''}>${iaLinea(c)}</td>`).join('') + '</tr>').join('') +
+        '</tbody></table>');
+      continue;
+    }
+    salida.push(iaLinea(lineas[i]));
+  }
+  return salida.join('\n');
 }
 function iaBurbuja(clase, html) {
   const chat = document.getElementById('iaChat');
@@ -3338,13 +3362,6 @@ async function iaPreguntar() {
     esperando.remove();
     if (!r.ok || data.error) throw new Error(data.error || ('El asistente respondió ' + r.status));
     iaBurbuja('ia-bot', iaFormato(data.answer));
-    if (data.uso?.entrada) {
-      const d = document.createElement('div');
-      d.className = 'ia-uso';
-      d.textContent = `${fmt(data.uso.entrada)} + ${fmt(data.uso.salida)} tokens`;
-      d.title = 'Lo que costó esta respuesta: tokens de entrada + de salida';
-      document.getElementById('iaChat').appendChild(d);
-    }
     IA_HIST.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
   } catch (e) {
     esperando.remove();
