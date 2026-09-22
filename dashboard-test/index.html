@@ -2283,14 +2283,14 @@ function bindContent(secId) {
         if (show) { vis++; totalU += qty; }
       });
       const el = id => document.getElementById(id);
-      const sucName = suc === 'all' ? 'Local' : (SUC_NAMES_BIND[suc] || suc);
+      const sucName = suc === 'all' ? 'todas las bodegas' : (SUC_NAMES_BIND[suc] || suc);
       if (el('stCount'))     el('stCount').textContent     = `${vis} artículos`;
       if (el('stTotalUnid')) el('stTotalUnid').textContent = fmt(totalU);
       if (el('stTotalArt'))  el('stTotalArt').textContent  = fmt(vis);
       if (el('stPromedio'))  el('stPromedio').textContent  = Math.round(totalU/Math.max(1,vis));
       if (el('stUnidLbl'))   el('stUnidLbl').textContent   = `Prendas en ${sucName}`;
       // Que nunca quede duda de qué bodega se está mirando
-      if (el('stTtl')) el('stTtl').textContent = suc === 'all' ? 'Artículos en Bodega' : `Artículos en ${sucName}`;
+      if (el('stTtl')) el('stTtl').textContent = suc === 'all' ? 'Artículos en todas las bodegas' : `Artículos en ${sucName}`;
       const th = document.querySelector('#stockBody')?.closest('table')?.querySelector('thead th.r');
       if (th) th.textContent = suc === 'all' ? 'Stock' : `Stock ${sucName}`;
       // Re-ordenar filas de mayor a menor stock (con sus talla-rows hijas)
@@ -2339,10 +2339,8 @@ function bindContent(secId) {
     });
     applyStockFilters();
     if (window._bodegaMode) {
-      // Bodega parte en San Gerardo, que es donde trabaja, pero puede cambiar de sucursal.
-      // Lo que sí no ve es el stock negativo: es un dato a corregir en el ERP, no despachable.
-      const sanGeBtn = document.querySelector('#stSucSegs .seg[data-suc="04"]');
-      if (sanGeBtn) sanGeBtn.click();
+      // Bodega entra viendo todas las sucursales. Lo que no ve es el stock negativo:
+      // es un dato a corregir en el ERP, no mercadería despachable.
       document.querySelector('#stNegSegs .seg[data-n="pos"]')?.classList.add('on');
       document.querySelector('#stNegSegs .seg[data-n="neg"]')?.classList.remove('on');
       const negFbar = document.getElementById('stNegSegs')?.closest('.fbar');
@@ -3419,6 +3417,10 @@ function applyRole(role, email) {
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
   }
   document.getElementById('loginOv').classList.add('hidden');
+  // El título va escrito en el HTML como "Resumen General": se corrige antes de cargar los datos,
+  // si no el usuario de bodega lo alcanza a ver unos segundos.
+  const hdT = document.getElementById('hdTitle');
+  if (hdT) hdT.textContent = role === 'admin' ? 'Resumen General' : 'Stock Bodega';
   if (role === 'admin') iaIniciar();   // el asistente es solo para el administrador
   init(role);   // los datos se cargan recién ahora, con la sesión ya iniciada
 }
