@@ -1076,7 +1076,7 @@ async function secStock() {
   </div>
   <div class="tbl-card">
     <div class="tbl-head">
-      <div class="card-ttl" style="margin:0">Artículos en Bodega</div>
+      <div class="card-ttl" style="margin:0" id="stTtl">Artículos en Bodega</div>
       <span class="td-dim" style="margin-left:auto" id="stCount">${artConStock} artículos</span>
     </div>
     <div class="tbl-scroll">
@@ -2289,6 +2289,10 @@ function bindContent(secId) {
       if (el('stTotalArt'))  el('stTotalArt').textContent  = fmt(vis);
       if (el('stPromedio'))  el('stPromedio').textContent  = Math.round(totalU/Math.max(1,vis));
       if (el('stUnidLbl'))   el('stUnidLbl').textContent   = `Prendas en ${sucName}`;
+      // Que nunca quede duda de qué bodega se está mirando
+      if (el('stTtl')) el('stTtl').textContent = suc === 'all' ? 'Artículos en Bodega' : `Artículos en ${sucName}`;
+      const th = document.querySelector('#stockBody')?.closest('table')?.querySelector('thead th.r');
+      if (th) th.textContent = suc === 'all' ? 'Stock' : `Stock ${sucName}`;
       // Re-ordenar filas de mayor a menor stock (con sus talla-rows hijas)
       const tbody = document.getElementById('stockBody');
       const groups = [];
