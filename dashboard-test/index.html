@@ -1492,7 +1492,9 @@ async function secCajas() {
     const q = [c.caja, c.pedido, c.cliente, c.ciudad, c.vendedor, ...Object.keys(byArt), ...(c.facturas || [])].join(' ').toLowerCase();
     const pedWarn = c.pedido_existe ? '' : ' <span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">PEDIDO NO EXISTE</span>';
     const fact = (c.facturas || []).length ? `<div style="font-size:10px;color:var(--tx3);margin-top:2px">FAC ${c.facturas.slice(0, 2).join(', ')}</div>` : '';
-    return `<tr class="cj-row" data-estado="${c.estado}" data-dias="${c.dias}" data-temps="${(c.temps || []).join(' ')}" data-vend="${(c.vendedor || '').toLowerCase()}" data-prendas="${c.prendas}" data-valor="${c.valor}" data-q="${q}" style="font-weight:500">
+    const esc = t => String(t ?? '').replace(/"/g, '&quot;').toLowerCase();
+    return `<tr class="cj-row" data-estado="${c.estado}" data-dias="${c.dias}" data-temps="${(c.temps || []).join(' ')}" data-vend="${esc(c.vendedor)}" data-prendas="${c.prendas}" data-valor="${c.valor}" data-q="${q}"
+      data-caja="${c.caja}" data-fecha="${c.fecha_iso || ''}" data-cliente="${esc(c.cliente)}" data-ciudad="${esc(c.ciudad)}" data-pedido="${c.pedido}" data-est="${esc(c.estado)}" style="font-weight:500">
       <td><span class="td-code">${String(c.caja).replace(/^0+/, '')}</span><span class="chv" style="font-size:10px;color:var(--tx3);margin-left:8px">▸</span></td>
       <td class="td-dim">${c.fecha}</td>
       <td class="r td-num" style="color:${cajasDiasClr(c.dias)};font-weight:700">${c.dias}</td>
@@ -1560,7 +1562,18 @@ async function secCajas() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Caja</th><th>Fecha</th><th class="r">Días</th><th>Cliente</th><th>Ciudad</th><th>Vendedor</th><th>Pedido</th><th class="r">Prendas</th><th class="r">Valor neto</th><th style="text-align:center">Estado</th></tr></thead>
+        <thead><tr id="cjThead">
+          <th data-sort="caja" style="cursor:pointer">Caja <span class="si">↕</span></th>
+          <th data-sort="fecha" style="cursor:pointer" title="De la más antigua a la más nueva">Fecha <span class="si">↕</span></th>
+          <th class="r" data-sort="dias" style="cursor:pointer">Días <span class="si">↕</span></th>
+          <th data-sort="cliente" style="cursor:pointer">Cliente <span class="si">↕</span></th>
+          <th data-sort="ciudad" style="cursor:pointer">Ciudad <span class="si">↕</span></th>
+          <th data-sort="vend" style="cursor:pointer">Vendedor <span class="si">↕</span></th>
+          <th data-sort="pedido" style="cursor:pointer">Pedido <span class="si">↕</span></th>
+          <th class="r" data-sort="prendas" style="cursor:pointer">Prendas <span class="si">↕</span></th>
+          <th class="r" data-sort="valor" style="cursor:pointer">Valor neto <span class="si">↕</span></th>
+          <th data-sort="est" style="cursor:pointer;text-align:center">Estado <span class="si">↕</span></th>
+        </tr></thead>
         <tbody id="cjBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="cjFoot"></div>
@@ -2715,6 +2728,34 @@ function bindContent(secId) {
       set('cjKN', n); set('cjKPrendas', fmt(prendas)); set('cjKValor', fmtM(valor)); set('cjKViejas', viejas);
       set('cjFoot', `${n} cajas · ${fmt(prendas)} prendas · ${fmtCLP(valor)} neto`);
     }
+    // Ordenar por cualquier columna. Cada caja arrastra consigo sus filas de contenido (.cj-line).
+    let cjSortCol = null, cjSortDir = 1;
+    const CJ_TEXTO = new Set(['caja', 'fecha', 'cliente', 'ciudad', 'vend', 'pedido', 'est']);
+    function sortCj(col) {
+      if (cjSortCol === col) cjSortDir *= -1;
+      else { cjSortCol = col; cjSortDir = (col === 'dias' || col === 'prendas' || col === 'valor') ? -1 : 1; }
+      const tbody = document.getElementById('cjBody');
+      if (!tbody) return;
+      const grupos = [];
+      [...tbody.children].forEach(tr => {
+        if (tr.classList.contains('cj-row')) grupos.push([tr]);
+        else if (grupos.length) grupos[grupos.length - 1].push(tr);
+      });
+      const texto = CJ_TEXTO.has(col);
+      grupos.sort((a, b) => {
+        const av = a[0].dataset[col] || '', bv = b[0].dataset[col] || '';
+        const d = texto ? av.localeCompare(bv, 'es') * cjSortDir : ((parseInt(av) || 0) - (parseInt(bv) || 0)) * cjSortDir;
+        return d || ((parseInt(b[0].dataset.dias) || 0) - (parseInt(a[0].dataset.dias) || 0));   // empate: la más antigua primero
+      });
+      grupos.forEach(g => g.forEach(tr => tbody.appendChild(tr)));
+      document.querySelectorAll('#cjThead th[data-sort]').forEach(th => {
+        const ico = th.querySelector('.si');
+        if (ico) ico.textContent = th.dataset.sort === cjSortCol ? (cjSortDir > 0 ? ' ▲' : ' ▼') : ' ↕';
+      });
+      applyCjFilters();   // repliega el contenido y recalcula los totales
+    }
+    document.querySelectorAll('#cjThead th[data-sort]').forEach(th => th.addEventListener('click', () => sortCj(th.dataset.sort)));
+
     ['cjTempSegs', 'cjEstadoSegs', 'cjDiasSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on');
@@ -2735,7 +2776,7 @@ function bindContent(secId) {
       while (sib && sib.classList.contains('cj-line')) { sib.style.display = open ? 'none' : ''; sib = sib.nextElementSibling; }
       const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
     }));
-    applyCjFilters();
+    sortCj('fecha');   // parte por fecha ascendente: la caja que lleva más tiempo esperando, arriba
   }
 
   // Estado de Resultado
