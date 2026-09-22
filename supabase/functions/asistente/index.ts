@@ -177,6 +177,23 @@ const TOOLS = [
     },
   },
   {
+    name: "trazabilidad",
+    description:
+      "Órdenes de corte de una temporada: cuántas hay, en qué etapa está cada una, cuánto se programó, se cortó, ya entregó a bodega y cuánto falta llegar. Úsala para preguntas sobre producción, trazabilidad, órdenes de corte u OC, o '¿qué hay en costura / lavandería / terminación?'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        temporada: { type: "string" },
+        etapa: { type: "string", description: "Filtra por etapa: Corte, Costura, Taller externo, Limpiado, Lavandería o Terminación." },
+        codigo: { type: "string", description: "Modelo o artículo, para ver solo sus órdenes." },
+        oc: { type: "string", description: "Número de una orden de corte puntual." },
+        solo_abiertas: { type: "boolean", description: "Solo las que aún no entregan todo. Por defecto true." },
+        incluir_muestras: { type: "boolean", description: "Incluir muestras y sets. Por defecto false: solo producción." },
+        limite: { type: "integer" },
+      },
+    },
+  },
+  {
     name: "estado_resultado",
     description: "Estado de resultado del contador: ingresos, costos, margen, gastos y utilidad del mes y del año.",
     input_schema: { type: "object", properties: {} },
@@ -477,6 +494,71 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
     return base;
   }
 
+  if (nombre === "trazabilidad") {
+    const oc = await datos<any[]>("traza_oc.json");
+    const limite = Math.min(Number(input?.limite) || 20, 80);
+    const soloAbiertas = input?.solo_abiertas !== false;
+    const conMuestras = input?.incluir_muestras === true;
+    const buscadoOC = String(input?.oc ?? "").replace(/\D/g, "");
+    const { modelo, art } = aArticulos(String(input?.codigo ?? ""), temp);
+
+    // Nombres de etapa del archivo vs. los que usa la gente
+    const ETAPA_NOM: Record<string, string> = {
+      "Corte": "Corte", "Taller": "Costura", "Taller Ext": "Taller externo",
+      "Limpiado": "Limpiado", "Lavander": "Lavandería", "Terminacion": "Terminación",
+    };
+    const etapaOC = (o: any): string => {
+      // La más avanzada con unidades pendientes; el archivo las trae en orden de proceso
+      const conPend = (o.stages ?? []).filter((e: any) => (e.pend ?? 0) > 0);
+      if (conPend.length) return ETAPA_NOM[conPend[conPend.length - 1].name] ?? conPend[conPend.length - 1].name;
+      return (o.saldo ?? 0) > 0 ? "Sin movimiento" : "Entregada";
+    };
+    const pedida = String(input?.etapa ?? "").trim().toLowerCase();
+
+    let filas = oc.filter((o) => String(o.articulo ?? "").slice(2, 4) === temp);
+    if (!conMuestras) filas = filas.filter((o) => /PRODUCCION/i.test(String(o.tipo ?? "")));
+    if (buscadoOC) filas = filas.filter((o) => String(o.oc ?? "").replace(/^0+/, "") === buscadoOC.replace(/^0+/, ""));
+    if (art) filas = filas.filter((o) => String(o.articulo ?? "").trim() === art);
+    else if (modelo.length === 4) filas = filas.filter((o) => String(o.articulo ?? "").slice(2, 6) === modelo);
+    if (soloAbiertas && !buscadoOC) filas = filas.filter((o) => (o.saldo ?? 0) > 0);
+    if (pedida) filas = filas.filter((o) => sinTildes(etapaOC(o)).includes(sinTildes(pedida)));
+
+    const porEtapa: Record<string, { ordenes: number; unidades: number }> = {};
+    for (const o of filas) {
+      const e = etapaOC(o);
+      porEtapa[e] = porEtapa[e] ?? { ordenes: 0, unidades: 0 };
+      porEtapa[e].ordenes++; porEtapa[e].unidades += o.saldo ?? 0;
+    }
+    filas.sort((a, b) => (b.saldo ?? 0) - (a.saldo ?? 0));
+    return {
+      temporada: "T" + temp,
+      filtro: {
+        solo_abiertas: soloAbiertas, incluye_muestras_y_sets: conMuestras,
+        etapa: input?.etapa ?? null, codigo: input?.codigo ?? null, oc: input?.oc ?? null,
+      },
+      total_ordenes: filas.length,
+      programado: filas.reduce((t, o) => t + (o.prog ?? 0), 0),
+      cortado: filas.reduce((t, o) => t + (o.cort ?? 0), 0),
+      ya_entregado_a_bodega: filas.reduce((t, o) => t + (o.ent ?? 0), 0),
+      falta_llegar_a_bodega: filas.reduce((t, o) => t + (o.saldo ?? 0), 0),
+      por_etapa: Object.entries(porEtapa)
+        .sort((a, b) => b[1].unidades - a[1].unidades)
+        .map(([etapa, v]) => ({ etapa, ordenes: v.ordenes, unidades_pendientes: v.unidades })),
+      ordenes: filas.slice(0, limite).map((o) => ({
+        oc: o.oc, fecha: o.fecha, tipo: String(o.tipo ?? "").trim(),
+        articulo: String(o.articulo ?? "").trim(),
+        modelo: String(o.articulo ?? "").slice(2, 6) + "-" + String(o.articulo ?? "").slice(6, 8),
+        programado: o.prog, cortado: o.cort, entregado_a_bodega: o.ent, falta_llegar: o.saldo,
+        etapa: etapaOC(o), dias_desde_el_corte: o.totDias,
+        detalle_etapas: (o.stages ?? [])
+          .filter((e: any) => e.ini || (e.pend ?? 0) > 0)
+          .map((e: any) => `${ETAPA_NOM[e.name] ?? e.name}: ${e.ini || "sin iniciar"}${e.fin ? " a " + e.fin : ""}${(e.pend ?? 0) > 0 ? ` (${e.pend} pendientes)` : ""}`),
+        incidencia: o.inc || null,
+      })),
+      nota: "Las muestras y los sets se excluyen salvo que se pidan: son de 1 a 3 unidades y distorsionan los totales.",
+    };
+  }
+
   if (nombre === "estado_resultado") {
     const er = await datos<any>("estado_resultado.json");
     const secs = er?.secciones ?? [];
@@ -525,6 +607,8 @@ Vocabulario del negocio:
 - A cortar: lo que hay que producir. Es el saldo menos el stock de San Gerardo menos lo que ya viene en camino.
 - En producción: prendas ya cortadas que todavía no llegan a bodega.
 - Caja armada: pedido ya empacado en bodega, esperando despacho.
+- Trazabilidad u OC: las órdenes de corte y por qué etapa van (Corte, Costura, Taller externo, Limpiado, Lavandería, Terminación).
+- Muestras y sets: órdenes de 1 a 3 unidades que no son producción; no se cuentan salvo que las pidan.
 - EX: el modelo equivalente de la temporada anterior.
 
 Stock (regla estricta):
