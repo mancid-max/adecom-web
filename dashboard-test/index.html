@@ -2339,12 +2339,10 @@ function bindContent(secId) {
     });
     applyStockFilters();
     if (window._bodegaMode) {
-      // Bodega ve solo San Gerardo y solo lo que tiene stock: los negativos son un dato a corregir
-      // en el ERP, no algo que se pueda despachar.
+      // Bodega parte en San Gerardo, que es donde trabaja, pero puede cambiar de sucursal.
+      // Lo que sí no ve es el stock negativo: es un dato a corregir en el ERP, no despachable.
       const sanGeBtn = document.querySelector('#stSucSegs .seg[data-suc="04"]');
       if (sanGeBtn) sanGeBtn.click();
-      const sucFbar = document.getElementById('stSucSegs')?.closest('.fbar');
-      if (sucFbar) sucFbar.style.display = 'none';
       document.querySelector('#stNegSegs .seg[data-n="pos"]')?.classList.add('on');
       document.querySelector('#stNegSegs .seg[data-n="neg"]')?.classList.remove('on');
       const negFbar = document.getElementById('stNegSegs')?.closest('.fbar');
