@@ -3366,11 +3366,15 @@ async function iaPreguntar() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
-    const r = await fetch(IA_URL, {
+    const pedir = () => fetch(IA_URL, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ pregunta: q, historial: IA_HIST.slice(-6) }),
+      signal: AbortSignal.timeout(90000),   // 90 s: más que eso es que algo se colgó
     });
+    let r = await pedir();
+    // Un fallo del servidor suele ser el proceso reciclándose: se reintenta una vez antes de avisar
+    if (r.status >= 500) { await new Promise(res => setTimeout(res, 1200)); r = await pedir(); }
     const data = await r.json().catch(() => ({}));
     esperando.remove();
     if (!r.ok || data.error) throw new Error(data.error || ('El asistente respondió ' + r.status));
@@ -3379,8 +3383,9 @@ async function iaPreguntar() {
   } catch (e) {
     esperando.remove();
     const msg = String(e.message || e);
-    iaBurbuja('ia-err', /Failed to fetch|NetworkError/i.test(msg)
-      ? 'No pude contactar al asistente. Puede que todavía no esté publicado.'
+    iaBurbuja('ia-err',
+      /timed out|TimeoutError|aborted/i.test(msg) ? 'La consulta se demoró demasiado. Intenta de nuevo o pregunta algo más acotado.'
+      : /Failed to fetch|NetworkError/i.test(msg) ? 'No pude contactar al asistente. Revisa tu conexión.'
       : iaEscapar(msg));
   } finally {
     btn.disabled = false;

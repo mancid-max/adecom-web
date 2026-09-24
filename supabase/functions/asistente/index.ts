@@ -29,16 +29,29 @@ const cors = (origin: string | null) => ({
 
 /* ── Datos ────────────────────────────────────────────────────────────────── */
 const admin = createClient(SB_URL, SB_SERVICE);
-const cache = new Map<string, { data: unknown; at: number }>();
-const TTL_MS = 10 * 60 * 1000; // el ERP exporta 3 veces al día; 10 min es de sobra
+const cache = new Map<string, { data: unknown; at: number; peso: number }>();
+const TTL_MS = 10 * 60 * 1000;          // el ERP exporta 3 veces al día; 10 min es de sobra
+const TOPE_CACHE = 2_600_000;           // ~2,6 MB de JSON: entran los chicos de uso diario y sobra
+let pesoCache = 0;
 
 async function datos<T = any>(archivo: string): Promise<T> {
   const hit = cache.get(archivo);
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.data as T;
+  if (hit && Date.now() - hit.at < TTL_MS) {
+    cache.delete(archivo); cache.set(archivo, hit);   // recién usado: al final de la fila
+    return hit.data as T;
+  }
   const { data, error } = await admin.storage.from("bi").download(archivo);
   if (error || !data) throw new Error(`No se pudo leer ${archivo}: ${error?.message ?? "sin datos"}`);
-  const json = JSON.parse(await data.text());
-  cache.set(archivo, { data: json, at: Date.now() });
+  const texto = await data.text();
+  const json = JSON.parse(texto);
+  if (cache.has(archivo)) { pesoCache -= cache.get(archivo)!.peso; cache.delete(archivo); }
+  cache.set(archivo, { data: json, at: Date.now(), peso: texto.length });
+  pesoCache += texto.length;
+  // Soltar los más antiguos hasta volver bajo el tope, pero nunca el que se acaba de pedir
+  for (const k of [...cache.keys()]) {
+    if (pesoCache <= TOPE_CACHE || k === archivo) break;
+    pesoCache -= cache.get(k)!.peso; cache.delete(k);
+  }
   return json as T;
 }
 
@@ -81,13 +94,15 @@ const sinTildes = (t: string) =>
   String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
 const plata = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
-/** Artículo = prefijo(2) + temporada(2) + modelo(2) + color(2). Acepta "4459", "4459-00" o "01445900". */
-function aArticulos(codigo: string, temp = "44"): { modelo: string; art: string | null } {
+/** Artículo = prefijo(2) + temporada(2) + modelo(2) + color(2). Acepta "4459", "4459-00" o "01445900".
+ *  Los dos primeros dígitos del modelo SON la temporada: el 4201 es de la T42, no de la T44. */
+function aArticulos(codigo: string, porDefecto = "44"): { modelo: string; art: string | null; temp: string } {
   const d = String(codigo ?? "").replace(/\D/g, "");
-  if (d.length >= 8) return { modelo: d.slice(2, 6), art: d.slice(0, 8) };
-  if (d.length === 6) return { modelo: d.slice(0, 4), art: "01" + d };
-  if (d.length === 4) return { modelo: d, art: null };
-  return { modelo: d, art: null };
+  const conTemp = (modelo: string, art: string | null) =>
+    ({ modelo, art, temp: /^\d{2}/.test(modelo) ? modelo.slice(0, 2) : porDefecto });
+  if (d.length >= 8) return conTemp(d.slice(2, 6), d.slice(0, 8));
+  if (d.length === 6) return conTemp(d.slice(0, 4), "01" + d);
+  return conTemp(d, null);
 }
 
 /* ── Herramientas ─────────────────────────────────────────────────────────── */
@@ -286,19 +301,28 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
   }
 
   if (nombre === "articulo") {
-    const { modelo, art } = aArticulos(String(input?.codigo ?? ""), temp);
+    const { modelo, art, temp: tempArt } = aArticulos(String(input?.codigo ?? ""), temp);
     const [pa, ft, sb, ex] = await Promise.all([
       datos<any[]>("pedidos_art.json"), datos<any[]>("full_table.json"),
       datos<any[]>("saldos_bodega.json"), datos<Record<string, any>>("pvc_ex.json"),
     ]);
-    const item = pa.find((x) => x.temp === temp && x.base === modelo);
-    if (!item && !art) return { error: `No encontré el modelo ${modelo} en la temporada T${temp}.` };
+    const item = pa.find((x) => x.temp === tempArt && x.base === modelo);
+    const hayStock = sb.some((r) => r.modelo === modelo);
+    if (!item && !hayStock) return { error: `No encontré el modelo ${modelo} en los datos.` };
 
-    const colores = item?.modelos ?? [];
-    const objetivo = art ? colores.filter((v: any) => "01" + temp + modelo.slice(-2) + String(v.mod).padStart(2, "0") === art) : colores;
+    // Los colores salen de los pedidos Y del stock: un color puede tener stock en bodega sin
+    // tener pedidos vigentes, y preguntando por stock igual hay que verlo.
+    const porColor = new Map<string, any>();
+    for (const v of item?.modelos ?? []) porColor.set(String(v.mod).padStart(2, "0"), v);
+    for (const r of sb.filter((r) => r.modelo === modelo)) {
+      if (!porColor.has(r.color)) porColor.set(r.color, { mod: r.color, qty: 0, desp: 0, sal: 0 });
+    }
+    const colores = [...porColor.values()].sort((a, b) =>
+      String(a.mod).padStart(2, "0").localeCompare(String(b.mod).padStart(2, "0")));
+    const objetivo = art ? colores.filter((v: any) => "01" + tempArt + modelo.slice(-2) + String(v.mod).padStart(2, "0") === art) : colores;
     const detalle = (objetivo.length ? objetivo : colores).map((v: any) => {
       const mod = String(v.mod).padStart(2, "0");
-      const cod = "01" + temp + modelo.slice(-2) + mod;
+      const cod = "01" + tempArt + modelo.slice(-2) + mod;
       const bod = sb.find((r) => r.art === cod);
       const misOcs = ft.filter((r) => String(r.articulo ?? "").trim() === cod);
       const sal = v.sal ?? v.qty ?? 0;
@@ -317,7 +341,10 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
         stock_san_gerardo: stk,
         comprometido_en_cajas_armadas: enCajasSG,
         libre_en_bodega_hoy: libre,
-        stock_por_talla_libre: (bod?.saldo_talla_suc ?? {})[BODEGA_CORTE] ?? {},
+        tallas_libres_san_gerardo: (bod?.saldo_talla_suc ?? {})[BODEGA_CORTE] ?? {},
+        tallas_por_sucursal: Object.entries(bod?.saldo_talla_suc ?? {})
+          .filter(([, t]) => Object.values(t as any).some((u) => (u as number) !== 0))
+          .map(([suc, t]) => ({ sucursal: nombreSuc(suc), tallas: t })),
         en_produccion: prod,
         ordenes_de_corte: misOcs.map((r) => ({
           oc: r.corte, fecha: r.fecha, programado: r.programa, cortado: r.proceso,
@@ -332,7 +359,7 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
       };
     });
     return {
-      modelo, temporada: "T" + temp, bota: item?.bota || null, tiro: item?.tiro || null,
+      modelo, temporada: "T" + tempArt, bota: item?.bota || null, tiro: item?.tiro || null,
       modelo_ex_temporada_anterior: ex?.[modelo]?.ex_base ?? null,
       saldo_ex: ex?.[modelo]?.ex_saldo ?? null,
       colores: detalle,
@@ -500,7 +527,9 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
     const soloAbiertas = input?.solo_abiertas !== false;
     const conMuestras = input?.incluir_muestras === true;
     const buscadoOC = String(input?.oc ?? "").replace(/\D/g, "");
-    const { modelo, art } = aArticulos(String(input?.codigo ?? ""), temp);
+    // Si piden un modelo, la temporada sale del propio código (el 4201 es de la T42)
+    const { modelo, art, temp: tempCod } = aArticulos(String(input?.codigo ?? ""), temp);
+    const tempUsar = input?.codigo ? tempCod : temp;
 
     // Nombres de etapa del archivo vs. los que usa la gente
     const ETAPA_NOM: Record<string, string> = {
@@ -515,7 +544,7 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
     };
     const pedida = String(input?.etapa ?? "").trim().toLowerCase();
 
-    let filas = oc.filter((o) => String(o.articulo ?? "").slice(2, 4) === temp);
+    let filas = oc.filter((o) => String(o.articulo ?? "").slice(2, 4) === tempUsar);
     if (!conMuestras) filas = filas.filter((o) => /PRODUCCION/i.test(String(o.tipo ?? "")));
     if (buscadoOC) filas = filas.filter((o) => String(o.oc ?? "").replace(/^0+/, "") === buscadoOC.replace(/^0+/, ""));
     if (art) filas = filas.filter((o) => String(o.articulo ?? "").trim() === art);
@@ -531,7 +560,7 @@ async function ejecutar(nombre: string, input: any): Promise<unknown> {
     }
     filas.sort((a, b) => (b.saldo ?? 0) - (a.saldo ?? 0));
     return {
-      temporada: "T" + temp,
+      temporada: "T" + tempUsar,
       filtro: {
         solo_abiertas: soloAbiertas, incluye_muestras_y_sets: conMuestras,
         etapa: input?.etapa ?? null, codigo: input?.codigo ?? null, oc: input?.oc ?? null,
@@ -613,7 +642,12 @@ Vocabulario del negocio:
 
 Stock (regla estricta):
 - NUNCA des una cifra de stock sin decir de qué bodega es. "Hay 285" está mal; "hay 285 en San Gerardo" está bien.
-- Cuando pregunten por stock de un artículo, muestra el desglose por sucursal, no solo el total.
+- Cuando pregunten por stock de un artículo, muestra SIEMPRE el desglose por talla, talla por talla
+  con su cantidad (36: 12, 38: 20, …). Nunca resumas con "tallas 36 a 46": esa es justo la información
+  que necesitan para saber si pueden armar un pedido.
+- Muestra también el desglose por sucursal cuando haya stock en más de una.
+- La temporada va dentro del código: el modelo 4201 es de la T42. No aclares que "no existe en la T44",
+  es obvio que están preguntando por otra colección.
 - Si el artículo está en varias bodegas, dilo: lo que está fuera de San Gerardo no sirve para armar despachos.
 - Las bodegas son: San Gerardo (04, donde se arma el despacho), Bod. S.Filomena (00), Stock Perú (01),
   Loc. Perú (02), Codegua (05), Showroom (10), Outlet S.Fil. (12) y Urrutia (33).
