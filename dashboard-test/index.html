@@ -162,6 +162,8 @@ body.ia-open #iaBtn{display:none}
 .ia-sug{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:5px 11px;font-size:11.5px;cursor:pointer;color:var(--tx2);text-align:left}
 .ia-sug:hover{border-color:var(--ok);color:var(--ok)}
 .tbl-compacta td{padding-left:9px;padding-right:9px}
+/* Foto de referencia del modelo, no del color exacto: se atenúa para no confundir */
+.art-thumb.art-ref{opacity:.55;filter:saturate(.75)}
 .tbl-compacta .art-thumb{width:26px;height:34px;margin-right:6px}
 .tbl-foot{font-size:11px;color:var(--tx3);padding:9px 16px;border-top:1px solid var(--bd)}
 
@@ -501,6 +503,8 @@ function artImg(art) {
 function artImgErr(img) {
   if (img.dataset.alt && !img.src.endsWith(img.dataset.alt)) {
     img.src = img.dataset.alt; img.dataset.alt = ''; img.dataset.key = img.dataset.art.slice(2, 6);
+    img.classList.add('art-ref');   // es la foto del modelo, no la de este color
+    img.title = 'Foto del modelo: todavía no hay una de este color';
   } else img.remove();
 }
 /* Visor con galería: img/art/galeria.json → {art8: n_fotos, modelo4: art8} */
