@@ -737,6 +737,9 @@ function secResumen() {
   const variantesT44 = (t44.items || []).reduce((s,i) => s + i.colores, 0);
   const topMod = top15[0] || { base:'—', total:0, colores:0 };
   const promedio = t44.modelos ? Math.round(t44.total / t44.modelos) : 0;
+  const despT44  = (t44.items || []).reduce((s, i) => s + (i.desp  || 0), 0);
+  const salT44   = (t44.items || []).reduce((s, i) => s + (i.saldo || 0), 0);
+  const avanceT44 = t44.total ? Math.round(despT44 / t44.total * 100) : 0;
 
   const vh = VENTA_HOY;
 
@@ -766,15 +769,18 @@ function secResumen() {
       <div>
         <div class="kpi-val">${t44.modelos}</div>
         <div class="kpi-lbl">Modelos T44</div>
-        <div style="font-size:11px;color:var(--tx3);margin-top:6px">${variantesT44} variantes de color</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:6px">${variantesT44} colores · ${fmt(promedio)} u/modelo</div>
       </div>
     </div>
-    <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></div>
+    <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho">
+      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
       <div>
-        <div class="kpi-val">${variantesT44}</div>
-        <div class="kpi-lbl">Colores T44</div>
-        <div style="font-size:11px;color:var(--tx3);margin-top:6px">${t44.modelos} mod · ${fmt(promedio)} u/mod</div>
+        <div class="kpi-val">${fmt(salT44)}</div>
+        <div class="kpi-lbl">Falta despachar T44</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <span class="kpi-delta d-up">${avanceT44}%</span>
+          <span style="font-size:11px;color:var(--tx3)">${fmt(despT44)} despachadas</span>
+        </div>
       </div>
     </div>
     <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color">
