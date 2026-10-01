@@ -1775,6 +1775,97 @@ function vdGroups(peds, prodMap = {}, cajasAll = []) {
   return groups;
 }
 
+/* ── Venta vs Despacho, visto por ARTICULO ─────────────────────────────────────
+   La tabla de siempre responde "a este cliente que le debo". Esta responde la otra
+   mitad: "del 4440 pedimos 350 y despachamos 150, a quien le debo los 200, los tengo
+   en bodega, o hay que cortarlos".
+
+   Falta cortar = saldo - lo que hay en bodega sin embalar - lo que viene en produccion.
+   Si da cero o menos, no hay que cortar nada: alcanza con lo que ya existe. */
+let VD_ARTS = [];
+
+function vdArts(groups, prodMap, stockMap) {
+  const m = new Map();
+  for (const g of groups) {
+    for (const [art, a] of g.arts) {
+      const r = m.get(art) || { art, modelo: art.slice(2, 6), color: art.slice(6, 8),
+                                sol: 0, desp: 0, sal: 0, caja: 0, clientes: [] };
+      r.sol += a.sol || 0; r.desp += a.desp || 0; r.sal += a.sal || 0; r.caja += a.caja || 0;
+      if ((a.sal || 0) > 0) r.clientes.push({ nombre: g.nombre, ciudad: g.ciudad, cli: g.cli,
+                                              bloqueo: g.bloqueo, sol: a.sol || 0, desp: a.desp || 0, sal: a.sal || 0 });
+      m.set(art, r);
+    }
+  }
+  for (const r of m.values()) {
+    r.bodega = Math.max(0, stockMap[r.art] || 0);
+    const p = prodMap[r.art];
+    r.prod = p ? Object.values(p.etapas).reduce((a, b) => a + b, 0) : 0;
+    r.term = p ? p.term : 0;
+    r.etapa = p ? p.top : '';
+    r.falta = Math.max(0, r.sal - r.bodega - r.prod);
+    r.clientes.sort((a, b) => b.sal - a.sal);
+  }
+  return [...m.values()].sort((a, b) => b.sal - a.sal || b.sol - a.sol);
+}
+
+function buildVdArtTable(arts) {
+  if (!arts.length) return '<tr><td colspan="9" class="td-dim" style="text-align:center;padding:24px">Sin artículos</td></tr>';
+  return arts.map((r, i) => {
+    const av = r.sol ? Math.round(r.desp / r.sol * 100) : 0;
+    const chip = (t, bg, fg, ti) => `<span title="${ti}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${t}</span>`;
+    return `<tr class="vda-row" data-i="${i}" data-art="${r.art}" data-modelo="${r.modelo}"
+        data-sal="${r.sal}" data-falta="${r.falta}" data-bodega="${r.bodega}" data-prod="${r.prod}"
+        style="cursor:pointer" title="Toca para ver a quién se le debe">
+      <td class="td-code">${artImg(r.art)}${r.art}</td>
+      <td class="r td-num">${fmt(r.sol)}</td>
+      <td class="r td-num" style="color:var(--ok)">${fmt(r.desp)}</td>
+      <td class="r td-num" style="color:${r.sal > 0 ? 'var(--wa)' : 'var(--tx3)'};font-weight:700">${r.sal ? fmt(r.sal) : '—'}</td>
+      <td class="r td-num">${r.bodega ? fmt(r.bodega) : '<span class="td-dim">—</span>'}</td>
+      <td class="r td-num td-dim">${r.prod ? fmt(r.prod) : '—'}${r.etapa ? ` <span style="font-size:10px">${r.etapa}</span>` : ''}</td>
+      <td class="r td-num">${r.falta > 0 ? `<span style="color:var(--er);font-weight:700">${fmt(r.falta)}</span>` : '<span class="td-dim">—</span>'}</td>
+      <td class="r td-num td-dim">${r.clientes.length || '—'}</td>
+      <td>${r.sal <= 0 ? chip('al día', 'var(--ok10)', 'var(--ok)', 'No queda saldo pendiente de este artículo')
+            : r.falta > 0 ? chip('hay que cortar', 'var(--er10)', 'var(--er)', `Faltan ${fmt(r.falta)} que no están ni en bodega ni en producción`)
+            : r.bodega >= r.sal ? chip('está en bodega', 'var(--ok10)', 'var(--ok)', 'Alcanza con lo que ya hay en bodega: solo falta despachar')
+            : chip('viene en camino', 'var(--ac10)', 'var(--ac)', `Lo que falta está en producción${r.etapa ? ', en ' + r.etapa : ''}`)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* A quien se le debe un articulo */
+function vdArtDetalle(r) {
+  if (!r.clientes.length) return '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>';
+  const max = Math.max(...r.clientes.map(c => c.sal));
+  const resumen = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
+      ${[['Pedido', fmt(r.sol), 'var(--tx1)'], ['Despachado', fmt(r.desp), 'var(--ok)'],
+         ['Saldo', fmt(r.sal), 'var(--wa)'], ['En bodega', fmt(r.bodega), r.bodega ? 'var(--ok)' : 'var(--tx3)'],
+         ['En producción', fmt(r.prod), r.prod ? 'var(--ac)' : 'var(--tx3)'],
+         ['Falta cortar', fmt(r.falta), r.falta ? 'var(--er)' : 'var(--tx3)']]
+        .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
+            <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
+            <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+    </div>
+    <div class="td-dim" style="font-size:12px;padding:6px 16px 10px">${
+      r.sal <= 0 ? 'No queda saldo de este artículo.'
+      : r.falta > 0 ? `Faltan <b>${fmt(r.falta)}</b> que no están ni en bodega ni en producción: eso es lo que hay que cortar.`
+      : r.bodega >= r.sal ? 'Alcanza con lo que hay en bodega. Solo falta despacharlo.'
+      : `Lo que falta viene en producción${r.etapa ? ', hoy en <b>' + r.etapa + '</b>' : ''}.`}</div>`;
+  return resumen + vTabla(
+    '<th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Se le debe</th><th></th>',
+    r.clientes.map(c => {
+      const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
+      return `<tr>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
+        <td class="td-dim">${c.ciudad || '—'}</td>
+        <td class="r td-num">${fmt(c.sol)}</td>
+        <td class="r td-num td-dim">${fmt(c.desp)}</td>
+        <td class="r td-num" style="color:var(--wa);font-weight:700">${fmt(c.sal)}</td>
+        <td style="width:26%">${vBarra(c.sal, max, false)}</td></tr>`;
+    }).join(''),
+    `${r.clientes.length} cliente${r.clientes.length === 1 ? '' : 's'} esperando ${fmt(r.sal)} prendas`);
+}
+
 async function secVentaDespacho() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>','Venta vs Despacho','Sin datos disponibles');
@@ -1791,6 +1882,13 @@ async function secVentaDespacho() {
   await load('saldos_bodega.json');   // stock por artículo: explica por qué un pendiente no está en producción (ya está en bodega)
   const prodMap = buildProdMap(ftAll);
   const groups = vdGroups(peds, prodMap, cajasAll);   // una fila por cliente; sus pedidos se ven al abrir
+
+  // Lo mismo visto por articulo: stock libre en San Gerardo (lo embalado ya no se puede mandar)
+  const stockLibre = {};
+  for (const r of (CACHE['saldos_bodega.json'] || [])) {
+    stockLibre[r.art] = ((r.suc || {})['04'] || 0) - ((r.cajas || {})['04'] || 0);
+  }
+  VD_ARTS = vdArts(groups, prodMap, stockLibre);
 
   const rowsHtml = groups.map(g => {
     const ped44 = g.ped, desp44 = g.desp, sal44 = g.sal;
@@ -1850,6 +1948,11 @@ async function secVentaDespacho() {
     </div>
     <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
     <button class="seg" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button>
+    <span class="flbl" style="margin-left:4px">Ver por</span>
+    <div class="segs" id="vdVistaSegs">
+      <button class="seg on" data-vista="cliente">Cliente</button>
+      <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
+    </div>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select>
   </div>
   <div class="kpi-grid">
@@ -1884,6 +1987,28 @@ async function secVentaDespacho() {
         </tr></thead>
         <tbody id="vdBody">${rowsHtml}</tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="tbl-card" id="vdArtCard" hidden>
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Artículos T44 — qué se debe de cada uno</div>
+        <div class="card-sub" style="margin:2px 0 0">Toca un artículo para ver a quién se le debe. "Falta cortar" es lo que no está ni en bodega ni en producción</div></div>
+      <span class="td-dim" style="margin-left:auto" id="vdArtCount"></span>
+      <button class="seg" id="vdArtPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th>Artículo</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Saldo</th>
+          <th class="r" title="En San Gerardo, sin contar lo ya embalado">En bodega</th>
+          <th class="r" title="Unidades con saldo en alguna etapa de producción">En producción</th>
+          <th class="r" title="Saldo que no está ni en bodega ni en producción">Falta cortar</th>
+          <th class="r">Clientes</th><th>Estado</th>
+        </tr></thead>
+        <tbody id="vdArtBody">${buildVdArtTable(VD_ARTS)}</tbody>
+      </table>
+      <div class="tbl-foot" id="vdArtFoot"></div>
     </div>
   </div>`;
 }
@@ -3823,6 +3948,49 @@ function bindContent(secId) {
                                          : `${vis} de ${nArt} clientes con ${lista} · en pantalla: ${tot}${faltaTxt}`;
       }
     }
+    // Cambiar entre la vista por cliente y la vista por articulo
+    function aplicarVdArt() {
+      const q = (document.getElementById('vdSearch')?.value || '').trim().toLowerCase();
+      const toks = q.split(/[\s,;]+/).filter(Boolean).filter(t => /^\d{3,}$/.test(t));
+      let vis = 0, sal = 0, falta = 0;
+      document.querySelectorAll('#vdArtBody tr.vda-row').forEach(row => {
+        const a = row.dataset.art || '';
+        const ok = !toks.length || toks.some(t => artMatch(a, t) || a.startsWith(t) || (row.dataset.modelo || '').startsWith(t));
+        row.style.display = ok ? '' : 'none';
+        if (ok) { vis++; sal += +row.dataset.sal || 0; falta += +row.dataset.falta || 0; }
+      });
+      const c = document.getElementById('vdArtCount');
+      if (c) c.textContent = `${vis} artículos`;
+      const f = document.getElementById('vdArtFoot');
+      if (f) f.textContent = `${vis} artículos · ${fmt(sal)} prendas por despachar` + (falta ? ` · ${fmt(falta)} que hay que cortar` : ' · nada que cortar: todo está en bodega o en producción');
+    }
+    document.querySelectorAll('#vdVistaSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#vdVistaSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      const porArt = b.dataset.vista === 'articulo';
+      const cli = document.getElementById('vdBody')?.closest('.tbl-card');
+      if (cli) cli.hidden = porArt;
+      const art = document.getElementById('vdArtCard');
+      if (art) art.hidden = !porArt;
+      if (porArt) aplicarVdArt();
+    }));
+    document.getElementById('vdSearch')?.addEventListener('input', () => {
+      if (!document.getElementById('vdArtCard')?.hidden) aplicarVdArt();
+    });
+    document.querySelectorAll('#vdArtBody tr.vda-row').forEach(row => row.addEventListener('click', () => {
+      const r = VD_ARTS[+row.dataset.i];
+      if (!r) return;
+      document.getElementById('vkOvTtl').textContent = `Artículo ${r.art} · modelo ${r.modelo}`;
+      document.getElementById('vkOvBody').innerHTML = vdArtDetalle(r);
+      document.getElementById('vkOv').classList.add('open');
+    }));
+    document.getElementById('vdArtPrint')?.addEventListener('click', () => {
+      printTable({ table: document.getElementById('vdArtBody')?.closest('table'),
+                   title: 'Artículos T44 — qué se debe de cada uno',
+                   subtitle: document.getElementById('vdArtFoot')?.textContent || '' });
+    });
+    aplicarVdArt();
+
     document.getElementById('vdSearch')?.addEventListener('input', applyVDFilters);
     // Varios artículos: casillas en un modal; al buscar se escriben en el buscador separados por espacio
     (function () {
