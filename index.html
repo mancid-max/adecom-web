@@ -755,7 +755,155 @@ function horizBars(items) {
 ══════════════════════════════════════════════════════════════ */
 
 /* ── RESUMEN ────────────────────────────────────────────────── */
-function secResumen() {
+/* ── RESUMEN: lo que se corta, lo que sale y lo que ya se puede mandar ──────────
+   Cuatro cifras que se miran todos los dias y que antes obligaban a recorrer tres
+   secciones. Cada tarjeta abre su detalle.
+
+   Una regla que vale para las dos ultimas: el stock de un articulo es UNO SOLO y lo
+   esperan varios clientes. Si a cada uno se le asigna todo lo que pide, la suma da
+   mas prendas de las que existen. Por eso se reparte: se recorre a los clientes de
+   mayor a menor saldo y se les va entregando hasta que el articulo se acaba. */
+let RES = null;
+
+const resHace = d => { const x = new Date(); x.setDate(x.getDate() - d); return ymd(x); };
+
+/* Reparte lo disponible de cada articulo entre quienes lo esperan, sin inventar unidades. */
+function resRepartir(pendPorArt, dispPorArt) {
+  const porCliente = new Map();
+  let total = 0;
+  for (const [art, clientes] of pendPorArt) {
+    let queda = dispPorArt.get(art) || 0;
+    if (queda <= 0) continue;
+    for (const c of [...clientes.values()].sort((a, b) => b.u - a.u)) {
+      if (queda <= 0) break;
+      const da = Math.min(c.u, queda);
+      queda -= da; total += da;
+      const r = porCliente.get(c.k) || { nombre: c.nombre, u: 0, arts: 0 };
+      r.u += da; r.arts++;
+      porCliente.set(c.k, r);
+    }
+  }
+  return { porCliente, total };
+}
+
+function resBase(ft, sb, peds) {
+  const desde30 = resHace(30);
+
+  // 1) Lo cortado: solo ordenes de produccion, por lo efectivamente procesado
+  const prod = ft.filter(r => (r.tipo || '') === 'Producción');
+  const cortes30 = prod.filter(r => (r.fecha_iso || '') >= desde30);
+  const porMes = new Map();
+  for (const r of prod) {
+    const m = (r.fecha_iso || '').slice(0, 7);
+    if (!m) continue;
+    const x = porMes.get(m) || { oc: 0, prog: 0, proc: 0 };
+    x.oc++; x.prog += r.programa || 0; x.proc += r.proceso || 0;
+    porMes.set(m, x);
+  }
+
+  // 2) Lo que esta en Terminacion, que es la ultima etapa antes de bodega
+  const term = ft.filter(r => getEtapa(r) === 'Terminación' && (r.saldo || 0) > 0);
+  const uTerm = new Map();
+  for (const r of term) uTerm.set(r.articulo, (uTerm.get(r.articulo) || 0) + r.saldo);
+
+  // 3) Lo que espera cada cliente, por articulo
+  const pend = new Map();
+  for (const p of peds) {
+    if ((p.saldo || 0) <= 0) continue;
+    const k = vdKey(p);
+    for (const l of (p.lineas || [])) {
+      if ((l.sal || 0) <= 0) continue;
+      const porArt = pend.get(l.art) || new Map();
+      const c = porArt.get(k) || { k, nombre: p.nombre || k, u: 0 };
+      c.u += l.sal;
+      porArt.set(k, c); pend.set(l.art, porArt);
+    }
+  }
+
+  // 4) Lo que ya esta en bodega y no esta embalado
+  const disp = new Map();
+  for (const r of (Array.isArray(sb) ? sb : [])) {
+    const libre = ((r.suc || {})['04'] || 0) - ((r.cajas || {})['04'] || 0);
+    if (libre > 0) disp.set(r.art, libre);
+  }
+
+  const enBodega = resRepartir(pend, disp);
+  const porTerminar = resRepartir(pend, uTerm);
+
+  return {
+    corte30: { oc: cortes30.length, u: cortes30.reduce((a, r) => a + (r.proceso || 0), 0),
+               prog: cortes30.reduce((a, r) => a + (r.programa || 0), 0),
+               arts: new Set(cortes30.map(r => r.articulo)).size },
+    porMes,
+    term: { oc: term.length, u: [...uTerm.values()].reduce((a, b) => a + b, 0), arts: uTerm.size, uTerm, lista: term },
+    enBodega, porTerminar, pend, disp,
+  };
+}
+
+/* ── Los detalles ── */
+function resDetCortes() {
+  const filas = [...RES.porMes.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
+  if (!filas.length) return vTabla('<th>Mes</th>', vVacio(5), '');
+  const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const max = Math.max(...filas.map(([, r]) => r.proc));
+  return vTabla(
+    '<th>Mes</th><th class="r">Órdenes</th><th class="r" title="Lo que se mandó a producir">Programado</th><th class="r" title="Lo que efectivamente se procesó">Cortado</th><th></th>',
+    filas.map(([m, r]) => `<tr>
+      <td style="white-space:nowrap">${MES[+m.slice(5, 7)]} ${m.slice(0, 4)}</td>
+      <td class="r td-num">${r.oc}</td>
+      <td class="r td-num td-dim">${fmt(r.prog)}</td>
+      <td class="r td-num">${fmt(r.proc)}</td>
+      <td style="width:34%">${vBarra(r.proc, max, false)}</td></tr>`).join(''),
+    'Solo órdenes de producción, sin muestras. Cortado es lo que el ERP marca como procesado');
+}
+
+function resDetTerminacion() {
+  const filas = [...RES.term.uTerm.entries()].map(([art, u]) => {
+    const esperan = RES.pend.get(art);
+    const cli = esperan ? esperan.size : 0;
+    const pedido = esperan ? [...esperan.values()].reduce((a, c) => a + c.u, 0) : 0;
+    return { art, u, cli, pedido };
+  }).sort((a, b) => b.u - a.u);
+  if (!filas.length) return vTabla('<th>Artículo</th>', vVacio(5), '');
+  const max = Math.max(...filas.map(f => f.u));
+  const conEspera = filas.filter(f => f.cli > 0);
+  return vTabla(
+    '<th>Artículo</th><th class="r" title="Unidades que están en Terminación">Por terminar</th><th class="r" title="Clientes que esperan ese artículo">Lo esperan</th><th class="r" title="Unidades que esos clientes tienen pendientes">Pedido</th><th></th>',
+    filas.map(f => `<tr>
+      <td class="td-code">${f.art}</td>
+      <td class="r td-num">${fmt(f.u)}</td>
+      <td class="r td-num">${f.cli || '<span class="td-dim">—</span>'}</td>
+      <td class="r td-num td-dim">${f.pedido ? fmt(f.pedido) : '—'}</td>
+      <td style="width:28%">${vBarra(f.u, max, false)}</td></tr>`).join(''),
+    `${filas.length} artículos en Terminación · ${fmt(RES.term.u)} unidades · ${conEspera.length} ya tienen quien los espere`);
+}
+
+function resDetClientes(cual) {
+  const d = cual === 'bodega' ? RES.enBodega : RES.porTerminar;
+  const filas = [...d.porCliente.values()].sort((a, b) => b.u - a.u);
+  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(4), '');
+  const max = Math.max(...filas.map(f => f.u));
+  return vTabla(
+    '<th>Cliente</th><th class="r" title="Unidades que se le pueden mandar">Se le puede mandar</th><th class="r">Artículos</th><th></th>',
+    filas.map(f => `<tr>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${f.nombre}</td>
+      <td class="r td-num">${fmt(f.u)}</td>
+      <td class="r td-num td-dim">${f.arts}</td>
+      <td style="width:30%">${vBarra(f.u, max, false)}</td></tr>`).join(''),
+    cual === 'bodega'
+      ? `${filas.length} clientes · ${fmt(d.total)} prendas que ya están en bodega y nadie ha embalado`
+      : `${filas.length} clientes · ${fmt(d.total)} prendas en cuanto salga lo de Terminación`);
+}
+
+async function secResumen() {
+  // El Resumen necesita produccion y stock, ademas de los pedidos que ya estaban
+  const [ft, sb, peds] = await Promise.all([
+    load('full_table.json'), load('saldos_bodega.json'), load('pedidos.json'),
+  ]);
+  RES = resBase(ft, sb, peds);
+  const vendidas30 = DOCS.filter(d => (d.bod || '') === BOD_SG && (d.fecha_iso || '') >= resHace(30));
+  const uVend30 = vendidas30.reduce((a, d) => a + (d.prendas || 0), 0);
+
   const byTemp = buildByTemp();
   const t44 = byTemp["44"] || { total:0, modelos:0, items:[] };
   const t43 = byTemp["43"] || { total:0, modelos:0 };
@@ -837,6 +985,49 @@ function secResumen() {
           <span class="kpi-delta d-up">${fmt(topMod.total)} u</span>
           <span style="font-size:11px;color:var(--tx3)">${topMod.colores} color${topMod.colores!==1?'es':''}</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-grid" style="margin-top:14px">
+    <div class="kpi" data-rdet="cortes" title="Ver cuánto se cortó cada mes">
+      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></div>
+      <div style="min-width:0">
+        <div class="kpi-val">${fmt(RES.corte30.u)}</div>
+        <div class="kpi-lbl">Cortado en 30 días</div>
+        <div class="kpi-delta d-nu" title="Órdenes de producción, sin muestras">${RES.corte30.oc} órdenes · ${RES.corte30.arts} artículos</div>
+      </div>
+    </div>
+    <div class="kpi" data-rdet="vendidas" title="Ver el detalle día a día">
+      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+      <div style="min-width:0">
+        <div class="kpi-val">${fmt(uVend30)}</div>
+        <div class="kpi-lbl">Vendidas en 30 días</div>
+        <div class="kpi-delta d-nu">${vendidas30.length} documentos · San Gerardo</div>
+      </div>
+    </div>
+    <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
+      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div style="min-width:0">
+        <div class="kpi-val">${fmt(RES.term.u)}</div>
+        <div class="kpi-lbl">En terminación</div>
+        <div class="kpi-delta d-nu" title="Es la última etapa antes de bodega">${RES.term.arts} artículos · a punto de salir</div>
+      </div>
+    </div>
+    <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar">
+      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+      <div style="min-width:0">
+        <div class="kpi-val">${fmt(RES.enBodega.total)}</div>
+        <div class="kpi-lbl">Se puede despachar ya</div>
+        <div class="kpi-delta ${RES.enBodega.total ? 'd-up' : 'd-nu'}">${RES.enBodega.porCliente.size} clientes esperando</div>
+      </div>
+    </div>
+    <div class="kpi" data-rdet="porTerminar" title="Ver a quién le sirve lo que está en terminación">
+      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
+      <div style="min-width:0">
+        <div class="kpi-val">${fmt(RES.porTerminar.total)}</div>
+        <div class="kpi-lbl">Sumaría al salir</div>
+        <div class="kpi-delta d-nu">${RES.porTerminar.porCliente.size} clientes · desde terminación</div>
       </div>
     </div>
   </div>
@@ -3056,7 +3247,7 @@ async function secRepPedidos() {
 
 /* ── ROUTER ─────────────────────────────────────────────────── */
 const SECS = {
-  'resumen':        () => Promise.resolve(secResumen()),
+  'resumen':        () => secResumen(),
   'detalle-color':  () => Promise.resolve(secDetalleColor()),
   'top10':          () => secTop10(),
   'pvc':            () => secPVC(),
@@ -4098,6 +4289,30 @@ function bindContent(secId) {
                    landscape: false });
     });
     applyEr();
+  }
+
+  // Resumen — las tarjetas de la segunda fila abren su detalle
+  if (secId === 'resumen' && RES) {
+    const RDET = {
+      cortes:      ['Lo cortado, mes a mes',          () => resDetCortes()],
+      vendidas:    ['Prendas vendidas, día a día',  () => vDetDias(DOCS.filter(d => (d.bod || '') === BOD_SG && (d.fecha_iso || '') >= resHace(30)))],
+      terminacion: ['Lo que está en Terminación',    () => resDetTerminacion()],
+      bodega:      ['Se puede despachar ya',          () => resDetClientes('bodega')],
+      porTerminar: ['Sumaría al salir de Terminación', () => resDetClientes('porTerminar')],
+    };
+    const rOv = document.getElementById('vkOv');
+    document.querySelectorAll('.kpi[data-rdet]').forEach(c => {
+      c.style.cursor = 'pointer';
+      c.addEventListener('click', () => {
+        const [ttl, armar] = RDET[c.dataset.rdet] || [];
+        if (!armar) return;
+        document.getElementById('vkOvTtl').textContent = ttl;
+        document.getElementById('vkOvBody').innerHTML = armar();
+        rOv.classList.add('open');
+      });
+    });
+    document.getElementById('vkOvClose')?.addEventListener('click', () => rOv.classList.remove('open'));
+    rOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
   }
 
   // Reporte Pedidos — mismo juego de filtros que Reporte Venta, pero sobre lo pedido
