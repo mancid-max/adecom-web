@@ -3413,6 +3413,7 @@ async function secRepPedidos() {
    guardan la talla. Por eso el detalle muestra las tallas FISICAS y avisa cuando
    parte de esas prendas ya tienen dueño. */
 let CYB = [];
+const TEMP_VIVAS = ['44', '43', '42', '41', '40'];   // las colecciones en curso
 
 /* Lo pedido en los ultimos N dias, por articulo. Es el unico termometro de demanda que
    hay a nivel de articulo: los documentos de venta no guardan el articulo, los pedidos si. */
@@ -3632,11 +3633,15 @@ async function secCyber() {
   CYB = cybBase(sb, (bsale && !Array.isArray(bsale)) ? bsale : null, peds, ft);
   if (!CYB.length) return makePH(ICO, 'Inventario para ofrecer', 'Sin stock disponible');
 
-  // Por prendas y no por numero: hay 46 temporadas y las utiles (T44, T42, T43, T40)
-  // quedaban escondidas detras del scroll, con T99 y T98 adelante por 1 prenda cada una.
+  // Hay 49 temporadas con algo de stock y casi todas son restos de una o dos prendas.
+  // Una tira de 49 botones con scroll escondia justamente las cuatro que importan.
+  // Se muestran las vivas y el resto se junta en "Anteriores", que abre un desplegable
+  // con las prendas de cada una, igual que en Stock Kennedy.
   const uxt = {};
   for (const r of CYB) uxt[r.temp] = (uxt[r.temp] || 0) + r.total;
-  const temps = Object.keys(uxt).filter(Boolean).sort((a, b) => uxt[b] - uxt[a]);
+  const temps = TEMP_VIVAS.filter(t => uxt[t]);
+  const viejas = Object.keys(uxt).filter(t => t && !TEMP_VIVAS.includes(t)).sort((a, b) => uxt[b] - uxt[a]);
+  const uViejas = viejas.reduce((a, t) => a + uxt[t], 0);
   const botas = [...new Set(CYB.map(r => r.bota).filter(Boolean))].sort();
   const tot = k => CYB.reduce((a, r) => a + r[k], 0);
   const fecha = ((bsale && bsale.meta) || {}).fecha || '';
@@ -3663,10 +3668,15 @@ async function secCyber() {
       <button class="seg" data-p="mueve" title="Salen solos: no hace falta rematarlos">Se mueven</button>
     </div></div>
     <div class="fgrp"><span class="flbl" style="margin-left:4px">Temp</span>
-    <div class="segs" id="cybTempSegs" style="overflow-x:auto;flex-wrap:nowrap;max-width:46vw">
+    <div class="segs" id="cybTempSegs">
       <button class="seg on" data-t="todo">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}" title="${fmt(uxt[t])} prendas para ofrecer">T${t}</button>`).join('')}
-    </div></div>
+      ${viejas.length ? `<button class="seg" data-t="old" title="${viejas.length} colecciones anteriores a la T40, ${fmt(uViejas)} prendas en total">Anteriores</button>` : ''}
+    </div>
+    ${viejas.length ? `<select id="cybTempOld" class="finput" style="width:170px;display:none">
+      <option value="">Todas (${fmt(uViejas)} prendas)</option>
+      ${viejas.map(t => `<option value="${t}">T${t} · ${fmt(uxt[t])}</option>`).join('')}
+    </select>` : ''}</div>
     <select id="cybBota" class="finput" style="width:150px">
       <option value="">Todas las botas</option>
       ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
@@ -4834,6 +4844,7 @@ function bindContent(secId) {
     function aplicarCyb() {
       const d = document.querySelector('#cybDondeSegs .seg.on')?.dataset.d || 'todo';
       const t = document.querySelector('#cybTempSegs .seg.on')?.dataset.t || 'todo';
+      const vieja = document.getElementById('cybTempOld')?.value || '';
       const pr = document.querySelector('#cybPrioSegs .seg.on')?.dataset.p || 'todo';
       const rsp = document.querySelector('#cybRespSegs .seg.on')?.dataset.rsp || 'todo';
       const b = (document.getElementById('cybBota')?.value || '').toLowerCase();
@@ -4843,7 +4854,10 @@ function bindContent(secId) {
       let sg = 0, kn = 0;
       for (const f of FILAS) {
         const dOk = d === 'todo' ? f.total > 0 : d === 'sg' ? f.sg > 0 : f.kn > 0;
-        const ok = dOk && (t === 'todo' || f.temp === t) && (pr === 'todo' || f.prio === pr)
+        const tOk = t === 'todo' ? true
+          : t === 'old' ? (vieja ? f.temp === vieja : !TEMP_VIVAS.includes(f.temp))
+          : f.temp === t;
+        const ok = dOk && tOk && (pr === 'todo' || f.prio === pr)
           && (rsp === 'todo' || (rsp === 'no' ? f.sinResp : !f.sinResp)) && (!b || f.bota === b)
           && (!toks.length || toks.some(x => /^\d{3,}$/.test(x)
                 ? (artMatch(f.art, x) || f.art.startsWith(x) || f.modelo.startsWith(x))
@@ -4873,8 +4887,16 @@ function bindContent(secId) {
     ['cybDondeSegs', 'cybTempSegs', 'cybPrioSegs', 'cybRespSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(btn =>
       btn.addEventListener('click', () => {
         document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
-        btn.classList.add('on'); aplicarCyb();
+        btn.classList.add('on');
+        const sel = document.getElementById('cybTempOld');
+        if (sel && id === 'cybTempSegs') {
+          const esOld = btn.dataset.t === 'old';
+          sel.style.display = esOld ? '' : 'none';
+          if (!esOld) sel.value = '';           // al salir de Anteriores se limpia la eleccion
+        }
+        aplicarCyb();
       })));
+    document.getElementById('cybTempOld')?.addEventListener('change', aplicarCyb);
     document.getElementById('cybBota')?.addEventListener('change', aplicarCyb);
     let _cybDeb = 0;
     document.getElementById('cybSearch')?.addEventListener('input', () => {
