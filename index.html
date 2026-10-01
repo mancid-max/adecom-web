@@ -306,6 +306,7 @@ body.ia-open #iaBtn{display:none}
 <div class="overlay" id="overlay"></div>
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
 <div class="det-ov" id="cliOv" style="z-index:250"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cliTtl">Cliente</div><button class="det-close" id="cliClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cliBody" style="padding:14px 16px"></div></div></div>
+<div class="det-ov" id="vkOv" style="z-index:250"><div class="det-panel" style="width:min(760px,96vw)"><div class="det-hd"><div class="det-ttl" id="vkOvTtl">Detalle</div><button class="det-close" id="vkOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="vkOvBody" style="padding:0 0 4px"></div></div></div>
 <div class="det-ov" id="pedOv" style="z-index:240"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="pedTtl">Pedido</div><button class="det-close" id="pedClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="pedBody"></div></div></div>
 <div class="det-ov" id="vdMultiOv" style="z-index:250"><div class="det-panel" style="width:min(460px,94vw)"><div class="det-hd"><div class="det-ttl">Buscar varios artículos</div><button class="det-close" id="vdMultiClose" aria-label="Cerrar">✕</button></div>
   <div class="det-body" style="padding:14px 16px">
@@ -1288,6 +1289,7 @@ const SUC_VENTA = {
 };
 const BOD_SG  = '04';   // San Gerardo: la bodega de la venta mayorista
 let VENTA_BOD = BOD_SG; // Reporte Venta arranca en San Gerardo: el resto es retail y ruido
+let VENTA_FILTRADO = [];   // los documentos que se estan viendo: es lo que abren las tarjetas
 const docsVenta = () => VENTA_BOD === 'all' ? DOCS : DOCS.filter(d => (d.bod || '') === VENTA_BOD);
 
 function getHoyDocs() {
@@ -1302,8 +1304,108 @@ function getHoyDocs() {
   return { docs: base.filter(r => r.fecha_iso === last), label: `Documentos del ${dy}/${mo}/${yr}`, date: last, fallback: true };
 }
 
+/* Un mismo cliente puede venir con el RUT escrito de varias formas (con puntos, con
+   guion, con ceros delante), asi que se normaliza antes de contarlo como distinto. */
+const vRut = d => String(d.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '');
+const vClientes = docs => new Set(docs.map(vRut).filter(Boolean)).size;
+
+/* Los tres detalles que se abren al tocar una tarjeta. Todos trabajan sobre los
+   documentos ya filtrados, asi que respetan la sucursal y el periodo elegidos. */
+const vTabla = (enc, filas, pie) => `
+  <div class="tbl-scroll" style="max-height:60vh">
+    <table><thead><tr>${enc}</tr></thead><tbody>${filas}</tbody></table>
+    ${pie ? `<div class="tbl-foot">${pie}</div>` : ''}
+  </div>`;
+const vVacio = c => `<tr><td colspan="${c}" class="td-dim" style="text-align:center;padding:18px">Sin documentos en el período</td></tr>`;
+const vBarra = (v, max, neg) => `<div style="background:var(--bd);border-radius:3px;height:8px;width:100%"><div style="background:var(--${neg ? 'wa' : 'ac'});height:8px;border-radius:3px;width:${(Math.abs(v) / (max || 1) * 100).toFixed(1)}%"></div></div>`;
+
+function vDetDias(docs) {
+  const m = new Map();
+  for (const d of docs) {
+    const k = d.fecha_iso || '';
+    if (!k) continue;
+    const r = m.get(k) || { docs: 0, prendas: 0, neto: 0, cli: new Set() };
+    r.docs++; r.prendas += d.prendas || 0; r.neto += d.neto || 0;
+    const ru = vRut(d);
+    if (ru) r.cli.add(ru);
+    m.set(k, r);
+  }
+  const filas = [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  if (!filas.length) return vTabla('<th>Fecha</th>', vVacio(6), '');
+  const max = Math.max(...filas.map(([, r]) => Math.abs(r.neto)));
+  const tp = docs.reduce((a, d) => a + (d.prendas || 0), 0);
+  const tn = docs.reduce((a, d) => a + (d.neto || 0), 0);
+  return vTabla(
+    '<th>Fecha</th><th class="r">Docs</th><th class="r">Prendas</th><th class="r" title="Clientes distintos de ese día">Clientes</th><th class="r">Neto</th><th></th>',
+    filas.map(([f, r]) => {
+      const [y, mo, d] = f.split('-');
+      return `<tr>
+        <td style="white-space:nowrap">${d}/${mo}/${y}</td>
+        <td class="r td-num">${r.docs}</td>
+        <td class="r td-num">${fmt(r.prendas)}</td>
+        <td class="r td-num">${r.cli.size}</td>
+        <td class="r td-num" style="color:${r.neto < 0 ? 'var(--wa)' : 'inherit'}">${fmtM(r.neto)}</td>
+        <td style="width:26%">${vBarra(r.neto, max, r.neto < 0)}</td></tr>`;
+    }).join(''),
+    `${filas.length} día${filas.length === 1 ? '' : 's'} con movimiento · ${fmt(tp)} prendas · ${fmtCLP(tn)} · promedio ${fmtM(Math.round(tn / filas.length))} por día`);
+}
+
+function vDetClientes(docs) {
+  const m = new Map();
+  for (const d of docs) {
+    const k = vRut(d) || (d.razon || '').toUpperCase();
+    if (!k) continue;
+    const r = m.get(k) || { nombre: d.razon || k, docs: 0, prendas: 0, neto: 0 };
+    r.docs++; r.prendas += d.prendas || 0; r.neto += d.neto || 0;
+    if (!r.nombre && d.razon) r.nombre = d.razon;
+    m.set(k, r);
+  }
+  const filas = [...m.values()].sort((a, b) => b.neto - a.neto);
+  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(5), '');
+  const max = Math.max(...filas.map(r => Math.abs(r.neto)));
+  const tn = filas.reduce((a, r) => a + r.neto, 0);
+  return vTabla(
+    '<th>Cliente</th><th class="r">Docs</th><th class="r">Prendas</th><th class="r">Neto</th><th></th>',
+    filas.map(r => `<tr>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${r.nombre || '—'}</td>
+      <td class="r td-num">${r.docs}</td>
+      <td class="r td-num">${fmt(r.prendas)}</td>
+      <td class="r td-num" style="color:${r.neto < 0 ? 'var(--wa)' : 'inherit'}">${fmtM(r.neto)}</td>
+      <td style="width:26%">${vBarra(r.neto, max, r.neto < 0)}</td></tr>`).join(''),
+    `${filas.length} clientes · ${fmtCLP(tn)} · promedio ${fmtM(Math.round(tn / filas.length))} por cliente`);
+}
+
+function vDetTipos(docs) {
+  const m = new Map();
+  for (const d of docs) {
+    const k = d.tipo || '—';
+    const r = m.get(k) || { docs: 0, prendas: 0, neto: 0, bruto: 0, cli: new Set() };
+    r.docs++; r.prendas += d.prendas || 0; r.neto += d.neto || 0; r.bruto += d.bruto || 0;
+    const ru = vRut(d);
+    if (ru) r.cli.add(ru);
+    m.set(k, r);
+  }
+  const filas = [...m.entries()].sort((a, b) => b[1].docs - a[1].docs);
+  if (!filas.length) return vTabla('<th>Tipo</th>', vVacio(6), '');
+  const NOMBRE = { 'F/Elec': 'Factura electrónica', 'FACT': 'Factura', 'Bole': 'Boleta',
+                   'N/cre': 'Nota de crédito', 'Ndeb': 'Nota de débito' };
+  return vTabla(
+    '<th>Documento</th><th class="r">Cantidad</th><th class="r">Prendas</th><th class="r">Clientes</th><th class="r">Neto</th><th class="r">Bruto</th>',
+    filas.map(([t, r]) => `<tr>
+      <td style="white-space:nowrap">${NOMBRE[t] || t}</td>
+      <td class="r td-num">${r.docs}</td>
+      <td class="r td-num">${fmt(r.prendas)}</td>
+      <td class="r td-num">${r.cli.size}</td>
+      <td class="r td-num" style="color:${r.neto < 0 ? 'var(--wa)' : 'inherit'}">${fmtM(r.neto)}</td>
+      <td class="r td-num td-dim">${fmtM(r.bruto)}</td></tr>`).join(''),
+    'Las notas de crédito van en negativo: ya vienen restando en el total de arriba');
+}
+
 function secReporteVenta() {
   const { docs: todayDocs, label: initLabel, date: initDate, fallback: initFallback } = getHoyDocs();
+  // Lo que abren las tarjetas. Se deja puesto desde el arranque: applyVentaFilter solo
+  // corre cuando se toca un filtro, y sin esto la primera ventana saldria vacia.
+  VENTA_FILTRADO = todayDocs;
   const neto  = todayDocs.reduce((s,d) => s+d.neto, 0);
   const bruto = todayDocs.reduce((s,d) => s+d.bruto, 0);
   const prendas = todayDocs.reduce((s,d) => s+d.prendas, 0);
@@ -1345,19 +1447,23 @@ function secReporteVenta() {
   </div>
 
   <div class="kpi-grid">
-    <div class="kpi" style="cursor:default" id="vkDocs">
+    <div class="kpi" data-vdet="tipos" id="vkDocs" title="Ver el detalle por tipo de documento">
       <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
       <div><div class="kpi-val" id="vkDocsVal">${todayDocs.length}</div><div class="kpi-lbl">Documentos</div></div>
     </div>
-    <div class="kpi" style="cursor:default" id="vkPrendas">
+    <div class="kpi" data-vdet="dias" id="vkPrendas" title="Ver el detalle día a día">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
       <div><div class="kpi-val" id="vkPrendasVal">${fmt(prendas)}</div><div class="kpi-lbl">Prendas</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-vdet="clientes" title="Ver el detalle por cliente">
+      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
+      <div><div class="kpi-val" id="vkCliVal">${vClientes(todayDocs)}</div><div class="kpi-lbl">Clientes</div></div>
+    </div>
+    <div class="kpi" data-vdet="dias" title="Ver el detalle día a día">
       <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
       <div><div class="kpi-val" id="vkNetoVal" style="font-size:${Math.abs(neto)>=1e6?'20px':'26px'}">${fmtM(neto)}</div><div class="kpi-lbl">Neto</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-vdet="tipos" title="Ver el detalle por tipo de documento">
       <div class="kpi-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
       <div><div class="kpi-val" id="vkBrutoVal" style="font-size:${Math.abs(bruto)>=1e6?'20px':'26px'}">${fmtM(bruto)}</div><div class="kpi-lbl">Bruto (c/IVA)</div></div>
     </div>
@@ -3954,6 +4060,8 @@ function bindContent(secId) {
       const prendas = filtered.reduce((s,d) => s+d.prendas, 0);
       document.getElementById('vkDocsVal').textContent = filtered.length;
       document.getElementById('vkPrendasVal').textContent = fmt(prendas);
+      document.getElementById('vkCliVal').textContent = vClientes(filtered);
+      VENTA_FILTRADO = filtered;   // lo que abre cualquier tarjeta
       // El tamano tiene que seguir al monto: si no, un total en millones se sale de la tarjeta
       for (const [id, v] of [['vkNetoVal', neto], ['vkBrutoVal', bruto]]) {
         const e = document.getElementById(id);
@@ -3968,6 +4076,30 @@ function bindContent(secId) {
         ? `${filtered.length} documentos · ${fmtCLP(neto)} neto — se listan los ${TOPE} más recientes; los totales de arriba son de todo el período`
         : `${filtered.length} documentos · ${fmtCLP(neto)} neto`;
     }
+
+    // Cada tarjeta abre su detalle, siempre sobre lo que se esta viendo
+    const vkOv = document.getElementById('vkOv');
+    const VDET = {
+      dias:     ['Día a día',               d => vDetDias(d)],
+      clientes: ['Clientes del período',    d => vDetClientes(d)],
+      tipos:    ['Por tipo de documento',   d => vDetTipos(d)],
+    };
+    document.querySelectorAll('.kpi[data-vdet]').forEach(c => {
+      c.style.cursor = 'pointer';
+      c.addEventListener('click', () => {
+        const [ttl, armar] = VDET[c.dataset.vdet] || [];
+        if (!armar) return;
+        const suc = document.getElementById('ventaBod');
+        const donde = suc?.options[suc.selectedIndex]?.text || '';
+        const cuando = document.getElementById('vTblTtl')?.textContent || '';
+        document.getElementById('vkOvTtl').textContent = `${ttl} · ${donde}`;
+        document.getElementById('vkOvBody').innerHTML =
+          `<div class="td-dim" style="font-size:12px;padding:10px 16px 0">${cuando}</div>` + armar(VENTA_FILTRADO);
+        vkOv.classList.add('open');
+      });
+    });
+    document.getElementById('vkOvClose')?.addEventListener('click', () => vkOv.classList.remove('open'));
+    vkOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
     document.querySelectorAll('#ventaSegs .seg').forEach(btn => {
       btn.addEventListener('click', () => {
