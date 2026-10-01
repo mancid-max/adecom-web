@@ -3254,16 +3254,32 @@ function pComparativo(ps, rango) {
   let tramo = desde === hasta ? dd(desde) : `${dd(desde)} al ${dd(hasta)}`;
   let aviso = corto ? `${tramo} \u00b7 las mismas 52 semanas atr\u00e1s, para que caiga en el mismo d\u00eda de la semana` : tramo;
 
-  // Tramo vacio: se ofrece el mes completo del ano anterior, dicho con todas sus letras
-  let esMes = false;
+  /* Tramo vacio. Antes se mostraba el MES completo dentro de la misma tabla, con las dos
+     columnas lado a lado. Parecia una comparacion y no lo era: eligiendo "Hoy" o "Esta
+     semana" el bloque mostraba los mismos numeros del mes y daba la impresion de que el
+     filtro no funcionaba. Ahora el mes va como una frase de referencia, sin tabla. */
   if (!ant.length) {
     const mes = desde.slice(0, 7);
     const delMes = PEDIDOS.filter(p => (p.fecha_iso || '').startsWith(mes));
-    if (delMes.length) {
-      ant = delMes; esMes = true;
-      aviso = `En ${tramo} no hubo pedidos, as\u00ed que se muestra todo ${MES[+mes.slice(5, 7)]} de ${anoAnt} como referencia`;
-    }
+    const cab = `
+  <div class="tbl-card">
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Contra ${anoAnt}</div></div>`;
+    if (!delMes.length) return cab + `
+    <div class="tbl-foot" style="border-top:0">En ${tramo} no hay pedidos con que comparar, ni en el resto de ese mes</div>
+  </div>`;
+    const u = delMes.reduce((a, x) => a + (x.unidades || 0), 0);
+    const v = delMes.reduce((a, x) => a + (x.valor || 0), 0);
+    const cl = new Set(delMes.map(x => String(x.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '')).filter(Boolean)).size;
+    return cab + `
+    <div style="padding:12px 16px 14px">
+      <div style="font-size:13px">En <b>${tramo}</b> no hubo pedidos, así que no hay tramo con qué comparar.</div>
+      <div class="td-dim" style="font-size:12px;margin-top:6px">Como referencia, en todo ${MES[+mes.slice(5, 7)]} de ${anoAnt} se tomaron
+        <b>${delMes.length}</b> pedidos · <b>${fmt(u)}</b> prendas · <b>${fmtCLP(v)}</b> · <b>${cl}</b> clientes.
+        No se compara con el período elegido porque son tramos de distinto largo.</div>
+    </div>
+  </div>`;
   }
+  const esMes = false;
 
   if (!ant.length) return `
   <div class="tbl-card">
