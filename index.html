@@ -87,8 +87,11 @@ html,body{overflow-x:hidden;max-width:100%}
 .kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
-.res-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
-.res-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.res-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+/* Cada columna reparte su alto en dos filas iguales. Como el grid estira todas las
+   columnas a la misma altura, las tarjetas quedan alineadas en filas parejas aunque
+   una lleve dos lineas de texto y otra una. */
+.res-col{display:grid;grid-template-rows:auto 1fr 1fr;gap:10px;min-width:0}
 .res-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 1px}
 .res-col .kpi{padding:15px 16px}
 .res-col .kpi-val{font-size:23px}
@@ -791,8 +794,9 @@ function resRepartir(pendPorArt, dispPorArt) {
       if (queda <= 0) break;
       const da = Math.min(c.u, queda);
       queda -= da; total += da;
-      const r = porCliente.get(c.k) || { nombre: c.nombre, u: 0, arts: 0 };
+      const r = porCliente.get(c.k) || { nombre: c.nombre, u: 0, arts: 0, detalle: [] };
       r.u += da; r.arts++;
+      r.detalle.push({ art, u: da, pedia: c.u });   // que mandarle y cuanto esperaba
       porCliente.set(c.k, r);
     }
   }
@@ -894,18 +898,30 @@ function resDetTerminacion() {
 function resDetClientes(cual) {
   const d = cual === 'bodega' ? RES.enBodega : RES.porTerminar;
   const filas = [...d.porCliente.values()].sort((a, b) => b.u - a.u);
-  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(4), '');
+  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(5), '');
   const max = Math.max(...filas.map(f => f.u));
   return vTabla(
-    '<th>Cliente</th><th class="r" title="Unidades que se le pueden mandar">Se le puede mandar</th><th class="r">Artículos</th><th></th>',
-    filas.map(f => `<tr>
-      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${f.nombre}</td>
-      <td class="r td-num">${fmt(f.u)}</td>
-      <td class="r td-num td-dim">${f.arts}</td>
-      <td style="width:30%">${vBarra(f.u, max, false)}</td></tr>`).join(''),
-    cual === 'bodega'
-      ? `${filas.length} clientes · ${fmt(d.total)} prendas que ya están en bodega y nadie ha embalado`
-      : `${filas.length} clientes · ${fmt(d.total)} prendas en cuanto salga lo de Terminación`);
+    '<th>Cliente</th><th class="r" title="Unidades que se le pueden mandar">Se le puede mandar</th><th class="r">Artículos</th><th></th><th></th>',
+    filas.map((f, i) => {
+      const arts = f.detalle.slice().sort((a, b) => b.u - a.u);
+      // Las lineas de articulos vienen plegadas: son muchas y lo primero que se mira
+      // es a quien mandarle, no que exactamente.
+      const sub = arts.map(a => `<tr class="res-art no-click" data-de="${i}" style="display:none;background:var(--sf2)">
+          <td class="td-dim" style="padding-left:26px;font-size:11px">└ ${a.art}</td>
+          <td class="r td-num" style="font-size:11px">${fmt(a.u)}</td>
+          <td class="td-dim" colspan="3" style="font-size:11px">${a.u < a.pedia ? `de ${fmt(a.pedia)} que espera` : 'completo'}</td>
+        </tr>`).join('');
+      return `<tr class="res-cli" data-i="${i}" style="cursor:pointer" title="Toca para ver qué artículos mandarle">
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${f.nombre}</td>
+        <td class="r td-num">${fmt(f.u)}</td>
+        <td class="r td-num td-dim">${f.arts}</td>
+        <td style="width:28%">${vBarra(f.u, max, false)}</td>
+        <td class="td-dim" style="font-size:10px">▸</td></tr>${sub}`;
+    }).join(''),
+    (cual === 'bodega'
+      ? `${filas.length} clientes · ${fmt(d.total)} prendas que ya están en bodega, sin embalar y con dueño esperando`
+      : `${filas.length} clientes · ${fmt(d.total)} prendas en cuanto salga lo de Terminación`)
+    + ' · toca un cliente para ver qué artículos mandarle');
 }
 
 async function secResumen() {
@@ -4823,7 +4839,17 @@ function bindContent(secId) {
         const [ttl, armar] = RDET[c.dataset.rdet] || [];
         if (!armar) return;
         document.getElementById('vkOvTtl').textContent = ttl;
-        document.getElementById('vkOvBody').innerHTML = armar();
+        const cuerpo = document.getElementById('vkOvBody');
+        cuerpo.innerHTML = armar();
+        // Desplegar los articulos de un cliente
+        cuerpo.querySelectorAll('tr.res-cli').forEach(tr => tr.addEventListener('click', () => {
+          const i = tr.dataset.i;
+          const hijas = cuerpo.querySelectorAll(`tr.res-art[data-de="${i}"]`);
+          const abierto = hijas.length && hijas[0].style.display !== 'none';
+          hijas.forEach(h => { h.style.display = abierto ? 'none' : ''; });
+          const chv = tr.lastElementChild;
+          if (chv) chv.textContent = abierto ? '▸' : '▾';
+        }));
         rOv.classList.add('open');
       });
     });
