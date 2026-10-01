@@ -3443,7 +3443,22 @@ function cybPrioridad(r) {
            tip: `Sale en ${Math.max(1, Math.round(r.total / porMes))} mes(es) al ritmo actual: no hace falta rematarlo` };
 }
 
-function cybBase(sb, bsale, peds) {
+/* Stock sin respaldo. Hay articulos con existencias en el ERP que nunca pasaron por
+   produccion y que nadie pidio jamas: 241 articulos y 2.388 prendas, el 21% del stock
+   fisico de San Gerardo. El caso mayor es el 01420080, con 876 prendas, un codigo que
+   ni siquiera tiene ficha en el maestro del ERP.
+
+   No se ocultan, porque el stock podria ser real. Se marcan, para que nadie arme una
+   oferta encima de 876 prendas que quiza no existen sin antes ir a verlas. */
+function cybSinRespaldo(peds, ft) {
+  const visto = new Set();
+  for (const p of (peds || [])) for (const l of (p.lineas || [])) if ((l.sol || 0) > 0) visto.add(l.art);
+  for (const r of (Array.isArray(ft) ? ft : [])) visto.add((r.articulo || '').trim());
+  return visto;
+}
+
+function cybBase(sb, bsale, peds, ft) {
+  const conHistoria = cybSinRespaldo(peds, ft);
   const comp = {};                         // lo que ya esta prometido, por articulo
   for (const p of (peds || [])) {
     if ((p.saldo || 0) <= 0) continue;
@@ -3482,6 +3497,7 @@ function cybBase(sb, bsale, peds) {
     // pedido entero contaba compromisos de articulos sin stock: daba 32.527 cuando lo
     // fisico eran 11.419. Es la diferencia entre lo que hay y lo que queda libre.
     r.sgBloq = Math.max(0, r.sgFisico - r.sg);
+    r.sinRespaldo = r.sgFisico > 0 && !conHistoria.has(r.art);
     r.p90 = p90[r.art] || 0;
     r.p180 = p180[r.art] || 0;
     r.meses = r.p90 > 0 ? r.total / (r.p90 / 3) : null;
@@ -3501,9 +3517,9 @@ const cybTallas = o => Object.entries(o || {}).filter(([, q]) => q > 0).sort((a,
 function buildCybTable(rows) {
   if (!rows.length) return '<tr><td colspan="11" class="td-dim" style="text-align:center;padding:24px">Nada que ofrecer con estos filtros</td></tr>';
   return rows.map((r, i) => `<tr class="cyb-row" data-i="${i}" data-art="${r.art}" data-modelo="${r.modelo}"
-      data-temp="${r.temp}" data-bota="${(r.bota || '').toLowerCase()}" data-sg="${r.sg}" data-kn="${r.kn}" data-total="${r.total}" data-prio="${r.prio.k}"
+      data-temp="${r.temp}" data-bota="${(r.bota || '').toLowerCase()}" data-sg="${r.sg}" data-kn="${r.kn}" data-total="${r.total}" data-prio="${r.prio.k}" data-sinresp="${r.sinRespaldo ? 1 : 0}"
       style="cursor:pointer" title="Toca para ver las tallas">
-    <td class="td-code">${artImg(r.art)}${r.art}</td>
+    <td class="td-code">${artImg(r.art)}${r.art}${r.sinRespaldo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px" title="El ERP declara este stock, pero el artículo nunca pasó por producción y nadie lo pidió jamás. Conviene ir a bodega a confirmarlo antes de ofrecerlo">sin respaldo</span>' : ''}</td>
     <td><span class="badge ${tcFor(r.temp).cls}">T${r.temp}</span></td>
     <td class="td-dim">${r.color}</td>
     <td class="td-dim">${r.bota || '—'}</td>
@@ -3599,6 +3615,9 @@ function cybDetalle(r) {
             <div style="font-size:18px;font-weight:800;color:${c}">${v}</div>
             <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
     </div>
+    ${r.sinRespaldo ? `<div style="font-size:12px;padding:6px 16px 0;color:var(--er)">
+      <b>Sin respaldo.</b> El ERP declara ${fmt(r.sgFisico)} prendas, pero este artículo nunca pasó por producción
+      y nadie lo pidió jamás. Antes de ofrecerlo conviene ir a bodega a confirmar que existen.</div>` : ''}
     ${comprometido > 0 ? `<div class="td-dim" style="font-size:12px;padding:4px 16px 0">
       En San Gerardo hay <b>${fmt(r.sgFisico)}</b> prendas, pero ${r.sgCaja ? `<b>${fmt(r.sgCaja)}</b> ya están embaladas` : ''}${r.sgCaja && r.sgProm ? ' y ' : ''}${r.sgProm ? `<b>${fmt(r.sgProm)}</b> están comprometidas en pedidos` : ''}. Quedan ${fmt(r.sg)} libres.</div>` : ''}
     <div class="td-dim" style="font-size:12px;padding:6px 16px 0">
@@ -3610,10 +3629,10 @@ function cybDetalle(r) {
 
 async function secCyber() {
   const ICO = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>';
-  const [sb, bsale, peds] = await Promise.all([
-    load('saldos_bodega.json'), load('stock_bsale.json'), load('pedidos.json'),
+  const [sb, bsale, peds, ft] = await Promise.all([
+    load('saldos_bodega.json'), load('stock_bsale.json'), load('pedidos.json'), load('full_table.json'),
   ]);
-  CYB = cybBase(sb, (bsale && !Array.isArray(bsale)) ? bsale : null, peds);
+  CYB = cybBase(sb, (bsale && !Array.isArray(bsale)) ? bsale : null, peds, ft);
   if (!CYB.length) return makePH(ICO, 'Inventario para ofrecer', 'Sin stock disponible');
 
   // Por prendas y no por numero: hay 46 temporadas y las utiles (T44, T42, T43, T40)
@@ -3632,6 +3651,12 @@ async function secCyber() {
       <button class="seg on" data-d="todo">Los dos</button>
       <button class="seg" data-d="sg" title="Solo lo que está libre en San Gerardo">San Gerardo</button>
       <button class="seg" data-d="kn" title="Solo lo que hay en la tienda">Kennedy</button>
+    </div>
+    <span class="flbl" style="margin-left:4px">Respaldo</span>
+    <div class="segs" id="cybRespSegs">
+      <button class="seg on" data-rsp="todo">Todos</button>
+      <button class="seg" data-rsp="ok" title="Solo artículos con historia: pedidos o producidos alguna vez">Con respaldo</button>
+      <button class="seg" data-rsp="no" title="Stock que el ERP declara pero que nunca se pidió ni se produjo">Sin respaldo</button>
     </div>
     <span class="flbl" style="margin-left:4px">Rotación</span>
     <div class="segs" id="cybPrioSegs">
@@ -4795,7 +4820,7 @@ function bindContent(secId) {
   if (secId === 'cyber') {
     const FILAS = [...document.querySelectorAll('#cybBody tr.cyb-row')].map(el => ({
       el, art: el.dataset.art, modelo: el.dataset.modelo, temp: el.dataset.temp,
-      bota: el.dataset.bota, prio: el.dataset.prio, sg: +el.dataset.sg || 0, kn: +el.dataset.kn || 0, total: +el.dataset.total || 0,
+      bota: el.dataset.bota, prio: el.dataset.prio, sinResp: el.dataset.sinresp === '1', sg: +el.dataset.sg || 0, kn: +el.dataset.kn || 0, total: +el.dataset.total || 0,
     }));
     const tbody = document.getElementById('cybBody');
     let _vis = FILAS.slice();
@@ -4813,6 +4838,7 @@ function bindContent(secId) {
       const d = document.querySelector('#cybDondeSegs .seg.on')?.dataset.d || 'todo';
       const t = document.querySelector('#cybTempSegs .seg.on')?.dataset.t || 'todo';
       const pr = document.querySelector('#cybPrioSegs .seg.on')?.dataset.p || 'todo';
+      const rsp = document.querySelector('#cybRespSegs .seg.on')?.dataset.rsp || 'todo';
       const b = (document.getElementById('cybBota')?.value || '').toLowerCase();
       const q = (document.getElementById('cybSearch')?.value || '').trim().toLowerCase();
       const toks = q.split(/[\s,;]+/).filter(Boolean);
@@ -4820,7 +4846,8 @@ function bindContent(secId) {
       let sg = 0, kn = 0;
       for (const f of FILAS) {
         const dOk = d === 'todo' ? f.total > 0 : d === 'sg' ? f.sg > 0 : f.kn > 0;
-        const ok = dOk && (t === 'todo' || f.temp === t) && (pr === 'todo' || f.prio === pr) && (!b || f.bota === b)
+        const ok = dOk && (t === 'todo' || f.temp === t) && (pr === 'todo' || f.prio === pr)
+          && (rsp === 'todo' || (rsp === 'no' ? f.sinResp : !f.sinResp)) && (!b || f.bota === b)
           && (!toks.length || toks.some(x => /^\d{3,}$/.test(x)
                 ? (artMatch(f.art, x) || f.art.startsWith(x) || f.modelo.startsWith(x))
                 : f.bota.includes(x)));
@@ -4839,10 +4866,14 @@ function bindContent(secId) {
       const parados = pasan.filter(f => f.prio === 'parado');
       set('cybFoot', `${pasan.length} artículos · ${fmt(tot)} prendas para ofrecer`
         + (d === 'todo' ? ` · ${fmt(sg)} en San Gerardo y ${fmt(kn)} en la tienda` : '')
-        + (pr === 'todo' && parados.length ? ` · ${parados.length} de ellos llevan 180 días sin que nadie los pida (${fmt(parados.reduce((a, f) => a + f.total, 0))} prendas)` : ''));
+        + (pr === 'todo' && parados.length ? ` · ${parados.length} de ellos llevan 180 días sin que nadie los pida (${fmt(parados.reduce((a, f) => a + f.total, 0))} prendas)` : '')
+        + (() => { const sr = pasan.filter(f => f.sinResp);
+            return rsp === 'todo' && sr.length
+              ? ` · OJO: ${sr.length} sin respaldo (${fmt(sr.reduce((a, f) => a + f.sg, 0))} prendas que el ERP declara pero nunca se pidieron ni produjeron)`
+              : ''; })());
     }
 
-    ['cybDondeSegs', 'cybTempSegs', 'cybPrioSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(btn =>
+    ['cybDondeSegs', 'cybTempSegs', 'cybPrioSegs', 'cybRespSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(btn =>
       btn.addEventListener('click', () => {
         document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
         btn.classList.add('on'); aplicarCyb();
@@ -4897,7 +4928,7 @@ function bindContent(secId) {
       const PRIO = { parado: 'Parado', lento: 'Lento', mueve: 'Se mueve' };
       const enc = ['Artículo', 'Temporada', 'Modelo', 'Color', 'Bota', 'San Gerardo libre', 'Tienda Kennedy',
                    'Total para ofrecer', 'Se pidieron en 90 días', 'Se pidieron en 180 días', 'Meses que duraría', 'Rotación',
-                   'S.Gerardo físico', 'Embalado', 'Comprometido',
+                   'Respaldo', 'S.Gerardo físico', 'Embalado', 'Comprometido',
                    ...tallas.map(t => 'Talla ' + (t === '00' ? 'única' : t))];
       const datos = [enc];
       for (const r of rows) {
@@ -4910,13 +4941,14 @@ function bindContent(secId) {
           r.sg, r.kn, r.total, r.p90, r.p180,
           r.meses == null ? '' : { v: Math.round(r.meses * 10) / 10, t: 'n', z: '0.0' },
           PRIO[r.prio.k] || '',
+          r.sinRespaldo ? 'SIN RESPALDO' : 'ok',
           r.sgFisico, r.sgCaja, r.sgProm,
           ...tallas.map(t => (r.sgTallas[t] || 0) + (r.knTallas[t] || 0)),
         ]);
       }
       const hoja = XLSX.utils.aoa_to_sheet(datos);
       hoja['!cols'] = [{ wch: 11 }, { wch: 10 }, { wch: 8 }, { wch: 7 }, { wch: 11 }, { wch: 17 }, { wch: 14 },
-                       { wch: 17 }, { wch: 14 }, { wch: 15 }, { wch: 14 }, { wch: 10 },
+                       { wch: 17 }, { wch: 14 }, { wch: 15 }, { wch: 14 }, { wch: 10 }, { wch: 13 },
                        { wch: 15 }, { wch: 10 }, { wch: 13 }, ...tallas.map(() => ({ wch: 9 }))];
       hoja['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: datos.length - 1, c: enc.length - 1 } }) };
       hoja['!freeze'] = { xSplit: 0, ySplit: 1 };
