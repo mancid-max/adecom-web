@@ -378,6 +378,10 @@ body.ia-open #iaBtn{display:none}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21v-6h6v6"/></svg>
       Stock Kennedy
     </button>
+    <button class="nav-item" data-sec="cyber" data-ttl="Inventario para ofrecer" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      Para ofrecer
+    </button>
     <button class="nav-item" data-sec="cajas" data-ttl="Cajas en Bodega" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       Cajas en Bodega
@@ -3370,6 +3374,233 @@ async function secRepPedidos() {
   </div>`;
 }
 
+/* ── INVENTARIO PARA OFRECER (Cyber) ──────────────────────────────────────────
+   Que se puede ofrecer de verdad, juntando San Gerardo y la tienda Kennedy.
+
+   Lo importante es el "de verdad". En San Gerardo hay 12.322 prendas, pero 992 ya
+   estan embaladas en cajas y 7.085 estan comprometidas en pedidos con saldo. Si se
+   ofrece el stock a secas se vende lo que ya tiene dueño: queda libre menos de la
+   mitad. Kennedy es otra cosa: es stock de tienda, nadie lo tiene pedido, va entero.
+
+   Lo comprometido se descuenta por articulo y no por talla, porque los pedidos no
+   guardan la talla. Por eso el detalle muestra las tallas FISICAS y avisa cuando
+   parte de esas prendas ya tienen dueño. */
+let CYB = [];
+
+/* Lo pedido en los ultimos N dias, por articulo. Es el unico termometro de demanda que
+   hay a nivel de articulo: los documentos de venta no guardan el articulo, los pedidos si. */
+function cybPedido(peds, dias) {
+  const desde = (() => { const d = new Date(); d.setDate(d.getDate() - dias); return ymd(d); })();
+  const m = {};
+  for (const p of (peds || [])) {
+    if ((p.fecha_iso || '') < desde) continue;
+    for (const l of (p.lineas || [])) if ((l.sol || 0) > 0) m[l.art] = (m[l.art] || 0) + l.sol;
+  }
+  return m;
+}
+
+/* Que conviene ofrecer. La idea: rematar lo que no se mueve y no regalar lo que se
+   vende solo. "Meses de stock" es cuanto tardaria en salir al ritmo de los ultimos
+   90 dias; si nadie lo pidio en 180 dias, directamente esta parado. */
+function cybPrioridad(r) {
+  if (r.p180 === 0) return { k: 'parado', txt: 'Parado', cls: 'd-dn',
+                             tip: 'Nadie lo ha pedido en 180 días. Es lo primero que conviene ofrecer' };
+  const porMes = r.p90 / 3;
+  if (porMes <= 0 || r.total / porMes > 6)
+    return { k: 'lento', txt: 'Lento', cls: 'd-nu',
+             tip: `Al ritmo de los últimos 90 días tardaría ${porMes > 0 ? Math.round(r.total / porMes) + ' meses' : 'mucho'} en salir` };
+  return { k: 'mueve', txt: 'Se mueve', cls: 'd-up',
+           tip: `Sale en ${Math.max(1, Math.round(r.total / porMes))} mes(es) al ritmo actual: no hace falta rematarlo` };
+}
+
+function cybBase(sb, bsale, peds) {
+  const comp = {};                         // lo que ya esta prometido, por articulo
+  for (const p of (peds || [])) {
+    if ((p.saldo || 0) <= 0) continue;
+    for (const l of (p.lineas || [])) if ((l.sal || 0) > 0) comp[l.art] = (comp[l.art] || 0) + l.sal;
+  }
+  const p90 = cybPedido(peds, 90), p180 = cybPedido(peds, 180);
+  const kn = {};
+  for (const a of ((bsale && bsale.por_art) || [])) kn[a.art] = a;
+
+  const m = new Map();
+  for (const r of (Array.isArray(sb) ? sb : [])) {
+    const fisico = (r.suc || {})['04'] || 0;
+    if (fisico <= 0 && !kn[r.art]) continue;
+    const caja = (r.cajas || {})['04'] || 0;
+    const prom = comp[r.art] || 0;
+    m.set(r.art, {
+      art: r.art, temp: r.temp, modelo: r.modelo, color: r.color, bota: r.bota || '',
+      sgFisico: Math.max(0, fisico), sgCaja: caja, sgProm: prom,
+      sg: Math.max(0, fisico - caja - prom),
+      sgTallas: (r.tallas_suc || {})['04'] || {},
+      kn: 0, knTallas: {},
+    });
+  }
+  // Articulos que solo existen en la tienda
+  for (const a of ((bsale && bsale.por_art) || [])) {
+    if (!m.has(a.art)) m.set(a.art, {
+      art: a.art, temp: a.art.slice(2, 4), modelo: a.art.slice(2, 6), color: a.art.slice(6, 8), bota: '',
+      sgFisico: 0, sgCaja: 0, sgProm: comp[a.art] || 0, sg: 0, sgTallas: {}, kn: 0, knTallas: {},
+    });
+  }
+  for (const r of m.values()) {
+    const k = kn[r.art];
+    if (k) { r.kn = k.cant || 0; r.knTallas = k.tallas || {}; }
+    r.total = r.sg + r.kn;
+    r.p90 = p90[r.art] || 0;
+    r.p180 = p180[r.art] || 0;
+    r.meses = r.p90 > 0 ? r.total / (r.p90 / 3) : null;
+    r.prio = cybPrioridad(r);
+  }
+  return [...m.values()].filter(r => r.total > 0).sort((a, b) => b.total - a.total);
+}
+
+const CYB_LETRA = { XS: 1, S: 2, M: 3, L: 4, XL: 5, XXL: 6 };
+const cybOrdenTalla = (a, b) => {
+  const r = t => /^\d+$/.test(t) ? [0, +t] : [1, CYB_LETRA[t] || 99];
+  const [x1, y1] = r(a), [x2, y2] = r(b);
+  return x1 - x2 || y1 - y2 || String(a).localeCompare(String(b));
+};
+const cybTallas = o => Object.entries(o || {}).filter(([, q]) => q > 0).sort((a, b) => cybOrdenTalla(a[0], b[0]));
+
+function buildCybTable(rows) {
+  if (!rows.length) return '<tr><td colspan="11" class="td-dim" style="text-align:center;padding:24px">Nada que ofrecer con estos filtros</td></tr>';
+  return rows.map((r, i) => `<tr class="cyb-row" data-i="${i}" data-art="${r.art}" data-modelo="${r.modelo}"
+      data-temp="${r.temp}" data-bota="${(r.bota || '').toLowerCase()}" data-sg="${r.sg}" data-kn="${r.kn}" data-total="${r.total}" data-prio="${r.prio.k}"
+      style="cursor:pointer" title="Toca para ver las tallas">
+    <td class="td-code">${artImg(r.art)}${r.art}</td>
+    <td><span class="badge ${tcFor(r.temp).cls}">T${r.temp}</span></td>
+    <td class="td-dim">${r.color}</td>
+    <td class="td-dim">${r.bota || '—'}</td>
+    <td class="r td-num">${r.sg ? fmt(r.sg) : '<span class="td-dim">—</span>'}</td>
+    <td class="r td-num">${r.kn ? fmt(r.kn) : '<span class="td-dim">—</span>'}</td>
+    <td class="r td-num" style="font-weight:700">${fmt(r.total)}</td>
+    <td class="r td-num td-dim" title="Unidades pedidas en los últimos 90 días">${r.p90 ? fmt(r.p90) : '—'}</td>
+    <td class="r td-dim" title="${r.meses == null ? 'Nadie lo pidió en 90 días' : 'Al ritmo de los últimos 90 días'}">${r.meses == null ? '—' : (r.meses > 24 ? '+24' : Math.round(r.meses)) + ' m'}</td>
+    <td><span class="kpi-delta ${r.prio.cls}" style="margin:0;padding:1px 6px;font-size:10px" title="${r.prio.tip}">${r.prio.txt}</span></td>
+    <td class="td-dim" style="font-size:11px;white-space:nowrap">${cybTallas({ ...r.sgTallas, ...r.knTallas }).map(([t]) => t).join(' · ') || '—'}</td>
+  </tr>`).join('');
+}
+
+function cybDetalle(r) {
+  const bloque = (titulo, tallas, total, nota) => `
+    <div style="padding:10px 16px 2px">
+      <div style="font-size:12px;font-weight:700">${titulo} <span class="td-dim" style="font-weight:500">${fmt(total)} prendas</span></div>
+      ${nota ? `<div class="td-dim" style="font-size:11px;margin-top:2px">${nota}</div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        ${cybTallas(tallas).map(([t, q]) => `<div style="background:var(--sf2);border-radius:8px;padding:6px 11px;text-align:center;min-width:52px">
+            <div style="font-size:15px;font-weight:800">${fmt(q)}</div>
+            <div style="font-size:10px;color:var(--tx2)">${t === '00' ? 'única' : t}</div></div>`).join('') || '<span class="td-dim" style="font-size:12px">Sin tallas con stock</span>'}
+      </div>
+    </div>`;
+  const comprometido = r.sgCaja + r.sgProm;
+  return `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
+      ${[['Para ofrecer', fmt(r.total), 'var(--ok)'], ['San Gerardo', fmt(r.sg), 'var(--tx1)'],
+         ['Tienda Kennedy', fmt(r.kn), 'var(--tx1)']]
+        .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:98px">
+            <div style="font-size:18px;font-weight:800;color:${c}">${v}</div>
+            <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+    </div>
+    ${comprometido > 0 ? `<div class="td-dim" style="font-size:12px;padding:4px 16px 0">
+      En San Gerardo hay <b>${fmt(r.sgFisico)}</b> prendas, pero ${r.sgCaja ? `<b>${fmt(r.sgCaja)}</b> ya están embaladas` : ''}${r.sgCaja && r.sgProm ? ' y ' : ''}${r.sgProm ? `<b>${fmt(r.sgProm)}</b> están comprometidas en pedidos` : ''}. Quedan ${fmt(r.sg)} libres.</div>` : ''}
+    <div class="td-dim" style="font-size:12px;padding:6px 16px 0">
+      <b>${r.prio.txt}.</b> ${r.prio.tip}. ${r.p180 ? `En 180 días se pidieron ${fmt(r.p180)} unidades, ${fmt(r.p90)} en los últimos 90.` : ''}</div>
+    ${bloque('San Gerardo', r.sgTallas, r.sgFisico,
+             comprometido > 0 ? 'Estas son las tallas que hay físicamente. Lo comprometido no está asignado a una talla, así que no se puede descontar talla por talla.' : '')}
+    ${bloque('Tienda Kennedy', r.knTallas, r.kn, r.kn ? 'Stock de tienda: nadie lo tiene pedido.' : '')}`;
+}
+
+async function secCyber() {
+  const ICO = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>';
+  const [sb, bsale, peds] = await Promise.all([
+    load('saldos_bodega.json'), load('stock_bsale.json'), load('pedidos.json'),
+  ]);
+  CYB = cybBase(sb, (bsale && !Array.isArray(bsale)) ? bsale : null, peds);
+  if (!CYB.length) return makePH(ICO, 'Inventario para ofrecer', 'Sin stock disponible');
+
+  const temps = [...new Set(CYB.map(r => r.temp).filter(Boolean))].sort((a, b) => +b - +a);
+  const botas = [...new Set(CYB.map(r => r.bota).filter(Boolean))].sort();
+  const tot = k => CYB.reduce((a, r) => a + r[k], 0);
+  const fecha = ((bsale && bsale.meta) || {}).fecha || '';
+
+  return `
+  <div class="fbar" style="gap:8px;flex-wrap:wrap">
+    <span class="flbl">Dónde</span>
+    <div class="segs" id="cybDondeSegs">
+      <button class="seg on" data-d="todo">Los dos</button>
+      <button class="seg" data-d="sg" title="Solo lo que está libre en San Gerardo">San Gerardo</button>
+      <button class="seg" data-d="kn" title="Solo lo que hay en la tienda">Kennedy</button>
+    </div>
+    <span class="flbl" style="margin-left:4px">Rotación</span>
+    <div class="segs" id="cybPrioSegs">
+      <button class="seg on" data-p="todo">Todos</button>
+      <button class="seg" data-p="parado" title="Nadie los ha pedido en 180 días: los primeros a ofrecer">Parados</button>
+      <button class="seg" data-p="lento" title="Se piden, pero muy de a poco">Lentos</button>
+      <button class="seg" data-p="mueve" title="Salen solos: no hace falta rematarlos">Se mueven</button>
+    </div>
+    <span class="flbl" style="margin-left:4px">Temp</span>
+    <div class="segs" id="cybTempSegs" style="overflow-x:auto;flex-wrap:nowrap;max-width:46vw">
+      <button class="seg on" data-t="todo">Todas</button>
+      ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
+    </div>
+    <select id="cybBota" class="finput" style="width:150px">
+      <option value="">Todas las botas</option>
+      ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
+    </select>
+    <input id="cybSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:180px">
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ICO}</svg></div>
+      <div style="min-width:0"><div class="kpi-val" id="cybKTot">${fmt(tot('total'))}</div><div class="kpi-lbl">Para ofrecer</div>
+        <div class="kpi-delta d-nu" id="cybKArts">${CYB.length} artículos</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/></svg></div>
+      <div style="min-width:0"><div class="kpi-val" id="cybKSg">${fmt(tot('sg'))}</div><div class="kpi-lbl">San Gerardo libre</div>
+        <div class="kpi-delta d-nu" title="Stock físico menos lo embalado y lo que ya tiene dueño">de ${fmt(CYB.reduce((a, r) => a + r.sgFisico, 0))} físicas</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+      <div style="min-width:0"><div class="kpi-val" id="cybKKn">${fmt(tot('kn'))}</div><div class="kpi-lbl">Tienda Kennedy</div>
+        <div class="kpi-delta d-nu">${fecha ? 'al ' + fecha : 'stock de tienda'}</div></div>
+    </div>
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <div style="min-width:0"><div class="kpi-val" style="font-size:20px">${fmt(CYB.reduce((a, r) => a + r.sgCaja + r.sgProm, 0))}</div><div class="kpi-lbl">No se puede ofrecer</div>
+        <div class="kpi-delta d-nu" title="Prendas de San Gerardo que ya están embaladas o comprometidas en pedidos">embaladas o con dueño</div></div>
+    </div>
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Lo que se puede ofrecer</div>
+        <div class="card-sub" style="margin:2px 0 0">San Gerardo descuenta lo embalado y lo que ya tiene dueño. Kennedy va entero: es stock de tienda. Toca un artículo para ver las tallas</div></div>
+      <span class="td-dim" style="margin-left:auto" id="cybCount"></span>
+      <button class="seg" id="cybExcel" style="border:1px solid var(--bd2)" title="Baja lo que estás viendo, con el detalle por talla">⬇ Descargar Excel</button>
+      <button class="seg" id="cybPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th>Artículo</th><th>Temp</th><th>Color</th><th>Bota</th>
+          <th class="r" title="Libre en San Gerardo">S. Gerardo</th>
+          <th class="r" title="Stock de la tienda Kennedy">Kennedy</th>
+          <th class="r">Total</th>
+          <th class="r" title="Unidades pedidas en los últimos 90 días">Pedido 90d</th>
+          <th class="r" title="Cuánto tardaría en salir al ritmo de los últimos 90 días">Meses</th>
+          <th title="Qué conviene ofrecer">Rotación</th><th>Tallas</th>
+        </tr></thead>
+        <tbody id="cybBody">${buildCybTable(CYB)}</tbody>
+      </table>
+      <div class="tbl-foot" id="cybFoot"></div>
+    </div>
+  </div>`;
+}
+
 /* ── ROUTER ─────────────────────────────────────────────────── */
 const SECS = {
   'resumen':        () => secResumen(),
@@ -3378,6 +3609,7 @@ const SECS = {
   'pvc':            () => secPVC(),
   'stock':          () => secStock(),
   'kennedy':        () => secKennedy(),
+  'cyber':          () => secCyber(),
   'cajas':          () => secCajas(),
   'tabla':          () => secTabla(),
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
@@ -4457,6 +4689,124 @@ function bindContent(secId) {
                    landscape: false });
     });
     applyEr();
+  }
+
+  // Inventario para ofrecer (Cyber)
+  if (secId === 'cyber') {
+    const FILAS = [...document.querySelectorAll('#cybBody tr.cyb-row')].map(el => ({
+      el, art: el.dataset.art, modelo: el.dataset.modelo, temp: el.dataset.temp,
+      bota: el.dataset.bota, prio: el.dataset.prio, sg: +el.dataset.sg || 0, kn: +el.dataset.kn || 0, total: +el.dataset.total || 0,
+    }));
+    const tbody = document.getElementById('cybBody');
+    let _vis = FILAS.slice();
+
+    function pintar(lista) {
+      if (lista.length === _vis.length && lista.every((f, i) => f === _vis[i])) return;
+      const frag = document.createDocumentFragment();
+      for (const f of lista) frag.appendChild(f.el);
+      tbody.replaceChildren(frag);
+      _vis = lista;
+    }
+
+    function aplicarCyb() {
+      const d = document.querySelector('#cybDondeSegs .seg.on')?.dataset.d || 'todo';
+      const t = document.querySelector('#cybTempSegs .seg.on')?.dataset.t || 'todo';
+      const pr = document.querySelector('#cybPrioSegs .seg.on')?.dataset.p || 'todo';
+      const b = (document.getElementById('cybBota')?.value || '').toLowerCase();
+      const q = (document.getElementById('cybSearch')?.value || '').trim().toLowerCase();
+      const toks = q.split(/[\s,;]+/).filter(Boolean);
+      const pasan = [];
+      let sg = 0, kn = 0;
+      for (const f of FILAS) {
+        const dOk = d === 'todo' ? f.total > 0 : d === 'sg' ? f.sg > 0 : f.kn > 0;
+        const ok = dOk && (t === 'todo' || f.temp === t) && (pr === 'todo' || f.prio === pr) && (!b || f.bota === b)
+          && (!toks.length || toks.some(x => /^\d{3,}$/.test(x)
+                ? (artMatch(f.art, x) || f.art.startsWith(x) || f.modelo.startsWith(x))
+                : f.bota.includes(x)));
+        if (ok) { pasan.push(f); sg += f.sg; kn += f.kn; }
+      }
+      pintar(pasan);
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      const tot = d === 'sg' ? sg : d === 'kn' ? kn : sg + kn;
+      set('cybKTot', fmt(tot));
+      set('cybKArts', `${pasan.length} artículos`);
+      set('cybKSg', fmt(sg));
+      set('cybKKn', fmt(kn));
+      set('cybCount', `${pasan.length} artículos`);
+      const parados = pasan.filter(f => f.prio === 'parado');
+      set('cybFoot', `${pasan.length} artículos · ${fmt(tot)} prendas para ofrecer`
+        + (d === 'todo' ? ` · ${fmt(sg)} en San Gerardo y ${fmt(kn)} en la tienda` : '')
+        + (pr === 'todo' && parados.length ? ` · ${parados.length} de ellos llevan 180 días sin que nadie los pida (${fmt(parados.reduce((a, f) => a + f.total, 0))} prendas)` : ''));
+    }
+
+    ['cybDondeSegs', 'cybTempSegs', 'cybPrioSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(btn =>
+      btn.addEventListener('click', () => {
+        document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
+        btn.classList.add('on'); aplicarCyb();
+      })));
+    document.getElementById('cybBota')?.addEventListener('change', aplicarCyb);
+    let _cybDeb = 0;
+    document.getElementById('cybSearch')?.addEventListener('input', () => {
+      clearTimeout(_cybDeb); _cybDeb = setTimeout(aplicarCyb, 180);
+    });
+
+    document.querySelectorAll('#cybBody tr.cyb-row').forEach(row => row.addEventListener('click', () => {
+      const r = CYB[+row.dataset.i];
+      if (!r) return;
+      document.getElementById('vkOvTtl').textContent = `${r.art} · modelo ${r.modelo} color ${r.color}`;
+      document.getElementById('vkOvBody').innerHTML = cybDetalle(r);
+      document.getElementById('vkOv').classList.add('open');
+    }));
+    document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
+    document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+
+    document.getElementById('cybPrint')?.addEventListener('click', () => {
+      printTable({ table: tbody?.closest('table'), title: 'Inventario para ofrecer',
+                   subtitle: document.getElementById('cybFoot')?.textContent || '' });
+    });
+
+    document.getElementById('cybExcel')?.addEventListener('click', () => {
+      const vis = _vis;
+      if (!vis.length) return;
+      if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de Excel. Revisa la conexión y vuelve a intentar.'); return; }
+      const rows = vis.map(f => CYB[+f.el.dataset.i]);
+      // Una columna por talla, con las que de verdad aparecen en lo que se está viendo
+      const tallas = [...new Set(rows.flatMap(r => [...Object.keys(r.sgTallas), ...Object.keys(r.knTallas)]))]
+        .filter(t => rows.some(r => (r.sgTallas[t] || 0) + (r.knTallas[t] || 0) > 0))
+        .sort(cybOrdenTalla);
+      const PRIO = { parado: 'Parado', lento: 'Lento', mueve: 'Se mueve' };
+      const enc = ['Artículo', 'Temporada', 'Modelo', 'Color', 'Bota', 'San Gerardo libre', 'Tienda Kennedy',
+                   'Total para ofrecer', 'Pedido 90 días', 'Pedido 180 días', 'Meses de stock', 'Rotación',
+                   'S.Gerardo físico', 'Embalado', 'Comprometido',
+                   ...tallas.map(t => 'Talla ' + (t === '00' ? 'única' : t))];
+      const datos = [enc];
+      for (const r of rows) {
+        datos.push([
+          { v: +r.art || 0, t: 'n', z: '00000000' },
+          'T' + r.temp,
+          { v: +r.modelo || 0, t: 'n', z: '0000' },
+          { v: +r.color || 0, t: 'n', z: '00' },
+          r.bota || '',
+          r.sg, r.kn, r.total, r.p90, r.p180,
+          r.meses == null ? '' : { v: Math.round(r.meses * 10) / 10, t: 'n', z: '0.0' },
+          PRIO[r.prio.k] || '',
+          r.sgFisico, r.sgCaja, r.sgProm,
+          ...tallas.map(t => (r.sgTallas[t] || 0) + (r.knTallas[t] || 0)),
+        ]);
+      }
+      const hoja = XLSX.utils.aoa_to_sheet(datos);
+      hoja['!cols'] = [{ wch: 11 }, { wch: 10 }, { wch: 8 }, { wch: 7 }, { wch: 11 }, { wch: 17 }, { wch: 14 },
+                       { wch: 17 }, { wch: 14 }, { wch: 15 }, { wch: 14 }, { wch: 10 },
+                       { wch: 15 }, { wch: 10 }, { wch: 13 }, ...tallas.map(() => ({ wch: 9 }))];
+      hoja['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: datos.length - 1, c: enc.length - 1 } }) };
+      hoja['!freeze'] = { xSplit: 0, ySplit: 1 };
+      const libro = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(libro, hoja, 'Para ofrecer');
+      const h = new Date();
+      XLSX.writeFile(libro, `Inventario para ofrecer ${String(h.getDate()).padStart(2,'0')}-${String(h.getMonth()+1).padStart(2,'0')}-${h.getFullYear()}.xlsx`);
+    });
+
+    aplicarCyb();
   }
 
   // Resumen — las tarjetas de la segunda fila abren su detalle
