@@ -85,6 +85,15 @@ html,body{overflow-x:hidden;max-width:100%}
 
 /* ── KPI GRID ────────────────────────────────────────────────── */
 .kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+/* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
+   4 preguntas con 2 cifras cada una si. */
+.res-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+.res-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.res-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 1px}
+.res-col .kpi{padding:15px 16px}
+.res-col .kpi-val{font-size:23px}
+@media(max-width:1180px){.res-cols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.res-cols{grid-template-columns:1fr}}
 .kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;min-width:0;transition:border-color .12s,box-shadow .12s,transform .1s}
 .kpi>div:last-child{min-width:0}
 .kpi-lbl{overflow-wrap:break-word}
@@ -941,99 +950,88 @@ async function secResumen() {
                 + (vhNeg ? ' · cerró en negativo: las devoluciones superan a las ventas' : '');
 
   return `
-  <div class="kpi-grid">
-    <div class="kpi" data-goto="reporte-venta" data-goto-ttl="Reporte Venta" style="border:2px solid var(--${vhC});background:var(--${vhC}10)" title="${vhTip}">
-      <div class="kpi-ico c-${vhC}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="${vhNeg ? '23 18 13.5 8.5 8.5 13.5 1 6' : '23 6 13.5 15.5 8.5 10.5 1 18'}"/></svg></div>
-      <div>
-        <div class="kpi-val" style="color:var(--${vhC});font-size:${vh&&Math.abs(vh.neto)>=1e6?'20px':'26px'}">${vh ? fmtM(vh.neto) : '—'}</div>
-        <div class="kpi-lbl">Venta ${vh ? vh.label : 'Hoy'} · San Gerardo</div>
-        <div class="kpi-delta ${vhNeg ? 'd-dn' : 'd-up'}">${vhTxt}</div>
-      </div>
-    </div>
-    <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-      <div>
-        <div class="kpi-val">${fmt(t44.total)}</div>
-        <div class="kpi-lbl">Unidades T44</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <span class="kpi-delta ${d4443.cls}">${d4443.html}</span>
-          <span style="font-size:11px;color:var(--tx3)">vs T43</span>
-        </div>
-      </div>
-    </div>
-    <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div>
-        <div class="kpi-val">${t44.modelos}</div>
-        <div class="kpi-lbl">Modelos T44</div>
-        <div style="font-size:11px;color:var(--tx3);margin-top:6px">${variantesT44} colores · ${fmt(promedio)} u/modelo</div>
-      </div>
-    </div>
-    <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-      <div>
-        <div class="kpi-val">${fmt(salT44)}</div>
-        <div class="kpi-lbl">Falta despachar T44</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <span class="kpi-delta d-up">${avanceT44}%</span>
-          <span style="font-size:11px;color:var(--tx3)">${fmt(despT44)} despachadas</span>
-        </div>
-      </div>
-    </div>
-    <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color">
-      <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg></div>
-      <div>
-        <div class="kpi-val" style="font-size:22px">${topMod.base}</div>
-        <div class="kpi-lbl">Top Modelo T44</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <span class="kpi-delta d-up">${fmt(topMod.total)} u</span>
-          <span style="font-size:11px;color:var(--tx3)">${topMod.colores} color${topMod.colores!==1?'es':''}</span>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="res-cols">
 
-  <div class="kpi-grid" style="margin-top:14px">
-    <div class="kpi" data-rdet="cortes" title="Ver cuánto se cortó cada mes">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></div>
-      <div style="min-width:0">
-        <div class="kpi-val">${fmt(RES.corte30.u)}</div>
-        <div class="kpi-lbl">Cortado en 30 días</div>
-        <div class="kpi-delta d-nu" title="Órdenes de producción, sin muestras">${RES.corte30.oc} órdenes · ${RES.corte30.arts} artículos</div>
+    <div class="res-col">
+      <div class="res-grp">Para mover hoy</div>
+      <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar" style="border:2px solid var(--ok);background:var(--ok10)">
+        <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val" style="color:var(--ok)">${fmt(RES.enBodega.total)}</div>
+          <div class="kpi-lbl">Se puede despachar ya</div>
+          <div class="kpi-delta ${RES.enBodega.total ? 'd-up' : 'd-nu'}">${RES.enBodega.porCliente.size} clientes esperando</div>
+        </div>
+      </div>
+      <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho" title="Ver el detalle por cliente">
+        <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(salT44)}</div>
+          <div class="kpi-lbl">Falta despachar T44</div>
+          <div class="kpi-delta d-nu">${avanceT44}% avanzado · ${fmt(despT44)} entregadas</div>
+        </div>
       </div>
     </div>
-    <div class="kpi" data-rdet="vendidas" title="Ver el detalle día a día">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div style="min-width:0">
-        <div class="kpi-val">${fmt(uVend30)}</div>
-        <div class="kpi-lbl">Vendidas en 30 días</div>
-        <div class="kpi-delta d-nu">${vendidas30.length} documentos · San Gerardo</div>
+
+    <div class="res-col">
+      <div class="res-grp">Venta</div>
+      <div class="kpi" data-goto="reporte-venta" data-goto-ttl="Reporte Venta" title="${vhTip}">
+        <div class="kpi-ico c-${vhC}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="${vhNeg ? '23 18 13.5 8.5 8.5 13.5 1 6' : '23 6 13.5 15.5 8.5 10.5 1 18'}"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val" style="color:var(--${vhC})">${vh ? fmtM(vh.neto) : '\u2014'}</div>
+          <div class="kpi-lbl">Venta ${vh ? vh.label : 'Hoy'} \u00b7 San Gerardo</div>
+          <div class="kpi-delta ${vhNeg ? 'd-dn' : 'd-up'}">${vhTxt}</div>
+        </div>
+      </div>
+      <div class="kpi" data-rdet="vendidas" title="Ver el detalle día a día">
+        <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(uVend30)}</div>
+          <div class="kpi-lbl">Prendas vendidas, 30 días</div>
+          <div class="kpi-delta d-nu">${vendidas30.length} documentos</div>
+        </div>
       </div>
     </div>
-    <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-      <div style="min-width:0">
-        <div class="kpi-val">${fmt(RES.term.u)}</div>
-        <div class="kpi-lbl">En terminación</div>
-        <div class="kpi-delta d-nu" title="Es la última etapa antes de bodega">${RES.term.arts} artículos · a punto de salir</div>
+
+    <div class="res-col">
+      <div class="res-grp">Producción</div>
+      <div class="kpi" data-rdet="cortes" title="Ver cuánto se cortó cada mes">
+        <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(RES.corte30.u)}</div>
+          <div class="kpi-lbl">Cortado en 30 días</div>
+          <div class="kpi-delta d-nu">${RES.corte30.oc} órdenes · ${RES.corte30.arts} artículos</div>
+        </div>
+      </div>
+      <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
+        <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(RES.term.u)}</div>
+          <div class="kpi-lbl">En terminación</div>
+          <div class="kpi-delta d-nu" title="Al salir de Terminación se podrían despachar esas prendas">${RES.term.arts} artículos · sumaría ${fmt(RES.porTerminar.total)} a ${RES.porTerminar.porCliente.size} clientes</div>
+        </div>
       </div>
     </div>
-    <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-      <div style="min-width:0">
-        <div class="kpi-val">${fmt(RES.enBodega.total)}</div>
-        <div class="kpi-lbl">Se puede despachar ya</div>
-        <div class="kpi-delta ${RES.enBodega.total ? 'd-up' : 'd-nu'}">${RES.enBodega.porCliente.size} clientes esperando</div>
+
+    <div class="res-col">
+      <div class="res-grp">Temporada T44</div>
+      <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color" title="Ver el detalle por color">
+        <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(t44.total)}</div>
+          <div class="kpi-lbl">Unidades pedidas</div>
+          <div class="kpi-delta ${d4443.cls}">${d4443.html} vs T43</div>
+        </div>
+      </div>
+      <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color" title="El modelo más pedido de la temporada">
+        <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${t44.modelos}</div>
+          <div class="kpi-lbl">Modelos · ${variantesT44} colores</div>
+          <div class="kpi-delta d-nu">Top ${topMod.base} con ${fmt(topMod.total)} u</div>
+        </div>
       </div>
     </div>
-    <div class="kpi" data-rdet="porTerminar" title="Ver a quién le sirve lo que está en terminación">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
-      <div style="min-width:0">
-        <div class="kpi-val">${fmt(RES.porTerminar.total)}</div>
-        <div class="kpi-lbl">Sumaría al salir</div>
-        <div class="kpi-delta d-nu">${RES.porTerminar.porCliente.size} clientes · desde terminación</div>
-      </div>
-    </div>
+
   </div>
 
   <div class="chart-row">
