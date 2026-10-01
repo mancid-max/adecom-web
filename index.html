@@ -2728,7 +2728,11 @@ function bindProy() {
    Son dos momentos distintos del mismo negocio: un pedido se factura semanas o meses
    despues, asi que las cifras de las dos secciones no tienen por que calzar.
 
-   Aqui no hay sucursal: un pedido no se toma en una bodega, se toma a un cliente. */
+   Aqui no hay sucursal: un pedido no se toma en una bodega, se toma a un cliente.
+
+   OJO con los id: la tabla es rpBody y no pedBody, porque pedBody ya lo usa la ventana
+   de detalle de un pedido. getElementById devuelve el primero del documento, asi que la
+   tabla no se repintaba y mostraba un dia mientras las tarjetas mostraban otro. */
 let PEDIDOS = [];
 let PED_FILTRADO = [];
 
@@ -2913,7 +2917,7 @@ async function secRepPedidos() {
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th class="r">Prendas</th><th class="r">Valor</th><th class="r">Avance</th></tr></thead>
-        <tbody id="pedBody">${buildPedTabla(hoyPs)}</tbody>
+        <tbody id="rpBody">${buildPedTabla(hoyPs)}</tbody>
       </table>
       <div class="tbl-foot" id="pedFoot">${hoyPs.length} pedidos · ${fmt(pSum(hoyPs, 'unidades'))} prendas · ${fmtCLP(pSum(hoyPs, 'valor'))}</div>
     </div>
@@ -3991,7 +3995,7 @@ function bindContent(secId) {
       set('pTblTtl', label);
       const TOPE = 200;   // la tabla lista los mas recientes; las tarjetas suman todo el periodo
       const orden = ps.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
-      document.getElementById('pedBody').innerHTML = buildPedTabla(orden.slice(0, TOPE));
+      document.getElementById('rpBody').innerHTML = buildPedTabla(orden.slice(0, TOPE));
       const base = `${ps.length} pedidos · ${fmt(pSum(ps, 'unidades'))} prendas · ${fmtCLP(pSum(ps, 'valor'))}`;
       set('pedFoot', ps.length > TOPE
         ? `${base} — se listan los ${TOPE} más recientes; las tarjetas suman todo el período`
@@ -4061,7 +4065,7 @@ function bindContent(secId) {
     pOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
     document.getElementById('pedPrint')?.addEventListener('click', () => {
-      printTable({ table: document.getElementById('pedBody')?.closest('table'),
+      printTable({ table: document.getElementById('rpBody')?.closest('table'),
                    title: 'Reporte Pedidos',
                    subtitle: document.getElementById('pTblTtl')?.textContent || '' });
     });
