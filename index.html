@@ -199,11 +199,13 @@ body.ia-open #iaBtn{display:none}
 .pbar-fill{height:100%;border-radius:3px;background:var(--ac)}
 
 /* ── FILTER BAR ──────────────────────────────────────────────── */
-.fbar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.fbar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px 16px;display:flex;flex-wrap:wrap;gap:13px 22px;align-items:flex-end}
+.fbar>.td-dim{align-self:center}
 .flbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);white-space:nowrap}
 /* Etiqueta + control como una sola pieza: al partirse la barra en varias lineas, el
    corte cae entre grupos y nunca entre una etiqueta y los botones que le pertenecen. */
-.fgrp{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.fgrp{display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px 6px;min-width:0;max-width:100%}
+.fgrp>.flbl{width:100%}   /* la etiqueta se lleva su propia linea: queda encima del control */
 .segs{display:flex;gap:3px;background:var(--sf2);border-radius:7px;padding:3px}
 .seg{padding:4px 12px;border-radius:5px;font-size:12px;font-weight:600;color:var(--tx2);transition:background .1s,color .1s;white-space:nowrap}
 .seg:hover{background:var(--bd);color:var(--tx1)}
@@ -297,7 +299,7 @@ body.ia-open #iaBtn{display:none}
   .hd-ts{font-size:11px}
   .segs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .segs::-webkit-scrollbar{display:none}
-  .fbar{gap:8px;padding:10px 12px}
+  .fbar{gap:10px 14px;padding:10px 12px}
   .tbl-scroll{-webkit-overflow-scrolling:touch}
   thead th{padding:7px 10px;font-size:9px}
   tbody td{padding:7px 10px;font-size:12px}
@@ -1149,22 +1151,23 @@ function secDetalleColor() {
   return `
   <div class="temp-grid">${tempCards}</div>
   <div class="fbar">
-    <div class="fgrp"><span class="flbl" style="flex-shrink:0;width:46px">Temp</span>
+    <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="dcSegs" style="flex-wrap:wrap">
       ${temps.map(t => `<button class="seg${t===iniT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
-    <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="margin-left:auto;width:180px">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="width:180px"></div>
   </div>
   <div class="fbar" style="margin-top:8px;flex-direction:column;align-items:stretch;gap:8px">
     <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
-      <div class="fgrp"><span class="flbl" style="flex-shrink:0;width:46px">Bota</span>
+      <div class="fgrp"><span class="flbl">Bota</span>
       <div class="segs" id="dcBotaSegs" style="flex-wrap:wrap;min-width:0;flex:1">
         <button class="seg on" data-b="all">Todas</button>
         ${dcBotas.map(b => `<button class="seg" data-b="${b.toLowerCase()}">${b}</button>`).join('')}
       </div></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
-      <div class="fgrp"><span class="flbl" style="flex-shrink:0;width:46px">Tiro</span>
+      <div class="fgrp"><span class="flbl">Tiro</span>
       <div class="segs" id="dcTiroSegs" style="flex-wrap:wrap;min-width:0;flex:1">
         <button class="seg on" data-ti="all">Todos</button>
         ${dcTiros.map(b => `<button class="seg" data-ti="${b.toLowerCase()}">${b}</button>`).join('')}
@@ -1431,17 +1434,17 @@ async function secTabla() {
         <option value="todo">Todas</option>
         ${temps.map(t => `<option value="${t}">T${t}</option>`).join('')}
       </select></div>
-    <div class="fgrp"><span class="flbl" style="flex-shrink:0">Tipo</span>
+    <div class="fgrp"><span class="flbl">Tipo</span>
       <div class="segs" id="tblTipoSegs" style="overflow-x:auto;flex-wrap:nowrap;min-width:0;flex:1">
         <button class="seg on" data-tp="todo">Todas</button>
         <button class="seg" data-tp="muestras">Muestras</button>
         <button class="seg" data-tp="producción">Producción</button>
       </div></div>
     <div id="tblMSubRow" style="display:none;align-items:center;gap:6px;width:100%;min-width:0">
-      <div class="fgrp"><span class="flbl" style="flex-shrink:0">Muestra</span>
+      <div class="fgrp"><span class="flbl">Muestra</span>
       <div id="tblMSegs" style="display:flex;flex-wrap:wrap;gap:4px;padding:2px 0"></div></div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <div class="fgrp"><span class="flbl">Buscar</span>
       <input id="tblArtSearch" class="finput fsearch" placeholder="Artículo…" style="width:130px">
       <input id="tblOcSearch"  class="finput fsearch" placeholder="OC…" style="width:110px">
     </div>
@@ -1655,14 +1658,14 @@ function secReporteVenta() {
         .map(b => `<option value="${b}" ${b === VENTA_BOD ? 'selected' : ''}>${SUC_VENTA[b] || 'Bodega ' + b}</option>`).join('')}
       <option value="all" ${VENTA_BOD === 'all' ? 'selected' : ''}>Todas las sucursales</option>
     </select></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Período</span>
+    <div class="fgrp"><span class="flbl">Período</span>
     <div class="segs" id="ventaSegs">
       <button class="seg ${initFallback ? '' : 'on'}" data-vp="hoy">Hoy</button>
       <button class="seg" data-vp="semana">Esta semana</button>
       <button class="seg" data-vp="mes">Este mes</button>
       <button class="seg" data-vp="todo">Todo 2026</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Mes</span>
+    <div class="fgrp"><span class="flbl">Mes</span>
     <select id="ventaMes" class="finput" style="padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px">
       <option value="">—</option>
       <option value="2026-01">Enero</option>
@@ -1678,7 +1681,7 @@ function secReporteVenta() {
       <option value="2026-11">Noviembre</option>
       <option value="2026-12">Diciembre</option>
     </select></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Día</span>
+    <div class="fgrp"><span class="flbl">Día</span>
     <input type="date" id="ventaFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px" value="${initDate||''}"></div>
   </div>
 
@@ -1951,24 +1954,26 @@ async function secVentaDespacho() {
       <button class="seg" data-av="parcial">En proceso</button>
       <button class="seg" data-av="completo">Completo</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Producción</span>
+    <div class="fgrp"><span class="flbl">Producción</span>
     <div class="segs" id="vdTermSegs">
       <button class="seg on" data-tm="todo">Todos</button>
       <button class="seg" data-tm="term" title="Clientes con artículos pendientes (sin caja) en Terminación">🏁 En terminación</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Caja</span>
+    <div class="fgrp"><span class="flbl">Caja</span>
     <div class="segs" id="vdCajaSegs">
       <button class="seg on" data-cj="todo">Todos</button>
       <button class="seg" data-cj="con" title="Clientes con caja armada en bodega">📦 Con caja</button>
     </div></div>
-    <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
-    <button class="seg" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Ver por</span>
+    <div class="fgrp"><span class="flbl">Ver por</span>
     <div class="segs" id="vdVistaSegs">
       <button class="seg on" data-vista="cliente">Cliente</button>
       <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
     </div></div>
-    <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select>
+    <div class="fgrp"><span class="flbl">Ciudad</span>
+    <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select></div>
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
+    <button class="seg" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button></div>
   </div>
   <div class="kpi-grid">
     <div class="kpi sel" style="cursor:default">
@@ -2093,19 +2098,21 @@ async function secCajas() {
       <button class="seg" data-est="salio">Despachadas</button>
       <button class="seg" data-est="all">Todas</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Antigüedad</span>
+    <div class="fgrp"><span class="flbl">Antigüedad</span>
     <div class="segs" id="cjDiasSegs">
       <button class="seg on" data-d="0">Todas</button>
       <button class="seg" data-d="7">+1 semana</button>
       <button class="seg" data-d="30">+1 mes</button>
       <button class="seg" data-d="365">+1 año</button>
-    </div></div>
+    </div>
     <select id="cjMeses" class="finput" style="width:150px" title="Cajas con más de N meses en bodega">
       <option value="">Más de… meses</option>
       ${[1,2,3,4,5,6,9,12,18,24].map(n => `<option value="${n}">Más de ${n} ${n === 1 ? 'mes' : 'meses'}</option>`).join('')}
-    </select>
-    <select id="cjVend" class="finput" style="width:190px"><option value="">Todos los vendedores</option>${vendedores.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('')}</select>
-    <input id="cjSearch" class="finput fsearch" placeholder="Cliente, pedido, caja, artículo…" style="width:230px">
+    </select></div>
+    <div class="fgrp"><span class="flbl">Vendedor</span>
+    <select id="cjVend" class="finput" style="width:190px"><option value="">Todos los vendedores</option>${vendedores.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('')}</select></div>
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="cjSearch" class="finput fsearch" placeholder="Cliente, pedido, caja, artículo…" style="width:230px"></div>
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -2228,7 +2235,8 @@ async function secClientes() {
       <button class="seg" data-m="deuda" title="Deben algo, estén bloqueados o no">Con deuda</button>
       ${base.some(c => c.sinCupo) ? '<button class="seg" data-m="cupo" title="Tienen crédito pero ya no les queda cupo">Sin cupo</button>' : ''}
     </div></div>
-    <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -2327,11 +2335,11 @@ async function secKennedy() {
       <button class="seg on" data-t="all">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
       ${hayViejas ? '<button class="seg" data-t="old" title="Colecciones anteriores a la T40">Anteriores</button>' : ''}
-    </div></div>
+    </div>
     ${hayViejas ? `<select id="knTempOld" class="finput" style="width:190px;display:none">
       <option value="">Todas las anteriores</option>
       ${viejas.map(v => `<option value="${v.t}" title="${v.n} artículo${v.n === 1 ? '' : 's'}">T${v.t}</option>`).join('')}
-    </select>` : ''}
+    </select>` : ''}</div>
   </div>
   <div class="fbar" style="margin-top:8px">
     <div class="fgrp"><span class="flbl">Ver</span>
@@ -2340,7 +2348,8 @@ async function secKennedy() {
       <button class="seg" data-c="solo" title="Está en la tienda y ADECOM no lo tiene, o lo tiene en cero o negativo">Solo en la tienda</button>
       <button class="seg" data-c="neg" title="La tienda tiene stock y ADECOM lo muestra en negativo">Explica un negativo</button>
     </div></div>
-    <input id="knSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:210px">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="knSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:210px"></div>
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -3366,12 +3375,12 @@ async function secRepPedidos() {
       <button class="seg" data-pp="mes">Este mes</button>
       <button class="seg" data-pp="todo">Todo 2026</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Mes</span>
+    <div class="fgrp"><span class="flbl">Mes</span>
     <select id="pedMes" class="finput" style="padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px">
       <option value="">—</option>
       ${MES.slice(1).map((n, i) => `<option value="2026-${String(i + 1).padStart(2, '0')}">${n}</option>`).join('')}
     </select></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Día</span>
+    <div class="fgrp"><span class="flbl">Día</span>
     <input type="date" id="pedFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px" value="${initDate || ''}"></div>
     <span class="td-dim" style="font-size:11px;margin-left:auto;max-width:300px">Lo que se <b>pidió</b>, no lo que se facturó. Un pedido se factura después, así que no calza con Reporte Venta.</span>
   </div>
@@ -3654,20 +3663,20 @@ async function secCyber() {
       <button class="seg" data-d="sg" title="Solo lo que está libre en San Gerardo">San Gerardo</button>
       <button class="seg" data-d="kn" title="Solo lo que hay en la tienda">Kennedy</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Respaldo</span>
+    <div class="fgrp"><span class="flbl">Respaldo</span>
     <div class="segs" id="cybRespSegs">
       <button class="seg on" data-rsp="todo">Todos</button>
       <button class="seg" data-rsp="ok" title="Solo artículos con historia: pedidos o producidos alguna vez">Con respaldo</button>
       <button class="seg" data-rsp="no" title="Stock que el ERP declara pero que nunca se pidió ni se produjo">Sin respaldo</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Rotación</span>
+    <div class="fgrp"><span class="flbl">Rotación</span>
     <div class="segs" id="cybPrioSegs">
       <button class="seg on" data-p="todo">Todos</button>
       <button class="seg" data-p="parado" title="Nadie los ha pedido en 180 días: los primeros a ofrecer">Parados</button>
       <button class="seg" data-p="lento" title="Se piden, pero muy de a poco">Lentos</button>
       <button class="seg" data-p="mueve" title="Salen solos: no hace falta rematarlos">Se mueven</button>
     </div></div>
-    <div class="fgrp"><span class="flbl" style="margin-left:4px">Temp</span>
+    <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="cybTempSegs">
       <button class="seg on" data-t="todo">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}" title="${fmt(uxt[t])} prendas para ofrecer">T${t}</button>`).join('')}
@@ -3677,11 +3686,13 @@ async function secCyber() {
       <option value="">Todas (${fmt(uViejas)} prendas)</option>
       ${viejas.map(t => `<option value="${t}">T${t} · ${fmt(uxt[t])}</option>`).join('')}
     </select>` : ''}</div>
+    <div class="fgrp"><span class="flbl">Bota</span>
     <select id="cybBota" class="finput" style="width:150px">
       <option value="">Todas las botas</option>
       ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
-    </select>
-    <input id="cybSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:180px">
+    </select></div>
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="cybSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:180px"></div>
   </div>
 
   <div class="kpi-grid">
@@ -3792,6 +3803,10 @@ function bindContent(secId) {
     inp.replaceWith(wrap); wrap.appendChild(inp); wrap.appendChild(s);
     inp.classList.add('pop');
     setTimeout(() => { s.classList.remove('pop'); inp.classList.remove('pop'); }, 1400);
+    // La burbuja sirve para el que llega y no sabe que buscar. Una vez que el buscador
+    // esta en uso sobra, y con la etiqueta encima quedaba repetida tres veces.
+    const pista = () => { s.style.display = (document.activeElement === inp || inp.value) ? 'none' : ''; };
+    ['focus', 'blur', 'input'].forEach(ev => inp.addEventListener(ev, pista));
   });
 
   // [data-goto] → navegar
