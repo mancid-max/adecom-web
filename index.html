@@ -1317,6 +1317,16 @@ const vTabla = (enc, filas, pie) => `
     ${pie ? `<div class="tbl-foot">${pie}</div>` : ''}
   </div>`;
 const vVacio = c => `<tr><td colspan="${c}" class="td-dim" style="text-align:center;padding:18px">Sin documentos en el período</td></tr>`;
+/* Las facturas especiales son cobros, no prendas: siempre vienen en 0 y por eso
+   conviene decirlo, si no parece un error. Ademas su razon social NO corresponde al
+   RUT (vienen corridas en el export del ERP), asi que nunca se usan para ponerle
+   nombre a un cliente: el nombre se saca de un documento normal del mismo RUT. */
+const vEsp = '<span class="badge" style="background:var(--wa10);color:var(--wa);font-size:9px;padding:1px 5px;margin-left:5px" title="Factura especial: es un cobro, no lleva prendas">ESPECIAL</span>';
+function vNombres(docs) {
+  const m = {};
+  for (const d of docs) if (!d.esp && d.razon) { const r = vRut(d); if (r && !m[r]) m[r] = d.razon; }
+  return m;
+}
 const vBarra = (v, max, neg) => `<div style="background:var(--bd);border-radius:3px;height:8px;width:100%"><div style="background:var(--${neg ? 'wa' : 'ac'});height:8px;border-radius:3px;width:${(Math.abs(v) / (max || 1) * 100).toFixed(1)}%"></div></div>`;
 
 function vDetDias(docs) {
@@ -1324,8 +1334,9 @@ function vDetDias(docs) {
   for (const d of docs) {
     const k = d.fecha_iso || '';
     if (!k) continue;
-    const r = m.get(k) || { docs: 0, prendas: 0, neto: 0, cli: new Set() };
+    const r = m.get(k) || { docs: 0, prendas: 0, neto: 0, cli: new Set(), esp: 0, netoEsp: 0 };
     r.docs++; r.prendas += d.prendas || 0; r.neto += d.neto || 0;
+    if (d.esp) { r.esp++; r.netoEsp += d.neto || 0; }
     const ru = vRut(d);
     if (ru) r.cli.add(ru);
     m.set(k, r);
@@ -1335,50 +1346,64 @@ function vDetDias(docs) {
   const max = Math.max(...filas.map(([, r]) => Math.abs(r.neto)));
   const tp = docs.reduce((a, d) => a + (d.prendas || 0), 0);
   const tn = docs.reduce((a, d) => a + (d.neto || 0), 0);
+  const te = docs.filter(d => d.esp).length;
+  const tne = docs.reduce((a, d) => a + (d.esp ? (d.neto || 0) : 0), 0);
   return vTabla(
     '<th>Fecha</th><th class="r">Docs</th><th class="r">Prendas</th><th class="r" title="Clientes distintos de ese día">Clientes</th><th class="r">Neto</th><th></th>',
     filas.map(([f, r]) => {
       const [y, mo, d] = f.split('-');
       return `<tr>
-        <td style="white-space:nowrap">${d}/${mo}/${y}</td>
+        <td style="white-space:nowrap">${d}/${mo}/${y}${r.esp ? vEsp : ''}</td>
         <td class="r td-num">${r.docs}</td>
-        <td class="r td-num">${fmt(r.prendas)}</td>
+        <td class="r td-num">${r.prendas ? fmt(r.prendas) : (r.esp === r.docs ? '<span class="td-dim" title="Solo facturas especiales: son cobros, no llevan prendas">—</span>' : '0')}</td>
         <td class="r td-num">${r.cli.size}</td>
         <td class="r td-num" style="color:${r.neto < 0 ? 'var(--wa)' : 'inherit'}">${fmtM(r.neto)}</td>
         <td style="width:26%">${vBarra(r.neto, max, r.neto < 0)}</td></tr>`;
     }).join(''),
-    `${filas.length} día${filas.length === 1 ? '' : 's'} con movimiento · ${fmt(tp)} prendas · ${fmtCLP(tn)} · promedio ${fmtM(Math.round(tn / filas.length))} por día`);
+    `${filas.length} día${filas.length === 1 ? '' : 's'} con movimiento · ${fmt(tp)} prendas · ${fmtCLP(tn)} · promedio ${fmtM(Math.round(tn / filas.length))} por día`
+    + (te ? ` · incluye ${te} factura${te === 1 ? '' : 's'} especial${te === 1 ? '' : 'es'} por ${fmtM(tne)}` : ''));
 }
 
 function vDetClientes(docs) {
+  const nombres = vNombres(docs);          // nombre sacado de documentos normales
+  const nombresTodos = vNombres(DOCS);     // y si no hay en el periodo, de todo el ano
   const m = new Map();
   for (const d of docs) {
-    const k = vRut(d) || (d.razon || '').toUpperCase();
+    const ru = vRut(d);
+    const k = ru || (d.razon || '').toUpperCase();
     if (!k) continue;
-    const r = m.get(k) || { nombre: d.razon || k, docs: 0, prendas: 0, neto: 0 };
+    const r = m.get(k) || { rut: ru, nombre: '', docs: 0, prendas: 0, neto: 0, esp: 0, netoEsp: 0 };
     r.docs++; r.prendas += d.prendas || 0; r.neto += d.neto || 0;
-    if (!r.nombre && d.razon) r.nombre = d.razon;
+    if (d.esp) { r.esp++; r.netoEsp += d.neto || 0; }
+    else if (!r.nombre && d.razon) r.nombre = d.razon;
     m.set(k, r);
   }
   const filas = [...m.values()].sort((a, b) => b.neto - a.neto);
-  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(5), '');
+  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(6), '');
   const max = Math.max(...filas.map(r => Math.abs(r.neto)));
   const tn = filas.reduce((a, r) => a + r.neto, 0);
+  const totEsp = filas.reduce((a, r) => a + r.esp, 0);
+  const totNetoEsp = filas.reduce((a, r) => a + r.netoEsp, 0);
   return vTabla(
     '<th>Cliente</th><th class="r">Docs</th><th class="r">Prendas</th><th class="r">Neto</th><th></th>',
-    filas.map(r => `<tr>
-      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${r.nombre || '—'}</td>
+    filas.map(r => {
+      const nom = r.nombre || nombres[r.rut] || nombresTodos[r.rut] || '';
+      const soloEsp = r.esp === r.docs;
+      return `<tr>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis" title="${soloEsp && !nom ? 'Solo tiene facturas especiales, y en esas el nombre no corresponde al RUT' : ''}">${nom || ('RUT ' + (r.rut || '\u2014'))}${r.esp ? vEsp : ''}</td>
       <td class="r td-num">${r.docs}</td>
-      <td class="r td-num">${fmt(r.prendas)}</td>
+      <td class="r td-num">${soloEsp ? '<span class="td-dim" title="Las facturas especiales son cobros, no llevan prendas">\u2014</span>' : fmt(r.prendas)}</td>
       <td class="r td-num" style="color:${r.neto < 0 ? 'var(--wa)' : 'inherit'}">${fmtM(r.neto)}</td>
-      <td style="width:26%">${vBarra(r.neto, max, r.neto < 0)}</td></tr>`).join(''),
-    `${filas.length} clientes · ${fmtCLP(tn)} · promedio ${fmtM(Math.round(tn / filas.length))} por cliente`);
+      <td style="width:26%">${vBarra(r.neto, max, r.neto < 0)}</td></tr>`;
+    }).join(''),
+    `${filas.length} clientes \u00b7 ${fmtCLP(tn)} \u00b7 promedio ${fmtM(Math.round(tn / filas.length))} por cliente`
+    + (totEsp ? ` \u00b7 ${totEsp} factura${totEsp === 1 ? '' : 's'} especial${totEsp === 1 ? '' : 'es'} por ${fmtM(totNetoEsp)}, que son cobros y no llevan prendas` : ''));
 }
 
 function vDetTipos(docs) {
   const m = new Map();
   for (const d of docs) {
-    const k = d.tipo || '—';
+    const k = d.esp ? 'ESPECIAL' : (d.tipo || '—');
     const r = m.get(k) || { docs: 0, prendas: 0, neto: 0, bruto: 0, cli: new Set() };
     r.docs++; r.prendas += d.prendas || 0; r.neto += d.neto || 0; r.bruto += d.bruto || 0;
     const ru = vRut(d);
@@ -1388,11 +1413,12 @@ function vDetTipos(docs) {
   const filas = [...m.entries()].sort((a, b) => b[1].docs - a[1].docs);
   if (!filas.length) return vTabla('<th>Tipo</th>', vVacio(6), '');
   const NOMBRE = { 'F/Elec': 'Factura electrónica', 'FACT': 'Factura', 'Bole': 'Boleta',
-                   'N/cre': 'Nota de crédito', 'Ndeb': 'Nota de débito' };
+                   'N/cre': 'Nota de crédito', 'Ndeb': 'Nota de débito',
+                   'ESPECIAL': 'Factura especial' };
   return vTabla(
     '<th>Documento</th><th class="r">Cantidad</th><th class="r">Prendas</th><th class="r">Clientes</th><th class="r">Neto</th><th class="r">Bruto</th>',
     filas.map(([t, r]) => `<tr>
-      <td style="white-space:nowrap">${NOMBRE[t] || t}</td>
+      <td style="white-space:nowrap">${NOMBRE[t] || t}${t === 'ESPECIAL' ? '<span class="td-dim" style="font-size:10px;margin-left:6px">cobro, sin prendas</span>' : ''}</td>
       <td class="r td-num">${r.docs}</td>
       <td class="r td-num">${fmt(r.prendas)}</td>
       <td class="r td-num">${r.cli.size}</td>
