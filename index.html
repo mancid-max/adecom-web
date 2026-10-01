@@ -394,6 +394,10 @@ body.ia-open #iaBtn{display:none}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Reporte Venta
     </button>
+    <button class="nav-item" data-sec="rep-pedidos" data-ttl="Reporte Pedidos" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Reporte Pedidos
+    </button>
     <button class="nav-item" data-sec="venta-despacho" data-ttl="Venta vs Despacho" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       Venta vs Despacho
@@ -2719,6 +2723,203 @@ function bindProy() {
   aplicar();
 }
 
+/* ── REPORTE PEDIDOS ──────────────────────────────────────────
+   El gemelo de Reporte Venta, pero sobre lo que se PIDIO y no sobre lo que se facturo.
+   Son dos momentos distintos del mismo negocio: un pedido se factura semanas o meses
+   despues, asi que las cifras de las dos secciones no tienen por que calzar.
+
+   Aqui no hay sucursal: un pedido no se toma en una bodega, se toma a un cliente. */
+let PEDIDOS = [];
+let PED_FILTRADO = [];
+
+const pRut = p => String(p.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '');
+const pClientes = ps => new Set(ps.map(pRut).filter(Boolean)).size;
+const pSum = (ps, k) => ps.reduce((a, p) => a + (p[k] || 0), 0);
+
+function pedHoy() {
+  const hoy = today();
+  const dePrimero = PEDIDOS.filter(p => p.fecha_iso === hoy);
+  if (dePrimero.length) return { ps: dePrimero, label: 'Pedidos de Hoy', date: null, fallback: false };
+  const fechas = [...new Set(PEDIDOS.map(p => p.fecha_iso).filter(Boolean))].sort();
+  if (!fechas.length) return { ps: [], label: 'Sin pedidos', date: null, fallback: false };
+  const ult = fechas[fechas.length - 1];
+  const [y, m, d] = ult.split('-');
+  return { ps: PEDIDOS.filter(p => p.fecha_iso === ult), label: `Pedidos del ${d}/${m}/${y}`, date: ult, fallback: true };
+}
+
+/* ── Los detalles que abren las tarjetas ── */
+function pDetDias(ps) {
+  const m = new Map();
+  for (const p of ps) {
+    const k = p.fecha_iso || '';
+    if (!k) continue;
+    const r = m.get(k) || { n: 0, u: 0, v: 0, sal: 0, cli: new Set() };
+    r.n++; r.u += p.unidades || 0; r.v += p.valor || 0; r.sal += p.valor_sal || 0;
+    const ru = pRut(p);
+    if (ru) r.cli.add(ru);
+    m.set(k, r);
+  }
+  const filas = [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  if (!filas.length) return vTabla('<th>Fecha</th>', vVacio(6), '');
+  const max = Math.max(...filas.map(([, r]) => r.v));
+  return vTabla(
+    '<th>Fecha</th><th class="r">Pedidos</th><th class="r">Prendas</th><th class="r" title="Clientes distintos de ese día">Clientes</th><th class="r">Valor</th><th></th>',
+    filas.map(([f, r]) => {
+      const [y, mo, d] = f.split('-');
+      return `<tr>
+        <td style="white-space:nowrap">${d}/${mo}/${y}</td>
+        <td class="r td-num">${r.n}</td>
+        <td class="r td-num">${fmt(r.u)}</td>
+        <td class="r td-num">${r.cli.size}</td>
+        <td class="r td-num">${fmtM(r.v)}</td>
+        <td style="width:26%">${vBarra(r.v, max, false)}</td></tr>`;
+    }).join(''),
+    `${filas.length} día${filas.length === 1 ? '' : 's'} con pedidos · ${fmt(pSum(ps, 'unidades'))} prendas · ${fmtCLP(pSum(ps, 'valor'))} · promedio ${fmtM(Math.round(pSum(ps, 'valor') / filas.length))} por día`);
+}
+
+function pDetClientes(ps) {
+  const m = new Map();
+  for (const p of ps) {
+    const k = pRut(p) || (p.nombre || '').toUpperCase();
+    if (!k) continue;
+    const r = m.get(k) || { nombre: p.nombre || k, ciudad: p.ciudad || '', n: 0, u: 0, v: 0, sal: 0 };
+    r.n++; r.u += p.unidades || 0; r.v += p.valor || 0; r.sal += p.valor_sal || 0;
+    m.set(k, r);
+  }
+  const filas = [...m.values()].sort((a, b) => b.v - a.v);
+  if (!filas.length) return vTabla('<th>Cliente</th>', vVacio(6), '');
+  const max = Math.max(...filas.map(r => r.v));
+  const tv = filas.reduce((a, r) => a + r.v, 0);
+  return vTabla(
+    '<th>Cliente</th><th class="r">Pedidos</th><th class="r">Prendas</th><th class="r">Valor</th><th class="r" title="Valor que todavía no se despacha">Pendiente</th><th></th>',
+    filas.map(r => `<tr>
+      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="${String(r.ciudad || '').replace(/"/g, '&quot;')}">${r.nombre || '—'}</td>
+      <td class="r td-num">${r.n}</td>
+      <td class="r td-num">${fmt(r.u)}</td>
+      <td class="r td-num">${fmtM(r.v)}</td>
+      <td class="r td-num td-dim">${r.sal > 0 ? fmtM(r.sal) : '—'}</td>
+      <td style="width:22%">${vBarra(r.v, max, false)}</td></tr>`).join(''),
+    `${filas.length} clientes · ${fmtCLP(tv)} · promedio ${fmtM(Math.round(tv / filas.length))} por cliente`);
+}
+
+function pDetVendedores(ps) {
+  const m = new Map();
+  for (const p of ps) {
+    const k = p.vendedor || 'Sin vendedor';
+    const r = m.get(k) || { n: 0, u: 0, v: 0, cli: new Set() };
+    r.n++; r.u += p.unidades || 0; r.v += p.valor || 0;
+    const ru = pRut(p);
+    if (ru) r.cli.add(ru);
+    m.set(k, r);
+  }
+  const filas = [...m.entries()].sort((a, b) => b[1].v - a[1].v);
+  if (!filas.length) return vTabla('<th>Vendedor</th>', vVacio(6), '');
+  const max = Math.max(...filas.map(([, r]) => r.v));
+  return vTabla(
+    '<th>Vendedor</th><th class="r">Pedidos</th><th class="r">Prendas</th><th class="r">Clientes</th><th class="r">Valor</th><th></th>',
+    filas.map(([v, r]) => `<tr>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${v}</td>
+      <td class="r td-num">${r.n}</td>
+      <td class="r td-num">${fmt(r.u)}</td>
+      <td class="r td-num">${r.cli.size}</td>
+      <td class="r td-num">${fmtM(r.v)}</td>
+      <td style="width:24%">${vBarra(r.v, max, false)}</td></tr>`).join(''),
+    `${filas.length} vendedor${filas.length === 1 ? '' : 'es'} con pedidos en el período`);
+}
+
+function pDetPendiente(ps) {
+  const con = ps.filter(p => (p.valor_sal || 0) > 0).sort((a, b) => (b.valor_sal || 0) - (a.valor_sal || 0));
+  if (!con.length) return vTabla('<th>Pedido</th>', '<tr><td colspan="6" class="td-dim" style="text-align:center;padding:18px">No queda nada por despachar en este período</td></tr>', '');
+  const max = Math.max(...con.map(p => p.valor_sal || 0));
+  return vTabla(
+    '<th>Pedido</th><th>Cliente</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Unidades que faltan">Falta</th><th class="r">Valor pendiente</th>',
+    con.map(p => {
+      const av = p.unidades ? Math.round((p.despacho || 0) / p.unidades * 100) : 0;
+      return `<tr>
+        <td class="td-dim" style="white-space:nowrap">${p.pedido || '—'}</td>
+        <td style="max-width:190px;overflow:hidden;text-overflow:ellipsis">${p.nombre || '—'}</td>
+        <td class="r td-num">${fmt(p.unidades || 0)}</td>
+        <td class="r td-num td-dim">${fmt(p.despacho || 0)} <span style="font-size:10px">(${av}%)</span></td>
+        <td class="r td-num" style="color:var(--wa)">${fmt(p.saldo || 0)}</td>
+        <td class="r td-num">${fmtM(p.valor_sal || 0)}</td></tr>`;
+    }).join(''),
+    `${con.length} pedido${con.length === 1 ? '' : 's'} con saldo · ${fmt(pSum(con, 'saldo'))} prendas por despachar · ${fmtCLP(pSum(con, 'valor_sal'))}`);
+}
+
+function buildPedTabla(ps) {
+  if (!ps.length) return '<tr><td colspan="6" class="td-dim" style="text-align:center;padding:24px">Sin pedidos en el período</td></tr>';
+  return ps.map(p => {
+    const av = p.unidades ? Math.round((p.despacho || 0) / p.unidades * 100) : 0;
+    const cls = av >= 100 ? 'd-up' : av > 0 ? 'd-nu' : 'd-dn';
+    return `<tr>
+      <td class="td-code">${p.pedido || '—'}</td>
+      <td class="td-dim" style="white-space:nowrap">${p.fecha || '—'}</td>
+      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="${String(p.ciudad || '').replace(/"/g, '&quot;')} · ${String(p.vendedor || '').replace(/"/g, '&quot;')}">${p.nombre || '—'}</td>
+      <td class="r td-num">${fmt(p.unidades || 0)}</td>
+      <td class="r td-num">${fmtM(p.valor || 0)}</td>
+      <td class="r"><span class="kpi-delta ${cls}" style="margin:0;padding:1px 6px;font-size:10px">${av}% despachado</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function secRepPedidos() {
+  const ps = await load('pedidos.json');
+  const ICO = '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>';
+  if (!ps.length) return makePH(ICO, 'Reporte Pedidos', 'Sin datos disponibles');
+  PEDIDOS = ps;
+
+  const { ps: hoyPs, label: initLabel, date: initDate, fallback: initFallback } = pedHoy();
+  PED_FILTRADO = hoyPs;
+  const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  const tarjeta = (det, ico, cls, id, val, lbl, titulo) => `
+    <div class="kpi" data-pdet="${det}" title="${titulo}">
+      <div class="kpi-ico ${cls}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ico}</svg></div>
+      <div style="min-width:0"><div class="kpi-val" id="${id}">${val}</div><div class="kpi-lbl">${lbl}</div></div>
+    </div>`;
+
+  return `
+  <div class="fbar" style="flex-wrap:wrap;gap:8px">
+    <span class="flbl">Período</span>
+    <div class="segs" id="pedSegs">
+      <button class="seg ${initFallback ? '' : 'on'}" data-pp="hoy">Hoy</button>
+      <button class="seg" data-pp="semana">Esta semana</button>
+      <button class="seg" data-pp="mes">Este mes</button>
+      <button class="seg" data-pp="todo">Todo 2026</button>
+    </div>
+    <span class="flbl" style="margin-left:4px">Mes</span>
+    <select id="pedMes" class="finput" style="padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px">
+      <option value="">—</option>
+      ${MES.slice(1).map((n, i) => `<option value="2026-${String(i + 1).padStart(2, '0')}">${n}</option>`).join('')}
+    </select>
+    <span class="flbl" style="margin-left:4px">Día</span>
+    <input type="date" id="pedFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px" value="${initDate || ''}">
+    <span class="td-dim" style="font-size:11px;margin-left:auto;max-width:300px">Lo que se <b>pidió</b>, no lo que se facturó. Un pedido se factura después, así que no calza con Reporte Venta.</span>
+  </div>
+
+  <div class="kpi-grid">
+    ${tarjeta('vendedores', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', 'c-ac', 'pkNum', hoyPs.length, 'Pedidos', 'Ver el detalle por vendedor')}
+    ${tarjeta('dias', '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>', 'c-ok', 'pkUds', fmt(pSum(hoyPs, 'unidades')), 'Prendas', 'Ver el detalle día a día')}
+    ${tarjeta('clientes', '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>', 'c-ac', 'pkCli', pClientes(hoyPs), 'Clientes', 'Ver el detalle por cliente')}
+    ${tarjeta('dias', '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 'c-wa', 'pkVal', fmtM(pSum(hoyPs, 'valor')), 'Valor pedido', 'Ver el detalle día a día')}
+    ${tarjeta('pendiente', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'c-er', 'pkSal', fmtM(pSum(hoyPs, 'valor_sal')), 'Por despachar', 'Ver qué pedidos tienen saldo')}
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div class="card-ttl" style="margin:0" id="pTblTtl">${initLabel}</div>
+      <button class="seg" id="pedPrint" style="margin-left:auto;border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th class="r">Prendas</th><th class="r">Valor</th><th class="r">Avance</th></tr></thead>
+        <tbody id="pedBody">${buildPedTabla(hoyPs)}</tbody>
+      </table>
+      <div class="tbl-foot" id="pedFoot">${hoyPs.length} pedidos · ${fmt(pSum(hoyPs, 'unidades'))} prendas · ${fmtCLP(pSum(hoyPs, 'valor'))}</div>
+    </div>
+  </div>`;
+}
+
 /* ── ROUTER ─────────────────────────────────────────────────── */
 const SECS = {
   'resumen':        () => Promise.resolve(secResumen()),
@@ -2730,6 +2931,7 @@ const SECS = {
   'cajas':          () => secCajas(),
   'tabla':          () => secTabla(),
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
+  'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
   'clientes':       () => secClientes(),
   'proyecciones':   () => secProy(),
@@ -3762,6 +3964,107 @@ function bindContent(secId) {
                    landscape: false });
     });
     applyEr();
+  }
+
+  // Reporte Pedidos — mismo juego de filtros que Reporte Venta, pero sobre lo pedido
+  if (secId === 'rep-pedidos') {
+    const PDET = {
+      dias:       ['Día a día',            pDetDias],
+      clientes:   ['Clientes del período', pDetClientes],
+      vendedores: ['Por vendedor',         pDetVendedores],
+      pendiente:  ['Lo que falta despachar', pDetPendiente],
+    };
+
+    function aplicarPed(ps, label) {
+      PED_FILTRADO = ps;
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      set('pkNum', ps.length);
+      set('pkUds', fmt(pSum(ps, 'unidades')));
+      set('pkCli', pClientes(ps));
+      for (const [id, k] of [['pkVal', 'valor'], ['pkSal', 'valor_sal']]) {
+        const e = document.getElementById(id);
+        if (!e) continue;
+        const v = pSum(ps, k);
+        e.textContent = fmtM(v);
+        e.style.fontSize = Math.abs(v) >= 1e6 ? '20px' : '26px';
+      }
+      set('pTblTtl', label);
+      const TOPE = 200;   // la tabla lista los mas recientes; las tarjetas suman todo el periodo
+      const orden = ps.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
+      document.getElementById('pedBody').innerHTML = buildPedTabla(orden.slice(0, TOPE));
+      const base = `${ps.length} pedidos · ${fmt(pSum(ps, 'unidades'))} prendas · ${fmtCLP(pSum(ps, 'valor'))}`;
+      set('pedFoot', ps.length > TOPE
+        ? `${base} — se listan los ${TOPE} más recientes; las tarjetas suman todo el período`
+        : base);
+    }
+
+    document.querySelectorAll('#pedSegs .seg').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#pedSegs .seg').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        const f = document.getElementById('pedFecha'); if (f) f.value = '';
+        const m = document.getElementById('pedMes');   if (m) m.value = '';
+        const p = btn.dataset.pp, hoy = today();
+        let ps, label;
+        if (p === 'hoy') {
+          const h = pedHoy(); ps = h.ps; label = h.label;
+        } else if (p === 'semana') {
+          const lunes = new Date();
+          lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));   // domingo daba el lunes siguiente
+          const desde = ymd(lunes);
+          ps = PEDIDOS.filter(x => x.fecha_iso >= desde && x.fecha_iso <= hoy);
+          label = 'Pedidos de Esta Semana';
+        } else if (p === 'mes') {
+          const mes = hoy.slice(0, 7);
+          ps = PEDIDOS.filter(x => x.fecha_iso?.startsWith(mes));
+          label = 'Pedidos de Este Mes';
+        } else {
+          ps = PEDIDOS.filter(x => (x.fecha_iso || '').startsWith('2026'));
+          label = 'Todos los Pedidos 2026';
+        }
+        aplicarPed(ps, label);
+      });
+    });
+
+    document.getElementById('pedFecha')?.addEventListener('change', function () {
+      if (!this.value) return;
+      document.querySelectorAll('#pedSegs .seg').forEach(b => b.classList.remove('on'));
+      const m = document.getElementById('pedMes'); if (m) m.value = '';
+      const [y, mo, d] = this.value.split('-');
+      aplicarPed(PEDIDOS.filter(x => x.fecha_iso === this.value), `Pedidos del ${d}/${mo}/${y}`);
+    });
+
+    document.getElementById('pedMes')?.addEventListener('change', function () {
+      if (!this.value) return;
+      document.querySelectorAll('#pedSegs .seg').forEach(b => b.classList.remove('on'));
+      const f = document.getElementById('pedFecha'); if (f) f.value = '';
+      const nombres = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      aplicarPed(PEDIDOS.filter(x => x.fecha_iso?.startsWith(this.value)),
+                 `Pedidos de ${nombres[parseInt(this.value.split('-')[1])]} ${this.value.split('-')[0]}`);
+    });
+
+    // Las tarjetas abren su detalle en la misma ventana que usa Reporte Venta
+    const pOv = document.getElementById('vkOv');
+    document.querySelectorAll('.kpi[data-pdet]').forEach(c => {
+      c.style.cursor = 'pointer';
+      c.addEventListener('click', () => {
+        const [ttl, armar] = PDET[c.dataset.pdet] || [];
+        if (!armar) return;
+        document.getElementById('vkOvTtl').textContent = `${ttl} · Pedidos`;
+        document.getElementById('vkOvBody').innerHTML =
+          `<div class="td-dim" style="font-size:12px;padding:10px 16px 0">${document.getElementById('pTblTtl')?.textContent || ''}</div>`
+          + armar(PED_FILTRADO);
+        pOv.classList.add('open');
+      });
+    });
+    document.getElementById('vkOvClose')?.addEventListener('click', () => pOv.classList.remove('open'));
+    pOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+
+    document.getElementById('pedPrint')?.addEventListener('click', () => {
+      printTable({ table: document.getElementById('pedBody')?.closest('table'),
+                   title: 'Reporte Pedidos',
+                   subtitle: document.getElementById('pTblTtl')?.textContent || '' });
+    });
   }
 
   // Proyecciones — al cambiar el año o la meta se rehace todo el cuerpo
