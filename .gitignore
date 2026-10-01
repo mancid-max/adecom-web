@@ -1,0 +1,28 @@
+# ──────────────────────────────────────────────────────────────
+# Este repositorio es PUBLICO y solo contiene el sitio:
+#   index.html  +  img/art/  (fotos de producto)  +  galeria.json
+#
+# Los datos del negocio NO van aqui. Viven en el bucket privado de
+# Supabase y el dashboard los pide con login. Por eso se bloquea de
+# entrada todo formato de datos: si algo hace falta, se agrega a mano
+# y con intencion, nunca por arrastre.
+# ──────────────────────────────────────────────────────────────
+*.csv
+*.txt
+*.xlsx
+*.xls
+*.db
+*.sql
+*.json
+*.env
+*.key
+*.pem
+
+# La unica excepcion: el indice de cuantas fotos tiene cada articulo
+!img/art/galeria.json
+
+# Nunca, bajo ningun nombre
+*config*.json
+*secret*
+*credential*
+.env*
