@@ -3462,6 +3462,10 @@ function cybBase(sb, bsale, peds) {
     const k = kn[r.art];
     if (k) { r.kn = k.cant || 0; r.knTallas = k.tallas || {}; }
     r.total = r.sg + r.kn;
+    // Lo que no se puede ofrecer son prendas que EXISTEN y estan tomadas. Sumar el
+    // pedido entero contaba compromisos de articulos sin stock: daba 32.527 cuando lo
+    // fisico eran 11.419. Es la diferencia entre lo que hay y lo que queda libre.
+    r.sgBloq = Math.max(0, r.sgFisico - r.sg);
     r.p90 = p90[r.art] || 0;
     r.p180 = p180[r.art] || 0;
     r.meses = r.p90 > 0 ? r.total / (r.p90 / 3) : null;
@@ -3495,6 +3499,68 @@ function buildCybTable(rows) {
     <td><span class="kpi-delta ${r.prio.cls}" style="margin:0;padding:1px 6px;font-size:10px" title="${r.prio.tip}">${r.prio.txt}</span></td>
     <td class="td-dim" style="font-size:11px;white-space:nowrap">${cybTallas({ ...r.sgTallas, ...r.knTallas }).map(([t]) => t).join(' · ') || '—'}</td>
   </tr>`).join('');
+}
+
+/* Detalle de cada tarjeta, siempre sobre lo que se esta viendo */
+function cybDetTemporadas(rows) {
+  const m = new Map();
+  for (const r of rows) {
+    const x = m.get(r.temp) || { arts: 0, sg: 0, kn: 0, total: 0, parado: 0 };
+    x.arts++; x.sg += r.sg; x.kn += r.kn; x.total += r.total;
+    if (r.prio.k === 'parado') x.parado += r.total;
+    m.set(r.temp, x);
+  }
+  const filas = [...m.entries()].sort((a, b) => b[1].total - a[1].total);
+  if (!filas.length) return vTabla('<th>Temp</th>', vVacio(6), '');
+  const max = Math.max(...filas.map(([, x]) => x.total));
+  return vTabla(
+    '<th>Temporada</th><th class="r">Artículos</th><th class="r">S. Gerardo</th><th class="r">Kennedy</th><th class="r">Total</th><th class="r" title="De ese total, lo que nadie pide hace 180 días">Parado</th><th></th>',
+    filas.map(([t, x]) => `<tr>
+      <td><span class="badge ${tcFor(t).cls}">T${t}</span></td>
+      <td class="r td-num td-dim">${x.arts}</td>
+      <td class="r td-num">${x.sg ? fmt(x.sg) : '—'}</td>
+      <td class="r td-num">${x.kn ? fmt(x.kn) : '—'}</td>
+      <td class="r td-num" style="font-weight:700">${fmt(x.total)}</td>
+      <td class="r td-num" style="color:${x.parado ? 'var(--wa)' : 'var(--tx3)'}">${x.parado ? fmt(x.parado) : '—'}</td>
+      <td style="width:24%">${vBarra(x.total, max, false)}</td></tr>`).join(''),
+    `${filas.length} temporadas · ${fmt(filas.reduce((a, [, x]) => a + x.total, 0))} prendas`);
+}
+
+function cybDetArticulos(rows, campo, titulo) {
+  const filas = rows.filter(r => r[campo] > 0).sort((a, b) => b[campo] - a[campo]);
+  if (!filas.length) return vTabla('<th>Artículo</th>', vVacio(5), '');
+  const max = filas[0][campo];
+  return vTabla(
+    `<th>Artículo</th><th>Temp</th><th>Bota</th><th class="r">${titulo}</th><th>Rotación</th><th></th>`,
+    filas.map(r => `<tr>
+      <td class="td-code">${r.art}</td>
+      <td><span class="badge ${tcFor(r.temp).cls}">T${r.temp}</span></td>
+      <td class="td-dim">${r.bota || '—'}</td>
+      <td class="r td-num">${fmt(r[campo])}</td>
+      <td><span class="kpi-delta ${r.prio.cls}" style="margin:0;padding:1px 6px;font-size:10px">${r.prio.txt}</span></td>
+      <td style="width:24%">${vBarra(r[campo], max, false)}</td></tr>`).join(''),
+    `${filas.length} artículos · ${fmt(filas.reduce((a, r) => a + r[campo], 0))} prendas`);
+}
+
+function cybDetBloqueado(rows) {
+  const filas = rows.filter(r => r.sgBloq > 0).sort((a, b) => b.sgBloq - a.sgBloq);
+  if (!filas.length) return '<div class="td-dim" style="padding:18px 16px">No hay nada bloqueado: todo el stock de San Gerardo se puede ofrecer</div>';
+  const max = filas[0].sgBloq;
+  const caja = filas.reduce((a, r) => a + Math.min(r.sgCaja, r.sgBloq), 0);
+  return `<div class="td-dim" style="font-size:12px;padding:10px 16px 0">
+      Prendas que están en San Gerardo pero no se pueden ofrecer: ya están embaladas en una caja o un cliente las tiene pedidas.
+      No se cuentan los pedidos de artículos sin stock, porque ahí no hay nada que bloquear.</div>`
+    + vTabla(
+      '<th>Artículo</th><th>Temp</th><th class="r">Físico</th><th class="r" title="En cajas armadas">Embalado</th><th class="r" title="Pedido por un cliente">Con dueño</th><th class="r">Libre</th><th></th>',
+      filas.map(r => `<tr>
+        <td class="td-code">${r.art}</td>
+        <td><span class="badge ${tcFor(r.temp).cls}">T${r.temp}</span></td>
+        <td class="r td-num td-dim">${fmt(r.sgFisico)}</td>
+        <td class="r td-num">${r.sgCaja ? fmt(r.sgCaja) : '—'}</td>
+        <td class="r td-num" style="color:var(--wa)">${fmt(Math.max(0, r.sgBloq - r.sgCaja))}</td>
+        <td class="r td-num" style="color:${r.sg ? 'var(--ok)' : 'var(--tx3)'}">${r.sg ? fmt(r.sg) : '—'}</td>
+        <td style="width:22%">${vBarra(r.sgBloq, max, true)}</td></tr>`).join(''),
+      `${filas.length} artículos · ${fmt(filas.reduce((a, r) => a + r.sgBloq, 0))} prendas retenidas, de las cuales ${fmt(caja)} ya están embaladas`);
 }
 
 function cybDetalle(r) {
@@ -3534,7 +3600,11 @@ async function secCyber() {
   CYB = cybBase(sb, (bsale && !Array.isArray(bsale)) ? bsale : null, peds);
   if (!CYB.length) return makePH(ICO, 'Inventario para ofrecer', 'Sin stock disponible');
 
-  const temps = [...new Set(CYB.map(r => r.temp).filter(Boolean))].sort((a, b) => +b - +a);
+  // Por prendas y no por numero: hay 46 temporadas y las utiles (T44, T42, T43, T40)
+  // quedaban escondidas detras del scroll, con T99 y T98 adelante por 1 prenda cada una.
+  const uxt = {};
+  for (const r of CYB) uxt[r.temp] = (uxt[r.temp] || 0) + r.total;
+  const temps = Object.keys(uxt).filter(Boolean).sort((a, b) => uxt[b] - uxt[a]);
   const botas = [...new Set(CYB.map(r => r.bota).filter(Boolean))].sort();
   const tot = k => CYB.reduce((a, r) => a + r[k], 0);
   const fecha = ((bsale && bsale.meta) || {}).fecha || '';
@@ -3557,7 +3627,7 @@ async function secCyber() {
     <span class="flbl" style="margin-left:4px">Temp</span>
     <div class="segs" id="cybTempSegs" style="overflow-x:auto;flex-wrap:nowrap;max-width:46vw">
       <button class="seg on" data-t="todo">Todas</button>
-      ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
+      ${temps.map(t => `<button class="seg" data-t="${t}" title="${fmt(uxt[t])} prendas para ofrecer">T${t}</button>`).join('')}
     </div>
     <select id="cybBota" class="finput" style="width:150px">
       <option value="">Todas las botas</option>
@@ -3567,24 +3637,24 @@ async function secCyber() {
   </div>
 
   <div class="kpi-grid">
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-cdet="temporadas" title="Ver el desglose por temporada">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ICO}</svg></div>
       <div style="min-width:0"><div class="kpi-val" id="cybKTot">${fmt(tot('total'))}</div><div class="kpi-lbl">Para ofrecer</div>
         <div class="kpi-delta d-nu" id="cybKArts">${CYB.length} artículos</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-cdet="sg" title="Ver los artículos con más stock libre">
       <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/></svg></div>
       <div style="min-width:0"><div class="kpi-val" id="cybKSg">${fmt(tot('sg'))}</div><div class="kpi-lbl">San Gerardo libre</div>
         <div class="kpi-delta d-nu" title="Stock físico menos lo embalado y lo que ya tiene dueño">de ${fmt(CYB.reduce((a, r) => a + r.sgFisico, 0))} físicas</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-cdet="kn" title="Ver los artículos de la tienda">
       <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
       <div style="min-width:0"><div class="kpi-val" id="cybKKn">${fmt(tot('kn'))}</div><div class="kpi-lbl">Tienda Kennedy</div>
         <div class="kpi-delta d-nu">${fecha ? 'al ' + fecha : 'stock de tienda'}</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-cdet="bloq" title="Ver por qué no se pueden ofrecer">
       <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-      <div style="min-width:0"><div class="kpi-val" style="font-size:20px">${fmt(CYB.reduce((a, r) => a + r.sgCaja + r.sgProm, 0))}</div><div class="kpi-lbl">No se puede ofrecer</div>
+      <div style="min-width:0"><div class="kpi-val" id="cybKBloq" style="font-size:20px">${fmt(CYB.reduce((a, r) => a + r.sgBloq, 0))}</div><div class="kpi-lbl">No se puede ofrecer</div>
         <div class="kpi-delta d-nu" title="Prendas de San Gerardo que ya están embaladas o comprometidas en pedidos">embaladas o con dueño</div></div>
     </div>
   </div>
@@ -4713,6 +4783,7 @@ function bindContent(secId) {
     }));
     const tbody = document.getElementById('cybBody');
     let _vis = FILAS.slice();
+    let _visCyb = CYB.slice();   // los articulos que se estan viendo, para los detalles
 
     function pintar(lista) {
       if (lista.length === _vis.length && lista.every((f, i) => f === _vis[i])) return;
@@ -4746,6 +4817,8 @@ function bindContent(secId) {
       set('cybKArts', `${pasan.length} artículos`);
       set('cybKSg', fmt(sg));
       set('cybKKn', fmt(kn));
+      set('cybKBloq', fmt(pasan.reduce((a, f) => a + (CYB[+f.el.dataset.i]?.sgBloq || 0), 0)));
+      _visCyb = pasan.map(f => CYB[+f.el.dataset.i]).filter(Boolean);
       set('cybCount', `${pasan.length} artículos`);
       const parados = pasan.filter(f => f.prio === 'parado');
       set('cybFoot', `${pasan.length} artículos · ${fmt(tot)} prendas para ofrecer`
@@ -4762,6 +4835,23 @@ function bindContent(secId) {
     let _cybDeb = 0;
     document.getElementById('cybSearch')?.addEventListener('input', () => {
       clearTimeout(_cybDeb); _cybDeb = setTimeout(aplicarCyb, 180);
+    });
+
+    const CDET = {
+      temporadas: ['Por temporada',            () => cybDetTemporadas(_visCyb)],
+      sg:         ['San Gerardo libre',        () => cybDetArticulos(_visCyb, 'sg', 'Libre')],
+      kn:         ['Tienda Kennedy',           () => cybDetArticulos(_visCyb, 'kn', 'En tienda')],
+      bloq:       ['Lo que no se puede ofrecer', () => cybDetBloqueado(_visCyb)],
+    };
+    document.querySelectorAll('.kpi[data-cdet]').forEach(c => {
+      c.style.cursor = 'pointer';
+      c.addEventListener('click', () => {
+        const [ttl, armar] = CDET[c.dataset.cdet] || [];
+        if (!armar) return;
+        document.getElementById('vkOvTtl').textContent = ttl;
+        document.getElementById('vkOvBody').innerHTML = armar();
+        document.getElementById('vkOv').classList.add('open');
+      });
     });
 
     document.querySelectorAll('#cybBody tr.cyb-row').forEach(row => row.addEventListener('click', () => {
