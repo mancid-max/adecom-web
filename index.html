@@ -3510,8 +3510,8 @@ function buildCybTable(rows) {
     <td class="r td-num">${r.sg ? fmt(r.sg) : '<span class="td-dim">—</span>'}</td>
     <td class="r td-num">${r.kn ? fmt(r.kn) : '<span class="td-dim">—</span>'}</td>
     <td class="r td-num" style="font-weight:700">${fmt(r.total)}</td>
-    <td class="r td-num td-dim" title="Unidades pedidas en los últimos 90 días">${r.p90 ? fmt(r.p90) : '—'}</td>
-    <td class="r td-dim" title="${r.meses == null ? 'Nadie lo pidió en 90 días' : 'Al ritmo de los últimos 90 días'}">${r.meses == null ? '—' : (r.meses > 24 ? '+24' : Math.round(r.meses)) + ' m'}</td>
+    <td class="r td-num td-dim" title="${r.p90 ? 'Los clientes pidieron ' + fmt(r.p90) + ' unidades de este artículo en los últimos 90 días' : 'Nadie pidió este artículo en los últimos 90 días'}">${r.p90 ? fmt(r.p90) : '—'}</td>
+    <td class="r td-dim" title="${r.meses == null ? 'No se puede calcular: nadie lo pidió en 90 días' : 'Las ' + fmt(r.total) + ' disponibles durarían ' + (r.meses > 24 ? 'más de 24' : Math.round(r.meses)) + ' mes(es) al ritmo de los últimos 90 días'}">${r.meses == null ? '—' : (r.meses > 24 ? '+24' : Math.round(r.meses)) + ' m'}</td>
     <td><span class="kpi-delta ${r.prio.cls}" style="margin:0;padding:1px 6px;font-size:10px" title="${r.prio.tip}">${r.prio.txt}</span></td>
     <td class="td-dim" style="font-size:11px;white-space:nowrap">${cybTallas({ ...r.sgTallas, ...r.knTallas }).map(([t]) => t).join(' · ') || '—'}</td>
   </tr>`).join('');
@@ -3678,7 +3678,7 @@ async function secCyber() {
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div><div class="card-ttl" style="margin:0">Lo que se puede ofrecer</div>
-        <div class="card-sub" style="margin:2px 0 0">San Gerardo descuenta lo embalado y lo que ya tiene dueño. Kennedy va entero: es stock de tienda. Toca un artículo para ver las tallas</div></div>
+        <div class="card-sub" style="margin:2px 0 0">San Gerardo descuenta lo embalado y lo que ya tiene dueño. Kennedy va entero: es stock de tienda. "Se pidieron 90d" es cuánto encargaron los clientes en ese plazo, el termómetro de si se mueve. Toca un artículo para ver las tallas</div></div>
       <span class="td-dim" style="margin-left:auto" id="cybCount"></span>
       <button class="seg" id="cybExcel" style="border:1px solid var(--bd2)" title="Baja lo que estás viendo, con el detalle por talla">⬇ Descargar Excel</button>
       <button class="seg" id="cybPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
@@ -3690,9 +3690,9 @@ async function secCyber() {
           <th class="r" title="Libre en San Gerardo">S. Gerardo</th>
           <th class="r" title="Stock de la tienda Kennedy">Kennedy</th>
           <th class="r">Total</th>
-          <th class="r" title="Unidades pedidas en los últimos 90 días">Pedido 90d</th>
-          <th class="r" title="Cuánto tardaría en salir al ritmo de los últimos 90 días">Meses</th>
-          <th title="Qué conviene ofrecer">Rotación</th><th>Tallas</th>
+          <th class="r" title="Cuántas unidades de este artículo pidieron los clientes en los últimos 90 días. Es el termómetro: mide si se está moviendo, no es nada pendiente de despachar">Se pidieron 90d</th>
+          <th class="r" title="Cuánto duraría lo disponible si se sigue pidiendo al mismo ritmo que en los últimos 90 días">Dura</th>
+          <th title="Qué conviene ofrecer, según cuánto se pide">Rotación</th><th>Tallas</th>
         </tr></thead>
         <tbody id="cybBody">${buildCybTable(CYB)}</tbody>
       </table>
@@ -4896,7 +4896,7 @@ function bindContent(secId) {
         .sort(cybOrdenTalla);
       const PRIO = { parado: 'Parado', lento: 'Lento', mueve: 'Se mueve' };
       const enc = ['Artículo', 'Temporada', 'Modelo', 'Color', 'Bota', 'San Gerardo libre', 'Tienda Kennedy',
-                   'Total para ofrecer', 'Pedido 90 días', 'Pedido 180 días', 'Meses de stock', 'Rotación',
+                   'Total para ofrecer', 'Se pidieron en 90 días', 'Se pidieron en 180 días', 'Meses que duraría', 'Rotación',
                    'S.Gerardo físico', 'Embalado', 'Comprometido',
                    ...tallas.map(t => 'Talla ' + (t === '00' ? 'única' : t))];
       const datos = [enc];
