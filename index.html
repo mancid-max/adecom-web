@@ -2886,24 +2886,55 @@ function pDetPendiente(ps) {
         : ' \u2014 ninguno trabado por el cliente: lo que falta es producto'));
 }
 
-/* Comparativo contra el mismo periodo del ano anterior. Se compara el MISMO tramo del
-   calendario corrido un ano, no el ano entero: si no, un periodo de nueve meses quedaria
-   contra uno de doce y todo apareceria cayendo. Para eso cada filtro entrega su rango. */
+/* Comparativo contra el ano anterior. Se compara el MISMO tramo del calendario, no el ano
+   entero: si no, nueve meses quedarian contra doce y todo apareceria cayendo.
+
+   Como se corre ese tramo depende de su largo:
+   - Hasta dos semanas se restan 364 dias (52 semanas justas), que CONSERVA el dia de la
+     semana. Correr un ano de calendario dejaba el lunes 28-09-2026 contra el domingo
+     28-09-2025, y en domingo no se toman pedidos: salia vacio y no decia nada.
+   - De ahi para arriba se corre un ano de calendario, que es lo correcto para un mes o
+     para el ano completo.
+
+   Y si aun asi el tramo quedo sin pedidos, se ofrece el mismo MES del ano anterior como
+   referencia, diciendo claramente que no es el mismo tramo. */
 const pAnoAntes = f => f ? (Number(f.slice(0, 4)) - 1) + f.slice(4) : '';
 const pEnRango = (ps, desde, hasta) => ps.filter(p => p.fecha_iso >= desde && p.fecha_iso <= hasta);
+const pDias = (desde, hasta) =>
+  Math.round((Date.parse(hasta + 'T00:00:00') - Date.parse(desde + 'T00:00:00')) / 86400000) + 1;
+const pMenos364 = f => {
+  const d = new Date(f + 'T00:00:00');
+  d.setDate(d.getDate() - 364);
+  return ymd(d);
+};
 
 function pComparativo(ps, rango) {
   if (!rango || !rango.desde) return '';
-  const desde = pAnoAntes(rango.desde), hasta = pAnoAntes(rango.hasta);
-  const ant = pEnRango(PEDIDOS, desde, hasta);
+  const corto = pDias(rango.desde, rango.hasta) <= 14;
+  const correr = corto ? pMenos364 : pAnoAntes;
+  let desde = correr(rango.desde), hasta = correr(rango.hasta);
+  let ant = pEnRango(PEDIDOS, desde, hasta);
   const anoAnt = desde.slice(0, 4), anoAct = rango.desde.slice(0, 4);
   const dd = f => { const [y, m, d] = f.split('-'); return `${d}/${m}/${y}`; };
-  const tramo = desde === hasta ? dd(desde) : `${dd(desde)} al ${dd(hasta)}`;
+  const MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  let tramo = desde === hasta ? dd(desde) : `${dd(desde)} al ${dd(hasta)}`;
+  let aviso = corto ? `${tramo} \u00b7 las mismas 52 semanas atr\u00e1s, para que caiga en el mismo d\u00eda de la semana` : tramo;
+
+  // Tramo vacio: se ofrece el mes completo del ano anterior, dicho con todas sus letras
+  let esMes = false;
+  if (!ant.length) {
+    const mes = desde.slice(0, 7);
+    const delMes = PEDIDOS.filter(p => (p.fecha_iso || '').startsWith(mes));
+    if (delMes.length) {
+      ant = delMes; esMes = true;
+      aviso = `En ${tramo} no hubo pedidos, as\u00ed que se muestra todo ${MES[+mes.slice(5, 7)]} de ${anoAnt} como referencia`;
+    }
+  }
 
   if (!ant.length) return `
   <div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Contra ${anoAnt}</div></div>
-    <div class="tbl-foot" style="border-top:0">En el mismo tramo de ${anoAnt} (${tramo}) no hay pedidos con que comparar</div>
+    <div class="tbl-foot" style="border-top:0">En ${tramo} no hay pedidos con que comparar, ni en el resto de ese mes</div>
   </div>`;
 
   const pct = (a, b) => !b ? null : (a / b - 1) * 100;
@@ -2920,13 +2951,15 @@ function pComparativo(ps, rango) {
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div><div class="card-ttl" style="margin:0">Contra ${anoAnt}</div>
-        <div class="card-sub" style="margin:2px 0 0">El mismo tramo del calendario un año antes: ${tramo}</div></div>
+        <div class="card-sub" style="margin:2px 0 0">${aviso}</div></div>
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th></th><th class="r">${anoAct}</th><th class="r">${anoAnt}</th><th class="r">Var</th><th></th></tr></thead>
+        <thead><tr><th></th><th class="r">${anoAct}</th><th class="r">${anoAnt}${esMes ? ' (mes)' : ''}</th><th class="r">Var</th><th></th></tr></thead>
         <tbody>${lineas.map(([lbl, a, b, f]) => {
-          const v = pct(a, b);
+          // Si lo de abajo es el mes entero y arriba hay una semana, el porcentaje seria
+          // una comparacion falsa: se muestra la cifra de referencia, no una variacion.
+          const v = esMes ? null : pct(a, b);
           return `<tr>
             <td>${lbl}</td>
             <td class="r td-num">${f(a)}</td>
@@ -2939,7 +2972,7 @@ function pComparativo(ps, rango) {
               </div>
             </td></tr>`;
         }).join('')}</tbody>
-        <tfoot><tr><td colspan="5" class="td-dim" style="font-size:11px">Barra de arriba ${anoAct}, barra de abajo ${anoAnt}</td></tr></tfoot>
+        <tfoot><tr><td colspan="5" class="td-dim" style="font-size:11px">Barra de arriba ${anoAct}, barra de abajo ${anoAnt}${esMes ? ' · sin porcentaje: no se puede comparar un tramo con un mes entero, la cifra va solo de referencia' : ''}</td></tr></tfoot>
       </table>
     </div>
   </div>`;
