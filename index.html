@@ -4101,10 +4101,12 @@ async function init(role) {
   _appLista = true;
   const esBodega = role === 'bodega';
 
-  // Cargar datos base en paralelo + meta para timestamp real del build
+  // Cargar datos base en paralelo + meta para timestamp real del build.
+  // Bodega no pide los documentos de venta: no ve ninguna seccion que los use y el
+  // permiso del bucket ya no se los entrega, asi que pedirlos seria un viaje perdido.
   const [pa, dv, meta] = await Promise.all([
     load('pedidos_art.json'),
-    load('docs_venta.json'),
+    esBodega ? Promise.resolve([]) : load('docs_venta.json'),
     load('meta.json').catch(() => null),
   ]);
   PEDS_ART = pa; DOCS = dv;
