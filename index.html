@@ -2743,12 +2743,13 @@ const pSum = (ps, k) => ps.reduce((a, p) => a + (p[k] || 0), 0);
 function pedHoy() {
   const hoy = today();
   const dePrimero = PEDIDOS.filter(p => p.fecha_iso === hoy);
-  if (dePrimero.length) return { ps: dePrimero, label: 'Pedidos de Hoy', date: null, fallback: false };
+  if (dePrimero.length) return { ps: dePrimero, label: 'Pedidos de Hoy', date: null, fallback: false, rango: { desde: hoy, hasta: hoy } };
   const fechas = [...new Set(PEDIDOS.map(p => p.fecha_iso).filter(Boolean))].sort();
-  if (!fechas.length) return { ps: [], label: 'Sin pedidos', date: null, fallback: false };
+  if (!fechas.length) return { ps: [], label: 'Sin pedidos', date: null, fallback: false, rango: null };
   const ult = fechas[fechas.length - 1];
   const [y, m, d] = ult.split('-');
-  return { ps: PEDIDOS.filter(p => p.fecha_iso === ult), label: `Pedidos del ${d}/${m}/${y}`, date: ult, fallback: true };
+  return { ps: PEDIDOS.filter(p => p.fecha_iso === ult), label: `Pedidos del ${d}/${m}/${y}`,
+           date: ult, fallback: true, rango: { desde: ult, hasta: ult } };
 }
 
 /* ── Los detalles que abren las tarjetas ── */
@@ -2831,23 +2832,117 @@ function pDetVendedores(ps) {
     `${filas.length} vendedor${filas.length === 1 ? '' : 'es'} con pedidos en el período`);
 }
 
+/* Por que un pedido no se ha despachado. Se miran las trabas del CLIENTE, que son las
+   que el ERP conoce: el bloqueo de la ficha, el cupo agotado y la deuda.
+
+   Deber no frena por si solo: 242 de los 315 pedidos con saldo son de clientes que deben
+   algo y aun asi tienen cupo. Por eso la deuda se muestra como dato y no como traba, y
+   solo el bloqueo y el cupo agotado se marcan en rojo.
+
+   Cuando no hay ninguna traba comercial, el pedido espera producto. Eso no se afirma
+   desde aqui: para saberlo esta Venta vs Despacho, que cruza el saldo con el stock. */
+function pMotivo(p) {
+  const c = p.cli || {};
+  const deuda = (c.deuda || 0) + (c.cheques || 0);
+  if (p.bloqueo) return { k: 'bloqueado', txt: '\ud83d\udd12 Bloqueado', cls: 'd-dn', deuda,
+                          tip: 'El pedido esta bloqueado en el ERP' };
+  if ((c.credito || 0) > 0 && (c.disponible || 0) <= 0)
+    return { k: 'cupo', txt: 'Sin cupo', cls: 'd-dn', deuda,
+             tip: `Credito ${fmtCLP(c.credito || 0)} y no le queda disponible` };
+  if (deuda > 0) return { k: 'deuda', txt: 'Debe ' + fmtM(deuda), cls: 'd-nu', deuda,
+                          tip: `Debe ${fmtCLP(deuda)} pero todavia tiene cupo: la deuda sola no frena el despacho` };
+  return { k: 'libre', txt: 'Sin traba', cls: 'd-nu', deuda,
+           tip: 'El cliente puede recibir: lo que falta es producto. Revisa Venta vs Despacho' };
+}
+
 function pDetPendiente(ps) {
-  const con = ps.filter(p => (p.valor_sal || 0) > 0).sort((a, b) => (b.valor_sal || 0) - (a.valor_sal || 0));
-  if (!con.length) return vTabla('<th>Pedido</th>', '<tr><td colspan="6" class="td-dim" style="text-align:center;padding:18px">No queda nada por despachar en este período</td></tr>', '');
-  const max = Math.max(...con.map(p => p.valor_sal || 0));
+  const con = ps.filter(p => (p.valor_sal || 0) > 0)
+                .map(p => ({ ...p, mot: pMotivo(p) }))
+                .sort((a, b) => {
+                  // Primero lo que de verdad esta trabado, y dentro de eso lo que mas pesa
+                  const peso = { bloqueado: 0, cupo: 1, deuda: 2, libre: 3 };
+                  return (peso[a.mot.k] - peso[b.mot.k]) || ((b.valor_sal || 0) - (a.valor_sal || 0));
+                });
+  if (!con.length) return vTabla('<th>Pedido</th>', '<tr><td colspan="7" class="td-dim" style="text-align:center;padding:18px">No queda nada por despachar en este per\u00edodo</td></tr>', '');
+  const cuenta = k => con.filter(p => p.mot.k === k).length;
+  const plata = k => con.filter(p => p.mot.k === k).reduce((a, p) => a + (p.valor_sal || 0), 0);
+  const trabados = cuenta('bloqueado') + cuenta('cupo');
   return vTabla(
-    '<th>Pedido</th><th>Cliente</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Unidades que faltan">Falta</th><th class="r">Valor pendiente</th>',
+    '<th>Pedido</th><th>Cliente</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r" title="Unidades que faltan">Falta</th><th class="r">Valor pendiente</th><th title="Por que no se ha despachado">Motivo</th>',
     con.map(p => {
       const av = p.unidades ? Math.round((p.despacho || 0) / p.unidades * 100) : 0;
       return `<tr>
-        <td class="td-dim" style="white-space:nowrap">${p.pedido || '—'}</td>
-        <td style="max-width:190px;overflow:hidden;text-overflow:ellipsis">${p.nombre || '—'}</td>
+        <td class="td-dim" style="white-space:nowrap">${p.pedido || '\u2014'}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${p.nombre || '\u2014'}</td>
         <td class="r td-num">${fmt(p.unidades || 0)}</td>
         <td class="r td-num td-dim">${fmt(p.despacho || 0)} <span style="font-size:10px">(${av}%)</span></td>
         <td class="r td-num" style="color:var(--wa)">${fmt(p.saldo || 0)}</td>
-        <td class="r td-num">${fmtM(p.valor_sal || 0)}</td></tr>`;
+        <td class="r td-num">${fmtM(p.valor_sal || 0)}</td>
+        <td style="white-space:nowrap"><span class="kpi-delta ${p.mot.cls}" style="margin:0;padding:1px 6px;font-size:10px" title="${p.mot.tip.replace(/"/g, '&quot;')}">${p.mot.txt}</span></td></tr>`;
     }).join(''),
-    `${con.length} pedido${con.length === 1 ? '' : 's'} con saldo · ${fmt(pSum(con, 'saldo'))} prendas por despachar · ${fmtCLP(pSum(con, 'valor_sal'))}`);
+    `${con.length} pedido${con.length === 1 ? '' : 's'} con saldo \u00b7 ${fmt(pSum(con, 'saldo'))} prendas por despachar \u00b7 ${fmtCLP(pSum(con, 'valor_sal'))}`
+    + (trabados
+        ? ` \u2014 ${trabados} trabado${trabados === 1 ? '' : 's'} por el cliente (${cuenta('bloqueado')} bloqueado${cuenta('bloqueado') === 1 ? '' : 's'}, ${cuenta('cupo')} sin cupo) por ${fmtM(plata('bloqueado') + plata('cupo'))}`
+        : ' \u2014 ninguno trabado por el cliente: lo que falta es producto'));
+}
+
+/* Comparativo contra el mismo periodo del ano anterior. Se compara el MISMO tramo del
+   calendario corrido un ano, no el ano entero: si no, un periodo de nueve meses quedaria
+   contra uno de doce y todo apareceria cayendo. Para eso cada filtro entrega su rango. */
+const pAnoAntes = f => f ? (Number(f.slice(0, 4)) - 1) + f.slice(4) : '';
+const pEnRango = (ps, desde, hasta) => ps.filter(p => p.fecha_iso >= desde && p.fecha_iso <= hasta);
+
+function pComparativo(ps, rango) {
+  if (!rango || !rango.desde) return '';
+  const desde = pAnoAntes(rango.desde), hasta = pAnoAntes(rango.hasta);
+  const ant = pEnRango(PEDIDOS, desde, hasta);
+  const anoAnt = desde.slice(0, 4), anoAct = rango.desde.slice(0, 4);
+  const dd = f => { const [y, m, d] = f.split('-'); return `${d}/${m}/${y}`; };
+  const tramo = desde === hasta ? dd(desde) : `${dd(desde)} al ${dd(hasta)}`;
+
+  if (!ant.length) return `
+  <div class="tbl-card">
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Contra ${anoAnt}</div></div>
+    <div class="tbl-foot" style="border-top:0">En el mismo tramo de ${anoAnt} (${tramo}) no hay pedidos con que comparar</div>
+  </div>`;
+
+  const pct = (a, b) => !b ? null : (a / b - 1) * 100;
+  const sg = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(0) + '%';
+  const cls = v => v == null ? 'd-nu' : v >= 0 ? 'd-up' : 'd-dn';
+  const lineas = [
+    ['Pedidos',  ps.length, ant.length, v => fmt(v)],
+    ['Prendas',  pSum(ps, 'unidades'), pSum(ant, 'unidades'), v => fmt(v)],
+    ['Clientes', pClientes(ps), pClientes(ant), v => fmt(v)],
+    ['Valor',    pSum(ps, 'valor'), pSum(ant, 'valor'), v => fmtM(v)],
+  ];
+  const max = Math.max(1, ...lineas.map(([, a, b]) => Math.max(a, b)));
+  return `
+  <div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Contra ${anoAnt}</div>
+        <div class="card-sub" style="margin:2px 0 0">El mismo tramo del calendario un año antes: ${tramo}</div></div>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th></th><th class="r">${anoAct}</th><th class="r">${anoAnt}</th><th class="r">Var</th><th></th></tr></thead>
+        <tbody>${lineas.map(([lbl, a, b, f]) => {
+          const v = pct(a, b);
+          return `<tr>
+            <td>${lbl}</td>
+            <td class="r td-num">${f(a)}</td>
+            <td class="r td-num td-dim">${b ? f(b) : '—'}</td>
+            <td class="r"><span class="kpi-delta ${cls(v)}" style="margin:0;padding:1px 6px;font-size:10px">${sg(v)}</span></td>
+            <td style="width:34%">
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <div style="background:var(--bd);border-radius:3px;height:7px"><div style="background:var(--ac);height:7px;border-radius:3px;width:${(a / max * 100).toFixed(1)}%"></div></div>
+                <div style="background:var(--bd);border-radius:3px;height:7px"><div style="background:var(--tx3);height:7px;border-radius:3px;width:${(b / max * 100).toFixed(1)}%"></div></div>
+              </div>
+            </td></tr>`;
+        }).join('')}</tbody>
+        <tfoot><tr><td colspan="5" class="td-dim" style="font-size:11px">Barra de arriba ${anoAct}, barra de abajo ${anoAnt}</td></tr></tfoot>
+      </table>
+    </div>
+  </div>`;
 }
 
 function buildPedTabla(ps) {
@@ -2872,7 +2967,7 @@ async function secRepPedidos() {
   if (!ps.length) return makePH(ICO, 'Reporte Pedidos', 'Sin datos disponibles');
   PEDIDOS = ps;
 
-  const { ps: hoyPs, label: initLabel, date: initDate, fallback: initFallback } = pedHoy();
+  const { ps: hoyPs, label: initLabel, date: initDate, fallback: initFallback, rango: rangoIni } = pedHoy();
   PED_FILTRADO = hoyPs;
   const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -2908,6 +3003,8 @@ async function secRepPedidos() {
     ${tarjeta('dias', '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 'c-wa', 'pkVal', fmtM(pSum(hoyPs, 'valor')), 'Valor pedido', 'Ver el detalle día a día')}
     ${tarjeta('pendiente', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'c-er', 'pkSal', fmtM(pSum(hoyPs, 'valor_sal')), 'Por despachar', 'Ver qué pedidos tienen saldo')}
   </div>
+
+  <div id="rpComp">${pComparativo(hoyPs, rangoIni)}</div>
 
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
@@ -3979,8 +4076,10 @@ function bindContent(secId) {
       pendiente:  ['Lo que falta despachar', pDetPendiente],
     };
 
-    function aplicarPed(ps, label) {
+    function aplicarPed(ps, label, rango) {
       PED_FILTRADO = ps;
+      const comp = document.getElementById('rpComp');
+      if (comp) comp.innerHTML = pComparativo(ps, rango);
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
       set('pkNum', ps.length);
       set('pkUds', fmt(pSum(ps, 'unidades')));
@@ -4009,24 +4108,28 @@ function bindContent(secId) {
         const f = document.getElementById('pedFecha'); if (f) f.value = '';
         const m = document.getElementById('pedMes');   if (m) m.value = '';
         const p = btn.dataset.pp, hoy = today();
-        let ps, label;
+        let ps, label, rango;
         if (p === 'hoy') {
-          const h = pedHoy(); ps = h.ps; label = h.label;
+          const h = pedHoy(); ps = h.ps; label = h.label; rango = h.rango;
         } else if (p === 'semana') {
           const lunes = new Date();
           lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));   // domingo daba el lunes siguiente
-          const desde = ymd(lunes);
-          ps = PEDIDOS.filter(x => x.fecha_iso >= desde && x.fecha_iso <= hoy);
+          rango = { desde: ymd(lunes), hasta: hoy };
+          ps = pEnRango(PEDIDOS, rango.desde, rango.hasta);
           label = 'Pedidos de Esta Semana';
         } else if (p === 'mes') {
-          const mes = hoy.slice(0, 7);
-          ps = PEDIDOS.filter(x => x.fecha_iso?.startsWith(mes));
+          rango = { desde: hoy.slice(0, 7) + '-01', hasta: hoy };
+          ps = pEnRango(PEDIDOS, rango.desde, rango.hasta);
           label = 'Pedidos de Este Mes';
         } else {
-          ps = PEDIDOS.filter(x => (x.fecha_iso || '').startsWith('2026'));
+          // Hasta el ultimo pedido cargado, no hasta el 31-12: si no, el ano anterior
+          // entraria completo y la comparacion quedaria torcida.
+          const ult = [...new Set(PEDIDOS.map(x => x.fecha_iso).filter(f => (f || '').startsWith('2026')))].sort().pop();
+          rango = { desde: '2026-01-01', hasta: ult || hoy };
+          ps = pEnRango(PEDIDOS, rango.desde, rango.hasta);
           label = 'Todos los Pedidos 2026';
         }
-        aplicarPed(ps, label);
+        aplicarPed(ps, label, rango);
       });
     });
 
@@ -4035,7 +4138,8 @@ function bindContent(secId) {
       document.querySelectorAll('#pedSegs .seg').forEach(b => b.classList.remove('on'));
       const m = document.getElementById('pedMes'); if (m) m.value = '';
       const [y, mo, d] = this.value.split('-');
-      aplicarPed(PEDIDOS.filter(x => x.fecha_iso === this.value), `Pedidos del ${d}/${mo}/${y}`);
+      aplicarPed(PEDIDOS.filter(x => x.fecha_iso === this.value), `Pedidos del ${d}/${mo}/${y}`,
+                 { desde: this.value, hasta: this.value });
     });
 
     document.getElementById('pedMes')?.addEventListener('change', function () {
@@ -4044,7 +4148,8 @@ function bindContent(secId) {
       const f = document.getElementById('pedFecha'); if (f) f.value = '';
       const nombres = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
       aplicarPed(PEDIDOS.filter(x => x.fecha_iso?.startsWith(this.value)),
-                 `Pedidos de ${nombres[parseInt(this.value.split('-')[1])]} ${this.value.split('-')[0]}`);
+                 `Pedidos de ${nombres[parseInt(this.value.split('-')[1])]} ${this.value.split('-')[0]}`,
+                 { desde: this.value + '-01', hasta: this.value + '-31' });
     });
 
     // Las tarjetas abren su detalle en la misma ventana que usa Reporte Venta
