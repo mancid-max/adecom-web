@@ -1860,15 +1860,17 @@ function vdArts(groups, prodMap, stockMap) {
     r.falta = Math.max(0, r.sal - r.bodega - r.prod);
     r.clientes.sort((a, b) => b.sal - a.sal);
   }
-  return [...m.values()].sort((a, b) => b.sal - a.sal || b.sol - a.sol);
+  const lista = [...m.values()].sort((a, b) => b.sal - a.sal || b.sol - a.sol);
+  lista.forEach((r, i) => { r.i = i; });   // la fila guarda su lugar: la tabla se reordena
+  return lista;
 }
 
 function buildVdArtTable(arts) {
   if (!arts.length) return '<tr><td colspan="9" class="td-dim" style="text-align:center;padding:24px">Sin artículos</td></tr>';
-  return arts.map((r, i) => {
+  return arts.map(r => {
     const av = r.sol ? Math.round(r.desp / r.sol * 100) : 0;
     const chip = (t, bg, fg, ti) => `<span title="${ti}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${t}</span>`;
-    return `<tr class="vda-row" data-i="${i}" data-art="${r.art}" data-modelo="${r.modelo}"
+    return `<tr class="vda-row" data-i="${r.i}" data-art="${r.art}" data-modelo="${r.modelo}"
         data-sal="${r.sal}" data-falta="${r.falta}" data-bodega="${r.bodega}" data-prod="${r.prod}"
         style="cursor:pointer" title="Toca para ver a quién se le debe">
       <td class="td-code">${artImg(r.art)}${r.art}</td>
@@ -1984,19 +1986,19 @@ async function secVentaDespacho() {
 
   return `
   <div class="fbar">
-    <div class="fgrp"><span class="flbl">Avance</span>
+    <div class="fgrp vd-cli"><span class="flbl">Avance</span>
     <div class="segs" id="vdAvanceSegs">
       <button class="seg on" data-av="todo">Todos</button>
       <button class="seg" data-av="cero">Sin despacho</button>
       <button class="seg" data-av="parcial">En proceso</button>
       <button class="seg" data-av="completo">Completo</button>
     </div></div>
-    <div class="fgrp"><span class="flbl">Producción</span>
+    <div class="fgrp vd-cli"><span class="flbl">Producción</span>
     <div class="segs" id="vdTermSegs">
       <button class="seg on" data-tm="todo">Todos</button>
       <button class="seg" data-tm="term" title="Clientes con artículos pendientes (sin caja) en Terminación">🏁 En terminación</button>
     </div></div>
-    <div class="fgrp"><span class="flbl">Caja</span>
+    <div class="fgrp vd-cli"><span class="flbl">Caja</span>
     <div class="segs" id="vdCajaSegs">
       <button class="seg on" data-cj="todo">Todos</button>
       <button class="seg" data-cj="con" title="Clientes con caja armada en bodega">📦 Con caja</button>
@@ -2006,11 +2008,16 @@ async function secVentaDespacho() {
       <button class="seg on" data-vista="cliente">Cliente</button>
       <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
     </div></div>
-    <div class="fgrp"><span class="flbl">Ciudad</span>
+    <div class="fgrp vd-art" style="display:none"><span class="flbl">Mostrar</span>
+    <div class="segs" id="vdCorteSegs">
+      <button class="seg on" data-c="todo">Todos</button>
+      <button class="seg" data-c="corte" title="Solo los artículos cuyo saldo no está ni en bodega ni en producción, de mayor a menor">Hay que cortar</button>
+    </div></div>
+    <div class="fgrp vd-cli"><span class="flbl">Ciudad</span>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select></div>
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
-    <button class="seg" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button></div>
+    <button class="seg vd-cli" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button></div>
   </div>
   <div class="kpi-grid">
     <div class="kpi sel" style="cursor:default">
@@ -4365,6 +4372,19 @@ function bindContent(secId) {
       }
     }
     // Cambiar entre la vista por cliente y la vista por articulo
+    /* El modo manda el orden: en "Todos" interesa el saldo mas grande y en "Hay que
+       cortar" lo que mas falta cortar. La tabla se rehace solo al cambiar de modo, no
+       mientras se escribe en el buscador, que sigue escondiendo filas. */
+    function pintarVdArt() {
+      const modo = document.querySelector('#vdCorteSegs .seg.on')?.dataset.c || 'todo';
+      const lista = (modo === 'corte' ? VD_ARTS.filter(r => r.falta > 0) : [...VD_ARTS])
+        .sort(modo === 'corte' ? (a, b) => b.falta - a.falta || b.sal - a.sal
+                               : (a, b) => b.sal - a.sal || b.sol - a.sol);
+      const tb = document.getElementById('vdArtBody');
+      if (tb) tb.innerHTML = buildVdArtTable(lista);
+      aplicarVdArt();
+    }
+
     function aplicarVdArt() {
       const q = (document.getElementById('vdSearch')?.value || '').trim().toLowerCase();
       const toks = q.split(/[\s,;]+/).filter(Boolean).filter(t => /^\d{3,}$/.test(t));
@@ -4380,6 +4400,10 @@ function bindContent(secId) {
       const f = document.getElementById('vdArtFoot');
       if (f) f.textContent = `${vis} artículos · ${fmt(sal)} prendas por despachar` + (falta ? ` · ${fmt(falta)} que hay que cortar` : ' · nada que cortar: todo está en bodega o en producción');
     }
+    document.querySelectorAll('#vdCorteSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#vdCorteSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); pintarVdArt();
+    }));
     document.querySelectorAll('#vdVistaSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#vdVistaSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on');
@@ -4388,18 +4412,32 @@ function bindContent(secId) {
       if (cli) cli.hidden = porArt;
       const art = document.getElementById('vdArtCard');
       if (art) art.hidden = !porArt;
-      if (porArt) aplicarVdArt();
+      // Avance, Producción, Caja, Ciudad y "Varios artículos" solo trabajan sobre la
+      // vista por Cliente: en la de Artículo estaban a la vista sin hacer nada.
+      document.querySelectorAll('.vd-cli').forEach(e => { e.style.display = porArt ? 'none' : ''; });
+      document.querySelectorAll('.vd-art').forEach(e => { e.style.display = porArt ? '' : 'none'; });
+      // En la vista por Artículo el buscador solo entiende códigos: que lo diga
+      const inp = document.getElementById('vdSearch');
+      if (inp) {
+        const q = porArt ? 'artículo o modelo' : 'cliente, ciudad o artículo';
+        inp.placeholder = q[0].toUpperCase() + q.slice(1) + '…';
+        const pista = inp.parentElement?.querySelector('.fhint');
+        if (pista) pista.innerHTML = `<b>←</b> Busca por ${q}`;
+      }
+      if (porArt) pintarVdArt();
     }));
     document.getElementById('vdSearch')?.addEventListener('input', () => {
       if (!document.getElementById('vdArtCard')?.hidden) aplicarVdArt();
     });
-    document.querySelectorAll('#vdArtBody tr.vda-row').forEach(row => row.addEventListener('click', () => {
+    document.getElementById('vdArtBody')?.addEventListener('click', ev => {
+      const row = ev.target.closest('tr.vda-row');
+      if (!row) return;
       const r = VD_ARTS[+row.dataset.i];
       if (!r) return;
       document.getElementById('vkOvTtl').textContent = `Artículo ${r.art} · modelo ${r.modelo}`;
       document.getElementById('vkOvBody').innerHTML = vdArtDetalle(r);
       document.getElementById('vkOv').classList.add('open');
-    }));
+    });
     document.getElementById('vdArtPrint')?.addEventListener('click', () => {
       printTable({ table: document.getElementById('vdArtBody')?.closest('table'),
                    title: 'Artículos T44 — qué se debe de cada uno',
