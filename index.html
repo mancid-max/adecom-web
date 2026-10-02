@@ -507,6 +507,12 @@ const fmtM    = n => { const a = Math.abs(n), sg = n < 0 ? '-' : '';
 /* Fecha LOCAL: con toISOString() (UTC) el dashboard saltaba al día siguiente cada tarde en Chile */
 const ymd     = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const today   = () => ymd(new Date());
+const MESES   = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+                 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const mesNom  = m => MESES[+m.slice(5, 7)] || '';            // '2026-10' → 'octubre'
+const mesAnt  = m => { const a = +m.slice(0, 4), x = +m.slice(5, 7);   // → '2026-09'
+                       return x > 1 ? m.slice(0, 4) + '-' + String(x - 1).padStart(2, '0')
+                                    : (a - 1) + '-12'; };
 
 /* ── Imprimir tabla: clona la tabla con solo las filas visibles y abre el diálogo de impresión ── */
 function printTable({ table, title, subtitle = '', landscape = true }) {
@@ -809,11 +815,15 @@ function resRepartir(pendPorArt, dispPorArt) {
 }
 
 function resBase(ft, sb, peds) {
-  const desde30 = resHace(30);
-
-  // 1) Lo cortado: solo ordenes de produccion, por lo efectivamente procesado
+  // 1) Lo cortado: solo ordenes de produccion, por lo efectivamente procesado.
+  //    Se cuenta por mes y no en 30 dias moviles: la ventana movil cambiaba la cifra
+  //    todos los dias sin que hubiera pasado nada en el taller.
   const prod = ft.filter(r => (r.tipo || '') === 'Producción');
-  const cortes30 = prod.filter(r => (r.fecha_iso || '') >= desde30);
+  const hoy = today(), mesHoy = hoy.slice(0, 7), dia = hoy.slice(8, 10), mAnt = mesAnt(mesHoy);
+  const delMes = prod.filter(r => (r.fecha_iso || '').startsWith(mesHoy));
+  // El mes anterior recortado al mismo dia: comparar un mes de 2 dias contra uno de 30
+  // haria ver siempre una caida enorme.
+  const antIgual = prod.filter(r => (r.fecha_iso || '').startsWith(mAnt) && r.fecha_iso.slice(8, 10) <= dia);
   const porMes = new Map();
   for (const r of prod) {
     const m = (r.fecha_iso || '').slice(0, 7);
@@ -853,9 +863,13 @@ function resBase(ft, sb, peds) {
   const porTerminar = resRepartir(pend, uTerm);
 
   return {
-    corte30: { oc: cortes30.length, u: cortes30.reduce((a, r) => a + (r.proceso || 0), 0),
-               prog: cortes30.reduce((a, r) => a + (r.programa || 0), 0),
-               arts: new Set(cortes30.map(r => r.articulo)).size, desde: desde30, hasta: today() },
+    corteMes: { mes: mesHoy, dia, mesAnt: mAnt,
+                oc:   delMes.length,
+                u:    delMes.reduce((a, r) => a + (r.proceso || 0), 0),
+                prog: delMes.reduce((a, r) => a + (r.programa || 0), 0),
+                arts: new Set(delMes.map(r => r.articulo)).size,
+                antOc: antIgual.length,
+                antU:  antIgual.reduce((a, r) => a + (r.proceso || 0), 0) },
     porMes,
     term: { oc: term.length, u: [...uTerm.values()].reduce((a, b) => a + b, 0), arts: uTerm.size, uTerm, lista: term },
     enBodega, porTerminar, pend, disp,
@@ -864,27 +878,29 @@ function resBase(ft, sb, peds) {
 
 /* ── Los detalles ── */
 function resDetCortes() {
-  const filas = [...RES.porMes.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
+  // Si el mes recien parte y no hay ninguna orden, igual se le hace su fila: una tabla
+  // que empieza en el mes pasado hace dudar de la tarjeta.
+  const meses = new Map(RES.porMes);
+  if (!meses.has(RES.corteMes.mes)) meses.set(RES.corteMes.mes, { oc: 0, prog: 0, proc: 0 });
+  const filas = [...meses.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
   if (!filas.length) return vTabla('<th>Mes</th>', vVacio(5), '');
   const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const max = Math.max(...filas.map(([, r]) => r.proc));
-  const c30 = RES.corte30;
-  const dm = f => f.slice(8, 10) + '/' + f.slice(5, 7);
-  // La tarjeta cuenta 30 dias hacia atras y la tabla cuenta meses cerrados: son tramos
-  // distintos y el mes en curso casi nunca coincide. Se muestran los dos juntos.
+  const cm = RES.corteMes;
+  const falta = Math.max(0, cm.prog - cm.u);
   const cabeza = `
     <div style="padding:14px 16px 4px">
-      <div class="flbl" style="margin-bottom:8px">Últimos 30 días · ${dm(c30.desde)} al ${dm(c30.hasta)}</div>
+      <div class="flbl" style="margin-bottom:8px">${mesNom(cm.mes)} · hasta el ${+cm.dia}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        ${[['Órdenes', fmt(c30.oc), 'var(--tx1)'], ['Programado', fmt(c30.prog), 'var(--tx2)'],
-           ['Cortado', fmt(c30.u), 'var(--ac)'],
-           ['Falta cortar', fmt(Math.max(0, c30.prog - c30.u)), c30.prog > c30.u ? 'var(--wa)' : 'var(--tx3)']]
+        ${[['Órdenes', fmt(cm.oc), 'var(--tx1)'], ['Programado', fmt(cm.prog), 'var(--tx2)'],
+           ['Cortado', fmt(cm.u), 'var(--ac)'],
+           ['Falta cortar', fmt(falta), falta ? 'var(--wa)' : 'var(--tx3)']]
           .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
               <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
               <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
       </div>
-      <div class="td-dim" style="font-size:12px;margin-top:8px">Esto es lo que dice la tarjeta. La tabla de abajo va por
-        mes cerrado, así que el mes en curso no calza: incluye las órdenes de los primeros días que ya salieron de los 30.</div>
+      <div class="td-dim" style="font-size:12px;margin-top:8px">A esta misma altura de ${mesNom(cm.mesAnt)} iban
+        <b>${fmt(cm.antU)}</b> prendas en ${cm.antOc} ${cm.antOc === 1 ? 'orden' : 'órdenes'}. Abajo, cada mes completo.</div>
     </div>`;
   return cabeza + vTabla(
     '<th>Mes</th><th class="r">Órdenes</th><th class="r" title="Lo que se mandó a producir">Programado</th><th class="r" title="Lo que efectivamente se procesó">Cortado</th><th></th>',
@@ -1033,12 +1049,12 @@ async function secResumen() {
 
     <div class="res-col">
       <div class="res-grp">Producción</div>
-      <div class="kpi" data-rdet="cortes" title="Ver cuánto se cortó cada mes">
+      <div class="kpi" data-rdet="cortes" title="Ver mes a mes cuánto se mandó a producir y cuánto se cortó">
         <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></div>
         <div style="min-width:0">
-          <div class="kpi-val">${fmt(RES.corte30.u)}</div>
-          <div class="kpi-lbl">Cortado en 30 días</div>
-          <div class="kpi-delta d-nu">${RES.corte30.oc} órdenes · ${RES.corte30.arts} artículos</div>
+          <div class="kpi-val">${fmt(RES.corteMes.u)}</div>
+          <div class="kpi-lbl">Cortado en ${mesNom(RES.corteMes.mes)}</div>
+          <div class="kpi-delta d-nu" title="El mes anterior cortado hasta el día ${RES.corteMes.dia}, para que la comparación sea de tramos iguales">${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}</div>
         </div>
       </div>
       <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
