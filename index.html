@@ -855,7 +855,7 @@ function resBase(ft, sb, peds) {
   return {
     corte30: { oc: cortes30.length, u: cortes30.reduce((a, r) => a + (r.proceso || 0), 0),
                prog: cortes30.reduce((a, r) => a + (r.programa || 0), 0),
-               arts: new Set(cortes30.map(r => r.articulo)).size },
+               arts: new Set(cortes30.map(r => r.articulo)).size, desde: desde30, hasta: today() },
     porMes,
     term: { oc: term.length, u: [...uTerm.values()].reduce((a, b) => a + b, 0), arts: uTerm.size, uTerm, lista: term },
     enBodega, porTerminar, pend, disp,
@@ -868,7 +868,25 @@ function resDetCortes() {
   if (!filas.length) return vTabla('<th>Mes</th>', vVacio(5), '');
   const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const max = Math.max(...filas.map(([, r]) => r.proc));
-  return vTabla(
+  const c30 = RES.corte30;
+  const dm = f => f.slice(8, 10) + '/' + f.slice(5, 7);
+  // La tarjeta cuenta 30 dias hacia atras y la tabla cuenta meses cerrados: son tramos
+  // distintos y el mes en curso casi nunca coincide. Se muestran los dos juntos.
+  const cabeza = `
+    <div style="padding:14px 16px 4px">
+      <div class="flbl" style="margin-bottom:8px">Últimos 30 días · ${dm(c30.desde)} al ${dm(c30.hasta)}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${[['Órdenes', fmt(c30.oc), 'var(--tx1)'], ['Programado', fmt(c30.prog), 'var(--tx2)'],
+           ['Cortado', fmt(c30.u), 'var(--ac)'],
+           ['Falta cortar', fmt(Math.max(0, c30.prog - c30.u)), c30.prog > c30.u ? 'var(--wa)' : 'var(--tx3)']]
+          .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
+              <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
+              <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+      </div>
+      <div class="td-dim" style="font-size:12px;margin-top:8px">Esto es lo que dice la tarjeta. La tabla de abajo va por
+        mes cerrado, así que el mes en curso no calza: incluye las órdenes de los primeros días que ya salieron de los 30.</div>
+    </div>`;
+  return cabeza + vTabla(
     '<th>Mes</th><th class="r">Órdenes</th><th class="r" title="Lo que se mandó a producir">Programado</th><th class="r" title="Lo que efectivamente se procesó">Cortado</th><th></th>',
     filas.map(([m, r]) => `<tr>
       <td style="white-space:nowrap">${MES[+m.slice(5, 7)]} ${m.slice(0, 4)}</td>
