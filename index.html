@@ -84,7 +84,10 @@ html,body{overflow-x:hidden;max-width:100%}
 .sec.on{display:flex;flex-direction:column;gap:18px}
 
 /* ── KPI GRID ────────────────────────────────────────────────── */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+/* Reparte el ancho entre las tarjetas que haya: con 5 columnas fijas las secciones
+   de 3 o 4 dejaban hueco a la derecha y encima apretaban el texto hasta partirlo. */
+.kpi-grid{display:flex;flex-wrap:wrap;gap:14px}
+.kpi-grid>.kpi{flex:1 1 230px;max-width:430px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
 .res-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
@@ -281,7 +284,7 @@ body.ia-open #iaBtn{display:none}
 }
 @media(max-width:960px){
   .chart-row{grid-template-columns:1fr}
-  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .kpi-grid>.kpi{flex-basis:150px;max-width:none}
   .kpi{padding:14px 15px;gap:10px}
   /* en tablet el contenido se salía de la tarjeta */
   .kpi{padding:13px 14px;gap:10px}
@@ -292,7 +295,7 @@ body.ia-open #iaBtn{display:none}
   .header{padding:0 14px}
 }
 @media(max-width:700px){
-  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .kpi-grid>.kpi{flex-basis:calc(50% - 7px)}
   .temp-grid{grid-template-columns:repeat(3,1fr)}
   .content{padding:12px;gap:12px}
   .header{padding:0 12px}
@@ -308,7 +311,7 @@ body.ia-open #iaBtn{display:none}
   .card{padding:16px}
 }
 @media(max-width:480px){
-  .kpi-grid{grid-template-columns:1fr 1fr}
+  .kpi-grid>.kpi{flex-basis:calc(50% - 7px)}
   .temp-grid{grid-template-columns:repeat(2,1fr)}
   .kpi-val{font-size:20px}
   .kpi-ico{width:40px;height:40px}
