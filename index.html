@@ -1840,7 +1840,7 @@ function vdGroups(peds, prodMap = {}, cajasAll = []) {
    Si da cero o menos, no hay que cortar nada: alcanza con lo que ya existe. */
 let VD_ARTS = [];
 
-/* Lo modelado: OC de produccion emitida cuyo programado todavia no se corta. El ERP
+/* Lo programado: OC de produccion emitida cuyo programado todavia no se corta. El ERP
    no lo deja ver por ninguna parte, porque su Saldo es Cortado - Entregado. */
 function vdProgMap(ft) {
   const m = {};
@@ -1875,10 +1875,10 @@ function vdArts(groups, prodMap, stockMap, progMap = {}) {
     r.term = p ? p.term : 0;
     r.etapa = p ? p.top : '';
     const pg = progMap[r.art];
-    r.model = pg ? pg.u : 0;              // con OC emitida, sin cortar
-    r.modelOcs = pg ? pg.ocs : [];
+    r.ocProg = pg ? pg.u : 0;             // programado con OC emitida, sin cortar todavia
+    r.ocList = pg ? pg.ocs : [];
     // Falta cortar = lo que no tiene nada: ni bodega, ni produccion, ni OC emitida
-    r.falta = Math.max(0, r.sal - r.bodega - r.prod - r.model);
+    r.falta = Math.max(0, r.sal - r.bodega - r.prod - r.ocProg);
     r.clientes.sort((a, b) => b.sal - a.sal);
   }
   const lista = [...m.values()].sort((a, b) => b.sal - a.sal || b.sol - a.sol);
@@ -1892,7 +1892,7 @@ function buildVdArtTable(arts) {
     const av = r.sol ? Math.round(r.desp / r.sol * 100) : 0;
     const chip = (t, bg, fg, ti) => `<span title="${ti}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${t}</span>`;
     return `<tr class="vda-row" data-i="${r.i}" data-art="${r.art}" data-modelo="${r.modelo}"
-        data-sal="${r.sal}" data-falta="${r.falta}" data-bodega="${r.bodega}" data-prod="${r.prod}" data-model="${r.model}"
+        data-sal="${r.sal}" data-falta="${r.falta}" data-bodega="${r.bodega}" data-prod="${r.prod}" data-prog="${r.ocProg}"
         style="cursor:pointer" title="Toca para ver a quién se le debe">
       <td class="td-code">${artImg(r.art)}${r.art}</td>
       <td class="r td-num">${fmt(r.sol)}</td>
@@ -1900,12 +1900,12 @@ function buildVdArtTable(arts) {
       <td class="r td-num" style="color:${r.sal > 0 ? 'var(--wa)' : 'var(--tx3)'};font-weight:700">${r.sal ? fmt(r.sal) : '—'}</td>
       <td class="r td-num">${r.bodega ? fmt(r.bodega) : '<span class="td-dim">—</span>'}</td>
       <td class="r td-num td-dim">${r.prod ? fmt(r.prod) : '—'}${r.etapa ? ` <span style="font-size:10px">${r.etapa}</span>` : ''}</td>
-      <td class="r td-num"${r.model ? ` title="${r.modelOcs.slice(0, 4).map(o => `OC ${o.oc} del ${o.fecha}: ${fmt(o.u)} sin cortar`).join(' · ')}"` : ''}>${r.model ? `<span style="color:var(--ac);font-weight:700">${fmt(r.model)}</span>` : '<span class="td-dim">—</span>'}</td>
+      <td class="r td-num"${r.ocProg ? ` title="${r.ocList.slice(0, 4).map(o => `OC ${o.oc} del ${o.fecha}: ${fmt(o.u)} sin cortar`).join(' · ')}"` : ''}>${r.ocProg ? `<span style="color:var(--ac);font-weight:700">${fmt(r.ocProg)}</span>` : '<span class="td-dim">—</span>'}</td>
       <td class="r td-num">${r.falta > 0 ? `<span style="color:var(--er);font-weight:700">${fmt(r.falta)}</span>` : '<span class="td-dim">—</span>'}</td>
       <td class="r td-num td-dim">${r.clientes.length || '—'}</td>
       <td>${r.sal <= 0 ? chip('al día', 'var(--ok10)', 'var(--ok)', 'No queda saldo pendiente de este artículo')
             : r.falta > 0 ? chip('hay que cortar', 'var(--er10)', 'var(--er)', `Faltan ${fmt(r.falta)} que no están ni en bodega, ni en producción, ni con OC emitida`)
-            : r.model > 0 && r.bodega + r.prod < r.sal ? chip('modelado, sin cortar', 'var(--wa10)', 'var(--wa)', `Ya tiene OC por ${fmt(r.model)}: no hay que volver a mandarlo a cortar, falta que lo corten`)
+            : r.ocProg > 0 && r.bodega + r.prod < r.sal ? chip('programado', 'var(--wa10)', 'var(--wa)', `Ya tiene OC emitida por ${fmt(r.ocProg)}: no hay que volver a mandarlo, falta que lo corten`)
             : r.bodega >= r.sal ? chip('está en bodega', 'var(--ok10)', 'var(--ok)', 'Alcanza con lo que ya hay en bodega: solo falta despachar')
             : chip('viene en camino', 'var(--ac10)', 'var(--ac)', `Lo que falta está en producción${r.etapa ? ', en ' + r.etapa : ''}`)}</td>
     </tr>`;
@@ -1921,7 +1921,7 @@ function vdArtDetalle(r) {
       ${[['Pedido', fmt(r.sol), 'var(--tx1)'], ['Despachado', fmt(r.desp), 'var(--ok)'],
          ['Saldo', fmt(r.sal), 'var(--wa)'], ['En bodega', fmt(r.bodega), r.bodega ? 'var(--ok)' : 'var(--tx3)'],
          ['En producción', fmt(r.prod), r.prod ? 'var(--ac)' : 'var(--tx3)'],
-         ['Modelado', fmt(r.model), r.model ? 'var(--ac)' : 'var(--tx3)'],
+         ['Programado', fmt(r.ocProg), r.ocProg ? 'var(--ac)' : 'var(--tx3)'],
          ['Falta cortar', fmt(r.falta), r.falta ? 'var(--er)' : 'var(--tx3)']]
         .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
             <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
@@ -1930,7 +1930,7 @@ function vdArtDetalle(r) {
     <div class="td-dim" style="font-size:12px;padding:6px 16px 10px">${
       r.sal <= 0 ? 'No queda saldo de este artículo.'
       : r.falta > 0 ? `Faltan <b>${fmt(r.falta)}</b> que no están ni en bodega, ni en producción, ni con orden emitida: eso es lo que hay que mandar a cortar.`
-      : r.model > 0 && r.bodega + r.prod < r.sal ? `Ya tiene orden de corte por <b>${fmt(r.model)}</b> (${r.modelOcs.slice(0, 3).map(o => 'OC ' + o.oc + ' del ' + o.fecha).join(', ')}). No hay que volver a mandarlo: falta que lo corten.`
+      : r.ocProg > 0 && r.bodega + r.prod < r.sal ? `Ya tiene orden de corte por <b>${fmt(r.ocProg)}</b> (${r.ocList.slice(0, 3).map(o => 'OC ' + o.oc + ' del ' + o.fecha).join(', ')}). No hay que volver a mandarlo: falta que lo corten.`
       : r.bodega >= r.sal ? 'Alcanza con lo que hay en bodega. Solo falta despacharlo.'
       : `Lo que falta viene en producción${r.etapa ? ', hoy en <b>' + r.etapa + '</b>' : ''}.`}</div>`;
   return resumen + vTabla(
@@ -2036,7 +2036,8 @@ async function secVentaDespacho() {
     <div class="fgrp vd-art" style="display:none"><span class="flbl">Mostrar</span>
     <div class="segs" id="vdCorteSegs">
       <button class="seg on" data-c="todo">Todos</button>
-      <button class="seg" data-c="corte" title="Solo los artículos cuyo saldo no está ni en bodega ni en producción, de mayor a menor">Hay que cortar</button>
+      <button class="seg" data-c="corte" title="Solo los que no tienen nada: ni bodega, ni producción, ni orden emitida">Hay que cortar</button>
+      <button class="seg" data-c="prog" title="Solo los que ya tienen orden de corte emitida y todavía sin cortar">Programados</button>
     </div></div>
     <div class="fgrp vd-cli"><span class="flbl">Ciudad</span>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select></div>
@@ -2082,7 +2083,7 @@ async function secVentaDespacho() {
   <div class="tbl-card" id="vdArtCard" hidden>
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div><div class="card-ttl" style="margin:0">Artículos T44 — qué se debe de cada uno</div>
-        <div class="card-sub" style="margin:2px 0 0">Toca un artículo para ver a quién se le debe. "Modelado" ya tiene orden de corte emitida; "Falta cortar" es lo que no tiene nada</div></div>
+        <div class="card-sub" style="margin:2px 0 0">Toca un artículo para ver a quién se le debe. "Programado" ya tiene orden de corte emitida; "Falta cortar" es lo que no tiene nada</div></div>
       <span class="td-dim" style="margin-left:auto" id="vdArtCount"></span>
       <button class="seg" id="vdArtPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
@@ -2091,12 +2092,12 @@ async function secVentaDespacho() {
         <thead><tr>
           <th>Artículo</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Saldo</th>
           <th class="r" title="En San Gerardo, sin contar lo ya embalado">En bodega</th>
-          <th class="r" title="Unidades cortadas con saldo en alguna etapa de producción. Sin muestras ni sets">En producción</th>
-          <th class="r" title="Con orden de corte emitida pero todavía sin cortar: ya está pedido, no hay que volver a mandarlo">Modelado</th>
+          <th class="r" title="Unidades cortadas con saldo en alguna etapa de producción. Sin muestras ni sets">Producción</th>
+          <th class="r" title="Con orden de corte emitida pero todavía sin cortar: ya está pedido, no hay que volver a mandarlo">Programado</th>
           <th class="r" title="Saldo que no está ni en bodega, ni en producción, ni con orden emitida: esto es lo que hay que mandar a cortar">Falta cortar</th>
           <th class="r">Clientes</th><th>Estado</th>
         </tr></thead>
-        <tbody id="vdArtBody">${buildVdArtTable(VD_ARTS)}</tbody>
+        <tbody id="vdArtBody" class="tbl-compacta">${buildVdArtTable(VD_ARTS)}</tbody>
       </table>
       <div class="tbl-foot" id="vdArtFoot"></div>
     </div>
@@ -4403,8 +4404,11 @@ function bindContent(secId) {
        mientras se escribe en el buscador, que sigue escondiendo filas. */
     function pintarVdArt() {
       const modo = document.querySelector('#vdCorteSegs .seg.on')?.dataset.c || 'todo';
-      const lista = (modo === 'corte' ? VD_ARTS.filter(r => r.falta > 0) : [...VD_ARTS])
+      const lista = (modo === 'corte' ? VD_ARTS.filter(r => r.falta > 0)
+                   : modo === 'prog'  ? VD_ARTS.filter(r => r.ocProg > 0)
+                   : [...VD_ARTS])
         .sort(modo === 'corte' ? (a, b) => b.falta - a.falta || b.sal - a.sal
+            : modo === 'prog'  ? (a, b) => b.ocProg - a.ocProg || b.sal - a.sal
                                : (a, b) => b.sal - a.sal || b.sol - a.sol);
       const tb = document.getElementById('vdArtBody');
       if (tb) tb.innerHTML = buildVdArtTable(lista);
@@ -4414,19 +4418,19 @@ function bindContent(secId) {
     function aplicarVdArt() {
       const q = (document.getElementById('vdSearch')?.value || '').trim().toLowerCase();
       const toks = q.split(/[\s,;]+/).filter(Boolean).filter(t => /^\d{3,}$/.test(t));
-      let vis = 0, sal = 0, falta = 0, model = 0;
+      let vis = 0, sal = 0, falta = 0, prog = 0;
       document.querySelectorAll('#vdArtBody tr.vda-row').forEach(row => {
         const a = row.dataset.art || '';
         const ok = !toks.length || toks.some(t => artMatch(a, t) || a.startsWith(t) || (row.dataset.modelo || '').startsWith(t));
         row.style.display = ok ? '' : 'none';
-        if (ok) { vis++; sal += +row.dataset.sal || 0; falta += +row.dataset.falta || 0; model += +row.dataset.model || 0; }
+        if (ok) { vis++; sal += +row.dataset.sal || 0; falta += +row.dataset.falta || 0; prog += +row.dataset.prog || 0; }
       });
       const c = document.getElementById('vdArtCount');
       if (c) c.textContent = `${vis} artículos`;
       const f = document.getElementById('vdArtFoot');
       if (f) f.textContent = `${vis} artículos · ${fmt(sal)} prendas por despachar`
         + (falta ? ` · ${fmt(falta)} que hay que mandar a cortar` : ' · nada que mandar a cortar')
-        + (model ? ` · ${fmt(model)} ya modeladas, esperando corte` : '');
+        + (prog ? ` · ${fmt(prog)} ya programadas, esperando corte` : '');
     }
     document.querySelectorAll('#vdCorteSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#vdCorteSegs .seg').forEach(x => x.classList.remove('on'));
