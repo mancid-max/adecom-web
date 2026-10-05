@@ -413,6 +413,11 @@ body.ia-open #iaBtn{display:none}
       Trazabilidad
     </button>
 
+    <button class="nav-item" data-sec="cuadrados" data-ttl="Cortes Cuadrados" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Cortes Cuadrados
+    </button>
+
     <div class="sb-grp" data-admin-only>Venta</div>
     <button class="nav-item" data-sec="reporte-venta" data-ttl="Reporte Venta" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -1946,6 +1951,196 @@ function vdArtDetalle(r) {
         <td style="width:26%">${vBarra(c.sal, max, false)}</td></tr>`;
     }).join(''),
     `${r.clientes.length} cliente${r.clientes.length === 1 ? '' : 's'} esperando ${fmt(r.sal)} prendas`);
+}
+
+/* ── CORTES CUADRADOS ──────────────────────────────────────────────────
+   Una orden de corte "cuadra" cuando bodega recibe todo lo que se cortó y el ERP deja
+   su saldo en cero. Se mide contra lo CORTADO y no contra lo programado, porque el
+   taller casi nunca corta la cifra exacta: la OC 00011650 pidió 560, cortó 551 y
+   cuadró con esas 551.
+
+   Los datos salen de traza_oc.json, que el job ya generaba y ninguna sección leía.
+   Trae el paso por cada etapa con sus fechas, así que el detalle puede mostrar dónde
+   se fueron los días. */
+let CUA = [];
+const CUA_ET = { 'Corte': 'Corte', 'Taller': 'Costura', 'Taller Ext': 'T.Externo',
+                 'Limpiado': 'Limpiado', 'Lavander': 'Lavandería', 'Terminacion': 'Terminación' };
+const cuaISO  = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || '').trim());
+                       return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+const cuaDMA  = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '—';
+const cuaDias = (a, b) => (a && b) ? Math.round((new Date(b) - new Date(a)) / 864e5) : null;
+
+function cuaBase(toc) {
+  const hoy = today();
+  const lista = [];
+  for (const r of (Array.isArray(toc) ? toc : [])) {
+    if (/MUESTRA|SET/i.test(r.tipo || '')) continue;      // muestras y sets no son producción
+    const cort = r.cort || 0, ent = r.ent || 0, falta = Math.max(0, cort - ent);
+    // El ERP trae alguna fecha con el año mal tecleado (2029, 2205): se descarta, no se arrastra
+    const et = (r.stages || []).map(x => {
+      const ini = cuaISO(x.ini), fin = cuaISO(x.fin);
+      return { n: CUA_ET[x.name] || x.name, ini: ini > hoy ? '' : ini, fin: fin > hoy ? '' : fin,
+               pend: x.pend || 0, dias: x.dias || 0 };
+    });
+    const fines  = et.map(x => x.fin).filter(Boolean).sort();
+    const inicio = (et.find(x => x.n === 'Corte') || {}).ini || cuaISO(r.fecha);
+    const cuadro = (cort > 0 && falta === 0) ? (fines[fines.length - 1] || '') : '';
+    const donde  = [...et].reverse().find(x => x.pend > 0);
+    lista.push({
+      oc: String(r.oc || '').trim(), art: String(r.articulo || '').trim(),
+      temp: String(r.articulo || '').slice(2, 4), emitida: cuaISO(r.fecha),
+      prog: r.prog || 0, cort, ent, falta, cuadro, inicio, etapas: et,
+      etapa: donde ? donde.n : '', dias: cuaDias(inicio, cuadro || hoy),
+      estado: cort === 0 ? 'sincortar' : falta === 0 ? 'cuadrado' : ent > 0 ? 'medias' : 'sinentregar',
+    });
+  }
+  lista.forEach((r, i) => { r.i = i; });    // la fila guarda su lugar: la tabla se reordena
+  return lista;
+}
+
+const cuaChip = r => {
+  const c = (t, bg, fg, ti) => `<span title="${ti}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${t}</span>`;
+  return r.estado === 'cuadrado'    ? c('cuadrado', 'var(--ok10)', 'var(--ok)', `Bodega recibió las ${fmt(r.cort)} prendas que se cortaron`)
+       : r.estado === 'medias'      ? c('a medias', 'var(--wa10)', 'var(--wa)', `Entregadas ${fmt(r.ent)} de ${fmt(r.cort)}: faltan ${fmt(r.falta)}`)
+       : r.estado === 'sinentregar' ? c('sin entregar', 'var(--er10)', 'var(--er)', `Se cortaron ${fmt(r.cort)} y bodega no ha recibido ninguna`)
+       :                              c('sin cortar', 'var(--sf2)', 'var(--tx2)', `Programadas ${fmt(r.prog)}, todavía sin cortar`);
+};
+
+function cuaFilas(lista) {
+  if (!lista.length) return '<tr><td colspan="9" class="td-dim" style="text-align:center;padding:24px">Ninguna orden en este tramo</td></tr>';
+  return lista.map(r => `<tr class="cua-row" data-i="${r.i}" data-oc="${r.oc}" data-art="${r.art}"
+      data-est="${r.estado}" data-cuadro="${r.cuadro}" data-cort="${r.cort}" data-ent="${r.ent}" data-falta="${r.falta}"
+      style="cursor:pointer" title="Toca para ver el paso por cada etapa">
+    <td class="td-code">${r.oc}</td>
+    <td class="td-code">${artImg(r.art)}${r.art}</td>
+    <td class="td-dim">${cuaDMA(r.emitida)}</td>
+    <td class="r td-num"${r.prog !== r.cort ? ` title="Se habían programado ${fmt(r.prog)}"` : ''}>${fmt(r.cort)}</td>
+    <td class="r td-num" style="color:var(--ok)">${r.ent ? fmt(r.ent) : '<span class="td-dim">—</span>'}</td>
+    <td class="r td-num">${r.falta ? `<span style="color:var(--wa);font-weight:700">${fmt(r.falta)}</span>` : '<span class="td-dim">—</span>'}</td>
+    <td class="td-dim">${r.cuadro ? cuaDMA(r.cuadro) : (r.etapa || '—')}</td>
+    <td class="r td-num td-dim">${r.dias == null ? '—' : fmt(r.dias)}</td>
+    <td>${cuaChip(r)}</td>
+  </tr>`).join('');
+}
+
+/* El paso por cada etapa: donde se fueron los dias */
+function cuaDetalle(r) {
+  const frase = r.estado === 'cuadrado'
+      ? `Cuadró el <b>${cuaDMA(r.cuadro)}</b>: bodega recibió las <b>${fmt(r.cort)}</b> prendas que se cortaron${r.prog !== r.cort ? `, de ${fmt(r.prog)} programadas` : ''}.`
+    : r.estado === 'medias'
+      ? `Van <b>${fmt(r.ent)}</b> de <b>${fmt(r.cort)}</b>: faltan <b>${fmt(r.falta)}</b> por llegar a bodega${r.etapa ? ', hoy en <b>' + r.etapa + '</b>' : ''}.`
+    : r.estado === 'sinentregar'
+      ? `Se cortaron <b>${fmt(r.cort)}</b> y bodega no ha recibido ninguna${r.etapa ? ': están en <b>' + r.etapa + '</b>' : ''}.`
+      : `Todavía no se corta nada de las <b>${fmt(r.prog)}</b> programadas.`;
+  const resumen = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
+      ${[['Programado', fmt(r.prog), 'var(--tx2)'], ['Cortado', fmt(r.cort), 'var(--tx1)'],
+         ['Entregado', fmt(r.ent), r.ent ? 'var(--ok)' : 'var(--tx3)'],
+         ['Falta', fmt(r.falta), r.falta ? 'var(--wa)' : 'var(--tx3)'],
+         ['Días', r.dias == null ? '—' : fmt(r.dias), 'var(--ac)']]
+        .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
+            <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
+            <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+    </div>
+    <div class="td-dim" style="font-size:12px;padding:6px 16px 10px">${frase}</div>`;
+  // Por fecha de entrada y no por el orden del ERP: hay ordenes que pasan por el taller
+  // externo antes que por costura, y leidas en el orden fijo parecen ir hacia atras.
+  const pasos = r.etapas.filter(x => x.ini || x.fin || x.pend)
+    .map((x, i) => ({ ...x, orden: i }))
+    .sort((a, b) => (a.ini || '9999').localeCompare(b.ini || '9999') || a.orden - b.orden);
+  if (!pasos.length) return resumen + '<div class="td-dim" style="padding:0 16px 16px;font-size:12px">El ERP no registró ninguna etapa de esta orden.</div>';
+  return resumen + vTabla(
+    '<th>Etapa</th><th>Entró</th><th>Salió</th><th class="r" title="Calculado con las fechas de la misma fila">Días</th><th class="r" title="Unidades que siguen en esa etapa">Ahí quedan</th>',
+    pasos.map(x => {
+      // Los dias se sacan de las fechas que se ven al lado. El ERP trae los suyos y a
+      // veces no calzan con sus propias fechas, asi que van solo como nota.
+      const d = cuaDias(x.ini, x.fin || today());
+      return `<tr>
+      <td>${x.n}</td>
+      <td class="td-dim">${cuaDMA(x.ini)}</td>
+      <td class="td-dim">${x.fin ? cuaDMA(x.fin) : '<span style="color:var(--wa)">sigue ahí</span>'}</td>
+      <td class="r td-num td-dim"${x.dias && d != null && Math.abs(x.dias - d) > 1 ? ` title="El ERP anota ${fmt(x.dias)} días en esta etapa"` : ''}>${d == null ? '—' : fmt(d)}</td>
+      <td class="r td-num">${x.pend ? `<span style="color:var(--wa);font-weight:700">${fmt(x.pend)}</span>` : '—'}</td></tr>`; }).join(''),
+    `Orden ${r.oc} · artículo ${r.art} · emitida el ${cuaDMA(r.emitida)}`);
+}
+
+async function secCuadrados() {
+  const toc = await load('traza_oc.json');
+  CUA = cuaBase(toc);
+  if (!CUA.length) return makePH('<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', 'Cortes Cuadrados', 'Sin órdenes de corte');
+
+  const hoy = today(), d7 = resHace(7);
+  const cuadradas = CUA.filter(r => r.estado === 'cuadrado');
+  const deHoy  = cuadradas.filter(r => r.cuadro === hoy);
+  const de7    = cuadradas.filter(r => r.cuadro && r.cuadro >= d7);
+  const abiertas = CUA.filter(r => r.estado !== 'cuadrado' && r.falta > 0);
+  const medias   = abiertas.filter(r => r.estado === 'medias');
+  const su = (a, k) => a.reduce((x, r) => x + (r[k] || 0), 0);
+  const dd = cuadradas.map(r => r.dias).filter(d => d != null && d >= 0).sort((a, b) => a - b);
+  const mediana = dd.length ? dd[Math.floor(dd.length / 2)] : null;
+
+  const ico = (c, path, val, lbl, delta, dt = 'd-nu') => `
+    <div class="kpi" style="cursor:default">
+      <div class="kpi-ico c-${c}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg></div>
+      <div style="min-width:0">
+        <div class="kpi-val">${val}</div>
+        <div class="kpi-lbl">${lbl}</div>
+        <div class="kpi-delta ${dt}">${delta}</div>
+      </div></div>`;
+
+  return `
+  <div class="fbar">
+    <div class="fgrp"><span class="flbl">Mostrar</span>
+    <div class="segs" id="cuaEstSegs">
+      <button class="seg on" data-e="cuadrado" title="Órdenes donde bodega ya recibió todo lo cortado">Cuadrados</button>
+      <button class="seg" data-e="abierto" title="Órdenes con prendas cortadas que todavía no llegan completas a bodega">Por cuadrar</button>
+      <button class="seg" data-e="todo">Todas</button>
+    </div></div>
+    <div class="fgrp" id="cuaPerGrp"><span class="flbl">Cuándo cuadró</span>
+    <div class="segs" id="cuaPerSegs">
+      <button class="seg" data-p="hoy">Hoy</button>
+      <button class="seg on" data-p="7">Últimos 7 días</button>
+      <button class="seg" data-p="mes">Este mes</button>
+      <button class="seg" data-p="todo">Todo</button>
+    </div></div>
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="cuaSearch" class="finput fsearch" placeholder="OC o artículo…" style="width:190px"></div>
+  </div>
+
+  <div class="kpi-grid">
+    ${ico('ok', '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+          fmt(deHoy.length), 'Cuadraron hoy', deHoy.length ? `${fmt(su(deHoy, 'ent'))} prendas a bodega` : 'todavía ninguna', deHoy.length ? 'd-up' : 'd-nu')}
+    ${ico('ac', '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+          fmt(de7.length), 'Cuadrados en 7 días', `${fmt(su(de7, 'ent'))} prendas recibidas en bodega`)}
+    ${ico('wa', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+          fmt(abiertas.length), 'Por cuadrar', `${fmt(su(abiertas, 'falta'))} prendas sin llegar · ${medias.length} a medias`)}
+    ${ico('ac', '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+          mediana == null ? '—' : fmt(mediana), 'Días en cuadrar', 'la mitad tarda menos que eso')}
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Órdenes de corte</div>
+        <div class="card-sub" style="margin:2px 0 0">Una orden cuadra cuando bodega recibe todo lo que se cortó. Toca una fila para ver el paso por cada etapa</div></div>
+      <span class="td-dim" style="margin-left:auto" id="cuaCount"></span>
+      <button class="seg" id="cuaPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th>OC</th><th>Artículo</th><th>Emitida</th>
+          <th class="r" title="Lo que el taller cortó de verdad, que puede no ser lo programado">Cortado</th>
+          <th class="r" title="Lo que bodega ya recibió">Entregado</th>
+          <th class="r" title="Cortado − Entregado">Falta</th>
+          <th title="La fecha en que cuadró, o la etapa donde está si no ha cuadrado">Cuadró el</th>
+          <th class="r" title="Días desde que empezó el corte">Días</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody id="cuaBody" class="tbl-compacta">${cuaFilas([])}</tbody>
+      </table>
+      <div class="tbl-foot" id="cuaFoot"></div>
+    </div>
+  </div>`;
 }
 
 async function secVentaDespacho() {
@@ -3826,6 +4021,7 @@ const SECS = {
   'cyber':          () => secCyber(),
   'cajas':          () => secCajas(),
   'tabla':          () => secTabla(),
+  'cuadrados':      () => secCuadrados(),
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
   'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
@@ -4841,6 +5037,65 @@ function bindContent(secId) {
       const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
     }));
     sortCj('fecha');   // parte por fecha ascendente: la caja que lleva más tiempo esperando, arriba
+  }
+
+  // Cortes cuadrados
+  if (secId === 'cuadrados' && document.getElementById('cuaBody')) {
+    function pintarCua() {
+      const est = document.querySelector('#cuaEstSegs .seg.on')?.dataset.e || 'cuadrado';
+      const per = document.querySelector('#cuaPerSegs .seg.on')?.dataset.p || '7';
+      const q = (document.getElementById('cuaSearch')?.value || '').trim().toLowerCase();
+      const toks = q.split(/[\s,;]+/).filter(Boolean);
+      // El tramo solo tiene sentido sobre los que ya cuadraron: se esconde en los demás
+      const grp = document.getElementById('cuaPerGrp');
+      if (grp) grp.style.display = est === 'cuadrado' ? '' : 'none';
+      const hoy = today(), d7 = resHace(7), mes = hoy.slice(0, 7);
+      const enTramo = r => per === 'todo' ? true : per === 'hoy' ? r.cuadro === hoy
+                         : per === '7' ? (r.cuadro && r.cuadro >= d7) : (r.cuadro || '').startsWith(mes);
+      let lista = CUA.filter(r => est === 'cuadrado' ? (r.estado === 'cuadrado' && enTramo(r))
+                                : est === 'abierto'  ? (r.estado !== 'cuadrado' && r.falta > 0)
+                                : true);
+      if (toks.length) lista = lista.filter(r => toks.some(t =>
+        r.oc.toLowerCase().includes(t) || artMatch(r.art, t) || r.art.startsWith(t) || r.art.slice(2, 6).startsWith(t)));
+      // Los cuadrados por fecha, lo abierto por lo que falta: arriba lo más grande
+      lista = lista.sort(est === 'cuadrado' ? (a, b) => (b.cuadro || '').localeCompare(a.cuadro || '')
+                       : est === 'abierto'  ? (a, b) => b.falta - a.falta
+                       : (a, b) => (b.falta - a.falta) || (b.cuadro || '').localeCompare(a.cuadro || ''));
+      const tb = document.getElementById('cuaBody');
+      if (tb) tb.innerHTML = cuaFilas(lista);
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      set('cuaCount', `${lista.length} órdenes`);
+      const su = k => lista.reduce((a, r) => a + (r[k] || 0), 0);
+      set('cuaFoot', est === 'cuadrado'
+        ? `${lista.length} órdenes cuadradas · ${fmt(su('ent'))} prendas recibidas en bodega`
+        : `${lista.length} órdenes · ${fmt(su('cort'))} cortadas · ${fmt(su('ent'))} entregadas · ${fmt(su('falta'))} por llegar`);
+    }
+    ['cuaEstSegs', 'cuaPerSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b =>
+      b.addEventListener('click', () => {
+        document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
+        b.classList.add('on'); pintarCua();
+      })));
+    let _cuaDeb = 0;
+    document.getElementById('cuaSearch')?.addEventListener('input', () => {
+      clearTimeout(_cuaDeb); _cuaDeb = setTimeout(pintarCua, 180);
+    });
+    document.getElementById('cuaBody')?.addEventListener('click', ev => {
+      const row = ev.target.closest('tr.cua-row');
+      if (!row) return;
+      const r = CUA[+row.dataset.i];
+      if (!r) return;
+      document.getElementById('vkOvTtl').textContent = `OC ${r.oc} · artículo ${r.art}`;
+      document.getElementById('vkOvBody').innerHTML = cuaDetalle(r);
+      document.getElementById('vkOv').classList.add('open');
+    });
+    document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
+    document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+    document.getElementById('cuaPrint')?.addEventListener('click', () => {
+      printTable({ table: document.getElementById('cuaBody')?.closest('table'),
+                   title: 'Cortes cuadrados',
+                   subtitle: document.getElementById('cuaFoot')?.textContent || '' });
+    });
+    pintarCua();
   }
 
   // Stock Kennedy
