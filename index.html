@@ -828,10 +828,14 @@ function resBase(ft, sb, peds) {
   //    todos los dias sin que hubiera pasado nada en el taller.
   const prod = ft.filter(r => (r.tipo || '') === 'Producción');
   const hoy = today(), mesHoy = hoy.slice(0, 7), dia = hoy.slice(8, 10), mAnt = mesAnt(mesHoy);
-  const delMes = prod.filter(r => (r.fecha_iso || '').startsWith(mesHoy));
+  /* Manda la fecha del corte de verdad, no la de emisión de la OC: una orden de
+     septiembre se puede cortar en octubre, y antes esas prendas se iban a septiembre.
+     Si el ERP no trae fecha de corte, o la trae con el año mal, vale la de la orden. */
+  const fCorte = r => { const c = r.corte_ini || ''; return (c && c <= hoy) ? c : (r.fecha_iso || ''); };
+  const delMes = prod.filter(r => fCorte(r).startsWith(mesHoy));
   // El mes anterior recortado al mismo dia: comparar un mes de 2 dias contra uno de 30
   // haria ver siempre una caida enorme.
-  const antIgual = prod.filter(r => (r.fecha_iso || '').startsWith(mAnt) && r.fecha_iso.slice(8, 10) <= dia);
+  const antIgual = prod.filter(r => fCorte(r).startsWith(mAnt) && fCorte(r).slice(8, 10) <= dia);
   /* Ordenes emitidas que el ERP todavia tiene con Cortado en cero. Son la explicacion
      cuando el mes va en cero: el corte existe pero nadie lo ha registrado, o no se ha
      hecho. Se miran 90 dias hacia atras para no arrastrar ordenes abandonadas. */
@@ -839,7 +843,7 @@ function resBase(ft, sb, peds) {
                                   && (r.fecha_iso || '') >= resHace(90));
   const porMes = new Map();
   for (const r of prod) {
-    const m = (r.fecha_iso || '').slice(0, 7);
+    const m = fCorte(r).slice(0, 7);
     if (!m) continue;
     const x = porMes.get(m) || { oc: 0, prog: 0, proc: 0, lista: [] };
     x.oc++; x.prog += r.programa || 0; x.proc += r.proceso || 0; x.lista.push(r);
