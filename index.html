@@ -1517,6 +1517,7 @@ async function secTabla() {
     <div class="fgrp"><span class="flbl">Etapa</span>
       <select id="tblEtapa" class="finput">
         <option value="todo">Todas las etapas</option>
+        <option value="final" title="Lavandería y Terminación: la recta final, sin lo que ya llegó a bodega">De lavandería en adelante</option>
         <option value="Bodega">Bodega</option>
         <option value="Lavandería">Lavandería</option>
         <option value="Terminación">Terminación</option>
@@ -4327,6 +4328,10 @@ function bindContent(secId) {
       _vis = lista;
     }
 
+    /* La recta final: lo que ya paso el lavado y esta por salir. No entra Bodega,
+       porque eso ya llego y lo que se quiere ver es lo que viene en camino. */
+    const TBL_FINAL = new Set(['Lavandería', 'Terminación']);
+
     function applyTablaFilters() {
       const etapa = document.getElementById('tblEtapa')?.value || 'todo';
       const temp  = document.getElementById('tblTempSel')?.value || 'todo';
@@ -4343,7 +4348,7 @@ function bindContent(secId) {
           || (tipo !== 'todo' && tipo !== 'muestras' && f.tipo === tipo);
         const show =
           tipoOk &&
-          (etapa === 'todo' || f.etapa === etapa) &&
+          (etapa === 'todo' || (etapa === 'final' ? TBL_FINAL.has(f.etapa) : f.etapa === etapa)) &&
           (temp  === 'todo' || f.temp  === temp) &&
           (!art || (artNum ? (artMatch(f.art8, art) || f.art.startsWith(art)) : f.art.includes(art))) &&
           (!oc  || f.oc.includes(oc));
