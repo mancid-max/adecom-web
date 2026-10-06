@@ -1073,7 +1073,7 @@ async function secResumen() {
         <div style="min-width:0">
           <div class="kpi-val">${fmt(RES.corteMes.u)}</div>
           <div class="kpi-lbl">Cortado en ${mesNom(RES.corteMes.mes)}</div>
-          <div class="kpi-delta d-nu" title="El mes anterior cortado hasta el día ${RES.corteMes.dia}, para que la comparación sea de tramos iguales${RES.corteMes.espOc ? `. Esperando corte: órdenes emitidas que el ERP todavía tiene en cero, la más antigua del ${RES.corteMes.espDesde.split('-').reverse().join('/')}` : ''}">${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}${RES.corteMes.espOc ? ` · ${RES.corteMes.espOc} esperando corte` : ''}</div>
+          <div class="kpi-delta d-nu" title="Programadas: lo que las órdenes de ${mesNom(RES.corteMes.mes)} mandaron a producir, hayan pasado por corte o no. El mes anterior va cortado hasta el día ${RES.corteMes.dia}, para comparar tramos iguales${RES.corteMes.espOc ? `. Esperando corte: ${fmt(RES.corteMes.espU)} prendas en órdenes que el ERP todavía tiene con el cortado en cero, la más antigua del ${RES.corteMes.espDesde.split('-').reverse().join('/')}` : ''}">de ${fmt(RES.corteMes.prog)} programadas en ${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'}${RES.corteMes.espOc ? ` · ${RES.corteMes.espOc} órdenes esperando corte` : ''} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}</div>
         </div>
       </div>
       <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
