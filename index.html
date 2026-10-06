@@ -841,8 +841,8 @@ function resBase(ft, sb, peds) {
   for (const r of prod) {
     const m = (r.fecha_iso || '').slice(0, 7);
     if (!m) continue;
-    const x = porMes.get(m) || { oc: 0, prog: 0, proc: 0 };
-    x.oc++; x.prog += r.programa || 0; x.proc += r.proceso || 0;
+    const x = porMes.get(m) || { oc: 0, prog: 0, proc: 0, lista: [] };
+    x.oc++; x.prog += r.programa || 0; x.proc += r.proceso || 0; x.lista.push(r);
     porMes.set(m, x);
   }
 
@@ -897,7 +897,7 @@ function resDetCortes() {
   // Si el mes recien parte y no hay ninguna orden, igual se le hace su fila: una tabla
   // que empieza en el mes pasado hace dudar de la tarjeta.
   const meses = new Map(RES.porMes);
-  if (!meses.has(RES.corteMes.mes)) meses.set(RES.corteMes.mes, { oc: 0, prog: 0, proc: 0 });
+  if (!meses.has(RES.corteMes.mes)) meses.set(RES.corteMes.mes, { oc: 0, prog: 0, proc: 0, lista: [] });
   const filas = [...meses.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
   if (!filas.length) return vTabla('<th>Mes</th>', vVacio(5), '');
   const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -923,13 +923,53 @@ function resDetCortes() {
     </div>`;
   return cabeza + vTabla(
     '<th>Mes</th><th class="r">Órdenes</th><th class="r" title="Lo que se mandó a producir">Programado</th><th class="r" title="Lo que efectivamente se procesó">Cortado</th><th></th>',
-    filas.map(([m, r]) => `<tr>
+    filas.map(([m, r]) => `<tr class="rc-mes" data-m="${m}" style="cursor:pointer" title="Ver las órdenes de ese mes">
       <td style="white-space:nowrap">${MES[+m.slice(5, 7)]} ${m.slice(0, 4)}</td>
       <td class="r td-num">${r.oc}</td>
       <td class="r td-num td-dim">${fmt(r.prog)}</td>
       <td class="r td-num">${fmt(r.proc)}</td>
       <td style="width:34%">${vBarra(r.proc, max, false)}</td></tr>`).join(''),
-    'Solo órdenes de producción, sin muestras. Cortado es lo que el ERP marca como procesado');
+    'Solo órdenes de producción, sin muestras. Cortado es lo que el ERP marca como procesado. Toca un mes para ver sus órdenes');
+}
+
+/* Las ordenes de un mes, una por una: cual se corto, cual sigue esperando y donde esta */
+function resDetCortesMes(m) {
+  const r = RES.porMes.get(m) || { oc: 0, prog: 0, proc: 0, lista: [] };
+  const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const falta = Math.max(0, r.prog - r.proc);
+  const volver = `<div style="padding:12px 16px 0">
+      <button class="seg" id="rcVolver" style="border:1px solid var(--bd2)">← Todos los meses</button></div>`;
+  const resumen = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px 4px">
+      ${[['Órdenes', fmt(r.oc), 'var(--tx1)'], ['Programado', fmt(r.prog), 'var(--tx2)'],
+         ['Cortado', fmt(r.proc), 'var(--ac)'],
+         ['Falta cortar', fmt(falta), falta ? 'var(--wa)' : 'var(--tx3)']]
+        .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
+            <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
+            <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+    </div>`;
+  if (!r.lista.length) return volver + resumen + '<div class="td-dim" style="padding:6px 16px 18px;font-size:12px">Todavía no hay órdenes emitidas en este mes.</div>';
+  // Las que no se han cortado arriba: son las que hay que ir a mirar
+  const lista = [...r.lista].sort((a, b) => ((a.proceso || 0) > 0) - ((b.proceso || 0) > 0)
+                                         || (b.programa || 0) - (a.programa || 0));
+  const chip = (t, bg, fg) => `<span style="background:${bg};color:${fg};border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${t}</span>`;
+  return volver + resumen + vTabla(
+    '<th>OC</th><th>Artículo</th><th>Emitida</th><th class="r">Programado</th><th class="r">Cortado</th><th class="r">Falta</th><th>Etapa</th>',
+    lista.map(x => {
+      const f = Math.max(0, (x.programa || 0) - (x.proceso || 0));
+      const et = getEtapa(x);
+      return `<tr>
+        <td class="td-code">${x.corte}</td>
+        <td class="td-code">${artImg(x.articulo)}${x.articulo}</td>
+        <td class="td-dim">${x.fecha || '—'}</td>
+        <td class="r td-num td-dim">${fmt(x.programa || 0)}</td>
+        <td class="r td-num">${x.proceso ? fmt(x.proceso) : '<span class="td-dim">—</span>'}</td>
+        <td class="r td-num">${f ? `<span style="color:var(--wa);font-weight:700">${fmt(f)}</span>` : '<span class="td-dim">—</span>'}</td>
+        <td>${(x.proceso || 0) === 0 ? chip('esperando corte', 'var(--wa10)', 'var(--wa)')
+              : et === 'Bodega' ? chip('en bodega', 'var(--ok10)', 'var(--ok)')
+              : chip(et, 'var(--ac10)', 'var(--ac)')}</td></tr>`;
+    }).join(''),
+    `${MES[+m.slice(5, 7)]} ${m.slice(0, 4)} · ${r.oc} ${r.oc === 1 ? 'orden' : 'órdenes'} · ${fmt(r.proc)} de ${fmt(r.prog)} cortadas`);
 }
 
 function resDetTerminacion() {
@@ -5506,6 +5546,24 @@ function bindContent(secId) {
         rOv.classList.add('open');
       });
     });
+    /* Dentro de "Lo cortado, mes a mes" se puede bajar a las órdenes de un mes y volver.
+       Va delegado porque el cuerpo del panel se reescribe en cada paso. */
+    const MESL = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    document.getElementById('vkOvBody')?.addEventListener('click', ev => {
+      const cuerpo = ev.currentTarget;
+      if (ev.target.closest('#rcVolver')) {
+        document.getElementById('vkOvTtl').textContent = 'Lo cortado, mes a mes';
+        cuerpo.innerHTML = resDetCortes();
+        return;
+      }
+      const fila = ev.target.closest('tr.rc-mes');
+      if (!fila) return;
+      const m = fila.dataset.m;
+      document.getElementById('vkOvTtl').textContent = `${MESL[+m.slice(5, 7)]} ${m.slice(0, 4)} · órdenes de corte`;
+      cuerpo.innerHTML = resDetCortesMes(m);
+      cuerpo.scrollTop = 0;
+    });
+
     document.getElementById('vkOvClose')?.addEventListener('click', () => rOv.classList.remove('open'));
     rOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
   }
