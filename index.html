@@ -2090,13 +2090,7 @@ async function secCuadrados() {
 
   return `
   <div class="fbar">
-    <div class="fgrp"><span class="flbl">Mostrar</span>
-    <div class="segs" id="cuaEstSegs">
-      <button class="seg on" data-e="cuadrado" title="Órdenes donde bodega ya recibió todo lo cortado">Cuadrados</button>
-      <button class="seg" data-e="abierto" title="Órdenes con prendas cortadas que todavía no llegan completas a bodega">Por cuadrar</button>
-      <button class="seg" data-e="todo">Todas</button>
-    </div></div>
-    <div class="fgrp" id="cuaPerGrp"><span class="flbl">Cuándo cuadró</span>
+    <div class="fgrp"><span class="flbl">Cuándo cuadró</span>
     <div class="segs" id="cuaPerSegs">
       <button class="seg" data-p="hoy">Hoy</button>
       <button class="seg on" data-p="7">Últimos 7 días</button>
@@ -2120,8 +2114,32 @@ async function secCuadrados() {
 
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Órdenes de corte</div>
-        <div class="card-sub" style="margin:2px 0 0">Una orden cuadra cuando bodega recibe todo lo que se cortó. Toca una fila para ver el paso por cada etapa</div></div>
+      <div><div class="card-ttl" style="margin:0">Por cuadrar</div>
+        <div class="card-sub" style="margin:2px 0 0">Se cortaron y bodega todavía no las recibe completas. Toca una fila para ver dónde se quedaron</div></div>
+      <span class="td-dim" style="margin-left:auto" id="cuaPendCount"></span>
+      <button class="seg" id="cuaPendPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th>OC</th><th>Artículo</th><th>Emitida</th>
+          <th class="r" title="Lo que el taller cortó de verdad, que puede no ser lo programado">Cortado</th>
+          <th class="r" title="Lo que bodega ya recibió">Entregado</th>
+          <th class="r" title="Cortado − Entregado">Falta</th>
+          <th title="La etapa donde se quedaron las prendas que faltan">Dónde está</th>
+          <th class="r" title="Días desde que empezó el corte">Días</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody id="cuaPendBody" class="tbl-compacta">${cuaFilas([])}</tbody>
+      </table>
+      <div class="tbl-foot" id="cuaPendFoot"></div>
+    </div>
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Ya cuadrados</div>
+        <div class="card-sub" style="margin:2px 0 0">Bodega recibió todo lo que se cortó. El tramo de arriba manda sobre esta tabla</div></div>
       <span class="td-dim" style="margin-left:auto" id="cuaCount"></span>
       <button class="seg" id="cuaPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
@@ -2132,7 +2150,7 @@ async function secCuadrados() {
           <th class="r" title="Lo que el taller cortó de verdad, que puede no ser lo programado">Cortado</th>
           <th class="r" title="Lo que bodega ya recibió">Entregado</th>
           <th class="r" title="Cortado − Entregado">Falta</th>
-          <th title="La fecha en que cuadró, o la etapa donde está si no ha cuadrado">Cuadró el</th>
+          <th title="El día en que bodega recibió la última prenda">Cuadró el</th>
           <th class="r" title="Días desde que empezó el corte">Días</th>
           <th>Estado</th>
         </tr></thead>
@@ -5042,44 +5060,48 @@ function bindContent(secId) {
   // Cortes cuadrados
   if (secId === 'cuadrados' && document.getElementById('cuaBody')) {
     function pintarCua() {
-      const est = document.querySelector('#cuaEstSegs .seg.on')?.dataset.e || 'cuadrado';
       const per = document.querySelector('#cuaPerSegs .seg.on')?.dataset.p || '7';
       const q = (document.getElementById('cuaSearch')?.value || '').trim().toLowerCase();
       const toks = q.split(/[\s,;]+/).filter(Boolean);
-      // El tramo solo tiene sentido sobre los que ya cuadraron: se esconde en los demás
-      const grp = document.getElementById('cuaPerGrp');
-      if (grp) grp.style.display = est === 'cuadrado' ? '' : 'none';
       const hoy = today(), d7 = resHace(7), mes = hoy.slice(0, 7);
       const enTramo = r => per === 'todo' ? true : per === 'hoy' ? r.cuadro === hoy
                          : per === '7' ? (r.cuadro && r.cuadro >= d7) : (r.cuadro || '').startsWith(mes);
-      let lista = CUA.filter(r => est === 'cuadrado' ? (r.estado === 'cuadrado' && enTramo(r))
-                                : est === 'abierto'  ? (r.estado !== 'cuadrado' && r.falta > 0)
-                                : true);
-      if (toks.length) lista = lista.filter(r => toks.some(t =>
-        r.oc.toLowerCase().includes(t) || artMatch(r.art, t) || r.art.startsWith(t) || r.art.slice(2, 6).startsWith(t)));
-      // Los cuadrados por fecha, lo abierto por lo que falta: arriba lo más grande
-      lista = lista.sort(est === 'cuadrado' ? (a, b) => (b.cuadro || '').localeCompare(a.cuadro || '')
-                       : est === 'abierto'  ? (a, b) => b.falta - a.falta
-                       : (a, b) => (b.falta - a.falta) || (b.cuadro || '').localeCompare(a.cuadro || ''));
-      const tb = document.getElementById('cuaBody');
-      if (tb) tb.innerHTML = cuaFilas(lista);
+      const buscado = r => !toks.length || toks.some(t =>
+        r.oc.toLowerCase().includes(t) || artMatch(r.art, t) || r.art.startsWith(t) || r.art.slice(2, 6).startsWith(t));
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-      set('cuaCount', `${lista.length} órdenes`);
-      const su = k => lista.reduce((a, r) => a + (r[k] || 0), 0);
-      set('cuaFoot', est === 'cuadrado'
-        ? `${lista.length} órdenes cuadradas · ${fmt(su('ent'))} prendas recibidas en bodega`
-        : `${lista.length} órdenes · ${fmt(su('cort'))} cortadas · ${fmt(su('ent'))} entregadas · ${fmt(su('falta'))} por llegar`);
+      const su = (a, k) => a.reduce((x, r) => x + (r[k] || 0), 0);
+
+      // Por cuadrar: lo que más falta, arriba. El tramo no las toca, porque no cuadraron
+      const pend = CUA.filter(r => r.estado !== 'cuadrado' && r.falta > 0 && buscado(r))
+                      .sort((a, b) => b.falta - a.falta || b.dias - a.dias);
+      const tbP = document.getElementById('cuaPendBody');
+      if (tbP) tbP.innerHTML = cuaFilas(pend);
+      set('cuaPendCount', `${pend.length} órdenes`);
+      const sinNada = pend.filter(r => r.estado === 'sinentregar').length;
+      set('cuaPendFoot', pend.length
+        ? `${pend.length} órdenes · ${fmt(su(pend, 'cort'))} cortadas · ${fmt(su(pend, 'ent'))} ya en bodega · `
+          + `${fmt(su(pend, 'falta'))} por llegar · ${sinNada} sin entregar ni una`
+        : 'No queda ninguna orden a medias: todo lo cortado llegó a bodega');
+
+      // Ya cuadrados: los más recientes arriba
+      const list = CUA.filter(r => r.estado === 'cuadrado' && enTramo(r) && buscado(r))
+                      .sort((a, b) => (b.cuadro || '').localeCompare(a.cuadro || ''));
+      const tb = document.getElementById('cuaBody');
+      if (tb) tb.innerHTML = cuaFilas(list);
+      set('cuaCount', `${list.length} órdenes`);
+      set('cuaFoot', list.length
+        ? `${list.length} órdenes cuadradas · ${fmt(su(list, 'ent'))} prendas recibidas en bodega`
+        : 'Ninguna orden cuadró en este tramo');
     }
-    ['cuaEstSegs', 'cuaPerSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b =>
-      b.addEventListener('click', () => {
-        document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
-        b.classList.add('on'); pintarCua();
-      })));
+    document.querySelectorAll('#cuaPerSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#cuaPerSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); pintarCua();
+    }));
     let _cuaDeb = 0;
     document.getElementById('cuaSearch')?.addEventListener('input', () => {
       clearTimeout(_cuaDeb); _cuaDeb = setTimeout(pintarCua, 180);
     });
-    document.getElementById('cuaBody')?.addEventListener('click', ev => {
+    ['cuaPendBody', 'cuaBody'].forEach(id => document.getElementById(id)?.addEventListener('click', ev => {
       const row = ev.target.closest('tr.cua-row');
       if (!row) return;
       const r = CUA[+row.dataset.i];
@@ -5087,14 +5109,15 @@ function bindContent(secId) {
       document.getElementById('vkOvTtl').textContent = `OC ${r.oc} · artículo ${r.art}`;
       document.getElementById('vkOvBody').innerHTML = cuaDetalle(r);
       document.getElementById('vkOv').classList.add('open');
-    });
+    }));
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
-    document.getElementById('cuaPrint')?.addEventListener('click', () => {
-      printTable({ table: document.getElementById('cuaBody')?.closest('table'),
-                   title: 'Cortes cuadrados',
-                   subtitle: document.getElementById('cuaFoot')?.textContent || '' });
+    const imprimir = (btn, tb, ttl, pie) => document.getElementById(btn)?.addEventListener('click', () => {
+      printTable({ table: document.getElementById(tb)?.closest('table'), title: ttl,
+                   subtitle: document.getElementById(pie)?.textContent || '' });
     });
+    imprimir('cuaPendPrint', 'cuaPendBody', 'Cortes por cuadrar', 'cuaPendFoot');
+    imprimir('cuaPrint', 'cuaBody', 'Cortes cuadrados', 'cuaFoot');
     pintarCua();
   }
 
