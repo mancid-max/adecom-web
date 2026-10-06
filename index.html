@@ -832,6 +832,11 @@ function resBase(ft, sb, peds) {
   // El mes anterior recortado al mismo dia: comparar un mes de 2 dias contra uno de 30
   // haria ver siempre una caida enorme.
   const antIgual = prod.filter(r => (r.fecha_iso || '').startsWith(mAnt) && r.fecha_iso.slice(8, 10) <= dia);
+  /* Ordenes emitidas que el ERP todavia tiene con Cortado en cero. Son la explicacion
+     cuando el mes va en cero: el corte existe pero nadie lo ha registrado, o no se ha
+     hecho. Se miran 90 dias hacia atras para no arrastrar ordenes abandonadas. */
+  const esperando = prod.filter(r => (r.programa || 0) > 0 && (r.proceso || 0) === 0
+                                  && (r.fecha_iso || '') >= resHace(90));
   const porMes = new Map();
   for (const r of prod) {
     const m = (r.fecha_iso || '').slice(0, 7);
@@ -877,7 +882,10 @@ function resBase(ft, sb, peds) {
                 prog: delMes.reduce((a, r) => a + (r.programa || 0), 0),
                 arts: new Set(delMes.map(r => r.articulo)).size,
                 antOc: antIgual.length,
-                antU:  antIgual.reduce((a, r) => a + (r.proceso || 0), 0) },
+                antU:  antIgual.reduce((a, r) => a + (r.proceso || 0), 0),
+                espOc: esperando.length,
+                espU:  esperando.reduce((a, r) => a + (r.programa || 0), 0),
+                espDesde: esperando.map(r => r.fecha_iso).sort()[0] || '' },
     porMes,
     term: { oc: term.length, u: [...uTerm.values()].reduce((a, b) => a + b, 0), arts: uTerm.size, uTerm, lista: term },
     enBodega, porTerminar, pend, disp,
@@ -909,6 +917,9 @@ function resDetCortes() {
       </div>
       <div class="td-dim" style="font-size:12px;margin-top:8px">A esta misma altura de ${mesNom(cm.mesAnt)} iban
         <b>${fmt(cm.antU)}</b> prendas en ${cm.antOc} ${cm.antOc === 1 ? 'orden' : 'órdenes'}. Abajo, cada mes completo.</div>
+      ${cm.espOc ? `<div style="font-size:12px;margin-top:6px;color:var(--wa)"><b>${cm.espOc} órdenes esperando corte</b>
+        (${fmt(cm.espU)} prendas programadas). El ERP las tiene emitidas y con el cortado en cero, la más antigua
+        del ${cm.espDesde.split('-').reverse().join('/')}.</div>` : ''}
     </div>`;
   return cabeza + vTabla(
     '<th>Mes</th><th class="r">Órdenes</th><th class="r" title="Lo que se mandó a producir">Programado</th><th class="r" title="Lo que efectivamente se procesó">Cortado</th><th></th>',
@@ -1062,7 +1073,7 @@ async function secResumen() {
         <div style="min-width:0">
           <div class="kpi-val">${fmt(RES.corteMes.u)}</div>
           <div class="kpi-lbl">Cortado en ${mesNom(RES.corteMes.mes)}</div>
-          <div class="kpi-delta d-nu" title="El mes anterior cortado hasta el día ${RES.corteMes.dia}, para que la comparación sea de tramos iguales">${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}</div>
+          <div class="kpi-delta d-nu" title="El mes anterior cortado hasta el día ${RES.corteMes.dia}, para que la comparación sea de tramos iguales${RES.corteMes.espOc ? `. Esperando corte: órdenes emitidas que el ERP todavía tiene en cero, la más antigua del ${RES.corteMes.espDesde.split('-').reverse().join('/')}` : ''}">${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}${RES.corteMes.espOc ? ` · ${RES.corteMes.espOc} esperando corte` : ''}</div>
         </div>
       </div>
       <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
