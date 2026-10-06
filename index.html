@@ -2064,6 +2064,67 @@ function cuaDetalle(r) {
     `Orden ${r.oc} · artículo ${r.art} · emitida el ${cuaDMA(r.emitida)}`);
 }
 
+/* Lo que hay detras de cada tarjeta */
+function cuaDetOcs(lista, vacio) {
+  if (!lista.length) return `<div class="td-dim" style="padding:18px 16px">${vacio}</div>`;
+  return vTabla(
+    '<th>OC</th><th>Artículo</th><th class="r">Cortado</th><th class="r">Entregado</th><th class="r">Días</th><th>Cuadró el</th>',
+    lista.map(r => `<tr>
+      <td class="td-code">${r.oc}</td>
+      <td class="td-code">${r.art}</td>
+      <td class="r td-num">${fmt(r.cort)}</td>
+      <td class="r td-num" style="color:var(--ok)">${fmt(r.ent)}</td>
+      <td class="r td-num td-dim">${r.dias == null ? '—' : fmt(r.dias)}</td>
+      <td class="td-dim">${cuaDMA(r.cuadro)}</td></tr>`).join(''),
+    `${lista.length} ${lista.length === 1 ? 'orden' : 'órdenes'} · ${fmt(lista.reduce((a, r) => a + r.ent, 0))} prendas recibidas en bodega`);
+}
+
+/* Donde se quedo lo que falta: la etapa mas avanzada con unidades pendientes */
+function cuaDetEtapas(abiertas) {
+  const m = new Map();
+  for (const r of abiertas) {
+    const k = r.etapa || 'Sin etapa registrada';
+    const x = m.get(k) || { oc: 0, u: 0, cort: 0 };
+    x.oc++; x.u += r.falta; x.cort += r.cort; m.set(k, x);
+  }
+  const filas = [...m.entries()].sort((a, b) => b[1].u - a[1].u);
+  if (!filas.length) return '<div class="td-dim" style="padding:18px 16px">No queda nada por cuadrar</div>';
+  const max = Math.max(...filas.map(([, v]) => v.u));
+  return vTabla(
+    '<th>Etapa</th><th class="r">Órdenes</th><th class="r" title="Prendas que todavía no llegan a bodega">Por llegar</th><th></th>',
+    filas.map(([k, v]) => `<tr>
+      <td>${k}</td>
+      <td class="r td-num td-dim">${v.oc}</td>
+      <td class="r td-num" style="color:var(--wa);font-weight:700">${fmt(v.u)}</td>
+      <td style="width:40%">${vBarra(v.u, max, true)}</td></tr>`).join(''),
+    'La etapa es la más avanzada que todavía tiene unidades pendientes en el ERP');
+}
+
+/* Cuanto tardan en cuadrar, y cuales se salen de lo normal */
+function cuaDetDias(cuadradas) {
+  const con = cuadradas.filter(r => r.dias != null && r.dias >= 0);
+  if (!con.length) return '<div class="td-dim" style="padding:18px 16px">Todavía no hay órdenes cuadradas con fecha</div>';
+  const tramos = [[0, 15, 'Hasta 15 días'], [16, 30, 'De 16 a 30'], [31, 60, 'De 31 a 60'],
+                  [61, 90, 'De 61 a 90'], [91, 1e9, 'Más de 90']];
+  const filas = tramos.map(([a, b, l]) => [l, con.filter(r => r.dias >= a && r.dias <= b)]);
+  const max = Math.max(...filas.map(([, g]) => g.length));
+  const lentas = [...con].sort((a, b) => b.dias - a.dias).slice(0, 5);
+  const tabla = vTabla(
+    '<th>Tramo</th><th class="r">Órdenes</th><th class="r">Prendas</th><th></th>',
+    filas.map(([l, g]) => `<tr>
+      <td>${l}</td>
+      <td class="r td-num">${g.length}</td>
+      <td class="r td-num td-dim">${fmt(g.reduce((a, r) => a + r.ent, 0))}</td>
+      <td style="width:40%">${vBarra(g.length, max, false)}</td></tr>`).join(''),
+    `Sobre ${con.length} órdenes cuadradas. Se cuenta desde que empezó el corte hasta que llegó la última prenda`);
+  return tabla + `
+    <div style="padding:12px 16px 16px">
+      <div class="flbl" style="margin-bottom:6px">Las que más tardaron</div>
+      ${lentas.map(r => `<div class="td-dim" style="font-size:12px;padding:2px 0">
+        OC <b>${r.oc}</b> · ${r.art} · <b>${fmt(r.dias)}</b> días · cuadró el ${cuaDMA(r.cuadro)}</div>`).join('')}
+    </div>`;
+}
+
 async function secCuadrados() {
   const toc = await load('traza_oc.json');
   CUA = cuaBase(toc);
@@ -2079,8 +2140,8 @@ async function secCuadrados() {
   const dd = cuadradas.map(r => r.dias).filter(d => d != null && d >= 0).sort((a, b) => a - b);
   const mediana = dd.length ? dd[Math.floor(dd.length / 2)] : null;
 
-  const ico = (c, path, val, lbl, delta, dt = 'd-nu') => `
-    <div class="kpi" style="cursor:default">
+  const ico = (c, path, val, lbl, delta, dt = 'd-nu', det = '', ttl = '') => `
+    <div class="kpi"${det ? ` data-qdet="${det}" title="${ttl}"` : ' style="cursor:default"'}>
       <div class="kpi-ico c-${c}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg></div>
       <div style="min-width:0">
         <div class="kpi-val">${val}</div>
@@ -2103,13 +2164,17 @@ async function secCuadrados() {
 
   <div class="kpi-grid">
     ${ico('ok', '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-          fmt(deHoy.length), 'Cuadraron hoy', deHoy.length ? `${fmt(su(deHoy, 'ent'))} prendas a bodega` : 'todavía ninguna', deHoy.length ? 'd-up' : 'd-nu')}
+          fmt(deHoy.length), 'Cuadraron hoy', deHoy.length ? `${fmt(su(deHoy, 'ent'))} prendas a bodega` : 'todavía ninguna', deHoy.length ? 'd-up' : 'd-nu',
+          'hoy', 'Ver qué órdenes cuadraron hoy')}
     ${ico('ac', '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-          fmt(de7.length), 'Cuadrados en 7 días', `${fmt(su(de7, 'ent'))} prendas recibidas en bodega`)}
+          fmt(de7.length), 'Cuadrados en 7 días', `${fmt(su(de7, 'ent'))} prendas recibidas en bodega`, 'd-nu',
+          'semana', 'Ver las órdenes de los últimos 7 días')}
     ${ico('wa', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-          fmt(abiertas.length), 'Por cuadrar', `${fmt(su(abiertas, 'falta'))} prendas sin llegar · ${medias.length} a medias`)}
+          fmt(abiertas.length), 'Por cuadrar', `${fmt(su(abiertas, 'falta'))} prendas sin llegar · ${medias.length} a medias`, 'd-nu',
+          'etapas', 'Ver en qué etapa se quedó lo que falta')}
     ${ico('ac', '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
-          mediana == null ? '—' : fmt(mediana), 'Días en cuadrar', 'la mitad tarda menos que eso')}
+          mediana == null ? '—' : fmt(mediana), 'Días en cuadrar', 'la mitad tarda menos que eso', 'd-nu',
+          'dias', 'Ver cuánto tardan y cuáles se salen de lo normal')}
   </div>
 
   <div class="tbl-card">
@@ -5101,6 +5166,26 @@ function bindContent(secId) {
     document.getElementById('cuaSearch')?.addEventListener('input', () => {
       clearTimeout(_cuaDeb); _cuaDeb = setTimeout(pintarCua, 180);
     });
+    const QDET = {
+      hoy:     ['Cuadraron hoy',            () => cuaDetOcs(CUA.filter(r => r.estado === 'cuadrado' && r.cuadro === today()),
+                                                            'Hoy todavía no cuadra ninguna orden')],
+      semana:  ['Cuadrados en los últimos 7 días', () => cuaDetOcs(CUA.filter(r => r.estado === 'cuadrado' && r.cuadro && r.cuadro >= resHace(7))
+                                                            .sort((a, b) => (b.cuadro || '').localeCompare(a.cuadro || '')),
+                                                            'Ninguna orden cuadró en los últimos 7 días')],
+      etapas:  ['Dónde se quedó lo que falta', () => cuaDetEtapas(CUA.filter(r => r.estado !== 'cuadrado' && r.falta > 0))],
+      dias:    ['Cuánto tardan en cuadrar',  () => cuaDetDias(CUA.filter(r => r.estado === 'cuadrado'))],
+    };
+    document.querySelectorAll('.kpi[data-qdet]').forEach(c => {
+      c.style.cursor = 'pointer';
+      c.addEventListener('click', () => {
+        const [ttl, armar] = QDET[c.dataset.qdet] || [];
+        if (!armar) return;
+        document.getElementById('vkOvTtl').textContent = ttl;
+        document.getElementById('vkOvBody').innerHTML = armar();
+        document.getElementById('vkOv').classList.add('open');
+      });
+    });
+
     ['cuaPendBody', 'cuaBody'].forEach(id => document.getElementById(id)?.addEventListener('click', ev => {
       const row = ev.target.closest('tr.cua-row');
       if (!row) return;
