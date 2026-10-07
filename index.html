@@ -2839,6 +2839,8 @@ function buildFtMap(ft) {
   return m;
 }
 
+let PVC_FILAS = {};   // articulo -> su fila, para armar el detalle al tocarla
+
 function buildPVCRows(t, ftMap, exMap) {
   const byTemp = buildByTemp();
   const rawItems = byTemp[t]?.items || [];
@@ -2867,6 +2869,9 @@ function buildPVCRows(t, ftMap, exMap) {
     return b.diff >= 0 ? 1 : -1;                               // positivos antes que negativos
   });
 
+  PVC_FILAS = {};
+  for (const f of filas) PVC_FILAS[f.art] = f;
+
   return filas.map(f => {
     const cls = f.diff > 0 ? 'var(--ok)' : f.diff < 0 ? 'var(--er)' : 'var(--tx3)';
     const estadoKey = f.diff > 0 ? 'ofrecer' : f.diff < 0 ? 'cortar' : 'ok';
@@ -2890,16 +2895,7 @@ function buildPVCRows(t, ftMap, exMap) {
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
     const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)].join(' ').toLowerCase();
 
-    const ocRows = f.ocs.map((oc, idx) => `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
-        <td class="td-dim" style="padding-left:28px">└ OC ${oc.oc || idx+1}</td>
-        <td></td><td></td><td></td><td></td>
-        <td class="r td-dim">${oc.unidades ? fmt(oc.unidades)+' cort.' : '—'}</td>
-        <td class="r td-dim" style="color:${oc.saldo>0?'var(--wa)':'var(--tx3)'};">${oc.saldo ? fmt(oc.saldo)+' u.' : '—'}</td>
-        <td></td><td></td><td></td>
-        <td style="padding-left:6px"><span style="color:${etapaClr(oc.etapa)};font-size:10px;font-weight:600">${oc.etapa}</span></td>
-      </tr>`).join('');
-
-    return `<tr data-expandable data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
+    return `<tr data-expandable data-art="${f.art}" data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
       <td style="white-space:nowrap">${artImg(f.art)}<span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}</td>
       <td class="r td-num">${fmt(f.ped)}</td>
       <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
@@ -2911,12 +2907,78 @@ function buildPVCRows(t, ftMap, exMap) {
       <td>${exHtml}</td>
       <td class="r">${cantExHtml}</td>
       <td style="padding-left:4px">${modelEtapaHtml}</td>
-    </tr>${ocRows}`;
+    </tr>`;
   }).join('');
+}
+
+/* A quien se le debe un articulo, visto desde Pedido vs Corte. Los pedidos traen el
+   saldo por cliente; las ordenes de corte van al final, que es el otro lado de la
+   misma pregunta: cuanto viene en camino. */
+function pvcDetalle(art) {
+  const f = PVC_FILAS[art];
+  if (!f) return '<div class="td-dim" style="padding:18px 16px">No tengo el detalle de este artículo</div>';
+  const clientes = [];
+  for (const p of (CACHE['pedidos.json'] || [])) {
+    for (const l of (p.lineas || [])) {
+      if (l.art !== art || (l.sal || 0) <= 0) continue;
+      clientes.push({ nombre: p.nombre || p.rut || '—', ciudad: p.ciudad || '', bloqueo: !!p.bloqueo,
+                      cli: p.cli, pedido: p.pedido, sol: l.sol || 0, desp: l.desp || 0, sal: l.sal || 0 });
+    }
+  }
+  clientes.sort((a, b) => b.sal - a.sal);
+  const falta = Math.max(0, f.sal - f.stk - f.pro);
+  const resumen = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
+      ${[['Pedido', fmt(f.ped), 'var(--tx1)'], ['Despachado', fmt(f.desp), 'var(--ok)'],
+         ['Saldo', fmt(f.sal), 'var(--wa)'],
+         ['En bodega', fmt(f.stk), f.stk > 0 ? 'var(--ok)' : f.stk < 0 ? 'var(--er)' : 'var(--tx3)'],
+         ['En producción', fmt(f.pro), f.pro ? 'var(--ac)' : 'var(--tx3)'],
+         ['Hay que cortar', fmt(falta), falta ? 'var(--er)' : 'var(--tx3)']]
+        .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
+            <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
+            <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+    </div>
+    <div class="td-dim" style="font-size:12px;padding:6px 16px 10px">${
+      f.sal <= 0 ? 'No queda saldo de este artículo.'
+      : falta > 0 ? `Faltan <b>${fmt(falta)}</b> que no están ni en bodega ni en producción: eso es lo que hay que cortar.`
+      : f.stk >= f.sal ? 'Alcanza con lo que hay en bodega. Solo falta despacharlo.'
+      : 'Lo que falta viene en producción.'}</div>`;
+
+  const suma = clientes.reduce((a, c) => a + c.sal, 0);
+  const aviso = suma !== f.sal
+    ? ` · la suma da ${fmt(suma)} porque a algún cliente se le despachó de más y el saldo del artículo queda en ${fmt(f.sal)}`
+    : '';
+  const tablaCli = !clientes.length
+    ? '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>'
+    : vTabla('<th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Se le debe</th><th></th>',
+        clientes.map(c => {
+          const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
+          return `<tr>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
+            <td class="td-dim">${c.ciudad || '—'}</td>
+            <td class="r td-num">${fmt(c.sol)}</td>
+            <td class="r td-num td-dim">${fmt(c.desp)}</td>
+            <td class="r td-num" style="color:var(--wa);font-weight:700">${fmt(c.sal)}</td>
+            <td style="width:26%">${vBarra(c.sal, Math.max(...clientes.map(x => x.sal)), false)}</td></tr>`;
+        }).join(''),
+        `${clientes.length} ${clientes.length === 1 ? 'cliente esperando' : 'clientes esperando'} ${fmt(suma)} prendas${aviso}`);
+
+  const tablaOC = !f.ocs.length ? '' : `
+    <div class="flbl" style="padding:14px 16px 0">Sus órdenes de corte</div>` + vTabla(
+    '<th>OC</th><th class="r">Cortadas</th><th class="r" title="Lo que todavía no llega a bodega">Por llegar</th><th>Etapa</th>',
+    f.ocs.map((oc, i) => `<tr>
+      <td class="td-code">${oc.oc || i + 1}</td>
+      <td class="r td-num">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
+      <td class="r td-num" style="color:${oc.saldo > 0 ? 'var(--wa)' : 'var(--tx3)'}">${oc.saldo ? fmt(oc.saldo) : '—'}</td>
+      <td><span style="color:${etapaClr(oc.etapa)};font-size:11px;font-weight:600">${oc.etapa}</span></td></tr>`).join(''),
+    `${f.ocs.length} ${f.ocs.length === 1 ? 'orden' : 'órdenes'} · ${fmt(f.pro)} prendas todavía en producción`);
+
+  return resumen + tablaCli + tablaOC;
 }
 
 async function secPVC() {
   const ft = await load('full_table.json');
+  await load('pedidos.json');     // para saber a quien se le debe cada articulo
   const exMap = await load('pvc_ex.json');
   STOCK_MAP = buildStockMap(await load('saldos_bodega.json'));
   const ftMap = buildFtMap(ft);
@@ -5996,6 +6058,24 @@ function bindContent(secId) {
       applyPvcFilter();
     }));
 
+    /* El click de la fila deja de desplegar las OC y abre a quien se le debe. Se vuelve
+       a enganchar cada vez que se repintan las filas, porque son nodos nuevos. */
+    function bindPvcClick() {
+      document.querySelectorAll('#pvcBody tr[data-art]').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.title = 'Toca para ver a quién se le debe';
+        row.onclick = () => {
+          const art = row.dataset.art;
+          document.getElementById('vkOvTtl').textContent = `Artículo ${art} · a quién se le debe`;
+          document.getElementById('vkOvBody').innerHTML = pvcDetalle(art);
+          document.getElementById('vkOv').classList.add('open');
+        };
+      });
+    }
+    bindPvcClick();
+    document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
+    document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+
     document.getElementById('pvcSearch')?.addEventListener('input', applyPvcFilter);
 
     document.querySelectorAll('#pvcSegs .seg').forEach(b => b.addEventListener('click', () => {
@@ -6036,10 +6116,9 @@ function bindContent(secId) {
       document.querySelectorAll('#pvcEtapaSegs .seg').forEach(x => x.classList.remove('on'));
       const allEtapaBtn = document.querySelector('#pvcEtapaSegs .seg[data-etapa="all"]');
       if (allEtapaBtn) allEtapaBtn.classList.add('on');
-      bindExpandRows();
+      bindPvcClick();      // las filas son nuevas: hay que volver a engancharlas
       applyPvcFilter();
     }));
-    bindExpandRows();
     applyPvcFilter();
   }
 
