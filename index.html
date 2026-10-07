@@ -2121,18 +2121,29 @@ function cuaDetalle(r) {
 }
 
 /* Lo que hay detras de cada tarjeta */
-function cuaDetOcs(lista, vacio) {
+function cuaDetOcs(lista, vacio, abierto) {
   if (!lista.length) return `<div class="td-dim" style="padding:18px 16px">${vacio}</div>`;
   return vTabla(
-    '<th>OC</th><th>Artículo</th><th class="r">Cortado</th><th class="r">Entregado</th><th class="r">Días</th><th>Cuadró el</th>',
+    `<th>OC</th><th>Artículo</th><th class="r">Cortado</th><th class="r">Entregado</th>${abierto ? '<th class="r">Falta</th>' : ''}<th class="r">Días</th><th>${abierto ? 'Dónde está' : 'Cuadró el'}</th>`,
     lista.map(r => `<tr>
       <td class="td-code">${r.oc}</td>
       <td class="td-code">${r.art}</td>
       <td class="r td-num">${fmt(r.cort)}</td>
-      <td class="r td-num" style="color:var(--ok)">${fmt(r.ent)}</td>
+      <td class="r td-num" style="color:var(--ok)">${r.ent ? fmt(r.ent) : '<span class="td-dim">—</span>'}</td>
+      ${abierto ? `<td class="r td-num"><span style="color:var(--wa);font-weight:700">${fmt(r.falta)}</span></td>` : ''}
       <td class="r td-num td-dim">${r.dias == null ? '—' : fmt(r.dias)}</td>
-      <td class="td-dim">${cuaDMA(r.cuadro)}</td></tr>`).join(''),
-    `${lista.length} ${lista.length === 1 ? 'orden' : 'órdenes'} · ${fmt(lista.reduce((a, r) => a + r.ent, 0))} prendas recibidas en bodega`);
+      <td class="td-dim">${abierto ? (r.etapa || '—') : cuaDMA(r.cuadro)}</td></tr>`).join(''),
+    abierto
+      ? `${lista.length} ${lista.length === 1 ? 'orden' : 'órdenes'} · ${fmt(lista.reduce((a, r) => a + r.falta, 0))} prendas sin llegar a bodega`
+      : `${lista.length} ${lista.length === 1 ? 'orden' : 'órdenes'} · ${fmt(lista.reduce((a, r) => a + r.ent, 0))} prendas recibidas en bodega`);
+}
+
+/* Como se llama el tramo elegido, para que la tarjeta lo diga */
+function cuaTramo(per) {
+  return per === 'hoy' ? 'hoy'
+       : per === '7'   ? 'en los últimos 7 días'
+       : per === 'mes' ? 'en ' + mesNom(today())
+       :                 'en total';
 }
 
 /* Donde se quedo lo que falta: la etapa mas avanzada con unidades pendientes */
@@ -2186,23 +2197,14 @@ async function secCuadrados() {
   CUA = cuaBase(toc);
   if (!CUA.length) return makePH('<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', 'Cortes Cuadrados', 'Sin órdenes de corte');
 
-  const hoy = today(), d7 = resHace(7);
-  const cuadradas = CUA.filter(r => r.estado === 'cuadrado');
-  const deHoy  = cuadradas.filter(r => r.cuadro === hoy);
-  const de7    = cuadradas.filter(r => r.cuadro && r.cuadro >= d7);
-  const abiertas = CUA.filter(r => r.estado !== 'cuadrado' && r.falta > 0);
-  const medias   = abiertas.filter(r => r.estado === 'medias');
-  const su = (a, k) => a.reduce((x, r) => x + (r[k] || 0), 0);
-  const dd = cuadradas.map(r => r.dias).filter(d => d != null && d >= 0).sort((a, b) => a - b);
-  const mediana = dd.length ? dd[Math.floor(dd.length / 2)] : null;
-
-  const ico = (c, path, val, lbl, delta, dt = 'd-nu', det = '', ttl = '') => `
-    <div class="kpi"${det ? ` data-qdet="${det}" title="${ttl}"` : ' style="cursor:default"'}>
+  // Las tarjetas se rellenan en pintarCua: aqui solo va el molde, con su id
+  const ico = (c, path, id, det, ttl) => `
+    <div class="kpi" data-qdet="${det}" title="${ttl}">
       <div class="kpi-ico c-${c}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg></div>
       <div style="min-width:0">
-        <div class="kpi-val">${val}</div>
-        <div class="kpi-lbl">${lbl}</div>
-        <div class="kpi-delta ${dt}">${delta}</div>
+        <div class="kpi-val" id="${id}v">—</div>
+        <div class="kpi-lbl" id="${id}l"></div>
+        <div class="kpi-delta d-nu" id="${id}s"></div>
       </div></div>`;
 
   return `
@@ -2220,17 +2222,13 @@ async function secCuadrados() {
 
   <div class="kpi-grid">
     ${ico('ok', '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-          fmt(deHoy.length), 'Cuadraron hoy', deHoy.length ? `${fmt(su(deHoy, 'ent'))} prendas a bodega` : 'todavía ninguna', deHoy.length ? 'd-up' : 'd-nu',
-          'hoy', 'Ver qué órdenes cuadraron hoy')}
-    ${ico('ac', '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-          fmt(de7.length), 'Cuadrados en 7 días', `${fmt(su(de7, 'ent'))} prendas recibidas en bodega`, 'd-nu',
-          'semana', 'Ver las órdenes de los últimos 7 días')}
-    ${ico('wa', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-          fmt(abiertas.length), 'Por cuadrar', `${fmt(su(abiertas, 'falta'))} prendas sin llegar · ${medias.length} a medias`, 'd-nu',
-          'etapas', 'Ver en qué etapa se quedó lo que falta')}
+          'cuaK1', 'tramo', 'Ver las órdenes que cuadraron en el tramo elegido')}
     ${ico('ac', '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
-          mediana == null ? '—' : fmt(mediana), 'Días en cuadrar', 'la mitad tarda menos que eso', 'd-nu',
-          'dias', 'Ver cuánto tardan y cuáles se salen de lo normal')}
+          'cuaK2', 'dias', 'Ver cuánto tardan y cuáles se salen de lo normal')}
+    ${ico('wa', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+          'cuaK3', 'etapas', 'Ver en qué etapa se quedó lo que falta')}
+    ${ico('er', '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+          'cuaK4', 'sinentregar', 'Ver las órdenes que no han entregado ni una prenda')}
   </div>
 
   <div class="tbl-card">
@@ -5217,6 +5215,28 @@ function bindContent(secId) {
       set('cuaFoot', list.length
         ? `${list.length} órdenes cuadradas · ${fmt(su(list, 'ent'))} prendas recibidas en bodega`
         : 'Ninguna orden cuadró en este tramo');
+
+      /* Las tarjetas. Las dos primeras siguen el tramo y hasta cambian de título; las
+         otras dos son el estado de ahora, que no depende del tramo, y lo dicen. */
+      const dd = list.map(r => r.dias).filter(d => d != null && d >= 0).sort((a, b) => a - b);
+      const med = dd.length ? dd[Math.floor(dd.length / 2)] : null;
+      const sinNada2 = pend.filter(r => r.estado === 'sinentregar');
+      const vieja = sinNada2.length ? Math.max(...sinNada2.map(r => r.dias || 0)) : 0;
+      const tr = cuaTramo(per);
+      set('cuaK1v', fmt(list.length));
+      set('cuaK1l', 'Cuadrados ' + tr);
+      set('cuaK1s', list.length ? `${fmt(su(list, 'ent'))} prendas recibidas en bodega` : 'ninguna en este tramo');
+      set('cuaK2v', med == null ? '—' : fmt(med));
+      set('cuaK2l', 'Días en cuadrar');
+      set('cuaK2s', med == null ? 'sin órdenes en el tramo'
+        : per === 'todo' ? 'la mitad tarda menos que eso'
+        : `la mitad de las de ${tr.replace(/^en /, '')} tarda menos`);
+      set('cuaK3v', fmt(pend.length));
+      set('cuaK3l', 'Por cuadrar ahora');
+      set('cuaK3s', pend.length ? `${fmt(su(pend, 'falta'))} prendas sin llegar · ${pend.filter(r => r.estado === 'medias').length} a medias` : 'no queda ninguna');
+      set('cuaK4v', fmt(sinNada2.length));
+      set('cuaK4l', 'Sin entregar ni una');
+      set('cuaK4s', sinNada2.length ? `${fmt(su(sinNada2, 'cort'))} prendas · la más vieja lleva ${fmt(vieja)} días` : 'todas entregaron algo');
     }
     document.querySelectorAll('#cuaPerSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#cuaPerSegs .seg').forEach(x => x.classList.remove('on'));
@@ -5226,14 +5246,33 @@ function bindContent(secId) {
     document.getElementById('cuaSearch')?.addEventListener('input', () => {
       clearTimeout(_cuaDeb); _cuaDeb = setTimeout(pintarCua, 180);
     });
+    /* Los detalles miran lo mismo que la tabla: el tramo elegido y lo que se busco */
+    const cuaVis = () => {
+      const per = document.querySelector('#cuaPerSegs .seg.on')?.dataset.p || '7';
+      const q = (document.getElementById('cuaSearch')?.value || '').trim().toLowerCase();
+      const toks = q.split(/[\s,;]+/).filter(Boolean);
+      const hoy = today(), d7 = resHace(7), mes = hoy.slice(0, 7);
+      const ok = r => !toks.length || toks.some(t =>
+        r.oc.toLowerCase().includes(t) || artMatch(r.art, t) || r.art.startsWith(t) || r.art.slice(2, 6).startsWith(t));
+      const enTramo = r => per === 'todo' ? true : per === 'hoy' ? r.cuadro === hoy
+                         : per === '7' ? (r.cuadro && r.cuadro >= d7) : (r.cuadro || '').startsWith(mes);
+      return {
+        per,
+        cuadrados: CUA.filter(r => r.estado === 'cuadrado' && enTramo(r) && ok(r))
+                      .sort((a, b) => (b.cuadro || '').localeCompare(a.cuadro || '')),
+        abiertas:  CUA.filter(r => r.estado !== 'cuadrado' && r.falta > 0 && ok(r)),
+      };
+    };
     const QDET = {
-      hoy:     ['Cuadraron hoy',            () => cuaDetOcs(CUA.filter(r => r.estado === 'cuadrado' && r.cuadro === today()),
-                                                            'Hoy todavía no cuadra ninguna orden')],
-      semana:  ['Cuadrados en los últimos 7 días', () => cuaDetOcs(CUA.filter(r => r.estado === 'cuadrado' && r.cuadro && r.cuadro >= resHace(7))
-                                                            .sort((a, b) => (b.cuadro || '').localeCompare(a.cuadro || '')),
-                                                            'Ninguna orden cuadró en los últimos 7 días')],
-      etapas:  ['Dónde se quedó lo que falta', () => cuaDetEtapas(CUA.filter(r => r.estado !== 'cuadrado' && r.falta > 0))],
-      dias:    ['Cuánto tardan en cuadrar',  () => cuaDetDias(CUA.filter(r => r.estado === 'cuadrado'))],
+      tramo:       ['Cuadrados en el tramo elegido',
+                    () => { const v = cuaVis(); return cuaDetOcs(v.cuadrados, 'Ninguna orden cuadró ' + cuaTramo(v.per)); }],
+      dias:        ['Cuánto tardan en cuadrar',
+                    () => cuaDetDias(cuaVis().cuadrados)],
+      etapas:      ['Dónde se quedó lo que falta',
+                    () => cuaDetEtapas(cuaVis().abiertas)],
+      sinentregar: ['Sin entregar ni una prenda',
+                    () => cuaDetOcs(cuaVis().abiertas.filter(r => r.estado === 'sinentregar').sort((a, b) => (b.dias || 0) - (a.dias || 0)),
+                                    'Todas las órdenes abiertas ya entregaron algo', true)],
     };
     document.querySelectorAll('.kpi[data-qdet]').forEach(c => {
       c.style.cursor = 'pointer';
