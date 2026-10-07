@@ -2142,7 +2142,7 @@ function cuaDetOcs(lista, vacio, abierto) {
 function cuaTramo(per) {
   return per === 'hoy' ? 'hoy'
        : per === '7'   ? 'en los últimos 7 días'
-       : per === 'mes' ? 'en ' + mesNom(today())
+       : per === '30'  ? 'en los últimos 30 días'
        :                 'en total';
 }
 
@@ -2213,7 +2213,7 @@ async function secCuadrados() {
     <div class="segs" id="cuaPerSegs">
       <button class="seg" data-p="hoy">Hoy</button>
       <button class="seg on" data-p="7">Últimos 7 días</button>
-      <button class="seg" data-p="mes">Este mes</button>
+      <button class="seg" data-p="30">Últimos 30 días</button>
       <button class="seg" data-p="todo">Todo</button>
     </div></div>
     <div class="fgrp"><span class="flbl">Buscar</span>
@@ -5186,9 +5186,12 @@ function bindContent(secId) {
       const per = document.querySelector('#cuaPerSegs .seg.on')?.dataset.p || '7';
       const q = (document.getElementById('cuaSearch')?.value || '').trim().toLowerCase();
       const toks = q.split(/[\s,;]+/).filter(Boolean);
-      const hoy = today(), d7 = resHace(7), mes = hoy.slice(0, 7);
+      /* Escalera encajada: hoy cabe en 7 días y 7 en 30. Antes el tercer tramo era el
+         mes calendario y a principio de mes daba MENOS que los 7 días, que parece un error. */
+      const hoy = today(), d7 = resHace(7), d30 = resHace(30);
       const enTramo = r => per === 'todo' ? true : per === 'hoy' ? r.cuadro === hoy
-                         : per === '7' ? (r.cuadro && r.cuadro >= d7) : (r.cuadro || '').startsWith(mes);
+                         : per === '7' ? (r.cuadro && r.cuadro >= d7)
+                         : (r.cuadro && r.cuadro >= d30);
       const buscado = r => !toks.length || toks.some(t =>
         r.oc.toLowerCase().includes(t) || artMatch(r.art, t) || r.art.startsWith(t) || r.art.slice(2, 6).startsWith(t));
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
@@ -5251,11 +5254,12 @@ function bindContent(secId) {
       const per = document.querySelector('#cuaPerSegs .seg.on')?.dataset.p || '7';
       const q = (document.getElementById('cuaSearch')?.value || '').trim().toLowerCase();
       const toks = q.split(/[\s,;]+/).filter(Boolean);
-      const hoy = today(), d7 = resHace(7), mes = hoy.slice(0, 7);
+      const hoy = today(), d7 = resHace(7), d30 = resHace(30);
       const ok = r => !toks.length || toks.some(t =>
         r.oc.toLowerCase().includes(t) || artMatch(r.art, t) || r.art.startsWith(t) || r.art.slice(2, 6).startsWith(t));
       const enTramo = r => per === 'todo' ? true : per === 'hoy' ? r.cuadro === hoy
-                         : per === '7' ? (r.cuadro && r.cuadro >= d7) : (r.cuadro || '').startsWith(mes);
+                         : per === '7' ? (r.cuadro && r.cuadro >= d7)
+                         : (r.cuadro && r.cuadro >= d30);
       return {
         per,
         cuadrados: CUA.filter(r => r.estado === 'cuadrado' && enTramo(r) && ok(r))
