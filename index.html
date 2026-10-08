@@ -4269,10 +4269,10 @@ function bindContent(secId) {
     inp.replaceWith(wrap); wrap.appendChild(inp); wrap.appendChild(s);
     inp.classList.add('pop');
     setTimeout(() => { s.classList.remove('pop'); inp.classList.remove('pop'); }, 1400);
-    // La burbuja sirve para el que llega y no sabe que buscar. Una vez que el buscador
-    // esta en uso sobra, y con la etiqueta encima quedaba repetida tres veces.
-    const pista = () => { s.style.display = (document.activeElement === inp || inp.value) ? 'none' : ''; };
-    ['focus', 'blur', 'input'].forEach(ev => inp.addEventListener(ev, pista));
+    /* La burbuja se queda quieta. Antes se escondia al entrar al buscador y, al salir de
+       la linea, todo lo que venia detras daba un salto: en Venta vs Despacho el boton
+       "Varios articulos" se corria solo. Un filtro que se mueve al tocarlo desorienta
+       mas de lo que estorba la burbuja. */
   });
 
   // [data-goto] → navegar
