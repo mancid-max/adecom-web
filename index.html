@@ -87,7 +87,7 @@ html,body{overflow-x:hidden;max-width:100%}
 /* Reparte el ancho entre las tarjetas que haya: con 5 columnas fijas las secciones
    de 3 o 4 dejaban hueco a la derecha y encima apretaban el texto hasta partirlo. */
 .kpi-grid{display:flex;flex-wrap:wrap;gap:14px}
-.kpi-grid>.kpi{flex:1 1 230px;max-width:430px}
+.kpi-grid>.kpi{flex:1 1 200px;max-width:360px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
 .res-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
@@ -1585,13 +1585,21 @@ async function secTabla() {
 /* ── REPORTE VENTA ──────────────────────────────────────────── */
 function buildVentaTable(filtered) {
   if (!filtered.length) return '<tr class="no-click"><td colspan="5" style="text-align:center;padding:20px;color:var(--tx3)">Sin documentos en este período</td></tr>';
-  return filtered.map(d => `<tr class="no-click">
-    <td>${tipoBadge(d.tipo, d.esp)} <span class="td-code" style="margin-left:6px">${d.dcto}</span></td>
+  /* Una franja a la izquierda separa los tres tipos de linea sin tener que leer la
+     etiqueta: la venta normal, la nota de credito que resta, y la factura especial que
+     cobra sin prendas. Sin fondos de color: una nota de credito es parte del negocio, no
+     una alerta, y cinco filas teñidas se comian la tabla. */
+  const esNota = d => /^n\/?cre|nc|61/i.test(String(d.tipo || '').trim());
+  return filtered.map(d => {
+    const nota = esNota(d);
+    const color = d.esp ? 'var(--wa)' : nota ? 'var(--er)' : 'var(--ac)';
+    return `<tr class="no-click">
+    <td style="border-left:3px solid ${color}">${tipoBadge(d.tipo, d.esp)} <span class="td-code" style="margin-left:6px">${d.dcto}</span></td>
     <td class="td-dim">${d.fecha}</td>
     <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${d.razon}</td>
-    <td class="r td-dim">${fmt(d.prendas)}</td>
-    <td class="r td-num">${fmtCLP(d.neto)}</td>
-  </tr>`).join('');
+    <td class="r td-dim">${d.esp ? '<span title="Las facturas especiales son un cobro, no llevan prendas">—</span>' : fmt(d.prendas)}</td>
+    <td class="r td-num" style="font-weight:700;color:${d.neto < 0 ? 'var(--er)' : 'var(--tx1)'}">${fmtCLP(d.neto)}</td>
+  </tr>`; }).join('');
 }
 
 const SUC_VENTA = {
