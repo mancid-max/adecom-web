@@ -1973,6 +1973,20 @@ function buildVdArtTable(arts) {
   }).join('');
 }
 
+/* Un mismo RUT puede tener varias fichas en el ERP: sucursales o razones sociales.
+   Se trabaja con la de mayor credito, pero conviene decirlo, porque explica cosas que si
+   no parecen errores: que el ERP bloquee unos pedidos del cliente y otros no, o que la
+   deuda que se muestra no sea toda la del RUT. */
+function fichasBadge(cli) {
+  if (!cli || (cli.fichas || 1) < 2) return '';
+  const otras = cli.deuda_otras || 0;
+  const t = `Este RUT tiene ${cli.fichas} fichas en el ERP (sucursales o razones sociales). `
+          + `Se muestra la de mayor crédito, ${fmtCLP(cli.credito || 0)}. `
+          + `El bloqueo lo decide el ERP pedido por pedido, así que puede haber pedidos trabados y otros no.`
+          + (otras ? ` En las otras fichas hay ${fmtM(otras)}${otras < 0 ? ' a favor' : ' de deuda'}.` : '');
+  return ` <span class="badge" title="${t}" style="background:var(--sf2);color:var(--tx2);font-size:9px;padding:1px 5px;font-weight:700">${cli.fichas} fichas</span>`;
+}
+
 /* A quien se le debe un articulo */
 function vdArtDetalle(r) {
   if (!r.clientes.length) return '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>';
@@ -1999,7 +2013,7 @@ function vdArtDetalle(r) {
     r.clientes.map(c => {
       const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
       return `<tr>
-        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
         <td class="td-dim">${c.ciudad || '—'}</td>
         <td class="r td-num">${fmt(c.sol)}</td>
         <td class="r td-num td-dim">${fmt(c.desp)}</td>
@@ -2316,6 +2330,8 @@ async function secVentaDespacho() {
       g.cajasBod ? badge(`📦 ${g.cajasBod}`, 'var(--ac10)', 'var(--ac)', `${g.cajasBod} caja(s) armada(s) en bodega, ${g.cajasPrendas} prendas`) : '',
       g.termArts ? badge(`🏁 ${g.termArts} en terminación`, '#ede9fe', '#6d28d9', `${g.termArts} artículo(s) pendientes sin caja que están en Terminación (última etapa): ${fmt(g.termUnits)} prendas por llegar`) : '',
       g.bloqueo ? badge('🔒 Bloqueado', 'var(--er10)', 'var(--er)', 'Tiene pedido(s) bloqueado(s) en el ERP') : '',
+      (cli && (cli.fichas || 1) > 1) ? badge(`${cli.fichas} fichas`, 'var(--sf2)', 'var(--tx2)',
+        `Este RUT tiene ${cli.fichas} fichas en el ERP (sucursales o razones sociales). Se usa la de mayor crédito. El bloqueo lo decide el ERP pedido por pedido: por eso puede haber pedidos trabados y otros no`) : '',
       (cli && (cli.deuda > 0 || cli.cheques > 0)) ? badge(`Deuda ${fmtM((cli.deuda || 0) + (cli.cheques || 0))}`, 'var(--wa10)', 'var(--wa)', `Deuda en cta. cte. ${fmtCLP(cli.deuda || 0)}${cli.cheques > 0 ? ' · cheques ' + fmtCLP(cli.cheques) : ''}`) : '',
       sinCupo ? badge('Sin cupo', 'var(--er10)', 'var(--er)', 'Crédito agotado: sin cupo disponible')
         : (cli && cli.credito > 0 && cli.disponible > 0) ? badge(`Cupo ${fmtM(cli.disponible)}`, 'var(--ok10)', 'var(--ok)', `Cupo disponible ${fmtCLP(cli.disponible)} de ${fmtCLP(cli.credito)} de crédito`) : '',
@@ -2609,7 +2625,7 @@ async function secClientes() {
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${fichasBadge(c.cli)}</td>
     <td class="td-dim">${c.rut||'—'}</td>
     <td style="white-space:nowrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}" style="padding:1px 6px;font-size:9px;margin-right:2px">${t}</span>`).join('')}</td>
     <td class="r td-num">${fmt(c.unidades)}</td>
@@ -2954,7 +2970,7 @@ function pvcDetalle(art) {
         clientes.map(c => {
           const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
           return `<tr>
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
             <td class="td-dim">${c.ciudad || '—'}</td>
             <td class="r td-num">${fmt(c.sol)}</td>
             <td class="r td-num td-dim">${fmt(c.desp)}</td>
