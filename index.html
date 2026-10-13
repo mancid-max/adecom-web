@@ -5094,21 +5094,31 @@ function bindContent(secId) {
     const pedidoCardHtml = (p) => {
       const ped44 = p.u_temp?.['44'] || 0, desp44 = p.u_desp?.['44'] || 0, sal44 = p.u_sal?.['44'] || 0;
       const pct = ped44 ? Math.round(desp44 / ped44 * 100) : 0;
-      return `<div class="vd-ped" data-pid="${p.pedido}" title="Ver artículos del pedido" style="border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin:0 12px 10px;cursor:pointer">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
-          <span class="td-code" style="font-weight:700">Pedido ${p.pedido}</span>
-          <span class="td-dim">${p.fecha}</span>
+      /* La franja de la izquierda dice de un vistazo como va el pedido, sin leer el %:
+         rojo si no ha salido nada, azul si va a medias, verde si esta completo. */
+      const color = p.bloqueo ? 'var(--er)' : pct >= 100 ? 'var(--ok)' : pct > 0 ? 'var(--ac)' : 'var(--wa)';
+      const tm = pedidoTerm(p, prodMap, pedidoEnCaja(p, cajasAllB));
+      const cajas = (p.cajas || []).length;
+      return `<div class="vd-ped" data-pid="${p.pedido}" title="Ver artículos del pedido"
+          style="border:1px solid var(--bd);border-left:4px solid ${color};border-radius:10px;background:var(--sf);padding:12px 16px;margin:0 12px 14px;cursor:pointer">
+        <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+          <span class="td-code" style="font-weight:800;font-size:13px;color:var(--tx1)">Pedido ${p.pedido}</span>
+          <span class="td-dim" style="font-size:11px">${p.fecha}</span>
           ${p.bloqueo ? '<span style="background:var(--er10);color:var(--er);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">🔒 Bloqueado</span>' : ''}
           <span style="margin-left:auto;color:var(--ac);font-weight:600;font-size:11px">Ver artículos ›</span>
         </div>
-        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0 6px;font-size:12px">
-          <span>Pedido <b class="td-num">${fmt(ped44)}</b></span>
-          <span>Despachado <b class="td-num" style="color:var(--ok)">${fmt(desp44)}</b></span>
-          <span>Saldo <b class="td-num" style="color:${sal44 > 0 ? 'var(--wa)' : 'var(--tx3)'}">${fmt(sal44)}</b></span>
-          <span style="display:flex;align-items:center;gap:6px"><span class="pbar" style="width:70px"><span class="pbar-fill" style="display:block;background:var(--ok);width:${pct}%"></span></span><span class="td-dim">${pct}%</span></span>
+        <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:10px 0 0">
+          <span style="display:flex;align-items:center;gap:8px;min-width:150px">
+            <span class="pbar" style="width:90px"><span class="pbar-fill" style="display:block;background:${color};width:${pct}%"></span></span>
+            <b style="font-size:13px;color:${color}">${pct}%</b></span>
+          <span class="td-dim" style="font-size:12px"><b class="td-num" style="color:var(--tx1)">${fmt(ped44)}</b> pedidas ·
+            <b class="td-num" style="color:var(--ok)">${fmt(desp44)}</b> despachadas ·
+            <b class="td-num" style="color:${sal44 > 0 ? 'var(--wa)' : 'var(--tx3)'}">${fmt(sal44)}</b> pendientes</span>
         </div>
-        <div style="border-top:1px solid var(--bd);padding-top:6px">${cajasListHtml(p)}</div>
-        ${(() => { const tm = pedidoTerm(p, prodMap, pedidoEnCaja(p, cajasAllB)); return tm.arts ? `<div style="margin-top:6px;font-size:11px;color:#6d28d9;font-weight:700">🏁 ${tm.arts} artículo(s) pendientes en Terminación · ${fmt(tm.units)} prendas por llegar</div>` : ''; })()}
+        ${cajas || tm.arts ? `<div style="border-top:1px solid var(--bd);margin-top:10px;padding-top:8px">
+          ${cajas ? cajasListHtml(p) : ''}
+          ${tm.arts ? `<div style="font-size:11px;color:#6d28d9;font-weight:700${cajas ? ';margin-top:6px' : ''}">🏁 ${tm.arts} artículo(s) en Terminación · ${fmt(tm.units)} prendas por llegar</div>` : ''}
+        </div>` : ''}
       </div>`;
     };
 
@@ -5194,10 +5204,13 @@ function bindContent(secId) {
         document.getElementById('detTtl').textContent = `${g.nombre} — ${g.pedidos.length} pedido${g.pedidos.length > 1 ? 's' : ''} T44`;
         const body = document.getElementById('detBody');
         body.innerHTML = `
-          <div style="margin:12px 12px 14px;background:var(--sf2);border-radius:10px;padding:10px 14px">
-            <div style="font-size:11px;font-weight:700;margin-bottom:6px">Cuenta cliente</div>${cliHtmlFor(g.cli)}
+          <div style="margin:12px 12px 18px;background:var(--sf2);border-radius:10px;padding:12px 16px">
+            <div class="flbl" style="margin-bottom:8px">Cuenta cliente</div>${cliHtmlFor(g.cli)}
           </div>
-          <div style="margin:0 12px 8px;font-size:11px;font-weight:700;color:var(--tx2)">PEDIDOS T44 · ${fmt(g.ped)} pedidas · ${fmt(g.desp)} despachadas · ${fmt(g.sal)} pendientes</div>
+          <div style="margin:0 12px 12px;padding-top:4px;border-top:1px solid var(--bd);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+            <span class="flbl" style="margin-top:10px">Sus ${g.pedidos.length} pedidos T44</span>
+            <span class="td-dim" style="font-size:11px;margin-top:10px">${fmt(g.ped)} pedidas · ${fmt(g.desp)} despachadas · ${fmt(g.sal)} pendientes</span>
+          </div>
           ${g.pedidos.map(pedidoCardHtml).join('')}`;
         body.querySelectorAll('.vd-ped').forEach(el => el.addEventListener('click', () => { const p = pedMapAll[el.dataset.pid]; if (p) openPedido(p); }));
         bindCajas(body);
