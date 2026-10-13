@@ -2481,6 +2481,10 @@ function cajasEstadoBadge(e) {
   return '<span style="background:var(--sf2);color:var(--tx2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">Despachada</span>';
 }
 const cajasDiasClr = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'var(--tx2)';
+/* La franja de la fila usa el mismo corte que el numero y que la tarjeta "Mas de 30
+   dias": roja si lleva mas de un mes armada, ambar entre dos semanas y un mes, y nada
+   si es reciente. Una caja vieja es plata parada: tiene que saltar sin buscarla. */
+const cajasDiasBorde = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'transparent';
 
 async function secCajas() {
   const data  = await load('cajas.json');
@@ -2499,7 +2503,7 @@ async function secCajas() {
       const tot = ls.reduce((s, l) => s + l.cant, 0);
       const tallas = ls.map(l => `${l.talla}×${l.cant}`).join(' · ');
       return `<tr class="no-click cj-line" style="display:none;background:var(--sf2)">
-        <td></td><td></td><td></td>
+        <td style="border-left:3px solid ${cajasDiasBorde(c.dias)}"></td><td></td><td></td>
         <td colspan="4" class="td-dim" style="padding-left:26px;font-size:11px">└ <span class="td-code">${art}</span> <span style="margin-left:8px;color:var(--tx3)">${tallas}</span></td>
         <td class="r td-dim" style="font-size:11px">${fmt(tot)}</td>
         <td></td><td></td>
@@ -2511,7 +2515,7 @@ async function secCajas() {
     const esc = t => String(t ?? '').replace(/"/g, '&quot;').toLowerCase();
     return `<tr class="cj-row" data-estado="${c.estado}" data-dias="${c.dias}" data-temps="${(c.temps || []).join(' ')}" data-vend="${esc(c.vendedor)}" data-prendas="${c.prendas}" data-valor="${c.valor}" data-q="${q}"
       data-caja="${c.caja}" data-fecha="${c.fecha_iso || ''}" data-cliente="${esc(c.cliente)}" data-ciudad="${esc(c.ciudad)}" data-pedido="${c.pedido}" data-est="${esc(c.estado)}" style="font-weight:500">
-      <td><span class="td-code">${String(c.caja).replace(/^0+/, '')}</span><span class="chv" style="font-size:10px;color:var(--tx3);margin-left:8px">▸</span></td>
+      <td style="border-left:3px solid ${cajasDiasBorde(c.dias)}"><span class="td-code">${String(c.caja).replace(/^0+/, '')}</span><span class="chv" style="font-size:10px;color:var(--tx3);margin-left:8px">▸</span></td>
       <td class="td-dim">${c.fecha}</td>
       <td class="r td-num" style="color:${cajasDiasClr(c.dias)};font-weight:700">${c.dias}</td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.cliente}${pedWarn}</td>
@@ -2531,8 +2535,6 @@ async function secCajas() {
       <button class="seg on" data-t="all">Todas</button>
       ${tempsCj.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
-  </div>
-  <div class="fbar">
     <div class="fgrp"><span class="flbl">Estado</span>
     <div class="segs" id="cjEstadoSegs">
       <button class="seg on" data-est="bodega">En bodega</button>
