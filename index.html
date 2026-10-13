@@ -2325,24 +2325,37 @@ async function secVentaDespacho() {
     const cli = g.cli;
     const sinCupo  = !!(cli && cli.credito > 0 && cli.disponible <= 0);   // mismo criterio que el modal
     const badge = (txt, bg, fg, title) => `<span title="${title}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">${txt}</span>`;
+    /* Debajo del nombre va solo lo accionable: lo que esta listo para salir, lo que esta
+       por llegar y lo que lo traba. La plata se fue a su propia columna. */
+    const gris = ['var(--sf2)', 'var(--tx2)'];
     const flags = [
-      g.pedidos.length > 1 ? badge(`${g.pedidos.length} pedidos`, 'var(--sf2)', 'var(--tx2)', 'Pedidos T44 de este cliente') : '',
-      g.cajasBod ? badge(`📦 ${g.cajasBod}`, 'var(--ac10)', 'var(--ac)', `${g.cajasBod} caja(s) armada(s) en bodega, ${g.cajasPrendas} prendas`) : '',
+      g.cajasBod ? badge(`📦 ${g.cajasBod}`, 'var(--ac10)', 'var(--ac)', `${g.cajasBod} caja(s) armada(s) en bodega, ${g.cajasPrendas} prendas: listo para salir`) : '',
       g.termArts ? badge(`🏁 ${g.termArts} en terminación`, '#ede9fe', '#6d28d9', `${g.termArts} artículo(s) pendientes sin caja que están en Terminación (última etapa): ${fmt(g.termUnits)} prendas por llegar`) : '',
       g.bloqueo ? badge('🔒 Bloqueado', 'var(--er10)', 'var(--er)', 'Tiene pedido(s) bloqueado(s) en el ERP') : '',
-      (cli && (cli.fichas || 1) > 1) ? badge(`${cli.fichas} fichas`, 'var(--sf2)', 'var(--tx2)',
+      (cli && (cli.fichas || 1) > 1) ? badge(`${cli.fichas} fichas`, ...gris,
         `Este RUT tiene ${cli.fichas} fichas en el ERP (sucursales o razones sociales). Se usa la de mayor crédito. El bloqueo lo decide el ERP pedido por pedido: por eso puede haber pedidos trabados y otros no`) : '',
-      (cli && (cli.deuda > 0 || cli.cheques > 0)) ? badge(`Deuda ${fmtM((cli.deuda || 0) + (cli.cheques || 0))}`, 'var(--wa10)', 'var(--wa)', `Deuda en cta. cte. ${fmtCLP(cli.deuda || 0)}${cli.cheques > 0 ? ' · cheques ' + fmtCLP(cli.cheques) : ''}`) : '',
-      sinCupo ? badge('Sin cupo', 'var(--er10)', 'var(--er)', 'Crédito agotado: sin cupo disponible')
-        : (cli && cli.credito > 0 && cli.disponible > 0) ? badge(`Cupo ${fmtM(cli.disponible)}`, 'var(--ok10)', 'var(--ok)', `Cupo disponible ${fmtCLP(cli.disponible)} de ${fmtCLP(cli.credito)} de crédito`) : '',
     ].filter(Boolean).join('');
+    /* La cuenta, en columna: deuda arriba y cupo abajo, alineadas entre clientes para
+       poder compararlas de un vistazo. En chips no se comparaban. */
+    const deudaTot = cli ? (cli.deuda || 0) + (cli.cheques || 0) : 0;
+    const cuentaHtml = !cli
+      ? '<span class="td-dim" style="font-size:10px">sin ficha</span>'
+      : `<div style="line-height:1.35">
+           <div style="font-size:12px;font-weight:700;color:${deudaTot > 0 ? 'var(--wa)' : 'var(--tx3)'}"
+                title="${deudaTot > 0 ? `Debe ${fmtCLP(cli.deuda || 0)}${cli.cheques > 0 ? ' · cheques ' + fmtCLP(cli.cheques) : ''}` : 'Sin deuda en cuenta corriente'}">${deudaTot > 0 ? 'Debe ' + fmtM(deudaTot) : 'Sin deuda'}</div>
+           <div style="font-size:11px;font-weight:600;color:${sinCupo ? 'var(--er)' : cli.credito > 0 ? 'var(--ok)' : 'var(--tx3)'}"
+                title="${cli.credito > 0 ? `Cupo ${fmtCLP(cli.disponible || 0)} de ${fmtCLP(cli.credito)} de crédito` : 'Cliente contado: no tiene línea de crédito'}">${sinCupo ? 'Sin cupo' : cli.credito > 0 ? 'Cupo ' + fmtM(cli.disponible) : 'Contado'}</div>
+         </div>`;
     const esc = s => String(s).replace(/"/g, '&quot;');
     const artQ = [...g.arts.entries()].map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}:${v.caja || 0}:${v.term || 0}`).join(',');   // artículo: pedido, despachado, pendiente, en caja, en terminación
     const ciudades = [...(g.ciudades || [])].filter(Boolean);
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-tipo="${g.tipo ? g.tipo : 9}" data-key="${esc(g.key)}" style="cursor:pointer">
-      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}</span><span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-tipo="${g.tipo ? g.tipo : 9}" data-deuda="${deudaTot}" data-key="${esc(g.key)}" style="cursor:pointer">
+      <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}${g.pedidos.length > 1 ? ` <span class="td-dim" style="font-size:10px;font-weight:400">· ${g.pedidos.length} pedidos</span>` : ''}</span>
+        <span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
       <td class="td-dim">${(g.ciudad||'—')}${ciudades.length > 1 ? ` <span style="font-size:10px">+${ciudades.length-1}</span>` : ''}</td>
       <td style="text-align:center">${g.tipo ? `<span title="Tipo de cliente en la ficha del ERP" style="background:${g.tipo === 1 ? 'var(--ac10)' : 'var(--sf2)'};color:${g.tipo === 1 ? 'var(--ac)' : 'var(--tx2)'};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">Tipo ${g.tipo}</span>` : '<span class="td-dim" style="font-size:10px">—</span>'}</td>
+      <td style="white-space:nowrap">${cuentaHtml}</td>
       <td class="r td-num">${fmt(ped44)}</td>
       <td class="r td-num" style="color:var(--ok)">${fmt(desp44)}</td>
       <td class="r td-num" style="color:${sal44>0?'var(--wa)':'var(--tx3)'}">${fmt(sal44)}</td>
@@ -2418,6 +2431,7 @@ async function secVentaDespacho() {
           <th>Cliente</th>
           <th>Ciudad</th>
           <th data-sort="tipo" style="cursor:pointer;text-align:center" title="Ordena por tipo de cliente: tipo 1 primero">Tipo <span class="si">↕</span></th>
+          <th data-sort="deuda" style="cursor:pointer" title="Ordena por deuda: la mayor primero">Cuenta <span class="si">↕</span></th>
           <th class="r" data-sort="ped" style="cursor:pointer">Pedido <span class="si">↕</span></th>
           <th class="r" data-sort="desp" style="cursor:pointer">Despachado <span class="si">↕</span></th>
           <th class="r" data-sort="sal" style="cursor:pointer">Saldo <span class="si">↕</span></th>
@@ -5049,16 +5063,30 @@ function bindContent(secId) {
         const cupoTag  = sinLinea ? '<span style="color:var(--tx3);font-size:10px;font-weight:700">Sin línea de crédito</span>'
                        : sinCupo  ? '<span style="color:var(--er);font-size:10px;font-weight:700">Sin cupo</span>'
                                   : '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Tiene cupo</span>';
+        /* Lo que decide si el pedido sale es la deuda contra el cupo: esos dos van grandes
+           y el resto queda de apoyo. Arriba, la conclusion en una linea. */
+        const veredicto = sinLinea ? ['Cliente contado', 'var(--tx2)', 'No tiene línea de crédito asignada']
+                        : sinCupo  ? ['No le queda cupo', 'var(--er)', 'Tiene crédito pero está agotado: no puede recibir más hasta que abone']
+                                   : ['Puede recibir', 'var(--ok)', 'Le queda cupo disponible'];
+        const dato = (l, v) => `<div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">${l}</div>${v}</div>`;
         return cli
-          ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 16px;font-size:12px">
-               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Tipo</div>${parseInt(cli.tipo) ? `Tipo ${parseInt(cli.tipo)}` : '<span class="td-dim">—</span>'}</div>
-               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Crédito</div>${money(cli.credito)}</div>
-               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Deuda (cta. cte.)</div>${money(cli.deuda, cli.deuda > 0)}</div>
-               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Cheques</div>${money(cli.cheques, cli.cheques > 0)}</div>
-               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Cupo disponible</div>${money(cli.disponible, sinCupo)} ${cupoTag}</div>
-               <div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">Forma de pago</div><span>${cli.fpago || '—'}</span></div>
+          ? `<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+               <span style="font-size:13px;font-weight:800;color:${veredicto[1]}" title="${veredicto[2]}">${veredicto[0]}</span>
+               ${cli.fichas > 1 ? `<span class="td-dim" style="font-size:10px">· ${cli.fichas} fichas con este RUT, se muestra la de mayor crédito${cli.deuda_otras ? `; en las otras hay ${fmtM(cli.deuda_otras)}` : ''}</span>` : ''}
              </div>
-             ${cli.fichas > 1 ? `<div class="td-dim" style="font-size:10px;margin-top:6px">Este RUT tiene ${cli.fichas} cuentas; se muestra la de mayor crédito${cli.deuda_otras > 0 ? ` (las otras deben ${fmtCLP(cli.deuda_otras)})` : ''}</div>` : ''}`
+             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+               ${[['Deuda', fmtCLP(cli.deuda + (cli.cheques || 0)), (cli.deuda + (cli.cheques || 0)) > 0 ? 'var(--wa)' : 'var(--tx3)'],
+                  ['Cupo disponible', fmtCLP(cli.disponible || 0), sinCupo ? 'var(--er)' : 'var(--ok)']]
+                 .map(([l, v, c]) => `<div style="background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:8px 14px;min-width:150px">
+                     <div style="font-size:17px;font-weight:800;color:${c}">${v}</div>
+                     <div style="font-size:11px;color:var(--tx2)">${l}</div></div>`).join('')}
+             </div>
+             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 16px;font-size:12px">
+               ${dato('Crédito', money(cli.credito))}
+               ${dato('Cheques', money(cli.cheques, cli.cheques > 0))}
+               ${dato('Tipo', parseInt(cli.tipo) ? `Tipo ${parseInt(cli.tipo)}` : '<span class="td-dim">—</span>')}
+               ${dato('Forma de pago', cli.fpago || '—')}
+             </div>`
           : `<span class="td-dim" style="font-size:12px">Sin ficha de crédito para este cliente</span>`;
     };
 
