@@ -2295,12 +2295,11 @@ async function secCuadrados() {
 let MT = null, MT_SEL = 'Terminación';
 const MT_ET  = ['Corte', 'Costura', 'T.Externo', 'Limpiado', 'Lavandería', 'Terminación'];
 const MT_FIN = 'Terminación';          // la etapa que manda: lo que sale terminado es la produccion del mes
-/* Las metas que venian de la planilla 2026: Corte 10.000, Urrutia 6.000, Tierra del
-   Fuego 4.000, Lavanderia 10.000 y Terminacion 10.000. Urrutia y Tierra del Fuego son
-   talleres y la trazabilidad solo distingue taller propio de taller externo, asi que van
-   ahi. Limpiado no tenia meta: muestra avance pero no lleva semaforo. Son el punto de
-   partida; en la seccion se editan. */
-const MT_DEF = { 'Corte': 10000, 'Costura': 6000, 'T.Externo': 4000, 'Limpiado': 0,
+/* Las seis etapas parten en 10.000. La planilla 2026 traia una meta distinta por etapa
+   (Urrutia 6.000, Tierra del Fuego 4.000) y Limpiado sin ninguna, pero esas dos son
+   talleres y la trazabilidad solo distingue taller propio de taller externo, asi que no
+   calzaban. Es el punto de partida: en la seccion se editan y quedan en el navegador. */
+const MT_DEF = { 'Corte': 10000, 'Costura': 10000, 'T.Externo': 10000, 'Limpiado': 10000,
                  'Lavandería': 10000, 'Terminación': 10000 };
 /* Feriados de Chile. Se calculan por año en vez de dejarlos escritos a mano, si no esto
    se queda pegado el próximo enero. Semana Santa sale del cálculo de Pascua. Los tres que
@@ -2811,7 +2810,7 @@ async function secMetas() {
         ${MT_ET.map(e => `<div><div class="flbl" style="margin-bottom:5px">${e}</div>
           <input class="finput mt-meta" data-et="${e}" type="number" min="0" step="100" value="${metas[e] || 0}" style="width:110px"></div>`).join('')}
         <button class="seg on" id="mtSave">Guardar</button>
-        <button class="seg" id="mtReset" style="border:1px solid var(--bd2)">Volver a las de la planilla</button>
+        <button class="seg" id="mtReset" style="border:1px solid var(--bd2)">Volver a las de por defecto</button>
       </div>
     </div>
   </div>
@@ -6000,7 +5999,7 @@ function bindContent(secId) {
       mtGuardar(MT_DEF);
       document.querySelectorAll('.mt-meta').forEach(i => { i.value = MT_DEF[i.dataset.et] || 0; });
       pintarMetas(); abrirEd(false);
-      avisar('✓ Metas de la planilla restauradas');
+      avisar('✓ Metas por defecto restauradas');
     });
     pintarMetas();
   }
