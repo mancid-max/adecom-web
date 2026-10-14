@@ -1164,31 +1164,7 @@ async function secResumen() {
       <div class="chart-scroll" style="margin-top:4px">${horizBars(top8)}</div>
     </div>
   </div>
-
-  <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Modelos T44 — toca una fila para ver colores</div></div>
-    <div class="tbl-scroll">
-      <table>
-        <thead><tr><th>#</th><th>Modelo</th><th class="r">Unidades</th><th class="r">Colores</th><th>Participación</th></tr></thead>
-        <tbody>
-          ${top15.map((item, i) => {
-            const share = t44.total ? (item.total / t44.total * 100) : 0;
-            return `<tr data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color">
-              <td class="td-dim">${i+1}</td>
-              <td><span class="badge b44">T44</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
-              <td class="r td-num">${fmt(item.total)}</td>
-              <td class="r td-dim">${item.colores}</td>
-              <td><div style="display:flex;align-items:center;gap:8px;min-width:110px">
-                <div class="pbar" style="width:70px;flex-shrink:0"><div class="pbar-fill" style="width:${Math.min(100,share*4).toFixed(1)}%"></div></div>
-                <span class="td-dim">${share.toFixed(1)}%</span>
-              </div></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-      <div class="tbl-foot">${top15.length} modelos · T44 total: ${fmt(t44.total)} unidades</div>
-    </div>
-  </div>`;
+`;
 }
 
 /* ── DETALLE PEDIDO COLOR ───────────────────────────────────── */
