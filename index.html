@@ -2730,7 +2730,8 @@ async function secMetas() {
       <button class="seg" data-j="ls" title="Si también se trabaja el sábado, la meta diaria baja y el esperado cambia">Lun a Sáb</button>
     </div></div>
     <div class="fgrp"><span class="flbl">Metas</span>
-    <button class="seg" id="mtEditBtn" style="border:1px solid var(--bd2)">✎ Editar metas</button></div>
+    <button class="seg" id="mtEditBtn" style="border:1px solid var(--bd2)">✎ Editar metas</button>
+    <span id="mtAviso" style="display:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;white-space:nowrap"></span></div>
   </div>
 
   <div id="mtEdit" style="display:none">
@@ -5893,19 +5894,44 @@ function bindContent(secId) {
       document.querySelectorAll('#mtSabSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); pintarMetas();
     }));
-    const panel = document.getElementById('mtEdit');
-    document.getElementById('mtEditBtn')?.addEventListener('click', () => {
-      panel.style.display = panel.style.display === 'none' ? '' : 'none';
-    });
-    document.getElementById('mtSave')?.addEventListener('click', () => {
-      const o = {};
+    const panel = document.getElementById('mtEdit'), btnEd = document.getElementById('mtEditBtn');
+    const abrirEd = abrir => { panel.style.display = abrir ? '' : 'none'; btnEd?.classList.toggle('on', abrir); };
+    btnEd?.addEventListener('click', () => abrirEd(panel.style.display === 'none'));
+
+    /* La confirmacion va al lado del boton: al guardar el panel se cierra y, sin mensaje,
+       no quedaba ninguna senal de que el cambio se aplico. Dice que cambio, no solo que
+       se guardo, que es lo unico que sirve para darse cuenta de un dedazo. */
+    let avisoT = null;
+    const avisar = (txt, neutro) => {
+      const a = document.getElementById('mtAviso');
+      if (!a) return;
+      a.textContent = txt;
+      a.style.background = neutro ? 'var(--sf2)' : 'var(--ok10)';
+      a.style.color = neutro ? 'var(--tx2)' : 'var(--ok)';
+      a.style.display = '';
+      clearTimeout(avisoT);
+      avisoT = setTimeout(() => { a.style.display = 'none'; }, 4500);
+    };
+
+    const guardarMetas = () => {
+      const antes = mtMetas(), o = {};
       document.querySelectorAll('.mt-meta').forEach(i => { o[i.dataset.et] = Math.max(0, parseInt(i.value) || 0); });
-      mtGuardar(o); pintarMetas();
-    });
+      const cambios = MT_ET.filter(e => (antes[e] || 0) !== (o[e] || 0));
+      mtGuardar(o); pintarMetas(); abrirEd(false);
+      avisar(!cambios.length ? 'Las metas quedaron igual'
+           : cambios.length === 1 ? `✓ ${cambios[0]}: ${fmt(antes[cambios[0]] || 0)} → ${fmt(o[cambios[0]] || 0)}`
+           : `✓ ${cambios.length} metas actualizadas`, !cambios.length);
+    };
+    document.getElementById('mtSave')?.addEventListener('click', guardarMetas);
+    document.querySelectorAll('.mt-meta').forEach(i => i.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); guardarMetas(); }
+    }));
+
     document.getElementById('mtReset')?.addEventListener('click', () => {
       mtGuardar(MT_DEF);
       document.querySelectorAll('.mt-meta').forEach(i => { i.value = MT_DEF[i.dataset.et] || 0; });
-      pintarMetas();
+      pintarMetas(); abrirEd(false);
+      avisar('✓ Metas de la planilla restauradas');
     });
     pintarMetas();
   }
