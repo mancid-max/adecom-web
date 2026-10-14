@@ -2446,57 +2446,64 @@ function mtHero(f, jor, mes) {
   const pct = f.meta ? Math.min(100, f.pct) : 0;
   const esp = f.meta ? Math.min(100, f.esperado / f.meta * 100) : 0;
   const ult = MT.ultimo[f.et] || '';
-  const dato = (v, l, ti, color) => `<div style="background:var(--sf2);border-radius:var(--rsm);padding:10px 12px" title="${ti}">
-      <div style="font-size:19px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums${color ? ';color:' + color : ''}">${v}</div>
-      <div class="kpi-lbl" style="margin-top:2px">${l}</div></div>`;
-  return `<div class="tbl-card" style="padding:20px 22px;margin-bottom:14px">
-    <div style="display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-start">
-      <div style="flex:1 1 340px;min-width:280px">
-        <div class="card-ttl" style="margin:0">Meta del mes &middot; ${f.et}</div>
-        <div class="card-sub" style="margin:3px 0 0">${mtMesTtl(mes)} &middot; prendas que salieron de la etapa</div>
-        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:7px 0 3px">
-          <span style="font-size:38px;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:${f.est.c}">${fmt(f.hecho)}</span>
-          <span class="td-dim" style="font-size:15px">de ${f.meta ? fmt(f.meta) : '—'}</span>
-          <span style="margin-left:auto;background:${f.est.bg};color:${f.est.c};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap">${f.est.t}</span>
+  const dato = (v, l, ti, color) => `<div style="background:var(--sf2);border-radius:var(--rsm);padding:11px 13px" title="${ti}">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)">${l}</div>
+      <div style="font-size:21px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:4px${color ? ';color:' + color : ''}">${v}</div>
+    </div>`;
+  return `<div class="tbl-card" style="padding:0;margin-bottom:14px;overflow:hidden">
+    <div style="height:3px;background:${f.meta ? f.est.c : 'var(--bd2)'}"></div>
+    <div style="padding:19px 22px 20px;display:flex;flex-wrap:wrap;gap:20px 32px">
+      <div style="flex:1 1 350px;min-width:290px;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)">Meta del mes</span>
+          <span style="background:${f.est.bg};color:${f.est.c};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${f.est.t}</span>
         </div>
-        <div class="pbar" style="height:12px;border-radius:6px;position:relative;margin-top:12px">
-          <div class="pbar-fill" style="width:${pct.toFixed(1)}%;background:${f.est.c}"></div>
-          ${f.meta ? `<div title="A esta altura del mes tendrian que ir ${fmt(f.esperado)}" style="position:absolute;top:-4px;left:${esp.toFixed(1)}%;width:2px;height:20px;background:var(--tx1);opacity:.55"></div>` : ''}
+        <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:12px">
+          <span style="font-size:40px;font-weight:800;letter-spacing:-.045em;line-height:1;font-variant-numeric:tabular-nums;color:${f.est.c}">${fmt(f.hecho)}</span>
+          <span class="td-dim" style="font-size:15px">de ${f.meta ? fmt(f.meta) : '—'} en ${f.et}</span>
         </div>
-        <div class="td-dim" style="font-size:11px;margin-top:9px;line-height:1.5">
-          ${f.meta ? `${f.pct.toFixed(0)}% de la meta &middot; la marca es el ${(jor.habiles ? jor.corridos / jor.habiles * 100 : 100).toFixed(0)}% que toca a los ${jor.corridos} de ${jor.habiles} días hábiles que ya pasaron, descontando feriados` : 'Esta etapa todavía no tiene meta puesta'}
-          ${(jor.enCurso && ult) ? `<br>Último movimiento registrado: ${cuaDMA(ult)}. El ERP anota el avance con algunos días de atraso, así que el mes en curso siempre se ve corto` : ''}
+        <div class="card-sub" style="margin:7px 0 0">${mtMesTtl(mes)} · prendas que salieron de la etapa</div>
+        <div style="margin-top:auto;padding-top:20px">
+          <div class="pbar" style="height:14px;border-radius:7px;position:relative">
+            <div class="pbar-fill" style="width:${pct.toFixed(1)}%;background:${f.est.c};border-radius:7px"></div>
+            ${f.meta ? `<div title="A esta altura del mes tendrían que ir ${fmt(f.esperado)}" style="position:absolute;top:-5px;left:${esp.toFixed(1)}%;width:2px;height:24px;background:var(--tx1);opacity:.6;border-radius:1px"></div>` : ''}
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--tx2)">
+            <span><b style="color:var(--tx1)">${f.meta ? f.pct.toFixed(0) + '%' : '—'}</b> de la meta</span>
+            <span>${f.meta ? `&#9613; esperado a hoy ${fmt(f.esperado)} · ${jor.corridos} de ${jor.habiles} días hábiles` : 'Esta etapa todavía no tiene meta puesta'}</span>
+          </div>
         </div>
       </div>
-      <div style="flex:1 1 300px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+      <div style="flex:1 1 310px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:center">
         ${dato(f.meta ? fmt(f.falta) : '—', 'Falta para la meta', 'Meta menos lo hecho', f.falta ? '' : 'var(--ok)')}
         ${dato(fmt(Math.round(f.ritmo)), 'Ritmo real por día', 'Lo hecho repartido en los días hábiles que ya pasaron')}
         ${dato(jor.enCurso && f.meta ? (f.nec ? fmt(f.nec) : 'cumplida') : '—', 'Hay que hacer por día', jor.quedan ? `Para llegar a la meta en los ${jor.quedan} días hábiles que quedan` : 'No quedan días hábiles en el mes', f.nec && f.nec > f.ritmo * 1.15 ? 'var(--wa)' : '')}
         ${dato(jor.enCurso ? fmt(f.proy) : fmt(f.hecho), jor.enCurso ? 'Cierre estimado' : 'Cerró con', 'Si el ritmo de estos días se mantiene hasta fin de mes', jor.enCurso && f.meta ? (f.proy >= f.meta ? 'var(--ok)' : 'var(--er)') : '')}
       </div>
     </div>
+    ${(jor.enCurso && ult) ? `<div style="border-top:1px solid var(--bd);background:var(--sf2);padding:9px 22px;font-size:11px;color:var(--tx3)">Último movimiento registrado: ${cuaDMA(ult)} · el ERP anota el avance con algunos días de atraso, así que el mes en curso siempre se ve corto</div>` : ''}
   </div>`;
 }
 
 function mtCards(filas) {
-  return '<div class="kpi-grid" style="margin-bottom:14px">' + filas.map(f => {
+  return '<div class="kpi-grid" style="margin-bottom:14px;align-items:stretch">' + filas.map(f => {
     const pct = f.meta ? Math.min(100, f.pct) : 0;
     const sel = f.et === MT_SEL;
-    return `<div class="kpi" data-mt-et="${f.et}" style="flex:1 1 165px;max-width:250px;padding:14px 16px;${sel ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--ac10)' : ''}"
+    return `<div class="kpi" data-mt-et="${f.et}" style="flex:1 1 168px;max-width:250px;padding:0;align-items:stretch;overflow:hidden;${sel ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--ac10)' : ''}"
          title="${f.meta ? `${fmt(f.hecho)} de ${fmt(f.meta)} · a esta altura del mes tendrían que ir ${fmt(f.esperado)}` : 'Sin meta puesta'}. Toca para ver el detalle de la etapa">
-      <div style="min-width:0;width:100%">
+      <div style="width:100%;min-width:0;padding:13px 15px 14px;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;gap:7px">
-          <span style="width:10px;height:10px;border-radius:50%;background:${f.est.c};flex-shrink:0"></span>
-          <span style="font-size:12px;font-weight:600">${f.et}</span>
-          <span class="td-dim" style="margin-left:auto;font-size:11px;font-weight:700">${f.meta ? f.pct.toFixed(0) + '%' : '—'}</span>
+          <span style="width:9px;height:9px;border-radius:50%;background:${f.est.c};flex-shrink:0"></span>
+          <span style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.et}</span>
         </div>
-        <div class="kpi-val" style="font-size:22px;margin-top:9px">${fmt(f.hecho)}</div>
-        <div class="kpi-lbl">de ${f.meta ? fmt(f.meta) : '—'}</div>
-        <div class="td-dim" style="font-size:10px;margin-top:3px">${f.wip ? fmt(f.wip) + ' en proceso ahora' : '&nbsp;'}</div>
-        <div class="pbar" style="margin-top:10px;position:relative">
+        <div style="font-size:25px;font-weight:800;letter-spacing:-.04em;line-height:1;margin-top:12px;color:${f.meta ? f.est.c : 'var(--tx3)'}">${f.meta ? f.pct.toFixed(0) + '%' : '—'}</div>
+        <div class="kpi-lbl" style="margin-top:6px">${fmt(f.hecho)} de ${f.meta ? fmt(f.meta) : '—'}</div>
+        <div style="flex:1 1 auto;min-height:12px"></div>
+        <div class="pbar" style="position:relative">
           <div class="pbar-fill" style="width:${pct.toFixed(1)}%;background:${f.est.c}"></div>
           ${f.meta ? `<div style="position:absolute;top:-3px;left:${Math.min(100, f.esperado / f.meta * 100).toFixed(1)}%;width:2px;height:12px;background:var(--tx1);opacity:.5"></div>` : ''}
         </div>
+        <div class="td-dim" style="font-size:10px;margin-top:8px">${f.wip ? fmt(f.wip) + ' en proceso ahora' : '&nbsp;'}</div>
       </div></div>`;
   }).join('') + '</div>';
 }
@@ -2504,35 +2511,44 @@ function mtCards(filas) {
 /* Dia a dia: cada barra es lo que salio de la etapa ese dia y la linea punteada es la
    meta diaria. Los dias que no se trabajan van con fondo gris, si no parecen caidas. */
 function mtGrafico(f, jor) {
-  const dias = jor.dias, cw = 24, W = dias.length * cw, H = 160, pT = 12, pB = 22, aH = H - pT - pB;
+  const dias = jor.dias, cw = 24, W = dias.length * cw, H = 170, pT = 18, pB = 22, aH = H - pT - pB;
   const metaDia = (jor.habiles && f.meta) ? f.meta / jor.habiles : 0;
   const top = Math.max(metaDia * 1.25, ...dias.map(x => f.dias[x.iso] || 0), 1);
-  const hoy = today();
+  const hoy = today(), y = v => pT + aH - aH * v / top;
   let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${Math.min(W, 430)}px;height:${H}px;overflow:visible">`;
   dias.forEach((x, i) => { if (!x.hab) s += `<rect x="${i * cw}" y="${pT}" width="${cw}" height="${aH}" fill="var(--sf2)"><title>${cuaDMA(x.iso)} · ${x.no}</title></rect>`; });
-  if (metaDia) {
-    const y = pT + aH - aH * metaDia / top;
-    s += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="4 4"/>
-          <text x="${W - 2}" y="${(y - 5).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--tx3)">meta ${fmt(Math.round(metaDia))}/día</text>`;
-  }
+  // Dos guias y el piso: sin ellas las barras quedan flotando y no se sabe cuanto es alto
+  s += `<line x1="0" y1="${y(top).toFixed(1)}" x2="${W}" y2="${y(top).toFixed(1)}" stroke="var(--bd)" stroke-width="1"/>
+        <line x1="0" y1="${y(top / 2).toFixed(1)}" x2="${W}" y2="${y(top / 2).toFixed(1)}" stroke="var(--bd)" stroke-width="1" opacity=".55"/>
+        <line x1="0" y1="${y(0).toFixed(1)}" x2="${W}" y2="${y(0).toFixed(1)}" stroke="var(--bd2)" stroke-width="1"/>
+        <text x="1" y="${(y(top) - 5).toFixed(1)}" font-size="9" fill="var(--tx3)">${fmt(Math.round(top))}</text>`;
+  const ti = dias.findIndex(x => x.iso === hoy);
+  if (ti >= 0) s += `<line x1="${ti * cw + cw / 2}" y1="${pT - 7}" x2="${ti * cw + cw / 2}" y2="${y(0).toFixed(1)}" stroke="var(--ac)" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/>`;
   dias.forEach((x, i) => {
     const v = f.dias[x.iso] || 0;
     if (v > 0) {
       const h = Math.max(3, Math.round(aH * v / top));
-      s += `<rect x="${i * cw + 4}" y="${pT + aH - h}" width="${cw - 8}" height="${h}" rx="2" fill="${metaDia && v >= metaDia ? 'var(--ok)' : 'var(--ac)'}"><title>${cuaDMA(x.iso)} · ${fmt(v)} prendas</title></rect>`;
+      s += `<rect x="${i * cw + 4}" y="${pT + aH - h}" width="${cw - 8}" height="${h}" rx="3" fill="${metaDia && v >= metaDia ? 'var(--ok)' : 'var(--ac)'}"><title>${cuaDMA(x.iso)} · ${fmt(v)} prendas</title></rect>`;
     }
     if (dias.length <= 20 || x.d % 2 === 1) {
       const es = x.iso === hoy;
-      s += `<text x="${i * cw + cw / 2}" y="${H - 8}" text-anchor="middle" font-size="9" fill="${es ? 'var(--ac)' : 'var(--tx3)'}" font-weight="${es ? 700 : 400}">${x.d}</text>`;
+      s += `<text x="${i * cw + cw / 2}" y="${H - 7}" text-anchor="middle" font-size="9" fill="${es ? 'var(--ac)' : 'var(--tx3)'}" font-weight="${es ? 700 : 400}">${x.d}</text>`;
     }
   });
+  // La etiqueta de la meta sobre un fondo propio: antes se perdia encima de una barra
+  if (metaDia) {
+    const ym = y(metaDia);
+    s += `<line x1="0" y1="${ym.toFixed(1)}" x2="${W}" y2="${ym.toFixed(1)}" stroke="var(--tx2)" stroke-width="1" stroke-dasharray="4 4"/>
+          <rect x="${W - 78}" y="${(ym - 15).toFixed(1)}" width="78" height="13" rx="3" fill="var(--sf)" opacity=".9"/>
+          <text x="${W - 2}" y="${(ym - 5).toFixed(1)}" text-anchor="end" font-size="9" font-weight="600" fill="var(--tx2)">meta ${fmt(Math.round(metaDia))}/día</text>`;
+  }
   return s + '</svg>';
 }
 
 /* Acumulado: la linea punteada es la meta repartida en los dias habiles y la gruesa, lo
    hecho. Mientras la gruesa vaya por arriba, el mes va bien. */
 function mtAcum(f, jor) {
-  const dias = jor.dias, n = dias.length, W = 340, H = 160, pL = 6, pR = 6, pT = 12, pB = 20;
+  const dias = jor.dias, n = dias.length, W = 340, H = 170, pL = 6, pR = 6, pT = 16, pB = 20;
   const top = Math.max(f.meta, f.hecho, 1), hoy = today();
   const px = i => pL + (W - pL - pR) * (n > 1 ? i / (n - 1) : 0);
   const py = v => pT + (H - pT - pB) * (1 - v / top);
@@ -2543,14 +2559,19 @@ function mtAcum(f, jor) {
     lm.push(px(i).toFixed(1) + ',' + py(accM).toFixed(1));
     if (x.iso <= hoy) { accR += f.dias[x.iso] || 0; lr.push(px(i).toFixed(1) + ',' + py(accR).toFixed(1)); }
   });
-  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible">`;
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible">
+    <line x1="${pL}" y1="${py(top).toFixed(1)}" x2="${W - pR}" y2="${py(top).toFixed(1)}" stroke="var(--bd)" stroke-width="1"/>
+    <line x1="${pL}" y1="${py(top / 2).toFixed(1)}" x2="${W - pR}" y2="${py(top / 2).toFixed(1)}" stroke="var(--bd)" stroke-width="1" opacity=".55"/>
+    <line x1="${pL}" y1="${py(0).toFixed(1)}" x2="${W - pR}" y2="${py(0).toFixed(1)}" stroke="var(--bd2)" stroke-width="1"/>`;
   if (f.meta) s += `<polyline points="${lm.join(' ')}" fill="none" stroke="var(--tx3)" stroke-width="1.5" stroke-dasharray="5 4"/>
-                    <text x="${pL}" y="${(py(f.meta) + 11).toFixed(1)}" font-size="9" fill="var(--tx3)">meta ${fmt(f.meta)}</text>`;
+                    <text x="${pL + 1}" y="${(py(f.meta) + 11).toFixed(1)}" font-size="9" fill="var(--tx3)">meta ${fmt(f.meta)}</text>`;
   if (lr.length) {
     const u = lr[lr.length - 1].split(',');
-    s += `<polyline points="${lr.join(' ')}" fill="none" stroke="${f.est.c}" stroke-width="2.5" stroke-linejoin="round"/>
+    // El relleno bajo la linea real: de un vistazo se ve quien va arriba
+    if (lr.length > 1) s += `<polygon points="${lr.join(' ')} ${u[0]},${py(0).toFixed(1)} ${px(0).toFixed(1)},${py(0).toFixed(1)}" fill="${f.est.c}" opacity=".10"/>`;
+    s += `<polyline points="${lr.join(' ')}" fill="none" stroke="${f.est.c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
           <circle cx="${u[0]}" cy="${u[1]}" r="3.5" fill="${f.est.c}"/>
-          <text x="${Math.min(+u[0], W - 42)}" y="${Math.max(11, +u[1] - 9).toFixed(1)}" font-size="10" font-weight="700" fill="${f.est.c}">${fmt(accR)}</text>`;
+          <text x="${Math.min(+u[0], W - 44)}" y="${Math.max(10, +u[1] - 10).toFixed(1)}" font-size="10" font-weight="700" fill="${f.est.c}">${fmt(accR)}</text>`;
   }
   s += `<text x="${pL}" y="${H - 6}" font-size="9" fill="var(--tx3)">1</text>
         <text x="${W - pR}" y="${H - 6}" text-anchor="end" font-size="9" fill="var(--tx3)">${n}</text>`;
@@ -2571,7 +2592,7 @@ function mtDiario(f, jor) {
     /* El semaforo solo en los dias que se trabaja: en sabado y domingo el acumulado no se
        mueve y la fila repetia el estado del viernes como si fuera nuevo. */
     const est = (!fut && f.meta && x.hab) ? mtEstado(accR, f.meta, Math.round(accM)) : null;
-    return `<tr style="${es ? 'background:var(--ac10);' : ''}${fut ? 'opacity:.45;' : ''}${x.hab ? '' : 'color:var(--tx3);'}">
+    return `<tr style="${es ? 'background:var(--ac10);' : ''}${fut ? 'opacity:.45;' : ''}${x.hab ? '' : 'color:var(--tx3);'}${x.sem === 1 && x.d > 1 ? 'border-top:2px solid var(--bd);' : ''}">
       <td style="border-left:3px solid ${es ? 'var(--ac)' : x.hab ? 'transparent' : 'var(--bd2)'}">
         <span style="font-weight:${es ? 700 : 500};font-variant-numeric:tabular-nums">${String(x.d).padStart(2, '0')}</span>
         <span class="td-dim" style="margin-left:6px">${MT_DOW[x.sem]}</span>
