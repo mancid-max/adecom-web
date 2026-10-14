@@ -2508,6 +2508,28 @@ function mtCards(filas) {
   }).join('') + '</div>';
 }
 
+/* La cajita que sigue al mouse. El <title> del SVG tarda un segundo, no se le puede dar
+   formato y hay que apuntar justo la barra; esto sale con pasar por la columna del dia. */
+const MT_TIP = '<div class="mt-tip" style="display:none;position:absolute;z-index:20;pointer-events:none;background:var(--sf);border:1px solid var(--bd2);border-radius:var(--rsm);box-shadow:0 6px 18px rgba(16,24,40,.14);padding:8px 11px;font-size:11px;line-height:1.6;white-space:nowrap;color:var(--tx1)"></div>';
+const mtEnvuelto = svg => `<div data-mt-chart style="position:relative">${svg}${MT_TIP}</div>`;
+
+function mtTip(cont) {
+  const tip = cont.querySelector('.mt-tip');
+  if (!tip) return;
+  cont.addEventListener('mousemove', e => {
+    const z = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (!z) { tip.style.display = 'none'; return; }
+    tip.innerHTML = z.dataset.tip;
+    tip.style.display = '';
+    const r = cont.getBoundingClientRect();
+    let x = e.clientX - r.left + 14;
+    if (x + tip.offsetWidth > r.width) x = e.clientX - r.left - tip.offsetWidth - 14;   // se da vuelta en el borde
+    tip.style.left = Math.max(0, x) + 'px';
+    tip.style.top  = Math.max(0, e.clientY - r.top - tip.offsetHeight - 12) + 'px';
+  });
+  cont.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+}
+
 /* Dia a dia: cada barra es lo que salio de la etapa ese dia y la linea punteada es la
    meta diaria. Los dias que no se trabajan van con fondo gris, si no parecen caidas. */
 function mtGrafico(f, jor) {
@@ -2542,7 +2564,15 @@ function mtGrafico(f, jor) {
           <rect x="${W - 78}" y="${(ym - 15).toFixed(1)}" width="78" height="13" rx="3" fill="var(--sf)" opacity=".9"/>
           <text x="${W - 2}" y="${(ym - 5).toFixed(1)}" text-anchor="end" font-size="9" font-weight="600" fill="var(--tx2)">meta ${fmt(Math.round(metaDia))}/día</text>`;
   }
-  return s + '</svg>';
+  // Las columnas de hover van encima de todo, si no hay que apuntar justo la barra
+  dias.forEach((x, i) => {
+    const v = f.dias[x.iso] || 0, dif = Math.round(v - metaDia);
+    const t = `<b>${MT_DOW[x.sem]} ${cuaDMA(x.iso).slice(0, 5)}</b>` + (x.hab
+      ? `<br>Salieron ${fmt(v)} prendas` + (metaDia ? `<br>Meta del día ${fmt(Math.round(metaDia))}<br><b style='color:${dif >= 0 ? 'var(--ok)' : 'var(--er)'}'>${dif >= 0 ? '+' : '−'}${fmt(Math.abs(dif))}</b> contra la meta` : '')
+      : `<br>${x.no} · no se trabaja` + (v ? `<br>Igual salieron ${fmt(v)} prendas` : ''));
+    s += `<rect x="${i * cw}" y="${pT}" width="${cw}" height="${aH}" fill="transparent" data-tip="${t}"/>`;
+  });
+  return mtEnvuelto(s + '</svg>');
 }
 
 /* Acumulado: la linea punteada es la meta repartida en los dias habiles y la gruesa, lo
@@ -2552,17 +2582,38 @@ function mtAcum(f, jor) {
   const top = Math.max(f.meta, f.hecho, 1), hoy = today();
   const px = i => pL + (W - pL - pR) * (n > 1 ? i / (n - 1) : 0);
   const py = v => pT + (H - pT - pB) * (1 - v / top);
-  let accM = 0, accR = 0;
-  const lm = [], lr = [];
+  let accM = 0, accR = 0, caida = -1, faltaban = 0;
+  const lm = [], lr = [], serie = [];
   dias.forEach((x, i) => {
     if (x.hab && jor.habiles && f.meta) accM += f.meta / jor.habiles;
     lm.push(px(i).toFixed(1) + ',' + py(accM).toFixed(1));
-    if (x.iso <= hoy) { accR += f.dias[x.iso] || 0; lr.push(px(i).toFixed(1) + ',' + py(accR).toFixed(1)); }
+    if (x.iso <= hoy) {
+      accR += f.dias[x.iso] || 0;
+      lr.push(px(i).toFixed(1) + ',' + py(accR).toFixed(1));
+      /* El dia en que quedamos atras: el primero de la racha que todavia corre. Si en
+         algun dia posterior se recupera, la cuenta parte de nuevo. Solo se mira en dias
+         habiles: un sabado la meta no avanza y el estado no cambia. */
+      if (f.meta && x.hab) {
+        if (accR >= accM) caida = -1;
+        else if (caida < 0) { caida = i; faltaban = Math.round(accM - accR); }
+      }
+    }
+    serie.push({ x, v: f.dias[x.iso] || 0, accM, accR: x.iso <= hoy ? accR : null });
   });
   let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible">
     <line x1="${pL}" y1="${py(top).toFixed(1)}" x2="${W - pR}" y2="${py(top).toFixed(1)}" stroke="var(--bd)" stroke-width="1"/>
     <line x1="${pL}" y1="${py(top / 2).toFixed(1)}" x2="${W - pR}" y2="${py(top / 2).toFixed(1)}" stroke="var(--bd)" stroke-width="1" opacity=".55"/>
     <line x1="${pL}" y1="${py(0).toFixed(1)}" x2="${W - pR}" y2="${py(0).toFixed(1)}" stroke="var(--bd2)" stroke-width="1"/>`;
+  /* Marcas cada cinco dias, mas el primero, el ultimo y el de la caida. El de la caida
+     manda: se saca la marca regular que le quede pegada, si no los numeros se montan. */
+  const dCaida = caida >= 0 ? dias[caida].d : 0;
+  const etiq = dias.filter(x => (x.d === 1 || x.d === n || (x.d % 5 === 0 && n - x.d >= 3))
+                                && (!dCaida || Math.abs(x.d - dCaida) >= 3));
+  if (dCaida && !etiq.some(x => x.d === dCaida)) { etiq.push(dias[caida]); etiq.sort((a, b) => a.d - b.d); }
+  etiq.forEach(x => { if (x.d !== 1 && x.d !== n) s += `<line x1="${px(x.d - 1).toFixed(1)}" y1="${pT}" x2="${px(x.d - 1).toFixed(1)}" y2="${py(0).toFixed(1)}" stroke="var(--bd)" stroke-width="1" opacity=".5"/>`; });
+  const ti = dias.findIndex(x => x.iso === hoy);
+  if (ti >= 0) s += `<line x1="${px(ti).toFixed(1)}" y1="${pT - 4}" x2="${px(ti).toFixed(1)}" y2="${py(0).toFixed(1)}" stroke="var(--ac)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>`;
+  if (caida >= 0) s += `<line x1="${px(caida).toFixed(1)}" y1="${pT}" x2="${px(caida).toFixed(1)}" y2="${py(0).toFixed(1)}" stroke="var(--er)" stroke-width="1.5" stroke-dasharray="3 3" opacity=".6"><title>Quedó atrás el ${cuaDMA(dias[caida].iso)}: faltaban ${fmt(faltaban)} prendas para ir al día</title></line>`;
   if (f.meta) s += `<polyline points="${lm.join(' ')}" fill="none" stroke="var(--tx3)" stroke-width="1.5" stroke-dasharray="5 4"/>
                     <text x="${pL + 1}" y="${(py(f.meta) + 11).toFixed(1)}" font-size="9" fill="var(--tx3)">meta ${fmt(f.meta)}</text>`;
   if (lr.length) {
@@ -2573,9 +2624,26 @@ function mtAcum(f, jor) {
           <circle cx="${u[0]}" cy="${u[1]}" r="3.5" fill="${f.est.c}"/>
           <text x="${Math.min(+u[0], W - 44)}" y="${Math.max(10, +u[1] - 10).toFixed(1)}" font-size="10" font-weight="700" fill="${f.est.c}">${fmt(accR)}</text>`;
   }
-  s += `<text x="${pL}" y="${H - 6}" font-size="9" fill="var(--tx3)">1</text>
-        <text x="${W - pR}" y="${H - 6}" text-anchor="end" font-size="9" fill="var(--tx3)">${n}</text>`;
-  return s + '</svg>';
+  if (caida >= 0 && lr[caida]) {
+    const yc = lr[caida].split(',')[1];
+    s += `<circle cx="${px(caida).toFixed(1)}" cy="${yc}" r="3.5" fill="var(--sf)" stroke="var(--er)" stroke-width="2"><title>Quedó atrás el ${cuaDMA(dias[caida].iso)}: faltaban ${fmt(faltaban)} prendas para ir al día</title></circle>`;
+  }
+  etiq.forEach(x => {
+    const cay = x.d === dCaida, es = x.d === ti + 1;
+    s += `<text x="${px(x.d - 1).toFixed(1)}" y="${H - 6}" text-anchor="${x.d === 1 ? 'start' : x.d === n ? 'end' : 'middle'}" font-size="9" fill="${cay ? 'var(--er)' : es ? 'var(--ac)' : 'var(--tx3)'}" font-weight="${cay || es ? 700 : 400}">${x.d}</text>`;
+  });
+  // Un punto en cada dia que hubo movimiento: son los unicos donde la linea sube
+  serie.forEach((pt, i) => { if (pt.v && pt.accR !== null && i !== lr.length - 1) s += `<circle cx="${px(i).toFixed(1)}" cy="${py(pt.accR).toFixed(1)}" r="2.6" fill="${f.est.c}" opacity=".9"/>`; });
+  const cwA = (W - pL - pR) / Math.max(1, n - 1);
+  serie.forEach((pt, i) => {
+    const atras = pt.accR !== null && f.meta ? Math.round(pt.accR - pt.accM) : 0;
+    const t = `<b>${MT_DOW[pt.x.sem]} ${cuaDMA(pt.x.iso).slice(0, 5)}</b>` + (pt.accR === null
+      ? '<br>Todavía no llega'
+      : `<br>Acumulado ${fmt(pt.accR)}` + (f.meta ? `<br>Meta acumulada ${fmt(Math.round(pt.accM))}<br><b style='color:${atras >= 0 ? 'var(--ok)' : 'var(--er)'}'>${atras >= 0 ? 'arriba por ' : 'atrás por '}${fmt(Math.abs(atras))}</b>` : '')
+        + (pt.v ? `<br>Ese día salieron ${fmt(pt.v)}` : pt.x.hab ? '' : `<br>${pt.x.no}`));
+    s += `<rect x="${(px(i) - cwA / 2).toFixed(1)}" y="${pT}" width="${cwA.toFixed(1)}" height="${(py(0) - pT).toFixed(1)}" fill="transparent" data-tip="${t}"/>`;
+  });
+  return mtEnvuelto(s + '</svg>');
 }
 
 /* Dia por dia: la meta del mes repartida en los dias que se trabaja, contra lo que salio
@@ -2695,10 +2763,11 @@ function pintarMetas() {
       </div>
       <div class="tbl-card" style="padding:16px 18px">
         <div class="card-ttl" style="margin:0">Acumulado · ${sel.et}</div>
-        <div class="card-sub" style="margin:2px 0 12px">Mientras la línea gruesa vaya sobre la punteada, el mes va bien</div>
+        <div class="card-sub" style="margin:2px 0 12px">Mientras la línea gruesa vaya sobre la punteada, el mes va bien. La raya roja marca el día en que quedó atrás</div>
         ${mtAcum(sel, jor)}
       </div>
     </div>` + mtDiario(sel, jor) + mtTabla(filas, jor, mes);
+  body.querySelectorAll('[data-mt-chart]').forEach(mtTip);
   body.querySelectorAll('[data-mt-et]').forEach(el => el.addEventListener('click', () => {
     MT_SEL = el.dataset.mtEt; pintarMetas();
   }));
