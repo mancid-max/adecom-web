@@ -2302,11 +2302,61 @@ const MT_FIN = 'Terminación';          // la etapa que manda: lo que sale termi
    partida; en la seccion se editan. */
 const MT_DEF = { 'Corte': 10000, 'Costura': 6000, 'T.Externo': 4000, 'Limpiado': 0,
                  'Lavandería': 10000, 'Terminación': 10000 };
-/* Feriados que caen en dia de semana: sin ellos el "esperado a hoy" queda alto. Si falta
-   alguno se agrega aqui y todo el mes se recalcula solo. */
-const MT_FER = ['2026-10-12', '2026-12-08', '2026-12-25',
-                '2027-01-01', '2027-03-26', '2027-05-21', '2027-06-28', '2027-07-16',
-                '2027-10-11', '2027-11-01', '2027-12-08'];
+/* Feriados de Chile. Se calculan por año en vez de dejarlos escritos a mano, si no esto
+   se queda pegado el próximo enero. Semana Santa sale del cálculo de Pascua. Los tres que
+   la ley corre siguen su regla: el 29 de junio y el 12 de octubre se van al lunes de esa
+   semana si caen martes, miércoles o jueves, y al lunes siguiente si caen viernes; el 31
+   de octubre se va al viernes anterior si cae martes y al siguiente si cae miércoles.
+   El día de los Pueblos Indígenas es el solsticio, 20 o 21 de junio según el año. */
+const MT_SOLST = { 2024: 20, 2025: 20, 2026: 21, 2027: 21, 2028: 20, 2029: 20, 2030: 21 };
+/* Para los que no se pueden calcular: elecciones, censo, un feriado regional o un cierre
+   de la fábrica. Se agregan aquí como 'AAAA-MM-DD': 'motivo' y el mes se recalcula solo. */
+const MT_FER_EXTRA = {};
+const MT_FER_CACHE = {};
+const MT_DOW = ['do', 'lu', 'ma', 'mi', 'ju', 'vi', 'sá'];
+
+function mtPascua(y) {                      // Gauss/Meeus: de ahi salen Viernes y Sabado Santo
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+}
+
+function mtFeriados(y) {
+  if (MT_FER_CACHE[y]) return MT_FER_CACHE[y];
+  const f = {}, dd = (m, d) => new Date(y, m - 1, d);
+  const set = (d, nom) => { f[ymd(d)] = nom; };
+  const pa = mtPascua(y);
+  set(dd(1, 1), 'Año Nuevo');
+  set(new Date(y, pa.getMonth(), pa.getDate() - 2), 'Viernes Santo');
+  set(new Date(y, pa.getMonth(), pa.getDate() - 1), 'Sábado Santo');
+  set(dd(5, 1), 'Día del Trabajo');
+  set(dd(5, 21), 'Glorias Navales');
+  set(dd(6, MT_SOLST[y] || 21), 'Pueblos Indígenas');
+  set(dd(7, 16), 'Virgen del Carmen');
+  set(dd(8, 15), 'Asunción de la Virgen');
+  set(dd(9, 18), 'Independencia');
+  set(dd(9, 19), 'Glorias del Ejército');
+  if (dd(9, 18).getDay() === 2) set(dd(9, 17), 'Fiestas Patrias');      // el 18 cae martes
+  if (dd(9, 18).getDay() === 3) set(dd(9, 20), 'Fiestas Patrias');      // el 18 cae miercoles
+  set(dd(11, 1), 'Todos los Santos');
+  set(dd(12, 8), 'Inmaculada Concepción');
+  set(dd(12, 25), 'Navidad');
+  [[6, 29, 'San Pedro y San Pablo'], [10, 12, 'Encuentro de Dos Mundos']].forEach(([m, d, nom]) => {
+    const x = dd(m, d), w = x.getDay();
+    if (w >= 2 && w <= 4) x.setDate(d - (w - 1));        // martes a jueves: al lunes de esa semana
+    else if (w === 5) x.setDate(d + 3);                  // viernes: al lunes siguiente
+    set(x, nom);
+  });
+  const o = dd(10, 31), w = o.getDay();
+  if (w === 2) o.setDate(27); else if (w === 3) o.setDate(33);   // martes: viernes anterior / miercoles: el siguiente
+  set(o, 'Iglesias Evangélicas');
+  Object.assign(f, MT_FER_EXTRA);
+  MT_FER_CACHE[y] = f;
+  return f;
+}
 const MT_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -2348,16 +2398,20 @@ const mtGuardar = o => { try { localStorage.setItem('adecom_metas_prod', JSON.st
 const mtDiasMes = m => new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
 const mtHabil = (iso, sab) => {
   const d = new Date(iso + 'T12:00:00').getDay();     // 0 domingo ... 6 sabado
-  return d !== 0 && (sab || d !== 6) && !MT_FER.includes(iso);
+  return d !== 0 && (sab || d !== 6) && !mtFeriados(+iso.slice(0, 4))[iso];
 };
 
 /* El calendario del mes: que dias se trabaja, cuantos ya pasaron y cuantos quedan. De
    ahi sale el "esperado a hoy", que es lo que convierte la meta en semaforo. */
 function mtJornada(mes, sab) {
   const hoy = today(), tot = mtDiasMes(mes), dias = [];
+  const fer = mtFeriados(+mes.slice(0, 4));
   for (let i = 1; i <= tot; i++) {
     const iso = mes + '-' + String(i).padStart(2, '0');
-    dias.push({ iso, d: i, hab: mtHabil(iso, sab), pasado: iso <= hoy });
+    const sem = new Date(iso + 'T12:00:00').getDay(), nom = fer[iso] || '';
+    const hab = sem !== 0 && (sab || sem !== 6) && !nom;
+    dias.push({ iso, d: i, sem, hab, pasado: iso <= hoy, fer: nom,
+                no: hab ? '' : nom ? 'Feriado · ' + nom : sem === 0 ? 'Domingo' : 'Sábado' });
   }
   const habiles  = dias.filter(x => x.hab).length;
   const corridos = dias.filter(x => x.hab && x.pasado).length;
@@ -2410,7 +2464,7 @@ function mtHero(f, jor, mes) {
           ${f.meta ? `<div title="A esta altura del mes tendrian que ir ${fmt(f.esperado)}" style="position:absolute;top:-4px;left:${esp.toFixed(1)}%;width:2px;height:20px;background:var(--tx1);opacity:.55"></div>` : ''}
         </div>
         <div class="td-dim" style="font-size:11px;margin-top:9px;line-height:1.5">
-          ${f.meta ? `${f.pct.toFixed(0)}% de la meta &middot; la marca es el ${(jor.habiles ? jor.corridos / jor.habiles * 100 : 100).toFixed(0)}% que toca a los ${jor.corridos} de ${jor.habiles} días hábiles que ya pasaron` : 'Esta etapa todavía no tiene meta puesta'}
+          ${f.meta ? `${f.pct.toFixed(0)}% de la meta &middot; la marca es el ${(jor.habiles ? jor.corridos / jor.habiles * 100 : 100).toFixed(0)}% que toca a los ${jor.corridos} de ${jor.habiles} días hábiles que ya pasaron, descontando feriados` : 'Esta etapa todavía no tiene meta puesta'}
           ${(jor.enCurso && ult) ? `<br>Último movimiento registrado: ${cuaDMA(ult)}. El ERP anota el avance con algunos días de atraso, así que el mes en curso siempre se ve corto` : ''}
         </div>
       </div>
@@ -2455,7 +2509,7 @@ function mtGrafico(f, jor) {
   const top = Math.max(metaDia * 1.25, ...dias.map(x => f.dias[x.iso] || 0), 1);
   const hoy = today();
   let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${Math.min(W, 430)}px;height:${H}px;overflow:visible">`;
-  dias.forEach((x, i) => { if (!x.hab) s += `<rect x="${i * cw}" y="${pT}" width="${cw}" height="${aH}" fill="var(--sf2)"/>`; });
+  dias.forEach((x, i) => { if (!x.hab) s += `<rect x="${i * cw}" y="${pT}" width="${cw}" height="${aH}" fill="var(--sf2)"><title>${cuaDMA(x.iso)} · ${x.no}</title></rect>`; });
   if (metaDia) {
     const y = pT + aH - aH * metaDia / top;
     s += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="4 4"/>
@@ -2501,6 +2555,60 @@ function mtAcum(f, jor) {
   s += `<text x="${pL}" y="${H - 6}" font-size="9" fill="var(--tx3)">1</text>
         <text x="${W - pR}" y="${H - 6}" text-anchor="end" font-size="9" fill="var(--tx3)">${n}</text>`;
   return s + '</svg>';
+}
+
+/* Dia por dia: la meta del mes repartida en los dias que se trabaja, contra lo que salio
+   de la etapa cada dia. La columna que importa es el acumulado: la produccion llega por
+   lotes y un dia suelto no dice nada, pero el acumulado contra la meta acumulada si. */
+function mtDiario(f, jor) {
+  const hoy = today(), metaDia = (jor.habiles && f.meta) ? f.meta / jor.habiles : 0;
+  let accR = 0, accM = 0;
+  const cuerpo = jor.dias.map(x => {
+    const v = f.dias[x.iso] || 0, fut = x.iso > hoy, es = x.iso === hoy;
+    if (x.hab) accM += metaDia;
+    if (!fut) accR += v;
+    const dif = v - metaDia;
+    /* El semaforo solo en los dias que se trabaja: en sabado y domingo el acumulado no se
+       mueve y la fila repetia el estado del viernes como si fuera nuevo. */
+    const est = (!fut && f.meta && x.hab) ? mtEstado(accR, f.meta, Math.round(accM)) : null;
+    return `<tr style="${es ? 'background:var(--ac10);' : ''}${fut ? 'opacity:.45;' : ''}${x.hab ? '' : 'color:var(--tx3);'}">
+      <td style="border-left:3px solid ${es ? 'var(--ac)' : x.hab ? 'transparent' : 'var(--bd2)'}">
+        <span style="font-weight:${es ? 700 : 500};font-variant-numeric:tabular-nums">${String(x.d).padStart(2, '0')}</span>
+        <span class="td-dim" style="margin-left:6px">${MT_DOW[x.sem]}</span>
+        ${x.no ? `<span class="td-dim" style="margin-left:9px;font-size:10px">${x.no}</span>` : ''}
+        ${es ? '<span style="margin-left:9px;font-size:10px;color:var(--ac);font-weight:700">hoy</span>' : ''}
+      </td>
+      <td class="r td-num"${v ? ' style="font-weight:700"' : ''}>${v ? fmt(v) : '<span class="td-dim">—</span>'}</td>
+      <td class="r td-num td-dim">${x.hab && metaDia ? fmt(Math.round(metaDia)) : '—'}</td>
+      <td class="r td-num" style="color:${!x.hab || !metaDia || fut ? 'var(--tx3)' : dif >= 0 ? 'var(--ok)' : 'var(--er)'}">${(!x.hab || !metaDia || fut) ? '—' : (dif >= 0 ? '+' : '−') + fmt(Math.abs(dif))}</td>
+      <td class="r td-num">${fut ? '<span class="td-dim">—</span>' : fmt(accR)}</td>
+      <td class="r td-num td-dim">${f.meta ? fmt(Math.round(accM)) : '—'}</td>
+      <td>${est ? `<span style="background:${est.bg};color:${est.c};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">${est.t}</span>` : ''}</td>
+    </tr>`;
+  }).join('');
+  const fers = jor.dias.filter(x => x.fer);
+  return `<div class="tbl-card" style="margin-bottom:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Día por día · ${f.et}</div>
+        <div class="card-sub" style="margin:2px 0 0">La meta repartida en los días que se trabaja. El semáforo de cada fila mira el acumulado, no el día suelto</div></div>
+      <span class="td-dim" style="margin-left:auto">${jor.habiles} días hábiles</span>
+    </div>
+    <div class="tbl-scroll" style="max-height:430px;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th>Día</th>
+          <th class="r" title="Prendas que salieron de la etapa ese día. Llegan por lote: el ERP cierra la etapa de toda la OC con una sola fecha">Hecho</th>
+          <th class="r">Meta del día</th>
+          <th class="r" title="Hecho menos la meta del día">Dif</th>
+          <th class="r">Acumulado</th>
+          <th class="r">Meta acum.</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody class="tbl-compacta">${cuerpo}</tbody>
+      </table>
+      <div class="tbl-foot">${jor.corridos} de ${jor.habiles} días hábiles corridos${fers.length ? ' · feriados del mes: ' + fers.map(x => x.d + ' ' + x.fer).join(', ') : ' · sin feriados este mes'}</div>
+    </div>
+  </div>`;
 }
 
 function mtTabla(filas, jor, mes) {
@@ -2569,7 +2677,7 @@ function pintarMetas() {
         <div class="card-sub" style="margin:2px 0 12px">Mientras la línea gruesa vaya sobre la punteada, el mes va bien</div>
         ${mtAcum(sel, jor)}
       </div>
-    </div>` + mtTabla(filas, jor, mes);
+    </div>` + mtDiario(sel, jor) + mtTabla(filas, jor, mes);
   body.querySelectorAll('[data-mt-et]').forEach(el => el.addEventListener('click', () => {
     MT_SEL = el.dataset.mtEt; pintarMetas();
   }));
