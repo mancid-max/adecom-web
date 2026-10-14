@@ -418,6 +418,11 @@ body.ia-open #iaBtn{display:none}
       Cortes Cuadrados
     </button>
 
+    <button class="nav-item" data-sec="metas" data-ttl="Metas de Producción" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3"/></svg>
+      Metas Producción
+    </button>
+
     <div class="sb-grp" data-admin-only>Venta</div>
     <button class="nav-item" data-sec="reporte-venta" data-ttl="Reporte Venta" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -2276,6 +2281,343 @@ async function secCuadrados() {
       <div class="tbl-foot" id="cuaFoot"></div>
     </div>
   </div>`;
+}
+
+
+/* ── METAS DE PRODUCCION ───────────────────────────────────────────────
+   La meta de cada etapa vivia en una planilla aparte que habia que actualizar a mano:
+   quedo congelada en junio y con el avance en cero. Aqui la meta es un numero editable y
+   el avance sale de la trazabilidad, que ya se refresca en cada build.
+
+   Avance de una etapa = las prendas CORTADAS de las OC que terminaron esa etapa dentro
+   del mes. Se mide lo que SALE de la etapa, no lo que entra: es lo que la etapa entrego
+   de verdad. Las muestras y los sets no cuentan, igual que en Cortes Cuadrados. */
+let MT = null, MT_SEL = 'Terminación';
+const MT_ET  = ['Corte', 'Costura', 'T.Externo', 'Limpiado', 'Lavandería', 'Terminación'];
+const MT_FIN = 'Terminación';          // la etapa que manda: lo que sale terminado es la produccion del mes
+/* Las metas que venian de la planilla 2026: Corte 10.000, Urrutia 6.000, Tierra del
+   Fuego 4.000, Lavanderia 10.000 y Terminacion 10.000. Urrutia y Tierra del Fuego son
+   talleres y la trazabilidad solo distingue taller propio de taller externo, asi que van
+   ahi. Limpiado no tenia meta: muestra avance pero no lleva semaforo. Son el punto de
+   partida; en la seccion se editan. */
+const MT_DEF = { 'Corte': 10000, 'Costura': 6000, 'T.Externo': 4000, 'Limpiado': 0,
+                 'Lavandería': 10000, 'Terminación': 10000 };
+/* Feriados que caen en dia de semana: sin ellos el "esperado a hoy" queda alto. Si falta
+   alguno se agrega aqui y todo el mes se recalcula solo. */
+const MT_FER = ['2026-10-12', '2026-12-08', '2026-12-25',
+                '2027-01-01', '2027-03-26', '2027-05-21', '2027-06-28', '2027-07-16',
+                '2027-10-11', '2027-11-01', '2027-12-08'];
+const MT_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+const mtMesTtl = m => MT_MES[+m.slice(5, 7) - 1][0].toUpperCase() + MT_MES[+m.slice(5, 7) - 1].slice(1) + ' ' + m.slice(0, 4);
+
+function mtBase(toc) {
+  const hoy = today(), datos = {}, wip = {}, ultimo = {};
+  MT_ET.forEach(e => { wip[e] = 0; ultimo[e] = ''; });
+  for (const r of (Array.isArray(toc) ? toc : [])) {
+    if (/MUESTRA|SET/i.test(r.tipo || '')) continue;
+    const q = r.cort || 0;
+    for (const st of (r.stages || [])) {
+      const e = CUA_ET[st.name];
+      if (!e) continue;
+      if ((st.pend || 0) > 0) wip[e] += st.pend;      // lo que esta detenido en la etapa ahora
+      const fin = cuaISO(st.fin);
+      if (!fin || fin > hoy) continue;                // el ERP trae alguna fecha con el anio mal tecleado
+      const m = fin.slice(0, 7);
+      const d = ((datos[m] = datos[m] || {})[e] = datos[m][e] || { hecho: 0, dias: {} });
+      d.hecho += q;
+      d.dias[fin] = (d.dias[fin] || 0) + q;
+      if (fin > ultimo[e]) ultimo[e] = fin;
+    }
+  }
+  return { datos, wip, ultimo, meses: Object.keys(datos).sort() };
+}
+
+/* Las metas se guardan en este navegador. No se publican ni vuelven al ERP: hasta que la
+   meta real este acordada, cada uno puede probar la suya sin tocar la de los demas. */
+function mtMetas() {
+  let g = {};
+  try { g = JSON.parse(localStorage.getItem('adecom_metas_prod') || '{}') || {}; } catch (e) { g = {}; }
+  const o = {};
+  MT_ET.forEach(e => { const v = +g[e]; o[e] = (g[e] !== undefined && g[e] !== '' && isFinite(v) && v >= 0) ? v : MT_DEF[e]; });
+  return o;
+}
+const mtGuardar = o => { try { localStorage.setItem('adecom_metas_prod', JSON.stringify(o)); } catch (e) {} };
+
+const mtDiasMes = m => new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
+const mtHabil = (iso, sab) => {
+  const d = new Date(iso + 'T12:00:00').getDay();     // 0 domingo ... 6 sabado
+  return d !== 0 && (sab || d !== 6) && !MT_FER.includes(iso);
+};
+
+/* El calendario del mes: que dias se trabaja, cuantos ya pasaron y cuantos quedan. De
+   ahi sale el "esperado a hoy", que es lo que convierte la meta en semaforo. */
+function mtJornada(mes, sab) {
+  const hoy = today(), tot = mtDiasMes(mes), dias = [];
+  for (let i = 1; i <= tot; i++) {
+    const iso = mes + '-' + String(i).padStart(2, '0');
+    dias.push({ iso, d: i, hab: mtHabil(iso, sab), pasado: iso <= hoy });
+  }
+  const habiles  = dias.filter(x => x.hab).length;
+  const corridos = dias.filter(x => x.hab && x.pasado).length;
+  return { dias, habiles, corridos, quedan: Math.max(0, habiles - corridos), enCurso: hoy.slice(0, 7) === mes };
+}
+
+/* Semaforo: no contra la meta del mes entero, sino contra la parte de la meta que
+   corresponde a los dias habiles que ya pasaron. A mitad de mes con media meta hecha se
+   va en verde, no en rojo. */
+function mtEstado(hecho, meta, esperado) {
+  if (!meta) return { c: 'var(--tx3)', bg: 'var(--sf2)', t: 'sin meta' };
+  const r = esperado > 0 ? hecho / esperado : (hecho ? 1 : 0);
+  return r >= 1    ? { c: 'var(--ok)', bg: 'var(--ok10)', t: 'en meta' }
+       : r >= 0.85 ? { c: 'var(--wa)', bg: 'var(--wa10)', t: 'ajustado' }
+       :             { c: 'var(--er)', bg: 'var(--er10)', t: 'bajo la meta' };
+}
+
+function mtFila(et, mes, metas, jor) {
+  const d = ((MT.datos[mes] || {})[et]) || { hecho: 0, dias: {} };
+  const meta = metas[et] || 0;
+  const esperado = jor.habiles ? Math.round(meta * jor.corridos / jor.habiles) : meta;
+  const ritmo = jor.corridos ? d.hecho / jor.corridos : 0;
+  const falta = Math.max(0, meta - d.hecho);
+  return { et, hecho: d.hecho, dias: d.dias, meta, esperado, ritmo, falta,
+           proy: jor.enCurso ? Math.round(ritmo * jor.habiles) : d.hecho,
+           nec: jor.quedan > 0 ? Math.ceil(falta / jor.quedan) : 0,
+           pct: meta ? d.hecho / meta * 100 : 0, wip: MT.wip[et] || 0,
+           est: mtEstado(d.hecho, meta, esperado) };
+}
+
+function mtHero(f, jor, mes) {
+  const pct = f.meta ? Math.min(100, f.pct) : 0;
+  const esp = f.meta ? Math.min(100, f.esperado / f.meta * 100) : 0;
+  const ult = MT.ultimo[f.et] || '';
+  const dato = (v, l, ti, color) => `<div style="background:var(--sf2);border-radius:var(--rsm);padding:10px 12px" title="${ti}">
+      <div style="font-size:19px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums${color ? ';color:' + color : ''}">${v}</div>
+      <div class="kpi-lbl" style="margin-top:2px">${l}</div></div>`;
+  return `<div class="tbl-card" style="padding:20px 22px;margin-bottom:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-start">
+      <div style="flex:1 1 340px;min-width:280px">
+        <div class="card-ttl" style="margin:0">Meta del mes &middot; ${f.et}</div>
+        <div class="card-sub" style="margin:3px 0 0">${mtMesTtl(mes)} &middot; prendas que salieron de la etapa</div>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:7px 0 3px">
+          <span style="font-size:38px;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:${f.est.c}">${fmt(f.hecho)}</span>
+          <span class="td-dim" style="font-size:15px">de ${f.meta ? fmt(f.meta) : '—'}</span>
+          <span style="margin-left:auto;background:${f.est.bg};color:${f.est.c};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap">${f.est.t}</span>
+        </div>
+        <div class="pbar" style="height:12px;border-radius:6px;position:relative;margin-top:12px">
+          <div class="pbar-fill" style="width:${pct.toFixed(1)}%;background:${f.est.c}"></div>
+          ${f.meta ? `<div title="A esta altura del mes tendrian que ir ${fmt(f.esperado)}" style="position:absolute;top:-4px;left:${esp.toFixed(1)}%;width:2px;height:20px;background:var(--tx1);opacity:.55"></div>` : ''}
+        </div>
+        <div class="td-dim" style="font-size:11px;margin-top:9px;line-height:1.5">
+          ${f.meta ? `${f.pct.toFixed(0)}% de la meta &middot; la marca es el ${(jor.habiles ? jor.corridos / jor.habiles * 100 : 100).toFixed(0)}% que toca a los ${jor.corridos} de ${jor.habiles} días hábiles que ya pasaron` : 'Esta etapa todavía no tiene meta puesta'}
+          ${(jor.enCurso && ult) ? `<br>Último movimiento registrado: ${cuaDMA(ult)}. El ERP anota el avance con algunos días de atraso, así que el mes en curso siempre se ve corto` : ''}
+        </div>
+      </div>
+      <div style="flex:1 1 300px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+        ${dato(f.meta ? fmt(f.falta) : '—', 'Falta para la meta', 'Meta menos lo hecho', f.falta ? '' : 'var(--ok)')}
+        ${dato(fmt(Math.round(f.ritmo)), 'Ritmo real por día', 'Lo hecho repartido en los días hábiles que ya pasaron')}
+        ${dato(jor.enCurso && f.meta ? (f.nec ? fmt(f.nec) : 'cumplida') : '—', 'Hay que hacer por día', jor.quedan ? `Para llegar a la meta en los ${jor.quedan} días hábiles que quedan` : 'No quedan días hábiles en el mes', f.nec && f.nec > f.ritmo * 1.15 ? 'var(--wa)' : '')}
+        ${dato(jor.enCurso ? fmt(f.proy) : fmt(f.hecho), jor.enCurso ? 'Cierre estimado' : 'Cerró con', 'Si el ritmo de estos días se mantiene hasta fin de mes', jor.enCurso && f.meta ? (f.proy >= f.meta ? 'var(--ok)' : 'var(--er)') : '')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function mtCards(filas) {
+  return '<div class="kpi-grid" style="margin-bottom:14px">' + filas.map(f => {
+    const pct = f.meta ? Math.min(100, f.pct) : 0;
+    const sel = f.et === MT_SEL;
+    return `<div class="kpi" data-mt-et="${f.et}" style="flex:1 1 165px;max-width:250px;padding:14px 16px;${sel ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--ac10)' : ''}"
+         title="${f.meta ? `${fmt(f.hecho)} de ${fmt(f.meta)} · a esta altura del mes tendrían que ir ${fmt(f.esperado)}` : 'Sin meta puesta'}. Toca para ver el detalle de la etapa">
+      <div style="min-width:0;width:100%">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${f.est.c};flex-shrink:0"></span>
+          <span style="font-size:12px;font-weight:600">${f.et}</span>
+          <span class="td-dim" style="margin-left:auto;font-size:11px;font-weight:700">${f.meta ? f.pct.toFixed(0) + '%' : '—'}</span>
+        </div>
+        <div class="kpi-val" style="font-size:22px;margin-top:9px">${fmt(f.hecho)}</div>
+        <div class="kpi-lbl">de ${f.meta ? fmt(f.meta) : '—'}</div>
+        <div class="td-dim" style="font-size:10px;margin-top:3px">${f.wip ? fmt(f.wip) + ' en proceso ahora' : '&nbsp;'}</div>
+        <div class="pbar" style="margin-top:10px;position:relative">
+          <div class="pbar-fill" style="width:${pct.toFixed(1)}%;background:${f.est.c}"></div>
+          ${f.meta ? `<div style="position:absolute;top:-3px;left:${Math.min(100, f.esperado / f.meta * 100).toFixed(1)}%;width:2px;height:12px;background:var(--tx1);opacity:.5"></div>` : ''}
+        </div>
+      </div></div>`;
+  }).join('') + '</div>';
+}
+
+/* Dia a dia: cada barra es lo que salio de la etapa ese dia y la linea punteada es la
+   meta diaria. Los dias que no se trabajan van con fondo gris, si no parecen caidas. */
+function mtGrafico(f, jor) {
+  const dias = jor.dias, cw = 24, W = dias.length * cw, H = 160, pT = 12, pB = 22, aH = H - pT - pB;
+  const metaDia = (jor.habiles && f.meta) ? f.meta / jor.habiles : 0;
+  const top = Math.max(metaDia * 1.25, ...dias.map(x => f.dias[x.iso] || 0), 1);
+  const hoy = today();
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${Math.min(W, 430)}px;height:${H}px;overflow:visible">`;
+  dias.forEach((x, i) => { if (!x.hab) s += `<rect x="${i * cw}" y="${pT}" width="${cw}" height="${aH}" fill="var(--sf2)"/>`; });
+  if (metaDia) {
+    const y = pT + aH - aH * metaDia / top;
+    s += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="4 4"/>
+          <text x="${W - 2}" y="${(y - 5).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--tx3)">meta ${fmt(Math.round(metaDia))}/día</text>`;
+  }
+  dias.forEach((x, i) => {
+    const v = f.dias[x.iso] || 0;
+    if (v > 0) {
+      const h = Math.max(3, Math.round(aH * v / top));
+      s += `<rect x="${i * cw + 4}" y="${pT + aH - h}" width="${cw - 8}" height="${h}" rx="2" fill="${metaDia && v >= metaDia ? 'var(--ok)' : 'var(--ac)'}"><title>${cuaDMA(x.iso)} · ${fmt(v)} prendas</title></rect>`;
+    }
+    if (dias.length <= 20 || x.d % 2 === 1) {
+      const es = x.iso === hoy;
+      s += `<text x="${i * cw + cw / 2}" y="${H - 8}" text-anchor="middle" font-size="9" fill="${es ? 'var(--ac)' : 'var(--tx3)'}" font-weight="${es ? 700 : 400}">${x.d}</text>`;
+    }
+  });
+  return s + '</svg>';
+}
+
+/* Acumulado: la linea punteada es la meta repartida en los dias habiles y la gruesa, lo
+   hecho. Mientras la gruesa vaya por arriba, el mes va bien. */
+function mtAcum(f, jor) {
+  const dias = jor.dias, n = dias.length, W = 340, H = 160, pL = 6, pR = 6, pT = 12, pB = 20;
+  const top = Math.max(f.meta, f.hecho, 1), hoy = today();
+  const px = i => pL + (W - pL - pR) * (n > 1 ? i / (n - 1) : 0);
+  const py = v => pT + (H - pT - pB) * (1 - v / top);
+  let accM = 0, accR = 0;
+  const lm = [], lr = [];
+  dias.forEach((x, i) => {
+    if (x.hab && jor.habiles && f.meta) accM += f.meta / jor.habiles;
+    lm.push(px(i).toFixed(1) + ',' + py(accM).toFixed(1));
+    if (x.iso <= hoy) { accR += f.dias[x.iso] || 0; lr.push(px(i).toFixed(1) + ',' + py(accR).toFixed(1)); }
+  });
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible">`;
+  if (f.meta) s += `<polyline points="${lm.join(' ')}" fill="none" stroke="var(--tx3)" stroke-width="1.5" stroke-dasharray="5 4"/>
+                    <text x="${pL}" y="${(py(f.meta) + 11).toFixed(1)}" font-size="9" fill="var(--tx3)">meta ${fmt(f.meta)}</text>`;
+  if (lr.length) {
+    const u = lr[lr.length - 1].split(',');
+    s += `<polyline points="${lr.join(' ')}" fill="none" stroke="${f.est.c}" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="${u[0]}" cy="${u[1]}" r="3.5" fill="${f.est.c}"/>
+          <text x="${Math.min(+u[0], W - 42)}" y="${Math.max(11, +u[1] - 9).toFixed(1)}" font-size="10" font-weight="700" fill="${f.est.c}">${fmt(accR)}</text>`;
+  }
+  s += `<text x="${pL}" y="${H - 6}" font-size="9" fill="var(--tx3)">1</text>
+        <text x="${W - pR}" y="${H - 6}" text-anchor="end" font-size="9" fill="var(--tx3)">${n}</text>`;
+  return s + '</svg>';
+}
+
+function mtTabla(filas, jor, mes) {
+  const chip = f => `<span style="background:${f.est.bg};color:${f.est.c};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">${f.est.t}</span>`;
+  const cuerpo = filas.map(f => `<tr data-mt-et="${f.et}" style="cursor:pointer" title="Toca para ver esta etapa en los gráficos">
+    <td style="border-left:3px solid ${f.meta ? f.est.c : 'transparent'};font-weight:${f.et === MT_SEL ? 700 : 500}">${f.et}</td>
+    <td class="r td-num td-dim">${f.meta ? fmt(f.meta) : '—'}</td>
+    <td class="r td-num" style="font-weight:700">${fmt(f.hecho)}</td>
+    <td class="r td-num" style="color:${f.meta ? f.est.c : 'var(--tx3)'};font-weight:700">${f.meta ? f.pct.toFixed(0) + '%' : '—'}</td>
+    <td class="r td-num td-dim">${f.meta ? fmt(f.esperado) : '—'}</td>
+    <td class="r td-num">${fmt(Math.round(f.ritmo))}</td>
+    <td class="r td-num">${jor.enCurso && f.meta ? (f.nec ? fmt(f.nec) : '<span style="color:var(--ok)">cumplida</span>') : '—'}</td>
+    <td class="r td-num">${jor.enCurso && f.meta ? `<span style="color:${f.proy >= f.meta ? 'var(--ok)' : 'var(--er)'}">${fmt(f.proy)}</span>` : (jor.enCurso ? fmt(f.proy) : '—')}</td>
+    <td class="r td-num td-dim">${f.wip ? fmt(f.wip) : '—'}</td>
+    <td>${f.meta ? chip(f) : '<span class="td-dim" style="font-size:10px">sin meta</span>'}</td>
+  </tr>`).join('');
+  const conMeta = filas.filter(f => f.meta);
+  const verdes  = conMeta.filter(f => f.est.c === 'var(--ok)').length;
+  return `<div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Avance por etapa</div>
+        <div class="card-sub" style="margin:2px 0 0">Toca una fila para ver esa etapa en los gráficos de arriba</div></div>
+      <span class="td-dim" style="margin-left:auto">${verdes} de ${conMeta.length} etapas en meta</span>
+      <button class="seg" id="mtPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th>Etapa</th>
+          <th class="r">Meta</th>
+          <th class="r" title="Prendas que salieron de la etapa en el mes">Hecho</th>
+          <th class="r">%</th>
+          <th class="r" title="La meta repartida en los días hábiles que ya pasaron: es contra esto que se pinta el semáforo">Esperado a hoy</th>
+          <th class="r" title="Lo hecho repartido en los días hábiles que ya pasaron">Ritmo/día</th>
+          <th class="r" title="Lo que habría que hacer por día en los días hábiles que quedan">Hay que hacer/día</th>
+          <th class="r" title="A dónde llega el mes si se mantiene el ritmo actual">Cierre est.</th>
+          <th class="r" title="Prendas detenidas en la etapa ahora mismo, de cualquier mes">En proceso</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody class="tbl-compacta">${cuerpo}</tbody>
+      </table>
+      <div class="tbl-foot" id="mtFoot">${mtMesTtl(mes)} · ${jor.corridos} de ${jor.habiles} días hábiles · el avance sale de la trazabilidad y no cuenta muestras ni sets</div>
+    </div>
+  </div>`;
+}
+
+function pintarMetas() {
+  const body = document.getElementById('mtBody');
+  if (!body || !MT) return;
+  const mes = document.getElementById('mtMes')?.value || MT.meses[MT.meses.length - 1];
+  const sab = (document.querySelector('#mtSabSegs .seg.on')?.dataset.j || 'lv') === 'ls';
+  const jor = mtJornada(mes, sab), metas = mtMetas();
+  const filas = MT_ET.map(e => mtFila(e, mes, metas, jor));
+  if (!MT_ET.includes(MT_SEL)) MT_SEL = MT_FIN;
+  const sel = filas.find(f => f.et === MT_SEL) || filas[filas.length - 1];
+  const cab = filas.find(f => f.et === MT_FIN) || sel;
+  body.innerHTML = mtHero(cab, jor, mes) + mtCards(filas) + `
+    <div class="chart-row" style="margin-bottom:14px">
+      <div class="tbl-card" style="padding:16px 18px">
+        <div class="card-ttl" style="margin:0">Día a día · ${sel.et}</div>
+        <div class="card-sub" style="margin:2px 0 12px">Prendas que salieron de la etapa cada día. La línea punteada es la meta diaria</div>
+        <div class="chart-scroll">${mtGrafico(sel, jor)}</div>
+      </div>
+      <div class="tbl-card" style="padding:16px 18px">
+        <div class="card-ttl" style="margin:0">Acumulado · ${sel.et}</div>
+        <div class="card-sub" style="margin:2px 0 12px">Mientras la línea gruesa vaya sobre la punteada, el mes va bien</div>
+        ${mtAcum(sel, jor)}
+      </div>
+    </div>` + mtTabla(filas, jor, mes);
+  body.querySelectorAll('[data-mt-et]').forEach(el => el.addEventListener('click', () => {
+    MT_SEL = el.dataset.mtEt; pintarMetas();
+  }));
+  document.getElementById('mtPrint')?.addEventListener('click', () => printTable({
+    table: document.getElementById('mtFoot')?.closest('.tbl-scroll')?.querySelector('table'),
+    title: 'Metas de producción · ' + mtMesTtl(mes),
+    subtitle: document.getElementById('mtFoot')?.textContent || '',
+  }));
+}
+
+async function secMetas() {
+  const toc = await load('traza_oc.json');
+  MT = mtBase(toc);
+  if (!MT.meses.length) return makePH('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>', 'Metas de Producción', 'Sin movimientos de producción');
+
+  const meses = MT.meses.slice().reverse(), hoyMes = today().slice(0, 7);
+  const def = meses.includes(hoyMes) ? hoyMes : meses[0];
+  const metas = mtMetas();
+
+  return `
+  <div class="fbar">
+    <div class="fgrp"><span class="flbl">Mes</span>
+    <select id="mtMes" class="finput" style="width:160px">
+      ${meses.map(m => `<option value="${m}"${m === def ? ' selected' : ''}>${mtMesTtl(m)}</option>`).join('')}
+    </select></div>
+    <div class="fgrp"><span class="flbl">Días hábiles</span>
+    <div class="segs" id="mtSabSegs">
+      <button class="seg on" data-j="lv" title="El mes reparte la meta en los lunes a viernes, sin feriados">Lun a Vie</button>
+      <button class="seg" data-j="ls" title="Si también se trabaja el sábado, la meta diaria baja y el esperado cambia">Lun a Sáb</button>
+    </div></div>
+    <div class="fgrp"><span class="flbl">Metas</span>
+    <button class="seg" id="mtEditBtn" style="border:1px solid var(--bd2)">✎ Editar metas</button></div>
+  </div>
+
+  <div id="mtEdit" style="display:none">
+    <div class="tbl-card" style="margin-bottom:14px">
+      <div class="tbl-head"><div><div class="card-ttl" style="margin:0">Meta mensual por etapa</div>
+        <div class="card-sub" style="margin:2px 0 0">En prendas. Quedan guardadas en este navegador: no se publican ni vuelven al ERP</div></div></div>
+      <div style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end">
+        ${MT_ET.map(e => `<div><div class="flbl" style="margin-bottom:5px">${e}</div>
+          <input class="finput mt-meta" data-et="${e}" type="number" min="0" step="100" value="${metas[e] || 0}" style="width:110px"></div>`).join('')}
+        <button class="seg on" id="mtSave">Guardar</button>
+        <button class="seg" id="mtReset" style="border:1px solid var(--bd2)">Volver a las de la planilla</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mtBody"></div>`;
 }
 
 async function secVentaDespacho() {
@@ -4237,6 +4579,7 @@ const SECS = {
   'cajas':          () => secCajas(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
+  'metas':          () => secMetas(),
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
   'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
@@ -5412,6 +5755,30 @@ function bindContent(secId) {
     imprimir('cuaPendPrint', 'cuaPendBody', 'Cortes por cuadrar', 'cuaPendFoot');
     imprimir('cuaPrint', 'cuaBody', 'Cortes cuadrados', 'cuaFoot');
     pintarCua();
+  }
+
+  // Metas de produccion
+  if (secId === 'metas' && document.getElementById('mtBody')) {
+    document.getElementById('mtMes')?.addEventListener('change', pintarMetas);
+    document.querySelectorAll('#mtSabSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#mtSabSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); pintarMetas();
+    }));
+    const panel = document.getElementById('mtEdit');
+    document.getElementById('mtEditBtn')?.addEventListener('click', () => {
+      panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    });
+    document.getElementById('mtSave')?.addEventListener('click', () => {
+      const o = {};
+      document.querySelectorAll('.mt-meta').forEach(i => { o[i.dataset.et] = Math.max(0, parseInt(i.value) || 0); });
+      mtGuardar(o); pintarMetas();
+    });
+    document.getElementById('mtReset')?.addEventListener('click', () => {
+      mtGuardar(MT_DEF);
+      document.querySelectorAll('.mt-meta').forEach(i => { i.value = MT_DEF[i.dataset.et] || 0; });
+      pintarMetas();
+    });
+    pintarMetas();
   }
 
   // Stock Kennedy
