@@ -2301,6 +2301,10 @@ const MT_FIN = 'Terminación';          // la etapa que manda: lo que sale termi
    calzaban. Es el punto de partida: en la seccion se editan y quedan en el navegador. */
 const MT_DEF = { 'Corte': 10000, 'Costura': 10000, 'T.Externo': 10000, 'Limpiado': 10000,
                  'Lavandería': 10000, 'Terminación': 10000 };
+/* Sube cada vez que cambian las metas de arriba. Lo guardado en el navegador manda sobre
+   el valor por defecto, asi que sin esto el que ya habia tocado "Guardar" seguia viendo
+   las metas viejas para siempre y sin ninguna pista de por que. */
+const MT_VER = 2;
 /* Feriados de Chile. Se calculan por año en vez de dejarlos escritos a mano, si no esto
    se queda pegado el próximo enero. Semana Santa sale del cálculo de Pascua. Los tres que
    la ley corre siguen su regla: el 29 de junio y el 12 de octubre se van al lunes de esa
@@ -2386,13 +2390,14 @@ function mtBase(toc) {
 /* Las metas se guardan en este navegador. No se publican ni vuelven al ERP: hasta que la
    meta real este acordada, cada uno puede probar la suya sin tocar la de los demas. */
 function mtMetas() {
-  let g = {};
-  try { g = JSON.parse(localStorage.getItem('adecom_metas_prod') || '{}') || {}; } catch (e) { g = {}; }
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem('adecom_metas_prod') || 'null'); } catch (e) { g = null; }
+  const m = (g && g.v === MT_VER && g.metas) ? g.metas : {};   // de otra version, se ignora
   const o = {};
-  MT_ET.forEach(e => { const v = +g[e]; o[e] = (g[e] !== undefined && g[e] !== '' && isFinite(v) && v >= 0) ? v : MT_DEF[e]; });
+  MT_ET.forEach(e => { const v = +m[e]; o[e] = (m[e] !== undefined && m[e] !== '' && isFinite(v) && v >= 0) ? v : MT_DEF[e]; });
   return o;
 }
-const mtGuardar = o => { try { localStorage.setItem('adecom_metas_prod', JSON.stringify(o)); } catch (e) {} };
+const mtGuardar = o => { try { localStorage.setItem('adecom_metas_prod', JSON.stringify({ v: MT_VER, metas: o })); } catch (e) {} };
 
 const mtDiasMes = m => new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
 const mtHabil = (iso, sab) => {
@@ -2488,7 +2493,7 @@ function mtCards(filas) {
   return '<div class="kpi-grid" style="margin-bottom:14px;align-items:stretch">' + filas.map(f => {
     const pct = f.meta ? Math.min(100, f.pct) : 0;
     const sel = f.et === MT_SEL;
-    return `<div class="kpi" data-mt-et="${f.et}" style="flex:1 1 168px;max-width:250px;padding:0;align-items:stretch;overflow:hidden;${sel ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--ac10)' : ''}"
+    return `<div class="kpi" data-mt-et="${f.et}" style="flex:1 1 168px;padding:0;align-items:stretch;overflow:hidden;${sel ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--ac10)' : ''}"
          title="${f.meta ? `${fmt(f.hecho)} de ${fmt(f.meta)} · a esta altura del mes tendrían que ir ${fmt(f.esperado)}` : 'Sin meta puesta'}. Toca para ver el detalle de la etapa">
       <div style="width:100%;min-width:0;padding:13px 15px 14px;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;gap:7px">
