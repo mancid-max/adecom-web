@@ -744,10 +744,15 @@ function tcFor(t) { return TC[t] || {cls:'b40',bg:'var(--sf2)',fg:'var(--tx3)'};
    decisión del negocio y por eso vive aquí, en un solo lugar. */
 const TEMP_PISO = 40, TEMP_TECHO = 49;
 const TEMP_ACTIVA = '44';
+/* La temporada que se esta mirando. Cualquier selector la cambia y las secciones que se
+   rehacen -Resumen, Top 10, Venta vs Despacho- la siguen: elegir la 45 en una y
+   encontrarla en otra es lo esperable. Arranca en la activa. */
+let TEMP_SEL = TEMP_ACTIVA;
 const esTempViva = t => /^\d{2}$/.test(String(t || '')) && +t >= TEMP_PISO && +t <= TEMP_TECHO;
 const tempsVivas = src => [...new Set(Array.isArray(src) ? src : Object.keys(src || {}))]
   .filter(esTempViva).sort((a, b) => +b - +a);                 // de la más nueva a la más vieja
-const tempDefecto = temps => temps.includes(TEMP_ACTIVA) ? TEMP_ACTIVA : (temps[0] || TEMP_ACTIVA);
+const tempDefecto = temps => temps.includes(TEMP_SEL) ? TEMP_SEL
+                           : temps.includes(TEMP_ACTIVA) ? TEMP_ACTIVA : (temps[0] || TEMP_ACTIVA);
 
 /* ── COMPUTE PEDIDOS ART ────────────────────────────────────── */
 function buildByTemp() {
@@ -1059,21 +1064,24 @@ async function secResumen() {
   const uVend30 = vendidas30.reduce((a, d) => a + (d.prendas || 0), 0);
 
   const byTemp = buildByTemp();
-  const t44 = byTemp["44"] || { total:0, modelos:0, items:[] };
-  const t43 = byTemp["43"] || { total:0, modelos:0 };
-  const t42 = byTemp["42"] || { total:0, modelos:0 };
-  const d4443 = deltaInfo(t44.total, t43.total);
+  /* Todo este bloque es de la temporada que se esta mirando, no de una fija: los botones
+     de arriba la cambian y la seccion se rehace. */
+  const tempsRes = tempsVivas(byTemp);
+  if (tempsRes.length && !tempsRes.includes(TEMP_SEL)) TEMP_SEL = tempDefecto(tempsRes);
+  const tAnterior = String(+TEMP_SEL - 1);
+  const tSel = byTemp[TEMP_SEL] || { total:0, modelos:0, items:[] };
+  const tPrev = byTemp[tAnterior] || { total:0, modelos:0 };
+  const dTemp = deltaInfo(tSel.total, tPrev.total);
 
-  const top15 = (t44.items || []).slice().sort((a,b)=>b.total-a.total);
+  const top15 = (tSel.items || []).slice().sort((a,b)=>b.total-a.total);
   const top8  = top15.slice(0, 8);
 
-  // KPIs todos de T44
-  const variantesT44 = (t44.items || []).reduce((s,i) => s + i.colores, 0);
+  const variantesT = (tSel.items || []).reduce((s,i) => s + i.colores, 0);
   const topMod = top15[0] || { base:'—', total:0, colores:0 };
-  const promedio = t44.modelos ? Math.round(t44.total / t44.modelos) : 0;
-  const despT44  = (t44.items || []).reduce((s, i) => s + (i.desp  || 0), 0);
-  const salT44   = (t44.items || []).reduce((s, i) => s + (i.saldo || 0), 0);
-  const avanceT44 = t44.total ? Math.round(despT44 / t44.total * 100) : 0;
+  const promedio = tSel.modelos ? Math.round(tSel.total / tSel.modelos) : 0;
+  const despT  = (tSel.items || []).reduce((s, i) => s + (i.desp  || 0), 0);
+  const salT   = (tSel.items || []).reduce((s, i) => s + (i.saldo || 0), 0);
+  const avanceT = tSel.total ? Math.round(despT / tSel.total * 100) : 0;
 
   const vh = VENTA_HOY;
   // Si el dia cerro en negativo la tarjeta no puede seguir verde: se leeria como un buen dia.
@@ -1106,9 +1114,9 @@ async function secResumen() {
       <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho" title="Ver el detalle por cliente">
         <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
         <div style="min-width:0">
-          <div class="kpi-val">${fmt(salT44)}</div>
-          <div class="kpi-lbl">Falta despachar T44</div>
-          <div class="kpi-delta d-nu">${avanceT44}% avanzado · ${fmt(despT44)} entregadas</div>
+          <div class="kpi-val">${fmt(salT)}</div>
+          <div class="kpi-lbl">Falta despachar T${TEMP_SEL}</div>
+          <div class="kpi-delta d-nu">${avanceT}% avanzado · ${fmt(despT)} entregadas</div>
         </div>
       </div>
     </div>
@@ -1154,20 +1162,24 @@ async function secResumen() {
     </div>
 
     <div class="res-col">
-      <div class="res-grp">Temporada T44</div>
+      <div class="res-grp" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:4px">Temporada
+        <div class="segs" id="resTempSegs" style="text-transform:none;letter-spacing:0">
+          ${tempsRes.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}" style="padding:3px 8px;font-size:11px">T${t}</button>`).join('')}
+        </div>
+      </div>
       <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color" title="Ver el detalle por color">
         <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
         <div style="min-width:0">
-          <div class="kpi-val">${fmt(t44.total)}</div>
+          <div class="kpi-val">${fmt(tSel.total)}</div>
           <div class="kpi-lbl">Unidades pedidas</div>
-          <div class="kpi-delta ${d4443.cls}">${d4443.html} vs T43</div>
+          <div class="kpi-delta ${dTemp.cls}">${dTemp.html} vs T${tAnterior}</div>
         </div>
       </div>
       <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color" title="El modelo más pedido de la temporada">
         <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
         <div style="min-width:0">
-          <div class="kpi-val">${t44.modelos}</div>
-          <div class="kpi-lbl">Modelos · ${variantesT44} colores</div>
+          <div class="kpi-val">${tSel.modelos}</div>
+          <div class="kpi-lbl">Modelos · ${variantesT} colores</div>
           <div class="kpi-delta d-nu">Top ${topMod.base} con ${fmt(topMod.total)} u</div>
         </div>
       </div>
@@ -1182,7 +1194,7 @@ async function secResumen() {
       <div class="chart-scroll">${barChart(byTemp)}</div>
     </div>
     <div class="card">
-      <div class="card-ttl">Top Modelos T44</div>
+      <div class="card-ttl">Top Modelos T${TEMP_SEL}</div>
       <div class="card-sub">Toca un modelo para ir a Detalle Pedido Color</div>
       <div class="chart-scroll" style="margin-top:4px">${horizBars(top8)}</div>
     </div>
@@ -1287,11 +1299,13 @@ async function secTop10() {
   const peds = await load('pedidos.json');
   if (!peds.length) return '<div class="ph"><h3>Sin datos</h3><p>No hay información para mostrar</p></div>';
 
-  // Solo unidades T44: antes ordenaba y mostraba el total de todas las temporadas
-  const t44 = peds.filter(p => (p.u_temp?.['44'] || 0) > 0)
-    .map(p => ({ ...p, unidades: p.u_temp['44'], despacho: p.u_desp?.['44'] || 0, saldo: p.u_sal?.['44'] || 0 }));
-  t44.sort((a,b) => b.unidades - a.unidades);
-  const top10 = t44.slice(0, 10);
+  // De una temporada a la vez: sumar todas daria un ranking que no es de ninguna
+  const tempsT10 = tempsVivas(peds.flatMap(p => Object.keys(p.u_temp || {})));
+  if (tempsT10.length && !tempsT10.includes(TEMP_SEL)) TEMP_SEL = tempDefecto(tempsT10);
+  const pedsT = peds.filter(p => (p.u_temp?.[TEMP_SEL] || 0) > 0)
+    .map(p => ({ ...p, unidades: p.u_temp[TEMP_SEL], despacho: p.u_desp?.[TEMP_SEL] || 0, saldo: p.u_sal?.[TEMP_SEL] || 0 }));
+  pedsT.sort((a,b) => b.unidades - a.unidades);
+  const top10 = pedsT.slice(0, 10);
   const maxU = top10[0]?.unidades || 1;
 
   const rows = top10.map((p, i) => `
@@ -1313,14 +1327,21 @@ async function secTop10() {
     </tr>`).join('');
 
   return `
+  <div class="fbar">
+    <div class="fgrp"><span class="flbl">Temporada</span>
+    <div class="segs" id="t10TempSegs">
+      ${tempsT10.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
+    </div></div>
+  </div>
+
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T44</div></div>
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T${TEMP_SEL}</div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>#</th><th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Saldo</th><th>Avance</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="tbl-foot">${t44.length} clientes con pedidos T44</div>
+      <div class="tbl-foot">${pedsT.length} clientes con pedidos T${TEMP_SEL}</div>
     </div>
   </div>`;
 }
@@ -1829,7 +1850,7 @@ function secReporteVenta() {
 /* Venta vs Despacho: agrupar los pedidos de una temporada por cliente (RUT normalizado;
    si no hay RUT, por nombre). La temporada se elige arriba: antes estaba clavada en la 44
    en catorce lugares distintos. */
-let VD_TEMP = TEMP_ACTIVA;
+
 const vdKey = p => (String(p.rut || '').replace(/[.\-\s]/g, '').toUpperCase().replace(/^0+/, '') || (p.nombre || '').toUpperCase());
 /* Coincidencia de artículo ANCLADA. art8 = prefijo(2) + modelo(4) + color(2), ej 01441300 = modelo 4413, color 00.
    Nunca subcadena libre: "4440" no debe calzar dentro de 01444400 (que es modelo 4444). */
@@ -1867,7 +1888,7 @@ function pedidoEnCaja(p, cajasAll) {
 /* Pendiente sin caja que está en Terminación (lo "atacable" ya): artículos y unidades */
 function pedidoTerm(p, prodMap, enCaja) {
   let arts = 0, units = 0;
-  (p.lineas || []).filter(l => l.temp === VD_TEMP).forEach(l => {
+  (p.lineas || []).filter(l => l.temp === TEMP_SEL).forEach(l => {
     const falta = Math.max(0, (l.sal || 0) - (enCaja[l.art] || 0));
     const t = prodMap[l.art]?.term || 0;
     if (falta > 0 && t > 0) { arts++; units += Math.min(falta, t); }
@@ -1876,17 +1897,17 @@ function pedidoTerm(p, prodMap, enCaja) {
 }
 function vdGroups(peds, prodMap = {}, cajasAll = []) {
   const m = new Map();
-  peds.filter(p => (p.u_temp?.[VD_TEMP] || 0) > 0).forEach(p => {
+  peds.filter(p => (p.u_temp?.[TEMP_SEL] || 0) > 0).forEach(p => {
     const k = vdKey(p);
     if (!m.has(k)) m.set(k, { key: k, nombre: (p.nombre || p.rut || '').toUpperCase(), rut: p.rut, ciudad: p.ciudad || '', cli: null, pedidos: [], ped: 0, desp: 0, sal: 0, cajasBod: 0, cajasPrendas: 0, bloqueo: false, termArts: 0, termUnits: 0, arts: new Map() });
     const g = m.get(k);
-    g.pedidos.push(p); g.ped += p.u_temp[VD_TEMP] || 0; g.desp += p.u_desp?.[VD_TEMP] || 0; g.sal += p.u_sal?.[VD_TEMP] || 0;
+    g.pedidos.push(p); g.ped += p.u_temp[TEMP_SEL] || 0; g.desp += p.u_desp?.[TEMP_SEL] || 0; g.sal += p.u_sal?.[TEMP_SEL] || 0;
     if (!g.cli && p.cli) { g.cli = p.cli; g.tipo = parseInt(p.cli.tipo) || 0; }
     if (p.bloqueo) g.bloqueo = true;
     (g.ciudades = g.ciudades || new Set()).add((p.ciudad || '').toLowerCase());   // un cliente puede pedir a varias ciudades
     // Artículos del cliente en la temporada (para buscar por artículo o modelo)
     const enCajaP = pedidoEnCaja(p, cajasAll);   // unidades por artículo ya en cajas armadas de este pedido
-    (p.lineas || []).filter(l => l.temp === VD_TEMP).forEach(l => {
+    (p.lineas || []).filter(l => l.temp === TEMP_SEL).forEach(l => {
       const a = g.arts.get(l.art) || { sol: 0, desp: 0, sal: 0, caja: 0, term: 0 };
       a.sol += l.sol || 0; a.desp += l.desp || 0; a.sal += l.sal || 0;
       a.caja += enCajaP[l.art] || 0;                 // lo que ya está en la caja
@@ -1897,7 +1918,7 @@ function vdGroups(peds, prodMap = {}, cajasAll = []) {
     const tm = pedidoTerm(p, prodMap, enCajaP); g.termArts += tm.arts; g.termUnits += tm.units;
   });
   const groups = [...m.values()];
-  groups.forEach(g => g.pedidos.sort((a, b) => (b.u_sal?.[VD_TEMP] || 0) - (a.u_sal?.[VD_TEMP] || 0)));
+  groups.forEach(g => g.pedidos.sort((a, b) => (b.u_sal?.[TEMP_SEL] || 0) - (a.u_sal?.[TEMP_SEL] || 0)));
   groups.sort((a, b) => b.sal - a.sal);
   return groups;
 }
@@ -2861,11 +2882,11 @@ async function secVentaDespacho() {
   /* Las temporadas con pedidos mandan los botones. Si la elegida se queda sin pedidos
      -o se entra por primera vez- se cae a la activa. */
   const tempsVd = tempsVivas(peds.flatMap(p => Object.keys(p.u_temp || {})));
-  if (!tempsVd.includes(VD_TEMP)) VD_TEMP = tempDefecto(tempsVd);
-  const pedsT = peds.filter(p => (p.u_temp?.[VD_TEMP] || 0) > 0);
-  const totalPed  = pedsT.reduce((s,p) => s+(p.u_temp?.[VD_TEMP]||0), 0);
-  const totalDesp = pedsT.reduce((s,p) => s+(p.u_desp?.[VD_TEMP]||0), 0);
-  const totalSal  = pedsT.reduce((s,p) => s+(p.u_sal?.[VD_TEMP]||0), 0);
+  if (!tempsVd.includes(TEMP_SEL)) TEMP_SEL = tempDefecto(tempsVd);
+  const pedsT = peds.filter(p => (p.u_temp?.[TEMP_SEL] || 0) > 0);
+  const totalPed  = pedsT.reduce((s,p) => s+(p.u_temp?.[TEMP_SEL]||0), 0);
+  const totalDesp = pedsT.reduce((s,p) => s+(p.u_desp?.[TEMP_SEL]||0), 0);
+  const totalSal  = pedsT.reduce((s,p) => s+(p.u_sal?.[TEMP_SEL]||0), 0);
   const pct = totalPed ? (totalDesp/totalPed*100).toFixed(1) : 0;
 
   const ftAll = await load('full_table.json');
@@ -2938,7 +2959,7 @@ async function secVentaDespacho() {
   <div class="fbar">
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="vdTempSegs">
-      ${tempsVd.map(t => `<button class="seg${t === VD_TEMP ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
+      ${tempsVd.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
     <div class="fgrp vd-cli"><span class="flbl">Avance</span>
     <div class="segs" id="vdAvanceSegs">
@@ -2977,7 +2998,7 @@ async function secVentaDespacho() {
   <div class="kpi-grid">
     <div class="kpi sel" style="cursor:default">
       <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-      <div><div class="kpi-val" id="vdKPed">${fmt(totalPed)}</div><div class="kpi-lbl">Pedido T${VD_TEMP}</div></div>
+      <div><div class="kpi-val" id="vdKPed">${fmt(totalPed)}</div><div class="kpi-lbl">Pedido T${TEMP_SEL}</div></div>
     </div>
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
@@ -2990,8 +3011,8 @@ async function secVentaDespacho() {
   </div>
   <div class="tbl-card">
     <div class="tbl-head">
-      <div class="card-ttl" style="margin:0">Clientes T${VD_TEMP} — Mayor Saldo Pendiente · toca un cliente para ver sus pedidos</div>
-      <span class="td-dim" style="margin-left:auto" id="vdCount">${groups.length} clientes · ${t44.length} pedidos</span>
+      <div class="card-ttl" style="margin:0">Clientes T${TEMP_SEL} — Mayor Saldo Pendiente · toca un cliente para ver sus pedidos</div>
+      <span class="td-dim" style="margin-left:auto" id="vdCount">${groups.length} clientes · ${pedsT.length} pedidos</span>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -3012,7 +3033,7 @@ async function secVentaDespacho() {
 
   <div class="tbl-card" id="vdArtCard" hidden>
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Artículos T${VD_TEMP} — qué se debe de cada uno</div>
+      <div><div class="card-ttl" style="margin:0">Artículos T${TEMP_SEL} — qué se debe de cada uno</div>
         <div class="card-sub" style="margin:2px 0 0">Toca un artículo para ver a quién se le debe. "Programado" ya tiene orden de corte emitida; "Falta cortar" es lo que no tiene nada</div></div>
       <span class="td-dim" style="margin-left:auto" id="vdArtCount"></span>
       <button class="seg" id="vdArtPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
@@ -3162,9 +3183,11 @@ async function secCajas() {
 }
 
 /* ── CLIENTES INACTIVOS ─────────────────────────────────────── */
-/* Inactivo = compró en alguna colección T40–T43 y NO compró en la activa (T44) */
-const CL_BASE = ['40','41','42','43'];
-const CL_ACT  = '44';
+/* Inactivo = compro en alguna de las cuatro colecciones anteriores y NO en la activa.
+   Esta va contra TEMP_ACTIVA y no contra la temporada que se este mirando: "inactivo" es
+   el que no compro en la coleccion que se esta VENDIENDO. */
+const CL_ACT  = TEMP_ACTIVA;
+const CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA - i)).reverse();
 
 function clInactivos(peds) {
   const gm = new Map();
@@ -4931,8 +4954,11 @@ function bindContent(secId) {
       b.classList.add('on'); applyDcSearch();
     })));
 
+    /* La pestania de aqui tambien manda: si alguien se mueve a la 45 en Detalle, el
+       Resumen y el Top 10 la van a mostrar cuando los abra. */
     document.querySelectorAll('#dcSegs .seg').forEach(btn => {
       btn.addEventListener('click', () => {
+        TEMP_SEL = btn.dataset.t || TEMP_SEL;
         document.querySelectorAll('#dcSegs .seg').forEach(b => b.classList.remove('on'));
         btn.classList.add('on');
         const t = btn.dataset.t;
@@ -5472,7 +5498,7 @@ function bindContent(secId) {
     });
     document.getElementById('vdArtPrint')?.addEventListener('click', () => {
       printTable({ table: document.getElementById('vdArtBody')?.closest('table'),
-                   title: `Artículos T${VD_TEMP} — qué se debe de cada uno`,
+                   title: `Artículos T${TEMP_SEL} — qué se debe de cada uno`,
                    subtitle: document.getElementById('vdArtFoot')?.textContent || '' });
     });
     aplicarVdArt();
@@ -5516,8 +5542,8 @@ function bindContent(secId) {
     /* La temporada manda sobre los demas filtros: se rehace la seccion entera, como en
        Proyecciones. Mezclar temporadas daria totales que no son de ninguna. */
     document.querySelectorAll('#vdTempSegs .seg').forEach(b => b.addEventListener('click', () => {
-      if (b.dataset.t === VD_TEMP) return;
-      VD_TEMP = b.dataset.t;
+      if (b.dataset.t === TEMP_SEL) return;
+      TEMP_SEL = b.dataset.t;
       go('venta-despacho', 'Venta vs Despacho');
     }));
     ['vdAvanceSegs', 'vdTermSegs', 'vdCajaSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
@@ -5670,7 +5696,7 @@ function bindContent(secId) {
 
     // Tarjeta resumen de un pedido (en la ventana del cliente): números + avance + cajas; click → ventana del pedido
     const pedidoCardHtml = (p) => {
-      const ped44 = p.u_temp?.[VD_TEMP] || 0, desp44 = p.u_desp?.[VD_TEMP] || 0, sal44 = p.u_sal?.[VD_TEMP] || 0;
+      const ped44 = p.u_temp?.[TEMP_SEL] || 0, desp44 = p.u_desp?.[TEMP_SEL] || 0, sal44 = p.u_sal?.[TEMP_SEL] || 0;
       const pct = ped44 ? Math.round(desp44 / ped44 * 100) : 0;
       /* La franja de la izquierda dice de un vistazo como va el pedido, sin leer el %:
          rojo si no ha salido nada, azul si va a medias, verde si esta completo. */
@@ -5702,7 +5728,7 @@ function bindContent(secId) {
 
     // Ventana del pedido: cajas + tabla de artículos
     const pedidoDetailHtml = (p) => {
-        const lineas44 = (p.lineas||[]).filter(l => l.temp === VD_TEMP);
+        const lineas44 = (p.lineas||[]).filter(l => l.temp === TEMP_SEL);
         const cj = p.cajas || [];
         const infoHtml = `
           <div style="margin:12px 12px 14px;background:var(--sf2);border-radius:10px;padding:10px 14px">
@@ -5751,7 +5777,7 @@ function bindContent(secId) {
               <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">SALDO</th>
               <th style="padding:8px 12px;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">ESTADO</th>
             </tr></thead>
-            <tbody>${rowsHtml || `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T${VD_TEMP}</td></tr>`}</tbody>
+            <tbody>${rowsHtml || `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T${TEMP_SEL}</td></tr>`}</tbody>
           </table>`;
     };
 
@@ -5779,14 +5805,14 @@ function bindContent(secId) {
         const cdata = await load('cajas.json');
         const cajasAll = (!Array.isArray(cdata) && cdata?.cajas) || [];
         cajaFull = id => cajasAll.find(c => c.caja === id);
-        document.getElementById('detTtl').textContent = `${g.nombre} — ${g.pedidos.length} pedido${g.pedidos.length > 1 ? 's' : ''} T${VD_TEMP}`;
+        document.getElementById('detTtl').textContent = `${g.nombre} — ${g.pedidos.length} pedido${g.pedidos.length > 1 ? 's' : ''} T${TEMP_SEL}`;
         const body = document.getElementById('detBody');
         body.innerHTML = `
           <div style="margin:12px 12px 18px;background:var(--sf2);border-radius:10px;padding:12px 16px">
             <div class="flbl" style="margin-bottom:8px">Cuenta cliente</div>${cliHtmlFor(g.cli)}
           </div>
           <div style="margin:0 12px 12px;padding-top:4px;border-top:1px solid var(--bd);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-            <span class="flbl" style="margin-top:10px">Sus ${g.pedidos.length} pedidos T${VD_TEMP}</span>
+            <span class="flbl" style="margin-top:10px">Sus ${g.pedidos.length} pedidos T${TEMP_SEL}</span>
             <span class="td-dim" style="font-size:11px;margin-top:10px">${fmt(g.ped)} pedidas · ${fmt(g.desp)} despachadas · ${fmt(g.sal)} pendientes</span>
           </div>
           ${g.pedidos.map(pedidoCardHtml).join('')}`;
@@ -6069,6 +6095,18 @@ function bindContent(secId) {
     });
     pintarMetas();
   }
+
+  // Resumen y Top 10: la temporada rehace la seccion, como en Venta vs Despacho
+  document.querySelectorAll('#resTempSegs .seg').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.t === TEMP_SEL) return;
+    TEMP_SEL = b.dataset.t;
+    go('resumen', 'Resumen General');
+  }));
+  document.querySelectorAll('#t10TempSegs .seg').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.t === TEMP_SEL) return;
+    TEMP_SEL = b.dataset.t;
+    go('top10', 'Top 10 Pedidos');
+  }));
 
   // Stock Kennedy
   if (secId === 'kennedy' && document.getElementById('knBody')) {
@@ -6623,7 +6661,7 @@ function bindContent(secId) {
     // Copiar la lista visible al portapapeles, lista para pegar en un chat o en Excel
     document.getElementById('clCopiar')?.addEventListener('click', async (e) => {
       const filas = filasVisibles();
-      const txt = [`Clientes que compraron en T40-T43 y no en T44 — ${filas.length} clientes`, '']
+      const txt = [`Clientes que compraron en T${CL_BASE[0]}-T${CL_BASE[CL_BASE.length-1]} y no en T${CL_ACT} — ${filas.length} clientes`, '']
         .concat(filas.map(r => {
           const c = r.cells;
           const uds = (r.dataset.uds || '').split(',').filter(Boolean).map(x => { const [t, u] = x.split(':'); return `T${t}: ${fmt(+u)}`; }).join(', ');
@@ -6650,7 +6688,7 @@ function bindContent(secId) {
       const parts = [`Última colección comprada: ${ult}`];
       if (q) parts.push(`Búsqueda: ${q}`);
       printTable({ table: document.getElementById('clBody')?.closest('table'),
-                   title: 'Clientes que compraron en T40–T43 y no en T44', subtitle: parts.join(' · ') });
+                   title: `Clientes que compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length-1]} y no en T${CL_ACT}`, subtitle: parts.join(' · ') });
     });
 
     // Click en un cliente → ventana con cuánto compró en cada colección
@@ -6740,7 +6778,7 @@ function bindContent(secId) {
       if (kdiffEl) { kdiffEl.textContent = (diff>0?'+':'')+fmt(diff); kdiffEl.style.color = diff>=0?'var(--ok)':'var(--er)'; }
       const kico = document.getElementById('pvcKDiffIco');
       if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
-      const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || '44';
+      const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || TEMP_SEL;
       const foot = document.getElementById('pvcFoot');
       if (foot) foot.textContent = `${visible} artículos T${t}`;
     }
@@ -6781,6 +6819,7 @@ function bindContent(secId) {
       document.querySelectorAll('#pvcSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on');
       const t = b.dataset.t;
+      TEMP_SEL = t || TEMP_SEL;
       const ftMap = buildFtMap(CACHE['full_table.json'] || []);
       const byTemp = buildByTemp();
       // Update KPIs
