@@ -204,6 +204,14 @@ body.ia-open #iaBtn{display:none}
 /* ── FILTER BAR ──────────────────────────────────────────────── */
 .fbar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px 16px;display:flex;flex-wrap:wrap;gap:13px 22px;align-items:flex-end}
 .fbar>.td-dim{align-self:center}
+/* Hileras explicitas dentro de la barra: sin ellas los grupos se acomodan solos y quedan
+   escalonados, con las etiquetas a distinta altura y huecos en medio. */
+.fbar-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:13px 22px;width:100%}
+.fbar-row+.fbar-row{border-top:1px solid var(--bd);padding-top:11px}
+/* La temporada manda sobre todo lo demas: va sola arriba y con los botones algo mas
+   juntos, que son seis y se comen el ancho que necesitan los otros filtros. */
+.fbar-temp .segs .seg{padding:5px 11px}
+.fbar-row:empty{display:none}
 .flbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);white-space:nowrap}
 /* Etiqueta + control como una sola pieza: al partirse la barra en varias lineas, el
    corte cae entre grupos y nunca entre una etiqueta y los botones que le pertenecen. */
@@ -2957,10 +2965,14 @@ async function secVentaDespacho() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row fbar-temp">
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="vdTempSegs">
       ${tempsVd.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
+    </div>
+
+    <div class="fbar-row">
     <div class="fgrp vd-cli"><span class="flbl">Avance</span>
     <div class="segs" id="vdAvanceSegs">
       <button class="seg on" data-av="todo">Todos</button>
@@ -2978,22 +2990,26 @@ async function secVentaDespacho() {
       <button class="seg on" data-cj="todo">Todos</button>
       <button class="seg" data-cj="con" title="Clientes con caja armada en bodega">📦 Con caja</button>
     </div></div>
-    <div class="fgrp"><span class="flbl">Ver por</span>
-    <div class="segs" id="vdVistaSegs">
-      <button class="seg on" data-vista="cliente">Cliente</button>
-      <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
-    </div></div>
     <div class="fgrp vd-art" style="display:none"><span class="flbl">Mostrar</span>
     <div class="segs" id="vdCorteSegs">
       <button class="seg on" data-c="todo">Todos</button>
       <button class="seg" data-c="corte" title="Solo los que no tienen nada: ni bodega, ni producción, ni orden emitida">Hay que cortar</button>
       <button class="seg" data-c="prog" title="Solo los que ya tienen orden de corte emitida y todavía sin cortar">Programados</button>
     </div></div>
+    </div>
+
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Ver por</span>
+    <div class="segs" id="vdVistaSegs">
+      <button class="seg on" data-vista="cliente">Cliente</button>
+      <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
+    </div></div>
     <div class="fgrp vd-cli"><span class="flbl">Ciudad</span>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select></div>
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
     <button class="seg vd-cli" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button></div>
+    </div>
   </div>
   <div class="kpi-grid">
     <div class="kpi sel" style="cursor:default">
