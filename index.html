@@ -440,6 +440,10 @@ body.ia-open #iaBtn{display:none}
     </button>
 
     <div class="sb-grp" data-admin-only>Venta</div>
+    <button class="nav-item" data-sec="venta-kennedy" data-ttl="Venta Kennedy" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Venta Kennedy
+    </button>
     <button class="nav-item" data-sec="reporte-venta" data-ttl="Reporte Venta" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Reporte Venta
@@ -1801,6 +1805,217 @@ function vDetTipos(docs) {
       <td class="r td-num" style="color:${r.neto < 0 ? 'var(--wa)' : 'inherit'}">${fmtM(r.neto)}</td>
       <td class="r td-num td-dim">${fmtM(r.bruto)}</td></tr>`).join(''),
     'Las notas de crédito van en negativo: ya vienen restando en el total de arriba');
+}
+
+
+/* ── VENTA KENNEDY ─────────────────────────────────────────────────────
+   La venta de la tienda, que vive en Bsale y no en el ERP: hasta ahora solo veiamos su
+   stock. El codigo de variante de Bsale son 8 digitos -el articulo sin el "01" mas la
+   talla-, el mismo cruce que ya usaba el stock, asi que cada linea vendida trae consigo
+   el articulo de Adecom y se puede rankear por modelo.
+
+   Las notas de credito vienen con los montos en negativo desde el build, de manera que
+   sumar una lista de documentos da el neto de verdad sin tener que acordarse del signo. */
+let KEN = { docs: [], meta: {} };
+
+const kenMesDe = iso => String(iso || '').slice(0, 7);
+function kenLunes() {                     // el lunes de esta semana, para el tramo "Esta semana"
+  const d = new Date(today() + 'T12:00:00');
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return ymd(d);
+}
+
+/* Los documentos del tramo elegido. El dia y el mes sueltos mandan sobre los botones:
+   si alguien elige una fecha, eso es lo que quiere ver. */
+function kenFiltrados() {
+  const per = document.querySelector('#kenPerSegs .seg.on')?.dataset.p || 'hoy';
+  const suc = document.getElementById('kenSuc')?.value || 'all';
+  const mes = document.getElementById('kenMes')?.value || '';
+  const dia = document.getElementById('kenDia')?.value || '';
+  const hoy = today(), lun = kenLunes();
+  const porSuc = KEN.docs.filter(d => suc === 'all' || d.suc === suc);
+  if (dia) return { docs: porSuc.filter(d => d.fecha === dia), ttl: 'Documentos del ' + cuaDMA(dia) };
+  if (mes) return { docs: porSuc.filter(d => kenMesDe(d.fecha) === mes), ttl: 'Documentos de ' + mtMesTtl(mes) };
+  if (per === 'todo')   return { docs: porSuc, ttl: 'Todos los documentos' };
+  if (per === 'mes')    return { docs: porSuc.filter(d => kenMesDe(d.fecha) === kenMesDe(hoy)), ttl: 'Documentos de ' + mtMesTtl(kenMesDe(hoy)) };
+  if (per === 'semana') return { docs: porSuc.filter(d => d.fecha >= lun), ttl: 'Documentos desde el lunes' };
+  const deHoy = porSuc.filter(d => d.fecha === hoy);
+  if (deHoy.length) return { docs: deHoy, ttl: 'Documentos del ' + cuaDMA(hoy) };
+  /* Sin venta todavia hoy: en vez de una pantalla vacia se muestra el ultimo dia que si
+     tuvo, que es lo que uno iba a buscar igual. */
+  const ult = porSuc.reduce((a, d) => d.fecha > a ? d.fecha : a, '');
+  return { docs: porSuc.filter(d => d.fecha === ult), ttl: 'Documentos del ' + cuaDMA(ult), viejo: ult };
+}
+
+/* El ranking: cada linea vendida ya trae el articulo, asi que basta agrupar. Las notas de
+   credito restan unidades y plata, que es lo correcto: una devolucion no es una venta. */
+function kenRanking(docs) {
+  const m = new Map();
+  for (const d of docs) {
+    for (const l of (d.lineas || [])) {
+      if (!/^01\d{6}$/.test(l.art || '')) continue;      // lineas sin articulo de Adecom
+      const r = m.get(l.art) || { art: l.art, cant: 0, neto: 0, tallas: {} };
+      r.cant += l.cant || 0; r.neto += l.neto || 0;
+      if (l.talla) r.tallas[l.talla] = (r.tallas[l.talla] || 0) + (l.cant || 0);
+      m.set(l.art, r);
+    }
+  }
+  return [...m.values()].filter(r => r.cant > 0).sort((a, b) => b.cant - a.cant);
+}
+
+function kenTablaDocs(docs) {
+  if (!docs.length) return '<tr><td colspan="6" class="td-dim" style="text-align:center;padding:24px">Sin documentos en este tramo</td></tr>';
+  return docs.slice(0, 400).map(d => {
+    const color = d.nota ? 'var(--er)' : 'var(--ac)';
+    return `<tr class="no-click"${d.nota ? ' style="background:var(--er10)"' : ''}>
+      <td style="border-left:3px solid ${color}">
+        <span style="background:${d.nota ? 'var(--er10)' : 'var(--ac10)'};color:${color};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">${d.nota ? 'N/crédito' : d.tipo.split(' ')[0]}</span>
+        <span class="td-code" style="margin-left:6px">${d.nro}</span></td>
+      <td class="td-dim">${cuaDMA(d.fecha)}</td>
+      <td class="td-dim">${d.suc || '—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${d.cliente || '<span class="td-dim">sin cliente</span>'}</td>
+      <td class="r td-num">${fmt(d.prendas)}</td>
+      <td class="r td-num" style="font-weight:700;color:${d.neto < 0 ? 'var(--er)' : 'var(--tx1)'}">${fmtCLP(d.neto)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function kenTablaTop(rank, totalU) {
+  if (!rank.length) return '<tr><td colspan="6" class="td-dim" style="text-align:center;padding:24px">Sin ventas en este tramo</td></tr>';
+  return rank.slice(0, 40).map((r, i) => {
+    const part = totalU ? r.cant / totalU * 100 : 0;
+    const tallas = Object.entries(r.tallas).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    return `<tr class="no-click">
+      <td class="td-dim" style="font-weight:${i === 0 ? 800 : 400};color:${i === 0 ? 'var(--ac)' : 'var(--tx3)'}">${i + 1}</td>
+      <td>${artImg(r.art)}<span class="td-code">${r.art}</span>
+        <span class="badge ${tcFor(r.art.slice(2, 4)).cls}" style="margin-left:6px">T${r.art.slice(2, 4)}</span></td>
+      <td class="td-dim">${r.art.slice(2, 6)}</td>
+      <td class="r td-num" style="font-weight:700">${fmt(r.cant)}</td>
+      <td class="r td-num">${fmtCLP(r.neto)}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;min-width:120px">
+        <div class="pbar" style="width:70px;flex-shrink:0"><div class="pbar-fill" style="width:${Math.min(100, part * 6).toFixed(1)}%"></div></div>
+        <span class="td-dim">${part.toFixed(1)}%</span>
+        ${tallas.length ? `<span class="td-dim" style="font-size:10px">${tallas.map(([t, c]) => 'T' + t + ':' + c).join(' ')}</span>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function pintarKen() {
+  const cuerpo = document.getElementById('kenBody');
+  if (!cuerpo) return;
+  const { docs, ttl, viejo } = kenFiltrados();
+  const ventas = docs.filter(d => !d.nota);
+  const neto  = docs.reduce((a, d) => a + (d.neto || 0), 0);
+  const bruto = docs.reduce((a, d) => a + (d.bruto || 0), 0);
+  const prendas = docs.reduce((a, d) => a + (d.prendas || 0), 0);
+  const ticket = ventas.length ? Math.round(ventas.reduce((a, d) => a + (d.bruto || 0), 0) / ventas.length) : 0;
+  const rank = kenRanking(docs);
+  const totalU = rank.reduce((a, r) => a + r.cant, 0);
+  const netoRank = rank.reduce((a, r) => a + r.neto, 0);
+  const otros = neto - netoRank;      // despacho y cargos sueltos: no son prendas
+  const notas = docs.length - ventas.length;
+
+  const ICO = {
+    doc:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    prenda: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+    ticket: '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    plata:  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    subida: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  };
+  const tarjeta = (val, lbl, sub, col, ico) => `<div class="kpi" style="cursor:default">
+    <div class="kpi-ico ${col}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO[ico]}</svg></div>
+    <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
+      <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
+
+  cuerpo.innerHTML = `
+  ${viejo ? `<div class="td-dim" style="font-size:11px;margin-bottom:10px">Hoy todavía no hay venta registrada en la tienda: se muestra el último día con movimiento</div>` : ''}
+  <div class="kpi-grid">
+    ${tarjeta(fmt(docs.length), 'Documentos', notas ? fmt(notas) + ' nota' + (notas === 1 ? '' : 's') + ' de crédito' : '', 'c-ac', 'doc')}
+    ${tarjeta(fmt(prendas), 'Prendas', 'descontadas las devoluciones', 'c-ok', 'prenda')}
+    ${tarjeta(fmtM(ticket), 'Ticket promedio', fmt(ventas.length) + ' boletas y facturas', 'c-ac', 'ticket')}
+    ${tarjeta(fmtM(neto), 'Neto', otros > 0 ? fmtM(otros) + ' es despacho y otros cargos' : '', 'c-wa', 'plata')}
+    ${tarjeta(fmtM(bruto), 'Bruto (c/IVA)', '', '', 'subida')}
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Lo más vendido</div>
+        <div class="card-sub" style="margin:2px 0 0">Unidades netas del tramo: una devolución resta</div></div>
+      <span class="td-dim" style="margin-left:auto">${fmt(rank.length)} artículos · ${fmt(totalU)} prendas</span>
+      <button class="seg" id="kenTopPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>#</th><th>Artículo</th><th>Modelo</th><th class="r">Unidades</th><th class="r">Neto</th><th>Participación y tallas</th></tr></thead>
+        <tbody class="tbl-compacta">${kenTablaTop(rank, totalU)}</tbody>
+      </table>
+      <div class="tbl-foot" id="kenTopFoot">${rank.length > 40 ? 'Los 40 más vendidos de ' + fmt(rank.length) : fmt(rank.length) + ' artículos'} · ${fmtCLP(netoRank)} en ropa${otros > 0 ? ' · los ' + fmtCLP(otros) + ' que faltan para el neto son despacho y cargos sueltos, que no son prendas' : ''}</div>
+    </div>
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">${ttl}</div>
+        <div class="card-sub" style="margin:2px 0 0">Boletas, facturas y notas de crédito de la tienda</div></div>
+      <span class="td-dim" style="margin-left:auto">${fmt(docs.length)} documentos</span>
+      <button class="seg" id="kenDocPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Documento</th><th>Fecha</th><th>Sucursal</th><th>Cliente</th><th class="r">Prendas</th><th class="r">Neto</th></tr></thead>
+        <tbody class="tbl-compacta">${kenTablaDocs(docs)}</tbody>
+      </table>
+      <div class="tbl-foot" id="kenDocFoot">${docs.length > 400 ? 'Se muestran los 400 más recientes de ' + fmt(docs.length) : fmt(docs.length) + ' documentos'} · ${fmtCLP(neto)} neto</div>
+    </div>
+  </div>`;
+
+  const imprimir = (btn, pie, titulo) => document.getElementById(btn)?.addEventListener('click', () => printTable({
+    table: document.getElementById(pie)?.closest('.tbl-scroll')?.querySelector('table'),
+    title: titulo, subtitle: document.getElementById(pie)?.textContent || '',
+  }));
+  imprimir('kenTopPrint', 'kenTopFoot', 'Lo más vendido en la tienda');
+  imprimir('kenDocPrint', 'kenDocFoot', 'Venta de la tienda');
+}
+
+async function secVentaKennedy() {
+  const data = await load('ventas_bsale.json');
+  KEN = { docs: (data && data.docs) || [], meta: (data && data.meta) || {} };
+  if (!KEN.docs.length) return makePH('<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>', 'Venta Kennedy', 'Todavía no hay ventas descargadas de la tienda');
+
+  const sucs = KEN.meta.sucursales || [...new Set(KEN.docs.map(d => d.suc).filter(Boolean))].sort();
+  const meses = [...new Set(KEN.docs.map(d => kenMesDe(d.fecha)))].sort().reverse();
+
+  return `
+  <div class="fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Período</span>
+    <div class="segs" id="kenPerSegs">
+      <button class="seg on" data-p="hoy">Hoy</button>
+      <button class="seg" data-p="semana">Esta semana</button>
+      <button class="seg" data-p="mes">Este mes</button>
+      <button class="seg" data-p="todo">Todo</button>
+    </div></div>
+    <div class="fgrp"><span class="flbl">Sucursal</span>
+    <select id="kenSuc" class="finput" style="width:200px">
+      <option value="all">Todas las sucursales</option>
+      ${sucs.map(x => `<option value="${x}">${x}</option>`).join('')}
+    </select></div>
+    </div>
+
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Mes</span>
+    <select id="kenMes" class="finput" style="width:150px">
+      <option value="">—</option>
+      ${meses.map(m => `<option value="${m}">${mtMesTtl(m)}</option>`).join('')}
+    </select></div>
+    <div class="fgrp"><span class="flbl">Día</span>
+    <input type="date" id="kenDia" class="finput" style="width:150px"></div>
+    <span class="td-dim" style="font-size:11px">Venta de la tienda, desde Bsale · datos al ${KEN.meta.fecha || '—'}</span>
+    </div>
+  </div>
+
+  <div id="kenBody" style="margin-top:14px"></div>`;
 }
 
 function secReporteVenta() {
@@ -4902,6 +5117,7 @@ const SECS = {
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
   'metas':          () => secMetas(),
+  'venta-kennedy':  () => secVentaKennedy(),
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
   'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
@@ -6164,6 +6380,27 @@ function bindContent(secId) {
     TEMP_SEL = b.dataset.t;
     go('top10', 'Top 10 Pedidos');
   }));
+
+
+  // Venta Kennedy
+  if (secId === 'venta-kennedy' && document.getElementById('kenBody')) {
+    /* El dia y el mes sueltos mandan sobre los botones, asi que al tocar un boton se
+       limpian: si no, uno elige "Este mes" y sigue viendo el dia de ayer sin saber por que. */
+    document.querySelectorAll('#kenPerSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#kenPerSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      const m = document.getElementById('kenMes'), d = document.getElementById('kenDia');
+      if (m) m.value = ''; if (d) d.value = '';
+      pintarKen();
+    }));
+    ['kenSuc', 'kenMes', 'kenDia'].forEach(id => document.getElementById(id)?.addEventListener('change', () => {
+      if (id !== 'kenSuc') document.querySelectorAll('#kenPerSegs .seg').forEach(x => x.classList.remove('on'));
+      if (id === 'kenMes') { const d = document.getElementById('kenDia'); if (d) d.value = ''; }
+      if (id === 'kenDia') { const m = document.getElementById('kenMes'); if (m) m.value = ''; }
+      pintarKen();
+    }));
+    pintarKen();
+  }
 
   // Stock Kennedy
   if (secId === 'kennedy' && document.getElementById('knBody')) {
