@@ -90,7 +90,7 @@ html,body{overflow-x:hidden;max-width:100%}
 .kpi-grid>.kpi{flex:1 1 200px;max-width:360px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
-.res-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.res-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
 /* El bloque de la coleccion: el filtro manda sobre estas tres tarjetas, que van
    justo debajo. Antes el selector vivia apretado en el titulo de una columna y las
    tarjetas que dependian de el estaban repartidas en dos. */
@@ -100,7 +100,7 @@ html,body{overflow-x:hidden;max-width:100%}
 /* Cada columna reparte su alto en dos filas iguales. Como el grid estira todas las
    columnas a la misma altura, las tarjetas quedan alineadas en filas parejas aunque
    una lleve dos lineas de texto y otra una. */
-.res-col{display:grid;grid-template-rows:auto 1fr 1fr;gap:10px;min-width:0}
+.res-col{display:grid;grid-template-rows:auto;grid-auto-rows:1fr;gap:10px;min-width:0}
 .res-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 1px}
 .res-col .kpi{padding:15px 16px}
 .res-col .kpi-val{font-size:23px}
@@ -1117,7 +1117,7 @@ async function secResumen() {
 
     <div class="res-col">
       <div class="res-grp">Para mover hoy</div>
-      <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar" style="border:2px solid var(--ok);background:var(--ok10);grid-row:span 2;align-items:center">
+      <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar" style="border:2px solid var(--ok);background:var(--ok10)">
         <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
         <div style="min-width:0">
           <div class="kpi-val" style="color:var(--ok)">${fmt(RES.enBodega.total)}</div>
