@@ -90,17 +90,17 @@ html,body{overflow-x:hidden;max-width:100%}
 .kpi-grid>.kpi{flex:1 1 200px;max-width:360px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
-.res-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.res-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 /* El bloque de la coleccion: el filtro manda sobre estas tres tarjetas, que van
    justo debajo. Antes el selector vivia apretado en el titulo de una columna y las
    tarjetas que dependian de el estaban repartidas en dos. */
-.res-temp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.res-temp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .res-temp .kpi{padding:15px 16px}
 .res-temp .kpi-val{font-size:23px}
 /* Cada columna reparte su alto en dos filas iguales. Como el grid estira todas las
    columnas a la misma altura, las tarjetas quedan alineadas en filas parejas aunque
    una lleve dos lineas de texto y otra una. */
-.res-col{display:grid;grid-template-rows:auto;grid-auto-rows:1fr;gap:10px;min-width:0}
+.res-col{display:grid;grid-template-rows:auto 1fr 1fr;gap:10px;min-width:0}
 .res-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 1px}
 .res-col .kpi{padding:15px 16px}
 .res-col .kpi-val{font-size:23px}
@@ -1096,6 +1096,13 @@ async function secResumen() {
   const despT  = (tSel.items || []).reduce((s, i) => s + (i.desp  || 0), 0);
   const salT   = (tSel.items || []).reduce((s, i) => s + (i.saldo || 0), 0);
   const avanceT = tSel.total ? Math.round(despT / tSel.total * 100) : 0;
+  /* "Falta despachar" vive arriba, con lo del dia, asi que mira siempre la coleccion
+     activa: si siguiera al filtro, el bloque de arriba cambiaria al elegir otra y no se
+     entenderia por que. */
+  const tAct     = byTemp[TEMP_ACTIVA] || { total:0, items:[] };
+  const despAct  = (tAct.items || []).reduce((a, i) => a + (i.desp  || 0), 0);
+  const salAct   = (tAct.items || []).reduce((a, i) => a + (i.saldo || 0), 0);
+  const avanceAct = tAct.total ? Math.round(despAct / tAct.total * 100) : 0;
 
   const vh = VENTA_HOY;
   // Si el dia cerro en negativo la tarjeta no puede seguir verde: se leeria como un buen dia.
@@ -1123,6 +1130,14 @@ async function secResumen() {
           <div class="kpi-val" style="color:var(--ok)">${fmt(RES.enBodega.total)}</div>
           <div class="kpi-lbl">Se puede despachar ya</div>
           <div class="kpi-delta ${RES.enBodega.total ? 'd-up' : 'd-nu'}">${RES.enBodega.porCliente.size} clientes esperando</div>
+        </div>
+      </div>
+      <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho" title="Ver el detalle por cliente">
+        <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(salAct)}</div>
+          <div class="kpi-lbl">Falta despachar T${TEMP_ACTIVA}</div>
+          <div class="kpi-delta d-nu">${avanceAct}% avanzado · ${fmt(despAct)} entregadas</div>
         </div>
       </div>
     </div>
@@ -1175,7 +1190,7 @@ async function secResumen() {
     <div class="segs" id="resTempSegs">
       ${tempsRes.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
-    <span class="td-dim" style="font-size:11px">Las tres tarjetas de abajo y los gráficos son de esta colección</span>
+    <span class="td-dim" style="font-size:11px">Las tarjetas de abajo y los gráficos son de esta colección</span>
     </div>
   </div>
 
@@ -1194,14 +1209,6 @@ async function secResumen() {
           <div class="kpi-val">${tSel.modelos}</div>
           <div class="kpi-lbl">Modelos · ${variantesT} colores</div>
           <div class="kpi-delta d-nu">Top ${topMod.base} con ${fmt(topMod.total)} u</div>
-        </div>
-      </div>
-      <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho" title="Ver el detalle por cliente">
-        <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-        <div style="min-width:0">
-          <div class="kpi-val">${fmt(salT)}</div>
-          <div class="kpi-lbl">Falta despachar T${TEMP_SEL}</div>
-          <div class="kpi-delta d-nu">${avanceT}% avanzado · ${fmt(despT)} entregadas</div>
         </div>
       </div>
   </div>
