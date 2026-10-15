@@ -1530,7 +1530,14 @@ async function secTabla() {
   const rows = ft.map(r => ({ ...r, etapa: getEtapa(r) }))
                  .sort((a, b) => (b.fecha_iso||'') < (a.fecha_iso||'') ? -1 : 1);
 
-  const NUM_COLS = ['programa','proceso','bodega','saldo','corte_u','taller','texterno','limpiado','lavanderia','terminacion'];
+  const NUM_COLS = ['programa','proceso','bodega','saldo','p_corte','p_taller','p_texterno','p_limpiado','p_lavanderia','p_terminacion'];
+
+  /* Cuantas prendas estan DETENIDAS en la etapa. El visto gris es la etapa por la que ya
+     paso sin dejar nada; la raya, la que todavia no toca. Antes aqui iba un 1 que solo
+     decia "paso por aqui" y se leia como una prenda. */
+  const celdaEtapa = (pend, paso) => pend > 0
+    ? `<td class="r td-num" style="font-weight:700">${fmt(pend)}</td>`
+    : `<td class="r" style="color:var(--tx3)">${paso ? '✓' : '—'}</td>`;
 
   const rowsHtml = rows.map(r => {
     const bg = (r.bodega||0) > 0 ? 'style="background:var(--ok10)"'
@@ -1546,12 +1553,12 @@ async function secTabla() {
       <td class="r td-num">${fmt(r.proceso||0)}</td>
       <td class="r td-num" style="color:${(r.bodega||0)>0?'var(--ok)':'inherit'}">${fmt(r.bodega||0)}</td>
       <td class="r td-dim" style="color:${(r.saldo||0)>0?'var(--wa)':'var(--tx3)'}">${fmt(r.saldo||0)}</td>
-      <td class="r td-dim">${fmt(r.corte_u||0)}</td>
-      <td class="r td-dim">${fmt(r.taller||0)}</td>
-      <td class="r td-dim">${fmt(r.texterno||0)}</td>
-      <td class="r td-dim">${fmt(r.limpiado||0)}</td>
-      <td class="r td-dim">${fmt(r.lavanderia||0)}</td>
-      <td class="r td-dim">${fmt(r.terminacion||0)}</td>
+      ${celdaEtapa(r.p_corte||0, r.corte_u)}
+      ${celdaEtapa(r.p_taller||0, r.taller)}
+      ${celdaEtapa(r.p_texterno||0, r.texterno)}
+      ${celdaEtapa(r.p_limpiado||0, r.limpiado)}
+      ${celdaEtapa(r.p_lavanderia||0, r.lavanderia)}
+      ${celdaEtapa(r.p_terminacion||0, r.terminacion)}
     </tr>`;
   }).join('');
 
@@ -1615,12 +1622,12 @@ async function secTabla() {
           <th class="r th-sort" data-col="proceso" data-num="1">Proceso <span class="sort-ic"></span></th>
           <th class="r th-sort" data-col="bodega" data-num="1">Bodega <span class="sort-ic"></span></th>
           <th class="r th-sort" data-col="saldo" data-num="1">Saldo <span class="sort-ic"></span></th>
-          <th class="r th-sort" data-col="corte_u" data-num="1">Corte <span class="sort-ic"></span></th>
-          <th class="r th-sort" data-col="taller" data-num="1">Costur <span class="sort-ic"></span></th>
-          <th class="r th-sort" data-col="texterno" data-num="1">T.Ext <span class="sort-ic"></span></th>
-          <th class="r th-sort" data-col="limpiado" data-num="1">Limp. <span class="sort-ic"></span></th>
-          <th class="r th-sort" data-col="lavanderia" data-num="1">Lavand. <span class="sort-ic"></span></th>
-          <th class="r th-sort" data-col="terminacion" data-num="1">Term. <span class="sort-ic"></span></th>
+          <th class="r th-sort" data-col="p_corte" data-num="1" title="Prendas detenidas en Corte. El visto es la etapa por la que ya pasó">Corte <span class="sort-ic"></span></th>
+          <th class="r th-sort" data-col="p_taller" data-num="1" title="Prendas detenidas en Costur. El visto es la etapa por la que ya pasó">Costur <span class="sort-ic"></span></th>
+          <th class="r th-sort" data-col="p_texterno" data-num="1" title="Prendas detenidas en T.Ext. El visto es la etapa por la que ya pasó">T.Ext <span class="sort-ic"></span></th>
+          <th class="r th-sort" data-col="p_limpiado" data-num="1" title="Prendas detenidas en Limp.. El visto es la etapa por la que ya pasó">Limp. <span class="sort-ic"></span></th>
+          <th class="r th-sort" data-col="p_lavanderia" data-num="1" title="Prendas detenidas en Lavand.. El visto es la etapa por la que ya pasó">Lavand. <span class="sort-ic"></span></th>
+          <th class="r th-sort" data-col="p_terminacion" data-num="1" title="Prendas detenidas en Term.. El visto es la etapa por la que ya pasó">Term. <span class="sort-ic"></span></th>
         </tr></thead>
         <tbody id="tablaBody">${rowsHtml}</tbody>
         <tfoot><tr style="background:var(--sf2);font-weight:700">
@@ -5037,7 +5044,7 @@ function bindContent(secId) {
 
   // Tabla Completa section — client-side filters
   if (secId === 'tabla') {
-    const NUM = ['programa','proceso','bodega','saldo','corte_u','taller','texterno','limpiado','lavanderia','terminacion'];
+    const NUM = ['programa','proceso','bodega','saldo','p_corte','p_taller','p_texterno','p_limpiado','p_lavanderia','p_terminacion'];
 
     // Las 1.100 filas se leen UNA sola vez. Antes cada tecla volvia a recorrer el DOM y a
     // leer el dataset de cada fila (unas 18.000 lecturas por letra) y reescribia el display
