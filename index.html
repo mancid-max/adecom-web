@@ -90,7 +90,13 @@ html,body{overflow-x:hidden;max-width:100%}
 .kpi-grid>.kpi{flex:1 1 200px;max-width:360px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
-.res-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.res-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+/* El bloque de la coleccion: el filtro manda sobre estas tres tarjetas, que van
+   justo debajo. Antes el selector vivia apretado en el titulo de una columna y las
+   tarjetas que dependian de el estaban repartidas en dos. */
+.res-temp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.res-temp .kpi{padding:15px 16px}
+.res-temp .kpi-val{font-size:23px}
 /* Cada columna reparte su alto en dos filas iguales. Como el grid estira todas las
    columnas a la misma altura, las tarjetas quedan alineadas en filas parejas aunque
    una lleve dos lineas de texto y otra una. */
@@ -98,8 +104,8 @@ html,body{overflow-x:hidden;max-width:100%}
 .res-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 1px}
 .res-col .kpi{padding:15px 16px}
 .res-col .kpi-val{font-size:23px}
-@media(max-width:1180px){.res-cols{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:620px){.res-cols{grid-template-columns:1fr}}
+@media(max-width:1180px){.res-cols,.res-temp{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.res-cols,.res-temp{grid-template-columns:1fr}}
 .kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;min-width:0;transition:border-color .12s,box-shadow .12s,transform .1s}
 .kpi>div:last-child{min-width:0}
 .kpi-lbl{overflow-wrap:break-word}
@@ -1111,20 +1117,12 @@ async function secResumen() {
 
     <div class="res-col">
       <div class="res-grp">Para mover hoy</div>
-      <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar" style="border:2px solid var(--ok);background:var(--ok10)">
+      <div class="kpi" data-rdet="bodega" title="Ver a qué clientes se les puede mandar" style="border:2px solid var(--ok);background:var(--ok10);grid-row:span 2;align-items:center">
         <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
         <div style="min-width:0">
           <div class="kpi-val" style="color:var(--ok)">${fmt(RES.enBodega.total)}</div>
           <div class="kpi-lbl">Se puede despachar ya</div>
           <div class="kpi-delta ${RES.enBodega.total ? 'd-up' : 'd-nu'}">${RES.enBodega.porCliente.size} clientes esperando</div>
-        </div>
-      </div>
-      <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho" title="Ver el detalle por cliente">
-        <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-        <div style="min-width:0">
-          <div class="kpi-val">${fmt(salT)}</div>
-          <div class="kpi-lbl">Falta despachar T${TEMP_SEL}</div>
-          <div class="kpi-delta d-nu">${avanceT}% avanzado · ${fmt(despT)} entregadas</div>
         </div>
       </div>
     </div>
@@ -1169,12 +1167,19 @@ async function secResumen() {
       </div>
     </div>
 
-    <div class="res-col">
-      <div class="res-grp" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:4px">Temporada
-        <div class="segs" id="resTempSegs" style="text-transform:none;letter-spacing:0">
-          ${tempsRes.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}" style="padding:3px 8px;font-size:11px">T${t}</button>`).join('')}
-        </div>
-      </div>
+  </div>
+
+  <div class="fbar" style="margin-top:16px">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Temporada</span>
+    <div class="segs" id="resTempSegs">
+      ${tempsRes.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
+    </div></div>
+    <span class="td-dim" style="font-size:11px">Las tres tarjetas de abajo y los gráficos son de esta colección</span>
+    </div>
+  </div>
+
+  <div class="res-temp" style="margin-top:12px">
       <div class="kpi" data-goto="detalle-color" data-goto-ttl="Detalle Pedido Color" title="Ver el detalle por color">
         <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
         <div style="min-width:0">
@@ -1191,8 +1196,14 @@ async function secResumen() {
           <div class="kpi-delta d-nu">Top ${topMod.base} con ${fmt(topMod.total)} u</div>
         </div>
       </div>
-    </div>
-
+      <div class="kpi" data-goto="venta-despacho" data-goto-ttl="Venta vs Despacho" title="Ver el detalle por cliente">
+        <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <div style="min-width:0">
+          <div class="kpi-val">${fmt(salT)}</div>
+          <div class="kpi-lbl">Falta despachar T${TEMP_SEL}</div>
+          <div class="kpi-delta d-nu">${avanceT}% avanzado · ${fmt(despT)} entregadas</div>
+        </div>
+      </div>
   </div>
 
   <div class="chart-row">
@@ -1267,22 +1278,24 @@ function secDetalleColor() {
   return `
   <div class="temp-grid">${tempCards}</div>
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="dcSegs" style="flex-wrap:wrap">
       ${temps.map(t => `<button class="seg${t===iniT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="width:180px"></div>
-  </div>
-  <div class="fbar" style="margin-top:8px;flex-direction:column;align-items:stretch;gap:8px">
-    <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
+    </div>
+
+    <div class="fbar-row">
       <div class="fgrp"><span class="flbl">Bota</span>
       <div class="segs" id="dcBotaSegs" style="flex-wrap:wrap;min-width:0;flex:1">
         <button class="seg on" data-b="all">Todas</button>
         ${dcBotas.map(b => `<button class="seg" data-b="${b.toLowerCase()}">${b}</button>`).join('')}
       </div></div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
+
+    <div class="fbar-row">
       <div class="fgrp"><span class="flbl">Tiro</span>
       <div class="segs" id="dcTiroSegs" style="flex-wrap:wrap;min-width:0;flex:1">
         <button class="seg on" data-ti="all">Todos</button>
@@ -1419,37 +1432,34 @@ async function secStock() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Sucursal</span>
     <div class="segs" id="stSucSegs" style="flex-wrap:wrap;gap:4px">
       <button class="seg on" data-suc="all">Todas</button>
       ${sucList.map(s => `<button class="seg" data-suc="${s}">${SUC_NAMES[s]||s}</button>`).join('')}
     </div></div>
-  </div>
-  <div class="fbar" style="margin-top:8px">
     <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="stTempSegs">
       <button class="seg on" data-t="all">Todas</button>
       ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
       ${hasOld ? '<button class="seg" data-t="old" title="Colecciones anteriores a T40 que aún figuran con cajas">&lt; T40 con cajas</button>' : ''}
     </div></div>
-  </div>
-  ${data.some(r => r.neg) ? `<div class="fbar" style="margin-top:8px">
-    <div class="fgrp"><span class="flbl">Stock</span>
+    </div>
+
+    <div class="fbar-row">
+    ${data.some(r => r.neg) ? `<div class="fgrp"><span class="flbl">Stock</span>
     <div class="segs" id="stNegSegs">
       <button class="seg on" data-n="pos">Con stock</button>
       <button class="seg" data-n="neg" title="Artículos con stock negativo en el ERP: hay que corregirlos">⚠ Negativo</button>
-    </div></div>
-  </div>` : ''}
-  ${botas.length ? `<div class="fbar" style="margin-top:8px">
-    <div class="fgrp"><span class="flbl">Tipo</span>
+    </div></div>` : ''}
+    ${botas.length ? `<div class="fgrp"><span class="flbl">Tipo</span>
     <select id="stBotaSel" style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;cursor:pointer;outline:none">
       <option value="all">Todas</option>
       ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
-    </select></div>
-  </div>` : ''}
-  <div class="fbar" style="margin-top:8px">
+    </select></div>` : ''}
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="stSearch" type="text" class="finput fsearch" placeholder="Artículo o modelo…" style="width:200px" /></div>
+    </div>
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -1542,6 +1552,7 @@ async function secTabla() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Etapa</span>
       <select id="tblEtapa" class="finput">
         <option value="todo">Todas las etapas</option>
@@ -1560,6 +1571,9 @@ async function secTabla() {
         <option value="todo">Todas</option>
         ${temps.map(t => `<option value="${t}">T${t}</option>`).join('')}
       </select></div>
+    </div>
+
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Tipo</span>
       <div class="segs" id="tblTipoSegs" style="overflow-x:auto;flex-wrap:nowrap;min-width:0;flex:1">
         <button class="seg on" data-tp="todo">Todas</button>
@@ -1573,6 +1587,7 @@ async function secTabla() {
     <div class="fgrp"><span class="flbl">Buscar</span>
       <input id="tblArtSearch" class="finput fsearch" placeholder="Artículo…" style="width:130px">
       <input id="tblOcSearch"  class="finput fsearch" placeholder="OC…" style="width:110px">
+    </div>
     </div>
   </div>
   <div class="tbl-card">
@@ -3127,6 +3142,7 @@ async function secCajas() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="cjTempSegs">
       <button class="seg on" data-t="all">Todas</button>
@@ -3138,6 +3154,9 @@ async function secCajas() {
       <button class="seg" data-est="salio">Despachadas</button>
       <button class="seg" data-est="all">Todas</button>
     </div></div>
+    </div>
+
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Antigüedad</span>
     <div class="segs" id="cjDiasSegs">
       <button class="seg on" data-d="0">Todas</button>
@@ -3372,6 +3391,7 @@ async function secKennedy() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="knTempSegs">
       <button class="seg on" data-t="all">Todas</button>
@@ -3382,8 +3402,9 @@ async function secKennedy() {
       <option value="">Todas las anteriores</option>
       ${viejas.map(v => `<option value="${v.t}" title="${v.n} artículo${v.n === 1 ? '' : 's'}">T${v.t}</option>`).join('')}
     </select>` : ''}</div>
-  </div>
-  <div class="fbar" style="margin-top:8px">
+    </div>
+
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Ver</span>
     <div class="segs" id="knCmpSegs">
       <button class="seg on" data-c="all">Todo</button>
@@ -3392,6 +3413,7 @@ async function secKennedy() {
     </div></div>
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="knSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:210px"></div>
+    </div>
   </div>
   <div class="kpi-grid">
     <div class="kpi" style="cursor:default">
@@ -3644,20 +3666,20 @@ async function secPVC() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="pvcSegs">
-      ${temps.map((t,i) => `<button class="seg${i===0?' on':''}" data-t="${t}">T${t}</button>`).join('')}
+      ${temps.map((t,i) => `<button class="seg${t===defT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
-  </div>
-  <div class="fbar" style="margin-top:8px">
+    </div>
+
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Estado</span>
     <div class="segs" id="pvcEstadoSegs">
       <button class="seg on" data-estado="all">Todos</button>
       <button class="seg" data-estado="ofrecer">▲ Ofrecer</button>
       <button class="seg" data-estado="cortar">▼ Cortar más</button>
     </div></div>
-  </div>
-  <div class="fbar" style="margin-top:8px">
     <div class="fgrp"><span class="flbl">Etapa</span>
     <div class="segs" id="pvcEtapaSegs">
       <button class="seg on" data-etapa="all">Todas</button>
@@ -3668,6 +3690,7 @@ async function secPVC() {
       <button class="seg" data-etapa="Limpiado">Limpiado</button>
       <button class="seg" data-etapa="Corte">Corte</button>
     </div></div>
+    </div>
   </div>
   <div class="kpi-grid" id="pvcKpis">
     <div class="kpi" style="cursor:default">
@@ -4761,6 +4784,7 @@ async function secCyber() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Dónde</span>
     <div class="segs" id="cybDondeSegs">
       <button class="seg on" data-d="todo">Los dos</button>
@@ -4780,6 +4804,9 @@ async function secCyber() {
       <button class="seg" data-p="lento" title="Se piden, pero muy de a poco">Lentos</button>
       <button class="seg" data-p="mueve" title="Salen solos: no hace falta rematarlos">Se mueven</button>
     </div></div>
+    </div>
+
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="cybTempSegs">
       <button class="seg on" data-t="todo">Todas</button>
