@@ -6976,8 +6976,16 @@ async function init(role) {
   ]);
   PEDS_ART = pa; DOCS = dv;
   const tsEl = document.getElementById('hdTs');
-  tsEl.textContent = meta?.updated_str ? `Datos: ${meta.updated_str}` : '—';
-  tsEl.title = meta?.updated_str ? 'Última actualización de datos' : '';
+  /* Dos horas distintas: cuando corrio la carga y hasta cuando llegan los datos. Si el
+     ERP no exporto hoy, la segunda queda en ambar: es la unica senal de que lo que se ve
+     es de ayer, por mas que la carga haya corrido hace diez minutos. */
+  const mismoDia = (meta?.erp_iso || '').slice(0, 10) === (meta?.updated_iso || '').slice(0, 10);
+  tsEl.innerHTML = meta?.updated_str
+    ? `Datos: ${meta.updated_str}` + (meta.erp_time
+        ? ` <span style="color:${mismoDia ? 'inherit' : 'var(--wa)'};${mismoDia ? '' : 'font-weight:700'}" title="Hora en que el ERP escribió sus archivos. Es hasta donde llegan los datos, y no cambia porque esta página se recargue">· ERP ${mismoDia ? meta.erp_time : meta.erp_date + ' ' + meta.erp_time}</span>`
+        : '')
+    : '—';
+  tsEl.title = meta?.updated_str ? 'Hora en que corrió la carga de datos' : '';
 
   // Venta hoy
   // Las notas de credito vienen con neto y prendas en negativo, asi que un dia de puras
