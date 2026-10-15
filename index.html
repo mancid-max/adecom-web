@@ -229,7 +229,9 @@ body.ia-open #iaBtn{display:none}
 .finput.fsearch:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23465fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E")}
 
 /* ── TEMP GRID ───────────────────────────────────────────────── */
-.temp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+/* auto-fit y no 5 fijas: las temporadas vivas ahora salen de los datos y pueden ser
+   cinco o seis. Con repeat(5,1fr) la sexta caia sola en una segunda fila. */
+.temp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
 .temp-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;transition:border-color .12s,box-shadow .12s}
 .temp-card:hover,.temp-card.sel{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac10)}
 .temp-badge-lg{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;font-size:14px;font-weight:800;margin-bottom:10px}
@@ -470,7 +472,7 @@ body.ia-open #iaBtn{display:none}
     </button>
     <span class="hd-title" id="hdTitle">Resumen General</span>
     <div class="hd-right">
-      <div class="hd-pill"><div class="hd-dot"></div>T44 activa</div>
+      <div class="hd-pill" id="hdTemp"><div class="hd-dot"></div></div>
       <span class="hd-ts" id="hdTs">—</span>
     </div>
   </header>
@@ -731,6 +733,22 @@ const TC = {
 };
 function tcFor(t) { return TC[t] || {cls:'b40',bg:'var(--sf2)',fg:'var(--tx3)'}; }
 
+/* ── TEMPORADAS VIVAS ───────────────────────────────────────
+   Salen de los datos, no escritas a mano. Entro la 45 y el dashboard la ignoraba entera
+   porque siete listas distintas decían 44,43,42,41,40: el pedido existía y no había dónde
+   verlo.
+     PISO  40 → de ahí para abajo son colecciones viejas, van al cajón de "Anteriores".
+     TECHO 49 → de ahí para arriba no son colecciones: el ERP usa esos dígitos para otras
+             líneas (61, 83, 99...) que no tienen nada que ver.
+   Cuál es la coleccion ACTIVA no sale del dato -la 45 recién tiene un pedido-: es una
+   decisión del negocio y por eso vive aquí, en un solo lugar. */
+const TEMP_PISO = 40, TEMP_TECHO = 49;
+const TEMP_ACTIVA = '44';
+const esTempViva = t => /^\d{2}$/.test(String(t || '')) && +t >= TEMP_PISO && +t <= TEMP_TECHO;
+const tempsVivas = src => [...new Set(Array.isArray(src) ? src : Object.keys(src || {}))]
+  .filter(esTempViva).sort((a, b) => +b - +a);                 // de la más nueva a la más vieja
+const tempDefecto = temps => temps.includes(TEMP_ACTIVA) ? TEMP_ACTIVA : (temps[0] || TEMP_ACTIVA);
+
 /* ── COMPUTE PEDIDOS ART ────────────────────────────────────── */
 function buildByTemp() {
   const byTemp = {};
@@ -747,7 +765,7 @@ function buildByTemp() {
 
 /* ── SVG BAR CHART ──────────────────────────────────────────── */
 function barChart(byTemp) {
-  const keys = ['40','41','42','43','44'].filter(t => byTemp[t]);
+  const keys = tempsVivas(byTemp).reverse();   // el gráfico se lee de la más vieja a la más nueva
   const vals = keys.map(t => byTemp[t].total);
   const maxV = Math.max(...vals);
   const bW=56, gap=20, pH=175, padL=0, padB=28, valH=18;
@@ -759,7 +777,7 @@ function barChart(byTemp) {
     const bH = Math.max(6, Math.round((v / maxV) * areaH));
     const x = i * (bW + gap);
     const y = pH - padB - bH;
-    const ac = t === '44';
+    const ac = t === TEMP_ACTIVA;
     s += `<g style="cursor:pointer" data-bar-temp="${t}">
       <rect class="${ac?'bc-bar-active':'bc-bar'}" x="${x}" y="${y}" width="${bW}" height="${bH}" rx="6"/>
       <rect x="${x}" y="${y}" width="${bW}" height="${bH}" rx="6" fill="transparent"/>
@@ -1175,9 +1193,9 @@ async function secResumen() {
 /* ── DETALLE PEDIDO COLOR ───────────────────────────────────── */
 function secDetalleColor() {
   const byTemp = buildByTemp();
-  const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
+  const temps = tempsVivas(byTemp);
   // Si se llegó tocando una barra del Resumen, abrir ESA temporada y no siempre la activa
-  const iniT = (temps.includes(window._dcTemp) ? window._dcTemp : (temps.includes('44') ? '44' : temps[0]));
+  const iniT = (temps.includes(window._dcTemp) ? window._dcTemp : tempDefecto(temps));
   window._dcTemp = null;
 
   const dcArt = (t, base, color) => `01${t}${String(base).slice(-2)}${String(color).padStart(2,'0')}`;
@@ -3270,7 +3288,7 @@ async function secKennedy() {
     return { ...a, temp, modelo, color, enAdecom, bota: r?.bota || '' };
   }).sort((x, y) => y.cant - x.cant);
 
-  const TEMP_ACT = ['44', '43', '42', '41', '40'];
+  const TEMP_ACT = tempsVivas(filas.map(f => f.temp));
   const temps = TEMP_ACT.filter(t => filas.some(f => f.temp === t));
   const viejas = [...new Set(filas.filter(f => !TEMP_ACT.includes(f.temp)).map(f => f.temp))]
     .sort((a, b) => +b - +a)
@@ -3554,8 +3572,8 @@ async function secPVC() {
   STOCK_MAP = buildStockMap(await load('saldos_bodega.json'));
   const ftMap = buildFtMap(ft);
   const byTemp = buildByTemp();
-  const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
-  const defT = temps[0] || '44';
+  const temps = tempsVivas(byTemp);
+  const defT = tempDefecto(temps);
 
   // Compute global KPIs for default temp
   function kpis(t) {
@@ -4458,7 +4476,7 @@ async function secRepPedidos() {
    guardan la talla. Por eso el detalle muestra las tallas FISICAS y avisa cuando
    parte de esas prendas ya tienen dueño. */
 let CYB = [];
-const TEMP_VIVAS = ['44', '43', '42', '41', '40'];   // las colecciones en curso
+/* las colecciones en curso salen de tempsVivas: ver TEMPORADAS VIVAS mas arriba */
 
 /* Lo pedido en los ultimos N dias, por articulo. Es el unico termometro de demanda que
    hay a nivel de articulo: los documentos de venta no guardan el articulo, los pedidos si. */
@@ -4684,8 +4702,8 @@ async function secCyber() {
   // con las prendas de cada una, igual que en Stock Kennedy.
   const uxt = {};
   for (const r of CYB) uxt[r.temp] = (uxt[r.temp] || 0) + r.total;
-  const temps = TEMP_VIVAS.filter(t => uxt[t]);
-  const viejas = Object.keys(uxt).filter(t => t && !TEMP_VIVAS.includes(t)).sort((a, b) => uxt[b] - uxt[a]);
+  const temps = tempsVivas(uxt);
+  const viejas = Object.keys(uxt).filter(t => t && !temps.includes(t)).sort((a, b) => uxt[b] - uxt[a]);
   const uViejas = viejas.reduce((a, t) => a + uxt[t], 0);
   const botas = [...new Set(CYB.map(r => r.bota).filter(Boolean))].sort();
   const tot = k => CYB.reduce((a, r) => a + r[k], 0);
@@ -4870,7 +4888,7 @@ function bindContent(secId) {
   // Detalle color section
   if (secId === 'detalle-color') {
     const byTemp = buildByTemp();
-    const temps = ['44','43','42','41','40'].filter(t => byTemp[t]);
+    const temps = tempsVivas(byTemp);
 
     function applyDcSearch() {
       const q = (document.getElementById('dcSearch')?.value || '').trim().toLowerCase();
@@ -6046,7 +6064,7 @@ function bindContent(secId) {
         const vieja = document.getElementById('knTempOld')?.value || '';
         const okT = t === 'all' ? true
           : t === 'old' ? (vieja ? row.dataset.temp === vieja
-                                 : !['44','43','42','41','40'].includes(row.dataset.temp))
+                                 : !esTempViva(row.dataset.temp))
           : row.dataset.temp === t;
         const okC = c === 'all' || (c === 'solo' ? (ade === null || ade <= 0) : (ade !== null && ade < 0));
         const okQ = !q || (row.dataset.q || '').includes(q);
@@ -6975,6 +6993,8 @@ async function init(role) {
     load('meta.json').catch(() => null),
   ]);
   PEDS_ART = pa; DOCS = dv;
+  const pill = document.getElementById('hdTemp');
+  if (pill) pill.innerHTML = `<div class="hd-dot"></div>T${TEMP_ACTIVA} activa`;
   const tsEl = document.getElementById('hdTs');
   /* Dos horas distintas: cuando corrio la carga y hasta cuando llegan los datos. Si el
      ERP no exporto hoy, la segunda queda en ambar: es la unica senal de que lo que se ve
