@@ -2295,16 +2295,21 @@ async function secCuadrados() {
 let MT = null, MT_SEL = 'Terminación';
 const MT_ET  = ['Corte', 'Costura', 'T.Externo', 'Limpiado', 'Lavandería', 'Terminación'];
 const MT_FIN = 'Terminación';          // la etapa que manda: lo que sale terminado es la produccion del mes
-/* Las seis etapas parten en 10.000. La planilla 2026 traia una meta distinta por etapa
-   (Urrutia 6.000, Tierra del Fuego 4.000) y Limpiado sin ninguna, pero esas dos son
-   talleres y la trazabilidad solo distingue taller propio de taller externo, asi que no
-   calzaban. Es el punto de partida: en la seccion se editan y quedan en el navegador. */
-const MT_DEF = { 'Corte': 10000, 'Costura': 10000, 'T.Externo': 10000, 'Limpiado': 10000,
+/* Las etapas son puntos de un mismo camino: la misma prenda pasa por todas, asi que en
+   un mes parejo todas marcan parecido. No son seis producciones distintas; si se cortan
+   10.000 prendas, esas mismas 10.000 despues se cosen, se lavan y se terminan.
+
+   La excepcion es el par de abajo: Costura y T.Externo son el MISMO paso hecho en dos
+   lugares, taller propio y taller externo. Por eso REPARTEN los 10.000 en vez de llevar
+   10.000 cada una, que dejaria la meta de costura en el doble de lo que se corta. El
+   reparto 6.000/4.000 viene de la planilla (Urrutia y Tierra del Fuego) y se edita. */
+const MT_DEF = { 'Corte': 10000, 'Costura': 6000, 'T.Externo': 4000, 'Limpiado': 10000,
                  'Lavandería': 10000, 'Terminación': 10000 };
+const MT_PAR = ['Costura', 'T.Externo'];   // el mismo paso en dos lugares: sus metas se suman
 /* Sube cada vez que cambian las metas de arriba. Lo guardado en el navegador manda sobre
    el valor por defecto, asi que sin esto el que ya habia tocado "Guardar" seguia viendo
    las metas viejas para siempre y sin ninguna pista de por que. */
-const MT_VER = 2;
+const MT_VER = 3;
 /* Feriados de Chile. Se calculan por año en vez de dejarlos escritos a mano, si no esto
    se queda pegado el próximo enero. Semana Santa sale del cálculo de Pascua. Los tres que
    la ley corre siguen su regla: el 29 de junio y el 12 de octubre se van al lunes de esa
@@ -2743,7 +2748,11 @@ function mtTabla(filas, jor, mes) {
         </tr></thead>
         <tbody class="tbl-compacta">${cuerpo}</tbody>
       </table>
-      <div class="tbl-foot" id="mtFoot">${mtMesTtl(mes)} · ${jor.corridos} de ${jor.habiles} días hábiles · el avance sale de la trazabilidad y no cuenta muestras ni sets</div>
+      <div class="tbl-foot" id="mtFoot">${mtMesTtl(mes)} · ${jor.corridos} de ${jor.habiles} días hábiles · el avance sale de la trazabilidad y no cuenta muestras ni sets${(() => {
+        const par = filas.filter(f => MT_PAR.includes(f.et));
+        const ph = par.reduce((a, f) => a + f.hecho, 0), pm = par.reduce((a, f) => a + f.meta, 0);
+        return pm ? ` · ${MT_PAR.join(' y ')} son el mismo paso en dos lugares: juntas van ${fmt(ph)} de ${fmt(pm)} (${(ph / pm * 100).toFixed(0)}%)` : '';
+      })()}</div>
     </div>
   </div>`;
 }
@@ -2817,6 +2826,7 @@ async function secMetas() {
         <button class="seg on" id="mtSave">Guardar</button>
         <button class="seg" id="mtReset" style="border:1px solid var(--bd2)">Volver a las de por defecto</button>
       </div>
+      <div id="mtSuma" style="padding:0 18px 14px;font-size:11px;line-height:1.6"></div>
     </div>
   </div>
 
@@ -5995,6 +6005,20 @@ function bindContent(secId) {
            : cambios.length === 1 ? `✓ ${cambios[0]}: ${fmt(antes[cambios[0]] || 0)} → ${fmt(o[cambios[0]] || 0)}`
            : `✓ ${cambios.length} metas actualizadas`, !cambios.length);
     };
+    /* El par tiene que seguir sumando lo mismo que Corte: si alguien le pone 10.000 a cada
+       taller, la meta de costura queda en el doble de lo que la fabrica corta. */
+    const revisarPar = () => {
+      const el = document.getElementById('mtSuma');
+      if (!el) return;
+      const val = e => { const i = document.querySelector(`.mt-meta[data-et="${e}"]`); return Math.max(0, parseInt(i?.value) || 0); };
+      const suma = MT_PAR.reduce((a, e) => a + val(e), 0), ref = val('Corte');
+      const ok = suma === ref;
+      el.innerHTML = `<span style="color:${ok ? 'var(--ok)' : 'var(--wa)'};font-weight:700">${ok ? '✓' : '!'}</span>
+        <b>${MT_PAR.join(' + ')} = ${fmt(suma)}</b>
+        <span class="td-dim">· son el mismo paso en dos lugares, así que entre las dos tienen que sumar lo que se corta${ok ? '' : `, hoy ${fmt(ref)}`}</span>`;
+    };
+    document.querySelectorAll('.mt-meta').forEach(i => i.addEventListener('input', revisarPar));
+    revisarPar();
     document.getElementById('mtSave')?.addEventListener('click', guardarMetas);
     document.querySelectorAll('.mt-meta').forEach(i => i.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); guardarMetas(); }
@@ -6003,6 +6027,7 @@ function bindContent(secId) {
     document.getElementById('mtReset')?.addEventListener('click', () => {
       mtGuardar(MT_DEF);
       document.querySelectorAll('.mt-meta').forEach(i => { i.value = MT_DEF[i.dataset.et] || 0; });
+      revisarPar();
       pintarMetas(); abrirEd(false);
       avisar('✓ Metas por defecto restauradas');
     });
