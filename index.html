@@ -1107,6 +1107,12 @@ async function secResumen() {
   const despAct  = (tAct.items || []).reduce((a, i) => a + (i.desp  || 0), 0);
   const salAct   = (tAct.items || []).reduce((a, i) => a + (i.saldo || 0), 0);
   const avanceAct = tAct.total ? Math.round(despAct / tAct.total * 100) : 0;
+  /* Lo cortado contra lo programado del mismo tramo: las dos cifras salen de las mismas
+     ordenes, asi que restarlas da lo que queda por cortar de ellas. El piso en cero es a
+     proposito: el taller a veces corta de mas -600 programadas, 673 cortadas- y "faltan
+     -73" no se entiende. */
+  const cortePct   = RES.corteMes.prog ? Math.round(RES.corteMes.u / RES.corteMes.prog * 100) : 0;
+  const corteFalta = Math.max(0, (RES.corteMes.prog || 0) - (RES.corteMes.u || 0));
 
   const vh = VENTA_HOY;
   // Si el dia cerro en negativo la tarjeta no puede seguir verde: se leeria como un buen dia.
@@ -1172,8 +1178,11 @@ async function secResumen() {
         <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></div>
         <div style="min-width:0">
           <div class="kpi-val">${fmt(RES.corteMes.u)}</div>
-          <div class="kpi-lbl">Cortado en ${mesNom(RES.corteMes.mes)}</div>
-          <div class="kpi-delta d-nu" title="Programadas: lo que las órdenes de ${mesNom(RES.corteMes.mes)} mandaron a producir, hayan pasado por corte o no. El mes anterior va cortado hasta el día ${RES.corteMes.dia}, para comparar tramos iguales${RES.corteMes.espOc ? `. Esperando corte: ${fmt(RES.corteMes.espU)} prendas en órdenes que el ERP todavía tiene con el cortado en cero, la más antigua del ${RES.corteMes.espDesde.split('-').reverse().join('/')}` : ''}">de ${fmt(RES.corteMes.prog)} programadas en ${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'}${RES.corteMes.espOc ? ` · ${RES.corteMes.espOc} órdenes esperando corte` : ''} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}</div>
+          <div class="kpi-lbl">Cortado en ${mesNom(RES.corteMes.mes)} · de ${fmt(RES.corteMes.prog)} programadas</div>
+          <div class="pbar" style="margin:9px 0 2px" title="${cortePct}% de lo programado para ${mesNom(RES.corteMes.mes)}">
+            <div class="pbar-fill" style="width:${Math.min(100, cortePct)}%"></div>
+          </div>
+          <div class="kpi-delta d-nu" title="Programadas: lo que las órdenes de ${mesNom(RES.corteMes.mes)} mandaron a producir, hayan pasado por corte o no. El mes anterior va cortado hasta el día ${RES.corteMes.dia}, para comparar tramos iguales${RES.corteMes.espOc ? `. Esperando corte: ${fmt(RES.corteMes.espU)} prendas en órdenes que el ERP todavía tiene con el cortado en cero, la más antigua del ${RES.corteMes.espDesde.split('-').reverse().join('/')}` : ''}">${cortePct}% · faltan ${fmt(corteFalta)} de ${RES.corteMes.oc} ${RES.corteMes.oc === 1 ? 'orden' : 'órdenes'}${RES.corteMes.espOc ? ` · ${RES.corteMes.espOc} esperando corte` : ''} · ${mesNom(RES.corteMes.mesAnt)} a esta altura: ${fmt(RES.corteMes.antU)}</div>
         </div>
       </div>
       <div class="kpi" data-rdet="terminacion" title="Ver qué artículos están por salir">
