@@ -213,11 +213,16 @@ body.ia-open #iaBtn{display:none}
 .pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
-.pl .pl-estr{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:12px;padding:14px 18px 18px}   /* 3 + 3 en escritorio */
-.pl .pl-estr>div{background:var(--sf2);border-radius:var(--rsm);padding:12px 14px;min-width:0}
-.pl .pl-estr p{font-size:13px;line-height:1.45;margin-top:6px}
-.pl .pl-estr .pl-bar{margin-top:8px}
-.pl .pl-chip{display:inline-block;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:1px 8px;font-size:11px;font-weight:600;margin:4px 4px 0 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top}
+.pl .pl-acc{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--bd);cursor:pointer}
+.pl .pl-acc:hover{background:var(--ac10)}
+.pl .pl-acc-n{width:28px;height:28px;border-radius:50%;background:var(--ac10);color:var(--ac);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pl .pl-acc-n.wa{background:var(--wa10);color:var(--wa)}
+.pl .pl-acc-n.ok{background:var(--ok10);color:var(--ok)}
+.pl .pl-acc-t{font-weight:700;font-size:14px;width:210px;flex-shrink:0}
+.pl .pl-acc-x{flex:1;min-width:0;font-size:13px;color:var(--tx2);line-height:1.45}
+.pl .pl-acc-x b{color:var(--tx1)}
+.pl .pl-acc-x .pl-bar{margin-top:7px}
+.pl .pl-acc-v{color:var(--ac);font-size:12px;font-weight:700;white-space:nowrap}
 .pl th[data-ord]{cursor:pointer;user-select:none}
 .pl th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
 .pl th .si{color:var(--ac);white-space:nowrap}
@@ -225,6 +230,9 @@ body.ia-open #iaBtn{display:none}
 @media(max-width:700px){
   .pl .pl-sec{display:none}
   .pl .segs{overflow:visible;flex-wrap:wrap}
+  .pl .pl-acc{flex-wrap:wrap;gap:6px 12px;padding:12px 14px}
+  .pl .pl-acc-t{width:auto;flex:1}
+  .pl .pl-acc-x{flex-basis:100%;order:3}
   .pl thead th,.pl tbody td{padding-left:7px;padding-right:7px}
 }
 
@@ -4693,52 +4701,53 @@ function pintarPlan() {
   const yaPidieron = clientes.filter(c => yaP.has(c.cli)).length;
 
   // ── 6) Estrategia: qué hacer ahora, armada con los datos del día ──
-  /* Seis bloques que responden lo que pregunta el jefe: cómo vamos contra las comparables a
-     esta misma fecha, qué vendedores y qué clientes faltan, qué botas empujar y cuáles cortar
-     con cuidado, y qué hacer en producción. Las botas se leen con la última colección que ya
+  /* Cinco acciones de una frase cada una, para el jefe: cómo vamos contra las comparables a
+     esta misma fecha, qué vendedores y qué clientes faltan, qué botas empujar y qué hacer en
+     producción. El detalle (nombres, porcentajes, modelos) va en la ventana que abre cada una:
+     con todo a la vista era demasiado para leer de una pasada. Las botas se leen con la última colección que ya
      se vendió (la anterior a esta), porque las modas cambian más rápido que un año: Wide Leg
      no existía en la T41 y en la T44 ya era casi un quinto de la venta. */
   const prev = Object.values(temps).filter(T => +T.t < +PLAN_TEMP && T.total >= 3000).sort((a, b) => +b.t - +a.t)[0];
   const pedidoP = {};
   P.lineas.forEach(l => { pedidoP[l.base] = (pedidoP[l.base] || 0) + l.u; });
-  const chipE = (txt, ti) => `<span class="pl-chip"${ti ? ` title="${dv(ti)}"` : ''}>${txt}</span>`;
+  const lista = xs => xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1];
+  const acciones = [];
 
-  // Ritmo: lo que va contra lo que a esta fecha llevaban las comparables
+  // 1) Ritmo: lo que va contra lo que a esta fecha llevaban las comparables
   const kHoyE = mesesP.indexOf(hoyMes);
-  let ritmo;
   if (kHoyE >= 0) {
-    const espHoy = Math.round(parteAlDia(kHoyE) * promedio), real = realP[kHoyE];
+    const espHoy = Math.round(parteAlDia(kHoyE) * promedio), real = realP[kHoyE], bien = real >= espHoy;
     const despues = shareProm[kHoyE] ? Math.round((1 - parteAlDia(kHoyE) / shareProm[kHoyE]) * 100) : 0;
-    ritmo = `<p><b style="font-size:20px">${fmt(real)}</b> <span class="td-dim">de ${fmt(espHoy)} que a esta fecha llevaban ${sg}</span></p>
-      <div class="pl-bar" style="max-width:none"><i style="width:${Math.min(100, real / Math.max(1, espHoy) * 100).toFixed(0)}%;background:${real >= espHoy ? 'var(--ok)' : 'var(--wa)'}"></i></div>
-      <p>Para cumplir ${nomMes(kHoyE)} (${fmt(proy[kHoyE])}) faltan <b>${fmt(Math.max(0, proy[kHoyE] - real))}</b>. En ${sg}, el ${despues}% de ${nomMes(kHoyE)} se pidió después del día ${+diaHoy}.</p>`;
-  } else ritmo = `<p><b style="font-size:20px">${fmt(P.total)}</b> <span class="td-dim">de ${fmt(promedio)} por colección (${planPct(P.total, promedio)}%)</span></p>`;
-  // Cómo viene el año: los últimos 90 días contra los mismos días del año pasado, todas las colecciones
-  const corre = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - n); return ymd(x); };
-  const hoyE = today(), v90 = [corre(hoyE, 90), hoyE], a90 = [corre(hoyE, 455), corre(hoyE, 365)];
-  let u90 = 0, uA90 = 0;
-  for (const T of Object.values(temps)) for (const l of T.lineas) {
-    if (l.fecha >= v90[0] && l.fecha <= v90[1]) u90 += l.u;
-    else if (l.fecha >= a90[0] && l.fecha <= a90[1]) uA90 += l.u;
-  }
-  if (uA90) { const t = Math.round((u90 / uA90 - 1) * 100); ritmo += `<p class="td-dim" style="font-size:12px">Ojo: los últimos 90 días se pidió un ${Math.abs(t)}% ${t < 0 ? 'menos' : 'más'} que en los mismos días del año pasado.</p>`; }
+    acciones.push({ k: 'ritmo', est: bien ? 'ok' : 'wa', t: bien ? 'Vamos al día' : 'Vamos atrasados',
+      x: `<b>${fmt(real)}</b> de ${fmt(espHoy)} que a esta fecha llevaban ${sg}. Faltan <b>${fmt(Math.max(0, proy[kHoyE] - real))}</b> para cumplir ${nomMes(kHoyE)}${!bien && despues >= 50 ? `; se puede, el ${despues}% de ${nomMes(kHoyE)} llegó después del día ${+diaHoy}` : ''}.
+        <div class="pl-bar" style="max-width:280px"><i style="width:${Math.min(100, real / Math.max(1, espHoy) * 100).toFixed(0)}%;background:var(--${bien ? 'ok' : 'wa'})"></i></div>` });
+  } else acciones.push({ k: 'ritmo', est: '', t: 'Cómo vamos', x: `<b>${fmt(P.total)}</b> de ${fmt(promedio)} por colección (${planPct(P.total, promedio)}%).` });
 
-  // Vendedores: quién ya vende la nueva y quién vendía la anterior y todavía no
+  // 2) Vendedores: quién ya vende la nueva y quién vendía la anterior y todavía no
   const porVend = ls => ls.reduce((m, l) => { const v = l.vendedor || 'Sin vendedor'; m[v] = (m[v] || 0) + l.u; return m; }, {});
   const vNueva = porVend(P.lineas), vPrev = prev ? porVend(prev.lineas) : {};
   const venden = Object.entries(vNueva).sort((a, b) => b[1] - a[1]);
-  const faltanV = prev ? Object.entries(vPrev).filter(([v, u]) => !vNueva[v] && u >= prev.total * 0.03).sort((a, b) => b[1] - a[1]) : [];
-  const vendedoresE = `<p>${venden.length ? `Venden la T${PLAN_TEMP}: ${venden.map(([v, u]) => `<b>${v}</b> ${fmt(u)}`).join(' · ')}` : `Nadie ha vendido la T${PLAN_TEMP} todavía.`}</p>`
-    + (faltanV.length ? `<p>Aún no venden la T${PLAN_TEMP}:<br>${faltanV.map(([v]) => chipE(v)).join('')}</p>
-       <p class="td-dim" style="font-size:12px">Entre ellos hicieron el ${planPct(faltanV.reduce((a, [, u]) => a + u, 0), prev.total)}% de la T${prev.t}.</p>` : '');
+  const faltanV = prev ? Object.entries(vPrev).filter(([v, u]) => !vNueva[v] && u >= prev.total * 0.03) : [];
+  acciones.push({ k: 'vend', est: faltanV.length ? 'wa' : 'ok', t: faltanV.length ? 'Que vendan todos' : 'Todos están vendiendo',
+    x: (!venden.length ? `Nadie ha vendido la T${PLAN_TEMP} todavía.`
+        : `${venden.length === 1 ? `Solo <b>${venden[0][0]}</b> ha vendido` : `<b>${venden.length} vendedores</b> han vendido`} la T${PLAN_TEMP}.`)
+      + (faltanV.length ? ` Faltan ${faltanV.length}, que hicieron el <b>${planPct(faltanV.reduce((a, [, u]) => a + u, 0), prev.total)}%</b> de la T${prev.t}.` : '') });
+  const detVend = () => {
+    const nombres = [...new Set([...Object.keys(vPrev), ...Object.keys(vNueva)])].sort((a, b) => ((vPrev[b] || 0) - (vPrev[a] || 0)) || ((vNueva[b] || 0) - (vNueva[a] || 0)));
+    return vTabla(
+      `<th data-ord="t">Vendedor</th>${prev ? `<th class="r" data-ord="n">T${prev.t}</th>` : ''}<th class="r" data-ord="n">T${PLAN_TEMP}</th>`,
+      nombres.map(v => `<tr><td data-v="${dv(v)}">${v}</td>
+        ${prev ? `<td class="r td-num" data-v="${vPrev[v] || ''}">${vPrev[v] ? fmt(vPrev[v]) : '—'}<span class="pl-sub">${vPrev[v] ? planPct(vPrev[v], prev.total) + '%' : ''}</span></td>` : ''}
+        <td class="r td-num" data-v="${vNueva[v] || ''}" style="font-weight:700;color:${vNueva[v] ? 'var(--ok)' : 'var(--tx3)'}">${vNueva[v] ? fmt(vNueva[v]) : '—'}</td></tr>`).join(''),
+      prev ? `Lo que vendió cada uno de la T${prev.t} y lo que lleva de la T${PLAN_TEMP}.` : '');
+  };
 
-  // Clientes: los mejores de las comparables que todavía no piden
+  // 3) Clientes: los mejores de las comparables que todavía no piden
   const sinPedirE = clientes.slice(0, 20).filter(c => !yaP.has(c.cli));
-  const clientesE = `<p><b>${sinPedirE.length} de los ${Math.min(20, clientes.length)}</b> que más compraron ${sg} aún no piden la T${PLAN_TEMP}.</p>
-    <p>${sinPedirE.slice(0, 5).map(c => chipE(c.nombre, c.nombre)).join('')}</p>
-    <p class="td-dim" style="font-size:12px">La lista completa está abajo, en "A quién ofrecer primero".</p>`;
+  acciones.push({ k: 'cli', est: sinPedirE.length >= 10 ? 'wa' : 'ok', t: 'Los mejores clientes, primero',
+    x: `<b>${sinPedirE.length} de los ${Math.min(20, clientes.length)}</b> que más compraron ${sg} aún no piden la T${PLAN_TEMP}${sinPedirE.length ? `, partiendo por ${lista(sinPedirE.slice(0, 2).map(c => c.nombre))}` : ''}.` });
 
-  // Botas: de lo cortado en la colección anterior, cuánto se vendió (mismo criterio que "Qué cortar")
+  // 4) Qué vender: de lo cortado en la colección anterior, cuánto se vendió (mismo criterio que "Qué cortar")
   const botaPrev = {};
   if (prev && cat[prev.t]) {
     const vend = {}, desp = {};
@@ -4749,33 +4758,63 @@ function pintarPlan() {
       x.cort += b.cort; x.vend += vend[b.base] || 0;
     }
   }
-  const botasPrev = Object.entries(botaPrev).filter(([, x]) => x.cort >= 300).map(([k, x]) => ({ k, pct: Math.round(x.vend / x.cort * 100) }));
+  const pctPrev = {};
+  Object.entries(botaPrev).forEach(([k, x]) => { if (x.cort >= 300) pctPrev[k] = Math.round(x.vend / x.cort * 100); });
   const botaDe = m => (attr[PLAN_TEMP + '|' + m] || {}).bota || ((cat[PLAN_TEMP] || {})[m] || {}).bota || '';
-  const modelosDe = bota => [...new Set([...Object.keys(pedidoP), ...Object.values(cat[PLAN_TEMP] || {}).filter(b => b.prog).map(b => b.base)])]
-    .filter(m => botaDe(m) === bota).sort();
-  const lineaBota = x => { const ms = modelosDe(x.k); return `<p><b>${x.k}</b> <span class="td-dim">· se vendió el ${x.pct}% de lo cortado</span>${ms.length ? '<br>' + ms.map(m => chipE(m)).join('') : ''}</p>`; };
-  const masPedidos = Object.entries(pedidoP).sort((a, b) => b[1] - a[1]).slice(0, 4);
-  const empujarE = (botasPrev.some(x => x.pct >= 90) ? botasPrev.filter(x => x.pct >= 90).sort((a, b) => b.pct - a.pct).map(lineaBota).join('') : `<p class="td-dim">En la T${prev ? prev.t : ''} ninguna bota vendió todo lo cortado.</p>`)
-    + (masPedidos.length ? `<p class="td-dim" style="font-size:12px">Lo más pedido de la T${PLAN_TEMP} hasta hoy: ${masPedidos.map(([m, u]) => `${m}${botaDe(m) ? ' ' + botaDe(m) : ''} ${fmt(u)}`).join(' · ')}</p>` : '');
-  const cuidadoE = botasPrev.some(x => x.pct < 80) ? botasPrev.filter(x => x.pct < 80).sort((a, b) => a.pct - b.pct).map(lineaBota).join('')
-    + '<p class="td-dim" style="font-size:12px">Se venden, pero se cortó más de lo que se pidió: cortar menos o venderlos antes.</p>'
-    : `<p class="td-dim">En la T${prev ? prev.t : ''} ninguna bota quedó bajo el 80% de lo cortado.</p>`;
+  const modelosNueva = [...new Set([...Object.keys(pedidoP), ...Object.values(cat[PLAN_TEMP] || {}).filter(b => b.prog).map(b => b.base)])];
+  const botasNueva = [...new Set(modelosNueva.map(botaDe).filter(Boolean))];
+  // Los mismos cortes que "Qué cortar": 90% o más se empuja, bajo 75% se cortó de más
+  const grupoBota = k => pctPrev[k] == null ? '' : pctPrev[k] >= 90 ? 'emp' : pctPrev[k] >= 75 ? 'cuid' : 'rev';
+  const deGrupo = g => botasNueva.filter(k => grupoBota(k) === g).sort((a, b) => pctPrev[b] - pctPrev[a]);
+  if (prev) acciones.push({ k: 'vender', est: '', t: 'Qué vender',
+    x: [deGrupo('emp').length ? `Empujar <b>${lista(deGrupo('emp'))}</b>` : '', deGrupo('cuid').length ? `con cuidado ${lista(deGrupo('cuid'))}` : '',
+        deGrupo('rev').length ? `revisar ${lista(deGrupo('rev'))}, que en la T${prev.t} se cortaron de más` : ''].filter(Boolean).join('; ').replace(/^./, c => c.toUpperCase())
+      + (botasNueva.some(grupoBota) ? '.' : `Sin lectura todavía: los modelos de la T${PLAN_TEMP} reciben su bota con el primer pedido.`) });
+  const LECT_E = { emp: ['Empujar', 'var(--ok)', 'var(--ok10)'], cuid: ['Con cuidado', 'var(--wa)', 'var(--wa10)'], rev: ['Revisar', 'var(--er)', 'var(--er10)'], '': ['Sin historia', 'var(--tx3)', 'var(--sf2)'] };
+  const datosVender = () => [...new Set([...botasNueva, ...Object.keys(pctPrev)])].map(k => {
+    const ms = modelosNueva.filter(m => botaDe(m) === k).sort();
+    return { k, pct: pctPrev[k], ms, ped: ms.reduce((a, m) => a + (pedidoP[m] || 0), 0), l: LECT_E[grupoBota(k)] };
+  }).sort((a, b) => (b.ms.length > 0) - (a.ms.length > 0) || (b.pct ?? -1) - (a.pct ?? -1));
+  const detVender = () => {
+    const filas = datosVender();
+    return vTabla(
+      `<th data-ord="t">Bota</th><th class="r pl-sec" data-ord="n" title="De lo cortado en la T${prev.t}, cuánto se vendió">Vendido / cortado T${prev.t}</th><th data-ord="n">Lectura</th><th data-ord="t">Modelos T${PLAN_TEMP}</th><th class="r" data-ord="n">Pedido T${PLAN_TEMP}</th>`,
+      filas.map(x => `<tr>
+        <td data-v="${dv(x.k)}" style="font-weight:600">${x.k}</td>
+        <td class="r td-num pl-sec" data-v="${x.pct ?? ''}">${x.pct == null ? '—' : x.pct + '%'}</td>
+        <td data-v="${x.pct ?? ''}"><span class="pl-tag" style="background:${x.l[2]};color:${x.l[1]}">${x.l[0]}</span></td>
+        <td class="pl-wrap td-dim" data-v="${x.ms.join(' ')}">${x.ms.join(', ') || '—'}</td>
+        <td class="r td-num" data-v="${x.ped || ''}">${x.ped ? fmt(x.ped) : '—'}</td></tr>`).join(''),
+      `Empujar: en la T${prev.t} se vendió el 90% o más de lo cortado. Con cuidado: entre 75% y 90%. Revisar: menos del 75%, se cortó de más. Arriba, las botas que tienen modelos en la T${PLAN_TEMP}; un modelo sin pedidos todavía no tiene bota.`);
+  };
 
-  // Producción: lo cortado que nadie pide todavía y lo pedido que no está programado
+  // 5) Producción: lo cortado que nadie pide todavía y lo pedido que no está programado
   const cortSinPed = Object.values(cat[PLAN_TEMP] || {}).filter(b => b.cort >= 20 && !pedidoP[b.base]).sort((a, b) => b.cort - a.cort);
   const pedSinProg = Object.entries(pedidoP).filter(([m]) => !((cat[PLAN_TEMP] || {})[m] || {}).prog).sort((a, b) => b[1] - a[1]);
-  const produccionE = (cortSinPed.length ? `<p><b>Ofrecer primero</b>, ya cortados y sin pedidos (${fmt(cortSinPed.reduce((a, b) => a + b.cort, 0))} u):<br>${cortSinPed.map(b => chipE(`${b.base} · ${fmt(b.cort)}`)).join('')}</p>` : '')
-    + (pedSinProg.length ? `<p><b>Programar</b>, se piden y no están en producción:<br>${pedSinProg.map(([m, u]) => chipE(`${m} · ${fmt(u)} pedidas`)).join('')}</p>` : '')
-    + (!cortSinPed.length && !pedSinProg.length ? '<p class="td-dim">Todo lo cortado tiene pedidos y todo lo pedido está programado.</p>' : '');
+  const nM = n => `${n} modelo${n === 1 ? '' : 's'}`;
+  acciones.push({ k: 'prod', est: cortSinPed.length || pedSinProg.length ? 'wa' : 'ok', t: 'Producción',
+    x: ([cortSinPed.length ? `ofrecer primero <b>${nM(cortSinPed.length)}</b> ya cortado${cortSinPed.length === 1 ? '' : 's'} que nadie pide (${fmt(cortSinPed.reduce((a, b) => a + b.cort, 0))} u)` : '',
+         pedSinProg.length ? `programar <b>${nM(pedSinProg.length)}</b> que se piden y no están en producción` : ''].filter(Boolean).join(' y ')
+        || 'todo lo cortado tiene pedidos y todo lo pedido está programado').replace(/^./, c => c.toUpperCase()) + '.' });
+  const detProd = () => (cortSinPed.length ? `<div class="flbl" style="padding:14px 16px 0">Ya cortados y sin pedidos · ofrecer primero</div>` + vTabla(
+      '<th data-ord="t">Modelo</th><th class="r" data-ord="n">Cortado</th>',
+      cortSinPed.map(b => `<tr><td data-v="${b.base}">${celdaModelo(b.base, b.bota)}</td><td class="r td-num" data-v="${b.cort}">${fmt(b.cort)}</td></tr>`).join(''), '') : '')
+    + (pedSinProg.length ? `<div class="flbl" style="padding:14px 16px 0">Se piden y no están en producción · programar</div>` + vTabla(
+      '<th data-ord="t">Modelo</th><th class="r" data-ord="n">Pedidas</th>',
+      pedSinProg.map(([m, u]) => `<tr><td data-v="${m}">${celdaModelo(m, botaDe(m))}</td><td class="r td-num" data-v="${u}">${fmt(u)}</td></tr>`).join(''), '') : '')
+    || '<div class="td-dim" style="padding:28px;text-align:center">Todo lo cortado tiene pedidos y todo lo pedido está programado</div>';
 
-  const bloqueE = (titulo, html) => `<div><div class="flbl">${titulo}</div>${html}</div>`;
   const estrategia = `<div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head"><div><div class="card-ttl" style="margin:0">Estrategia T${PLAN_TEMP} · qué hacer ahora</div>
-      <div class="card-sub" style="margin:2px 0 0">Se arma sola con los datos del día${prev ? `; las botas se leen con la T${prev.t}, la última que ya se vendió` : ''}</div></div></div>
-    <div class="pl-estr">
-      ${bloqueE('Ritmo', ritmo)}${bloqueE('Vendedores', vendedoresE)}${bloqueE('Clientes', clientesE)}
-      ${prev ? bloqueE('Empujar', empujarE) + bloqueE('Con cuidado', cuidadoE) : ''}${bloqueE('Producción', produccionE)}
-    </div></div>`;
+      <div class="card-sub" style="margin:2px 0 0">Con los datos del día. Toca una para ver el detalle</div></div>
+      <button class="seg" id="planExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja la estrategia y todas las tablas del Plan a un Excel, una hoja por tema: para trabajarlo o pasárselo a Claude o ChatGPT">⬇ Descargar Excel</button></div>
+    ${acciones.map((a, i) => `<div class="pl-acc" data-pacc="${a.k}" title="Toca para ver el detalle">
+      <span class="pl-acc-n ${a.est}">${i + 1}</span>
+      <span class="pl-acc-t">${a.t}</span>
+      <div class="pl-acc-x">${a.x}</div>
+      <span class="pl-acc-v">Ver ›</span>
+    </div>`).join('')}
+  </div>`;
 
   const tarjeta = (val, lbl, sub, det) => `<div class="kpi" data-pldet="${det}">
     <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
@@ -4867,6 +4906,76 @@ function pintarPlan() {
     }],
   };
 
+  /* Todo el Plan a un Excel, una hoja por tema, para que el jefe lo trabaje o se lo pase a su
+     Claude o ChatGPT. Por eso la primera hoja explica qué es cada cosa: el archivo tiene que
+     entenderse solo, sin la página al lado. Va completo, sin los filtros de la pantalla. */
+  const descargarPlan = () => {
+    if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de Excel. Revisa la conexión y vuelve a intentar.'); return; }
+    const n = v => ({ v: v || 0, t: 'n', z: '#,##0' }), pc = v => (v == null ? '' : { v: v / 100, t: 'n', z: '0%' });
+    const plano = h => String(h).replace(/<div[\s\S]*?<\/div>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const hoja = (filas, anchos, filtro = true) => {
+      const h = XLSX.utils.aoa_to_sheet(filas);
+      h['!cols'] = anchos.map(w => ({ wch: w }));
+      if (filtro && filas.length > 1) h['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length - 1, c: filas[0].length - 1 } }) };
+      return h;
+    };
+    const libro = XLSX.utils.book_new(), agrega = (h, nombre) => XLSX.utils.book_append_sheet(libro, h, nombre.slice(0, 31));
+    const hoy = new Date(), fecha = `${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${hoy.getFullYear()}`;
+
+    agrega(hoja([
+      [`Plan de colección T${PLAN_TEMP} · Mohicano Jeans`, ''], ['Descargado el', fecha], ['Colecciones con que se compara', sg],
+      ['Meta: unidades por colección (promedio de las comparables)', n(promedio)], [`Pedido de la T${PLAN_TEMP} hasta hoy`, n(P.total)], [],
+      ['Qué hacer ahora', ''], ...acciones.map((a, i) => [`${i + 1}. ${a.t}`, plano(a.x)]), [],
+      ['Cómo leer las hojas', ''],
+      ['Pedido / vendido', 'Unidades que pidieron los clientes. Puede ser más de lo que se cortó: la diferencia es lo que no se alcanzó a despachar.'],
+      ['Vendido / cortado', 'De lo que se cortó de un modelo o bota, cuánto se vendió. 1.400 cortadas y 1.400 vendidas = 100%, se cortó bien. Sobre 100% se quedó corto; bajo 75% se cortó de más.'],
+      ['Esperado', `Reparte la meta mes a mes con el peso que tuvo cada mes en ${sg}, mirando los mismos meses del calendario.`],
+      ['Comparables', `${sg}: las colecciones que se vendieron en estas mismas fechas en los años anteriores.`],
+    ], [52, 120], false), 'Estrategia');
+
+    agrega(hoja([['Mes', ...C.map(T => `T${T.t} (${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[K - 1])})`), 'Promedio del total', `T${PLAN_TEMP} esperado`, `T${PLAN_TEMP} real`],
+      ...mesesP.map((m, k) => [planMesCorto(m), ...C.map((T, i) => n(curvas[i][k])), pc(Math.round(shareProm[k] * 100)), n(proy[k]), m <= hoyMes ? n(realP[k]) : ''])],
+      [10, ...C.map(() => 24), 18, 16, 14]), 'Cuándo se vende');
+
+    for (const campo of ['bota', 'tiro']) {
+      const filas = planAgrupa(todas, campo), tot = filas.reduce((a, x) => a + x.u, 0);
+      agrega(hoja([[campo === 'bota' ? 'Bota' : 'Tiro', 'Pedido', '% del total', 'Despachado', 'Stock hoy'],
+        ...filas.map(x => [x.k, n(x.u), pc(planPct(x.u, tot)), pc(planPct(x.desp, x.u)), n(stockDe(campo, x.k))])], [18, 12, 12, 12, 12]),
+        `Se vendió más por ${campo}`);
+    }
+
+    if (prev) agrega(hoja([['Bota', `Vendido / cortado T${prev.t}`, 'Lectura', `Modelos T${PLAN_TEMP}`, `Pedido T${PLAN_TEMP}`],
+      ...datosVender().map(x => [x.k, pc(x.pct), x.l[0], x.ms.join(', '), x.ped ? n(x.ped) : ''])], [16, 22, 14, 34, 14]), 'Qué vender');
+
+    agrega(hoja([['Colección', 'Modelo', 'Bota', 'Tiro', 'Cortado', 'Vendido', 'Vendido / cortado', 'Lectura'],
+      ...pasados.map(m => [`T${m.t}`, m.base, m.bota || 'Sin clasificar', m.tiro || '', n(m.cort), n(m.vend), pc(m.pct), m.tag[0]])],
+      [11, 9, 16, 13, 10, 10, 17, 24]), 'Qué cortar');
+
+    const uP = {};
+    P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
+    agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', ...cmp.map(t => `T${t}`), 'Total', `Pedido T${PLAN_TEMP}`, 'Compra al lanzamiento'],
+      ...clientes.map(c => [c.nombre, c.ciudad || '', c.vendedor || '', ...cmp.map(t => c.por[t] ? n(c.por[t]) : ''), n(c.u), yaP.has(c.cli) ? n(uP[c.cli]) : '', c.mes1 ? 'Sí' : ''])],
+      [40, 16, 22, ...cmp.map(() => 10), 10, 14, 20]), 'Clientes');
+
+    agrega(hoja([['Vendedor', ...(prev ? [`T${prev.t}`, `% de la T${prev.t}`] : []), `T${PLAN_TEMP}`],
+      ...[...new Set([...Object.keys(vPrev), ...Object.keys(vNueva)])].sort((a, b) => (vPrev[b] || 0) - (vPrev[a] || 0))
+        .map(v => [v, ...(prev ? [vPrev[v] ? n(vPrev[v]) : '', vPrev[v] ? pc(planPct(vPrev[v], prev.total)) : ''] : []), vNueva[v] ? n(vNueva[v]) : ''])],
+      [26, 12, 14, 12]), 'Vendedores');
+
+    // Primero lo que pide una acción (ofrecer, programar), después lo que está en producción y al final las muestras
+    const queHacer = m => { const b = (cat[PLAN_TEMP] || {})[m] || {};
+      return b.cort >= 20 && !pedidoP[m] ? [0, 'Ofrecer: cortado y sin pedidos'] : pedidoP[m] && !b.prog ? [1, 'Programar: se pide y no está en producción']
+           : b.prog ? [2, ''] : [3, 'Solo muestra']; };
+    const catalogo = [...new Set([...Object.keys(cat[PLAN_TEMP] || {}), ...Object.keys(pedidoP)])]
+      .sort((a, b) => (queHacer(a)[0] - queHacer(b)[0]) || ((((cat[PLAN_TEMP] || {})[b] || {}).prog || 0) - (((cat[PLAN_TEMP] || {})[a] || {}).prog || 0)) || (pedidoP[b] || 0) - (pedidoP[a] || 0) || a.localeCompare(b));
+    agrega(hoja([['Modelo', 'Bota', 'Tiro', 'Programado', 'Cortado', `Pedido T${PLAN_TEMP}`, 'Qué hacer'],
+      ...catalogo.map(m => { const b = (cat[PLAN_TEMP] || {})[m] || {};
+        return [m, botaDe(m) || 'Sin clasificar', (attr[PLAN_TEMP + '|' + m] || {}).tiro || b.tiro || '', n(b.prog), n(b.cort), pedidoP[m] ? n(pedidoP[m]) : '', queHacer(m)[1]]; })],
+      [9, 16, 13, 12, 10, 13, 40]), `Producción T${PLAN_TEMP}`);
+
+    XLSX.writeFile(libro, `Plan de colección T${PLAN_TEMP} ${fecha}.xlsx`);
+  };
+
   cuerpo.innerHTML = `
   <div class="kpi-grid">
     ${tarjeta(fmt(promedio), 'Unidades por colección', `promedio de ${sg}`, 'unidades')}
@@ -4936,6 +5045,13 @@ function pintarPlan() {
     document.getElementById('vkOv').classList.add('open');
   };
   cuerpo.querySelectorAll('table').forEach(planOrdenable);
+  const DET_ACC = { ritmo: DET.esperar, cli: DET.clientes, vend: [`Vendedores · T${prev ? prev.t + ' y T' : ''}${PLAN_TEMP}`, detVend],
+                    vender: prev ? [`Qué vender · según la T${prev.t}`, detVender] : null, prod: [`Producción · T${PLAN_TEMP}`, detProd] };
+  document.getElementById('planExcel')?.addEventListener('click', descargarPlan);
+  cuerpo.querySelectorAll('.pl-acc[data-pacc]').forEach(el => el.addEventListener('click', () => {
+    const [ttl, armar] = DET_ACC[el.dataset.pacc] || [];
+    if (armar) abrirDet(ttl, armar());
+  }));
   cuerpo.querySelectorAll('.kpi[data-pldet]').forEach(c => c.addEventListener('click', () => {
     const [ttl, armar] = DET[c.dataset.pldet] || [];
     if (armar) abrirDet(ttl, armar());
