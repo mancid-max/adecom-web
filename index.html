@@ -461,6 +461,10 @@ body.ia-open #iaBtn{display:none}
       Clientes Inactivos
     </button>
 
+    <button class="nav-item" data-sec="plan" data-ttl="Plan de Colección" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      Plan Colección
+    </button>
     <button class="nav-item" data-sec="proyecciones" data-ttl="Proyecciones" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/><circle cx="19" cy="7" r="1.6"/></svg>
       Proyecciones
@@ -4329,6 +4333,302 @@ function proyRender(ano, crec) {
   </div>`;
 }
 
+
+/* ── PLAN DE COLECCIÓN ─────────────────────────────────────────────────
+   Lo que pasó con las colecciones que se vendieron en estas mismas fechas de años
+   anteriores, puesto al servicio de la que recién parte: cuándo se vende, qué botas y
+   tiros se llevan la venta, con qué arranca, quién compra primero y, con eso, qué
+   modelos conviene cortar y cuáles mirar dos veces.
+
+   La historia son los PEDIDOS tomados, que es lo que guarda historia; lo facturado solo
+   existe del año en curso. El mes de lanzamiento de cada colección es el primero que
+   junta al menos el 3% de sus unidades: antes suele haber pedidos sueltos. */
+let PLAN = null, PLAN_TEMP = '', PLAN_CMP = [];
+const planTempOk = t => /^\d{2}$/.test(String(t || '')) && +t >= 36 && +t <= TEMP_TECHO;
+const planMesMas = (ym, k) => { const y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1 + k; return `${y + Math.floor(m / 12)}-${String(((m % 12) + 12) % 12 + 1).padStart(2, '0')}`; };
+const planMesCorto = ym => MESES[+ym.slice(5, 7)].slice(0, 3) + ' ' + ym.slice(2, 4);
+const planPct = (a, b) => b ? Math.round(a / b * 100) : 0;
+
+function planBase(peds, pa, ft) {
+  const attr = {};
+  pa.forEach(x => { attr[String(x.temp) + '|' + x.base] = { bota: x.bota || '', tiro: x.tiro || '', stock: x.stock || 0 }; });
+  const temps = {};
+  for (const p of peds) {
+    const f = p.fecha_iso || '';
+    if (!f) continue;
+    const cli = vdKey(p);
+    for (const l of (p.lineas || [])) {
+      const t = l.temp;
+      if (!planTempOk(t)) continue;
+      const a = attr[t + '|' + l.modelo] || {};
+      const T = temps[t] = temps[t] || { t, lineas: [], total: 0, porMes: {}, clientes: new Set() };
+      const u = l.sol || 0;
+      T.lineas.push({ mes: f.slice(0, 7), fecha: f, u, desp: l.desp || 0, sal: l.sal || 0, base: l.modelo,
+                      bota: a.bota || '', tiro: a.tiro || '', cli, nombre: (p.nombre || p.rut || '').toUpperCase(),
+                      ciudad: p.ciudad || '', vendedor: p.vendedor || '' });
+      T.total += u; T.porMes[f.slice(0, 7)] = (T.porMes[f.slice(0, 7)] || 0) + u; T.clientes.add(cli);
+    }
+  }
+  for (const T of Object.values(temps)) {
+    const meses = Object.keys(T.porMes).sort();
+    T.lanzo = meses.find(m => T.porMes[m] >= T.total * 0.03) || meses[0] || '';
+  }
+  // El catálogo en producción de cada temporada: base → programado, cortado, bota, tiro
+  const cat = {};
+  for (const r of ft) {
+    const a = String(r.articulo || ''), t = a.slice(2, 4), base = a.slice(2, 6);
+    if (!planTempOk(t) || !base) continue;
+    const C = cat[t] = cat[t] || {};
+    const b = C[base] = C[base] || { base, prog: 0, cort: 0, muestra: false, bota: '', tiro: '' };
+    /* Las muestras entran al catálogo pero no suman producción: un modelo que solo tiene
+       muestra es justamente uno que todavía hay que decidir si se corta. */
+    if ((r.tipo || '') === 'Producción') { b.prog += r.programa || 0; b.cort += r.proceso || 0; }
+    else b.muestra = true;
+    const a2 = attr[t + '|' + base] || {};
+    b.bota = b.bota || r.bota || a2.bota || ''; b.tiro = b.tiro || r.tiro || a2.tiro || '';
+  }
+  return { temps, cat, attr };
+}
+
+/* Las comparables por defecto: por cada uno de los dos años anteriores, la colección
+   cuyo lanzamiento cayó más cerca del mismo mes del calendario. Es lo que uno haría a
+   mano: "la que se vendía en estas mismas fechas". */
+function planComparables(temps, tp) {
+  const P = temps[tp];
+  const lanzo = (P && P.lanzo) || today().slice(0, 7);
+  const mesL = +lanzo.slice(5, 7), anioL = +lanzo.slice(0, 4);
+  const out = [];
+  for (const dy of [1, 2]) {
+    let mejor = null, dist = 99;
+    for (const T of Object.values(temps)) {
+      if (T.t === tp || T.total < 3000 || !T.lanzo) continue;
+      if (+T.lanzo.slice(0, 4) !== anioL - dy) continue;
+      const d = Math.abs(+T.lanzo.slice(5, 7) - mesL);
+      if (d < dist) { dist = d; mejor = T.t; }
+    }
+    if (mejor) out.push(mejor);
+  }
+  return out;
+}
+
+function planAgrupa(lineas, campo) {          // u, desp por bota o por tiro
+  const m = {};
+  for (const l of lineas) {
+    const k = l[campo] || 'Sin clasificar';
+    const r = m[k] = m[k] || { k, u: 0, desp: 0 };
+    r.u += l.u; r.desp += l.desp;
+  }
+  return Object.values(m).sort((a, b) => b.u - a.u);
+}
+
+function pintarPlan() {
+  const cuerpo = document.getElementById('planBody');
+  if (!cuerpo || !PLAN) return;
+  const { temps, cat, attr } = PLAN;
+  const P = temps[PLAN_TEMP] || { t: PLAN_TEMP, lineas: [], total: 0, porMes: {}, clientes: new Set(), lanzo: '' };
+  const cmp = PLAN_CMP.filter(t => temps[t]);
+  if (!cmp.length) { cuerpo.innerHTML = '<div class="td-dim" style="padding:30px;text-align:center">Elige al menos una colección para comparar</div>'; return; }
+  const C = cmp.map(t => temps[t]);
+  const todas = C.flatMap(T => T.lineas);
+  const totalCmp = C.reduce((a, T) => a + T.total, 0);
+  const promedio = Math.round(totalCmp / C.length);
+  const lanzoP = P.lanzo || today().slice(0, 7);
+  const sg = cmp.map(t => 'T' + t).join(' y ');
+
+  // ── 1) Cuándo se vende: la curva desde el lanzamiento, y la proyección ──
+  const K = 6;
+  /* Alineado por mes del CALENDARIO y no por meses desde el lanzamiento: lo que se pide en
+     noviembre se pide en noviembre, lance la colección en julio o en septiembre. Cada
+     comparable se mira en sus propios octubre-marzo, uno o dos años atrás. */
+  const mesesP = Array.from({ length: K }, (_, k) => planMesMas(lanzoP, k));
+  const aniosAtras = T => Math.round(((+lanzoP.slice(0, 4) - +T.lanzo.slice(0, 4)) * 12 + (+lanzoP.slice(5, 7) - +T.lanzo.slice(5, 7))) / 12);
+  const mesesDe = T => mesesP.map(m => planMesMas(m, -12 * aniosAtras(T)));
+  const curvas = C.map(T => mesesDe(T).map(m => T.porMes[m] || 0));
+  const shareProm = Array.from({ length: K }, (_, k) => C.reduce((a, T, i) => a + (T.total ? curvas[i][k] / T.total : 0), 0) / C.length);
+  const proy = shareProm.map(sh => Math.round(sh * promedio));
+  const realP = mesesP.map(m => P.porMes[m] || 0);
+  const hoyMes = today().slice(0, 7);
+  const nomMes = k => MESES[+mesesP[k].slice(5, 7)];
+  const filasCurva = Array.from({ length: K }, (_, k) => `<tr>
+      <td><b>${planMesCorto(mesesP[k])}</b></td>
+      ${C.map((T, i) => `<td class="r td-num td-dim">${fmt(curvas[i][k])} <span style="font-size:10px">(${planPct(curvas[i][k], T.total)}%)</span></td>`).join('')}
+      <td class="r td-num" style="font-weight:700">${Math.round(shareProm[k] * 100)}%</td>
+      <td class="r td-num" style="font-weight:700;color:var(--ac)">${fmt(proy[k])}</td>
+      <td class="r td-num">${planMesMas(lanzoP, k) <= hoyMes ? `<span style="font-weight:700;color:${realP[k] >= proy[k] ? 'var(--ok)' : 'var(--wa)'}">${fmt(realP[k])}</span>` : '<span class="td-dim">—</span>'}</td>
+    </tr>`).join('');
+
+  // ── 2) Qué se vendió más: bota y tiro, con cuánto se despachó y cuánto quedó ──
+  const stockDe = (campo, k) => C.reduce((a, T) => a + Object.entries(attr).filter(([key, v]) => key.startsWith(T.t + '|') && (v[campo] || 'Sin clasificar') === k).reduce((b, [, v]) => b + (v.stock || 0), 0), 0);
+  const tablaTipo = (campo, titulo) => {
+    const filas = planAgrupa(todas, campo);
+    const tot = filas.reduce((a, r) => a + r.u, 0);
+    return `<div class="tbl-card">
+      <div class="tbl-head"><div class="card-ttl" style="margin:0">${titulo}</div><span class="td-dim" style="margin-left:auto">${sg}</span></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>${titulo.split(' ')[1] === 'bota' ? 'Bota' : 'Tiro'}</th><th class="r">Pedido</th><th>Participación</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th></tr></thead>
+        <tbody class="tbl-compacta">${filas.map(r => `<tr>
+          <td style="font-weight:600">${r.k}</td>
+          <td class="r td-num">${fmt(r.u)}</td>
+          <td><div style="display:flex;align-items:center;gap:8px"><div class="pbar" style="width:80px;flex-shrink:0"><div class="pbar-fill" style="width:${Math.min(100, r.u / tot * 100 * 2).toFixed(1)}%"></div></div><span class="td-dim">${planPct(r.u, tot)}%</span></div></td>
+          <td class="r td-num" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${planPct(r.desp, r.u)}%</td>
+          <td class="r td-num td-dim">${fmt(stockDe(campo, r.k))}</td>
+        </tr>`).join('')}</tbody>
+      </table></div></div>`;
+  };
+
+  // ── 3) Con qué partir: lo que salió en el primer mes de las comparables ──
+  const mes1 = C.flatMap(T => T.lineas.filter(l => l.mes === mesesDe(T)[0]));
+  const uMes1 = mes1.reduce((a, l) => a + l.u, 0);
+  const partirBota = planAgrupa(mes1, 'bota').slice(0, 5), partirTiro = planAgrupa(mes1, 'tiro').slice(0, 3);
+  const chip = (txt, pct) => `<span style="background:var(--ac10);color:var(--ac);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700;white-space:nowrap">${txt} <span style="opacity:.75">${pct}%</span></span>`;
+
+  // ── 4) Qué cortar: el catálogo de la nueva, leído con la historia de su bota ──
+  const histBota = {};
+  const uTodas = todas.reduce((a, l) => a + l.u, 0);
+  const stProm = todas.reduce((a, l) => a + l.desp, 0) / Math.max(1, uTodas);   // el despacho típico de las comparables
+  planAgrupa(todas, 'bota').forEach(r => { histBota[r.k] = { share: r.u / Math.max(1, uTodas), st: r.u ? r.desp / r.u : 0 }; });
+  const pedP = {};
+  P.lineas.forEach(l => { pedP[l.base] = (pedP[l.base] || 0) + l.u; });
+  const catP = Object.values(cat[PLAN_TEMP] || {}).map(b => {
+    const h = b.bota ? histBota[b.bota] : null;
+    const tag = !b.bota ? ['Sin clasificar', 'var(--tx3)', 'var(--sf2)']
+              /* Una bota con menos del 1% en las comparables no vende mal: no existia todavia.
+                 Wide Leg aparecio en la T42. Para leerla hay que sumar una comparable mas nueva. */
+              : (!h || h.share < 0.01) ? ['Sin historia en estas comparables', 'var(--tx2)', 'var(--sf2)']
+              : (h.share >= 0.15 && h.st >= stProm) ? ['Cortar con confianza', 'var(--ok)', 'var(--ok10)']
+              : (h.share >= 0.07 || h.st >= stProm) ? ['Con cuidado', 'var(--wa)', 'var(--wa10)']
+              : ['Revisar antes de cortar', 'var(--er)', 'var(--er10)'];
+    return { ...b, ped: pedP[b.base] || 0, h, tag };
+  }).sort((a, b) => (b.ped - a.ped) || (b.prog - a.prog));
+  const sinClas = catP.filter(b => !b.bota).length;
+  const filasCat = catP.map(b => `<tr>
+      <td><span class="td-code">${b.base}</span>${!b.prog && b.muestra ? ' <span class="td-dim" style="font-size:10px;margin-left:5px">solo muestra</span>' : ''}</td>
+      <td>${b.bota || '<span class="td-dim">—</span>'}${b.tiro ? ` <span class="td-dim" style="font-size:10px">· ${b.tiro}</span>` : ''}</td>
+      <td class="r td-num td-dim">${fmt(b.prog)}</td>
+      <td class="r td-num">${fmt(b.cort)}</td>
+      <td class="r td-num" style="font-weight:700;color:${b.ped ? 'var(--ac)' : 'var(--tx3)'}">${b.ped ? fmt(b.ped) : '—'}</td>
+      <td class="r td-num td-dim">${b.h ? Math.round(b.h.share * 100) + '%' : '—'}</td>
+      <td class="r td-num td-dim">${b.h ? Math.round(b.h.st * 100) + '%' : '—'}</td>
+      <td><span style="background:${b.tag[2]};color:${b.tag[1]};border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap">${b.tag[0]}</span></td>
+    </tr>`).join('');
+
+  // ── 5) A quién ofrecer primero ──
+  const cliMap = {};
+  for (const T of C) for (const l of T.lineas) {
+    const c = cliMap[l.cli] = cliMap[l.cli] || { cli: l.cli, nombre: l.nombre, ciudad: l.ciudad, vendedor: l.vendedor, u: 0, por: {}, mes1: false };
+    c.u += l.u; c.por[T.t] = (c.por[T.t] || 0) + l.u;
+    if (l.mes === T.lanzo) c.mes1 = true;
+  }
+  const yaP = P.clientes;
+  const clientes = Object.values(cliMap).sort((a, b) => b.u - a.u);
+  const filasCli = clientes.slice(0, 40).map((c, i) => `<tr>
+      <td class="td-dim">${i + 1}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
+      <td class="td-dim">${c.ciudad || '—'}</td>
+      <td class="td-dim">${c.vendedor || '—'}</td>
+      ${cmp.map(t => `<td class="r td-num td-dim">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
+      <td class="r td-num" style="font-weight:700">${fmt(c.u)}</td>
+      <td>${c.mes1 ? '<span style="background:var(--ac10);color:var(--ac);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">compra al lanzamiento</span>' : ''}</td>
+      <td>${yaP.has(c.cli) ? '<span style="background:var(--ok10);color:var(--ok);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:10px">todavía no</span>'}</td>
+    </tr>`).join('');
+  const yaPidieron = clientes.filter(c => yaP.has(c.cli)).length;
+
+  const tarjeta = (val, lbl, sub, col) => `<div class="kpi" style="cursor:default">
+    <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
+      <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
+
+  cuerpo.innerHTML = `
+  <div class="kpi-grid">
+    ${tarjeta(fmt(promedio), 'Unidades por colección', `promedio de ${sg}`, 'c-ac')}
+    ${tarjeta(Math.round((shareProm[0] + shareProm[1]) * 100) + '%', `Se vende en ${nomMes(0)} y ${nomMes(1)}`, `${Math.round(shareProm[0] * 100)}% en ${nomMes(0)}`, 'c-ok')}
+    ${tarjeta(fmt(proy[0] + proy[1]), `A esperar en ${nomMes(0)} y ${nomMes(1)}`, `si la T${PLAN_TEMP} se parece a ${sg}`, 'c-ac')}
+    ${tarjeta(fmt(clientes.length), 'Clientes que compraron', `${yaPidieron} ya pidieron T${PLAN_TEMP}`, 'c-wa')}
+    ${tarjeta(fmt(P.total), 'Pedido T' + PLAN_TEMP + ' hasta hoy', P.lanzo ? 'desde ' + planMesCorto(P.lanzo) : 'todavía sin lanzamiento', '')}
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Cuándo se vende</div>
+        <div class="card-sub" style="margin:2px 0 0">Los mismos meses del calendario en cada comparable, el promedio, y lo que la T${PLAN_TEMP} tendría que traer cada mes si se parece a ellas</div></div>
+    </div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>Mes</th>${C.map(T => `<th class="r">T${T.t} <span class="td-dim" style="font-weight:400">${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[K - 1])}</span></th>`).join('')}<th class="r">Promedio</th><th class="r" style="color:var(--ac)">T${PLAN_TEMP} esperado</th><th class="r">T${PLAN_TEMP} real</th></tr></thead>
+      <tbody class="tbl-compacta">${filasCurva}</tbody>
+    </table>
+    <div class="tbl-foot">El esperado reparte ${fmt(promedio)} unidades —el promedio de ${sg}— con el peso que tuvo cada uno de estos meses en ellas. En estos seis meses se vendió ${C.map((T, i) => `el ${Math.round(curvas[i].reduce((a, u) => a + u, 0) / Math.max(1, T.total) * 100)}% de la T${T.t}`).join(' y ')}; el resto fue antes o después. Es una referencia, no una meta.</div></div>
+  </div>
+
+  <div class="chart-row" style="margin-top:14px">${tablaTipo('bota', 'Por bota')}${tablaTipo('tiro', 'Por tiro')}</div>
+
+  <div class="tbl-card" style="margin-top:14px;padding:16px 18px">
+    <div class="card-ttl" style="margin:0">Con qué partir</div>
+    <div class="card-sub" style="margin:2px 0 12px">Lo que salió en ${nomMes(0)} en ${sg}: ${fmt(uMes1)} unidades</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="flbl" style="margin-right:4px">Botas</span>${partirBota.map(r => chip(r.k, planPct(r.u, uMes1))).join('')}
+      <span class="flbl" style="margin:0 4px 0 14px">Tiro</span>${partirTiro.map(r => chip(r.k, planPct(r.u, uMes1))).join('')}
+    </div>
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Qué cortar y qué no · catálogo T${PLAN_TEMP}</div>
+        <div class="card-sub" style="margin:2px 0 0">Cada modelo leído con la historia de su bota en ${sg}: cuánto pesó en la venta y cuánto de lo pedido se alcanzó a despachar</div></div>
+      <span class="td-dim" style="margin-left:auto">${catP.length} modelos · ${catP.filter(b => b.prog).length} en producción · ${catP.filter(b => !b.prog && b.muestra).length} solo muestra${sinClas ? ` · ${sinClas} sin clasificar` : ''}</span>
+    </div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>Modelo</th><th>Bota · tiro</th><th class="r">Programado</th><th class="r">Cortado</th><th class="r">Pedido hoy</th><th class="r" title="Cuánto pesó esta bota en la venta de las comparables">Peso hist.</th><th class="r" title="De lo pedido en las comparables, cuánto se despachó">Despacho hist.</th><th>Lectura</th></tr></thead>
+      <tbody class="tbl-compacta">${filasCat || '<tr><td colspan="8" class="td-dim" style="text-align:center;padding:24px">Sin producción registrada para esta colección</td></tr>'}</tbody>
+    </table>
+    <div class="tbl-foot">Cortar con confianza: la bota pesó 15% o más de la venta y se despachó al menos como el promedio (${Math.round(stProm * 100)}%). Con cuidado: una de las dos. Revisar: ninguna. ${sinClas ? 'Los sin clasificar no tienen bota en el ERP todavía: aparece cuando el modelo recibe su primer pedido.' : ''}</div></div>
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">A quién ofrecer primero</div>
+        <div class="card-sub" style="margin:2px 0 0">Los que más compraron de ${sg}, y si ya pidieron la T${PLAN_TEMP}</div></div>
+      <span class="td-dim" style="margin-left:auto">${clientes.length > 40 ? 'los 40 primeros de ' : ''}${fmt(clientes.length)} clientes</span>
+      <button class="seg" id="planCliPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+    </div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>#</th><th>Cliente</th><th>Ciudad</th><th>Vendedor</th>${cmp.map(t => `<th class="r">T${t}</th>`).join('')}<th class="r">Total</th><th></th><th></th></tr></thead>
+      <tbody class="tbl-compacta">${filasCli}</tbody>
+    </table>
+    <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP} · "compra al lanzamiento" = pidió en el primer mes de alguna comparable</div></div>
+  </div>`;
+
+  document.getElementById('planCliPrint')?.addEventListener('click', () => printTable({
+    table: document.getElementById('planCliFoot')?.closest('.tbl-scroll')?.querySelector('table'),
+    title: `A quién ofrecer la T${PLAN_TEMP}`, subtitle: document.getElementById('planCliFoot')?.textContent || '',
+  }));
+}
+
+async function secPlan() {
+  const [peds, pa, ft] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json')]);
+  PLAN = planBase(peds, pa, ft);
+  const conProd = Object.keys(PLAN.cat).sort((a, b) => +b - +a);
+  const todas = [...new Set([...Object.keys(PLAN.temps), ...conProd])].sort((a, b) => +b - +a);
+  if (!todas.length) return makePH('<path d="M12 20h9"/>', 'Plan de Colección', 'Sin historia de pedidos');
+  if (!PLAN_TEMP || !todas.includes(PLAN_TEMP)) PLAN_TEMP = conProd[0] || todas[0];
+  if (!PLAN_CMP.length) PLAN_CMP = planComparables(PLAN.temps, PLAN_TEMP);
+  const hist = Object.values(PLAN.temps).filter(T => T.total >= 3000 && T.t !== PLAN_TEMP).sort((a, b) => +b.t - +a.t);
+
+  return `
+  <div class="fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Colección a planear</span>
+    <select id="planTemp" class="finput" style="width:150px">
+      ${todas.map(t => `<option value="${t}"${t === PLAN_TEMP ? ' selected' : ''}>T${t}</option>`).join('')}
+    </select></div>
+    <div class="fgrp"><span class="flbl">Comparar con</span>
+    <div class="segs" id="planCmpSegs">
+      ${hist.map(T => `<button class="seg${PLAN_CMP.includes(T.t) ? ' on' : ''}" data-t="${T.t}" title="${fmt(T.total)} unidades, lanzada en ${planMesCorto(T.lanzo)}">T${T.t} <span style="opacity:.6;font-size:10px">${planMesCorto(T.lanzo)}</span></button>`).join('')}
+    </div></div>
+    <span class="td-dim" style="font-size:11px">Por defecto, la colección que se lanzó más cerca de estas fechas en cada uno de los dos años anteriores. Toca para cambiar.</span>
+    </div>
+  </div>
+  <div id="planBody" style="margin-top:14px"></div>`;
+}
+
 async function secProy() {
   const peds = await load('pedidos.json');
   const ICO = '<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>';
@@ -5131,6 +5431,7 @@ const SECS = {
   'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
   'clientes':       () => secClientes(),
+  'plan':           () => secPlan(),
   'proyecciones':   () => secProy(),
   'er':             () => secER(),
 };
@@ -6425,6 +6726,21 @@ function bindContent(secId) {
       pintarKen();
     }));
     pintarKen();
+  }
+
+  // Plan de colección
+  if (secId === 'plan' && document.getElementById('planBody')) {
+    document.getElementById('planTemp')?.addEventListener('change', e => {
+      PLAN_TEMP = e.target.value; PLAN_CMP = [];        // las comparables se recalculan para la nueva
+      go('plan', 'Plan de Colección');
+    });
+    document.querySelectorAll('#planCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
+      const t = b.dataset.t;
+      if (PLAN_CMP.includes(t)) { if (PLAN_CMP.length === 1) return; PLAN_CMP = PLAN_CMP.filter(x => x !== t); b.classList.remove('on'); }
+      else { PLAN_CMP = [...PLAN_CMP, t].sort((a, c) => +c - +a); b.classList.add('on'); }
+      pintarPlan();
+    }));
+    pintarPlan();
   }
 
   // Stock Kennedy
