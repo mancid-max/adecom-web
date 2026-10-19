@@ -193,6 +193,33 @@ body.ia-open #iaBtn{display:none}
 .tbl-compacta .art-thumb{width:26px;height:34px;margin-right:6px}
 .tbl-foot{font-size:11px;color:var(--tx3);padding:9px 16px;border-top:1px solid var(--bd)}
 
+/* ── PLAN DE COLECCIÓN ───────────────────────────────────────── */
+/* Lo lee el jefe para decidir qué vender: ninguna tabla se corre a la derecha. Aquí las
+   celdas y los títulos de columna pueden partir línea (en el resto del sitio no), lo que
+   acompaña a un dato va debajo de él (.pl-sub) en vez de en otra columna, y lo secundario
+   se esconde en el teléfono (.pl-sec). Solo las filas por bota y por tiro se abren. */
+.pl thead th{white-space:normal;padding:9px 10px;vertical-align:bottom;line-height:1.25}
+.pl thead th .pl-sub{text-transform:none;letter-spacing:0;font-weight:400}
+.pl tbody td{padding:8px 10px}
+.pl tbody tr:not([data-pgrupo]){cursor:default}
+.pl tbody tr:not([data-pgrupo]):hover{background:transparent}
+.pl .pl-wrap{white-space:normal}
+.pl .pl-sub{display:block;font-size:11px;font-weight:400;color:var(--tx3);margin-top:2px;white-space:normal}
+.pl .pl-bar{height:4px;background:var(--bd);border-radius:2px;margin-top:6px;max-width:180px}
+.pl .pl-bar>i{display:block;height:100%;border-radius:2px;background:var(--ac)}
+.pl .pl-mod{display:flex;align-items:center;gap:9px}
+.pl .pl-foto{display:inline-block;width:26px;height:34px;flex-shrink:0}
+.pl .pl-foto .art-thumb{width:26px;height:34px;margin:0}
+.pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
+.pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
+.pl .segs{flex-wrap:wrap}
+.pl .pl-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+@media(max-width:700px){
+  .pl .pl-sec{display:none}
+  .pl .segs{overflow:visible;flex-wrap:wrap}
+  .pl thead th,.pl tbody td{padding-left:7px;padding-right:7px}
+}
+
 /* ── BADGES ──────────────────────────────────────────────────── */
 .badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .b44{background:var(--ac10);color:var(--ac)}
@@ -4343,7 +4370,7 @@ function proyRender(ano, crec) {
    La historia son los PEDIDOS tomados, que es lo que guarda historia; lo facturado solo
    existe del año en curso. El mes de lanzamiento de cada colección es el primero que
    junta al menos el 3% de sus unidades: antes suele haber pedidos sueltos. */
-let PLAN = null, PLAN_TEMP = '', PLAN_CMP = [];
+let PLAN = null, PLAN_TEMP = '', PLAN_CMP = [], PLAN_LECT = '';   // PLAN_LECT: el filtro de "Qué cortar" ('' = todos)
 const planTempOk = t => /^\d{2}$/.test(String(t || '')) && +t >= 36 && +t <= TEMP_TECHO;
 const planMesMas = (ym, k) => { const y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1 + k; return `${y + Math.floor(m / 12)}-${String(((m % 12) + 12) % 12 + 1).padStart(2, '0')}`; };
 const planMesCorto = ym => MESES[+ym.slice(5, 7)].slice(0, 3) + ' ' + ym.slice(2, 4);
@@ -4463,8 +4490,8 @@ function pintarPlan() {
   const nomMes = k => MESES[+mesesP[k].slice(5, 7)];
   const filasCurva = Array.from({ length: K }, (_, k) => `<tr>
       <td><b>${planMesCorto(mesesP[k])}</b></td>
-      ${C.map((T, i) => `<td class="r td-num td-dim">${fmt(curvas[i][k])} <span style="font-size:10px">(${planPct(curvas[i][k], T.total)}%)</span></td>`).join('')}
-      <td class="r td-num" style="font-weight:700">${Math.round(shareProm[k] * 100)}%</td>
+      ${C.map((T, i) => `<td class="r td-num td-dim pl-sec">${fmt(curvas[i][k])} <span style="font-size:10px">(${planPct(curvas[i][k], T.total)}%)</span></td>`).join('')}
+      <td class="r td-num pl-sec" style="font-weight:700">${Math.round(shareProm[k] * 100)}%</td>
       <td class="r td-num" style="font-weight:700;color:var(--ac)">${fmt(proy[k])}</td>
       <td class="r td-num">${planMesMas(lanzoP, k) <= hoyMes ? `<span style="font-weight:700;color:${realP[k] >= proy[k] ? 'var(--ok)' : 'var(--wa)'}">${fmt(realP[k])}</span>` : '<span class="td-dim">—</span>'}</td>
     </tr>`).join('');
@@ -4473,17 +4500,17 @@ function pintarPlan() {
   const stockDe = (campo, k) => C.reduce((a, T) => a + Object.entries(attr).filter(([key, v]) => key.startsWith(T.t + '|') && (v[campo] || 'Sin clasificar') === k).reduce((b, [, v]) => b + (v.stock || 0), 0), 0);
   const tablaTipo = (campo, titulo) => {
     const filas = planAgrupa(todas, campo);
-    const tot = filas.reduce((a, r) => a + r.u, 0);
+    const tot = filas.reduce((a, r) => a + r.u, 0), max = Math.max(1, ...filas.map(r => r.u));
     return `<div class="tbl-card">
-      <div class="tbl-head"><div class="card-ttl" style="margin:0">${titulo}</div><span class="td-dim" style="margin-left:auto">${sg}</span></div>
+      <div class="tbl-head"><div><div class="card-ttl" style="margin:0">${titulo}</div>
+        <div class="card-sub" style="margin:2px 0 0">Lo pedido en ${sg}. Toca una fila para ver sus modelos</div></div></div>
       <div class="tbl-scroll"><table>
-        <thead><tr><th>${titulo.split(' ')[1] === 'bota' ? 'Bota' : 'Tiro'}</th><th class="r">Pedido</th><th>Participación</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th></tr></thead>
-        <tbody class="tbl-compacta">${filas.map(r => `<tr data-pgrupo="${campo}" data-k="${r.k}" style="cursor:pointer" title="Toca para ver los modelos">
-          <td style="font-weight:600">${r.k}</td>
-          <td class="r td-num">${fmt(r.u)}</td>
-          <td><div style="display:flex;align-items:center;gap:8px"><div class="pbar" style="width:80px;flex-shrink:0"><div class="pbar-fill" style="width:${Math.min(100, r.u / tot * 100 * 2).toFixed(1)}%"></div></div><span class="td-dim">${planPct(r.u, tot)}%</span></div></td>
+        <thead><tr><th>${campo === 'bota' ? 'Bota' : 'Tiro'}</th><th class="r">Pedido</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r pl-sec" title="Lo que quedó en bodega sin vender">Stock hoy</th></tr></thead>
+        <tbody class="tbl-compacta">${filas.map(r => `<tr data-pgrupo="${campo}" data-k="${r.k}" title="Toca para ver los modelos">
+          <td><b style="font-weight:600">${r.k}</b><div class="pl-bar"><i style="width:${(r.u / max * 100).toFixed(1)}%"></i></div></td>
+          <td class="r td-num">${fmt(r.u)}<span class="pl-sub">${planPct(r.u, tot)}% del total</span></td>
           <td class="r td-num" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${planPct(r.desp, r.u)}%</td>
-          <td class="r td-num td-dim">${fmt(stockDe(campo, r.k))}</td>
+          <td class="r td-num td-dim pl-sec">${fmt(stockDe(campo, r.k))}</td>
         </tr>`).join('')}</tbody>
       </table></div></div>`;
   };
@@ -4493,6 +4520,11 @@ function pintarPlan() {
   const uMes1 = mes1.reduce((a, l) => a + l.u, 0);
   const partirBota = planAgrupa(mes1, 'bota').slice(0, 5), partirTiro = planAgrupa(mes1, 'tiro').slice(0, 3);
   const chip = (txt, pct, campo) => `<span data-pmes="${campo}" data-k="${txt}" role="button" title="Toca para ver los modelos" style="cursor:pointer;background:var(--ac10);color:var(--ac);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700;white-space:nowrap">${txt} <span style="opacity:.75">${pct}%</span></span>`;
+
+  /* La foto del modelo, si hay (img/art/<modelo>.jpg, la misma que usa el visor). Si no hay,
+     la imagen se borra y el hueco queda, para que los códigos no se corran de fila en fila. */
+  const foto = base => `<span class="pl-foto"><img class="art-thumb" src="img/art/${base}.jpg" data-key="${base}" data-art="${base}" loading="lazy" onerror="this.remove()" alt=""></span>`;
+  const celdaModelo = (base, sub) => `<div class="pl-mod">${foto(base)}<div><span class="td-code">${base}</span><span class="pl-sub">${sub || 'Sin clasificar'}</span></div></div>`;
 
   // Lo que abre una fila de "Por bota" / "Por tiro" o una etiqueta de "Con qué partir": los modelos que la forman
   const stockModelo = base => (attr[base.slice(0, 2) + '|' + base] || {}).stock || 0;
@@ -4511,20 +4543,20 @@ function pintarPlan() {
     const filas = Object.values(m).sort((a, b) => (b.u - a.u) || (stockModelo(b.base) - stockModelo(a.base)));
     const u = filas.reduce((a, r) => a + r.u, 0), desp = filas.reduce((a, r) => a + r.desp, 0);
     if (enMes) return vTabla(
-      `<th>Modelo</th><th>${otroTh}</th><th class="r">Unidades</th><th class="r" title="Del total que se pidió ese mes">Del mes</th>`,
-      filas.map(r => `<tr><td><span class="td-code">${r.base}</span></td><td class="td-dim">${r.otro || '—'}</td>
+      `<th>Modelo · ${otroTh.toLowerCase()}</th><th class="r">Unidades</th><th class="r" title="Del total que se pidió ese mes">Del mes</th>`,
+      filas.map(r => `<tr><td>${celdaModelo(r.base, r.otro)}</td>
         <td class="r td-num">${fmt(r.u)}</td><td class="r td-num td-dim">${planPct(r.u, uMes1)}%</td></tr>`).join('')
-      + `<tr style="font-weight:700"><td colspan="2">Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(u, uMes1)}%</td></tr>`,
+      + `<tr style="font-weight:700"><td>Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(u, uMes1)}%</td></tr>`,
       `Lo que se pidió de ${k} en ${nomMes(0)} en ${sg}: ${fmt(u)} de ${fmt(uMes1)} unidades.`);
     const stock = filas.reduce((a, r) => a + stockModelo(r.base), 0);
     const porT = C.map(T => `T${T.t}: ${fmt(filas.filter(r => r.base.slice(0, 2) === T.t).reduce((a, r) => a + r.u, 0))}`).join(' · ');
     return vTabla(
-      `<th>Modelo</th><th>${otroTh}</th><th class="r">Pedido</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th>`,
-      filas.map(r => `<tr><td><span class="td-code">${r.base}</span></td><td class="td-dim">${r.otro || '—'}</td>
+      `<th>Modelo · ${otroTh.toLowerCase()}</th><th class="r">Pedido</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th>`,
+      filas.map(r => `<tr><td>${celdaModelo(r.base, r.otro)}</td>
         <td class="r td-num">${r.u ? fmt(r.u) : '—'}</td>
         <td class="r td-num" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${r.u ? planPct(r.desp, r.u) + '%' : '—'}</td>
         <td class="r td-num td-dim">${fmt(stockModelo(r.base))}</td></tr>`).join('')
-      + `<tr style="font-weight:700"><td colspan="2">Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(desp, u)}%</td><td class="r td-num">${fmt(stock)}</td></tr>`,
+      + `<tr style="font-weight:700"><td>Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(desp, u)}%</td><td class="r td-num">${fmt(stock)}</td></tr>`,
       `${fmt(u)} unidades pedidas de ${k} en ${sg}${C.length > 1 ? ` (${porT})` : ''}. Se despachó el ${planPct(desp, u)}% y quedan ${fmt(stock)} en bodega.`);
   };
 
@@ -4560,7 +4592,7 @@ function pintarPlan() {
       const v = vend[b.base] || 0, pct = Math.round(v / b.cort * 100);
       return { ...b, t: T.t, vend: v, pct, tag: lectura(pct) };
     });
-  }).sort((a, b) => (+b.t - +a.t) || (b.cort - a.cort));
+  }).sort((a, b) => (+b.t - +a.t) || (b.vend - a.vend));   // lo más vendido arriba: es lo primero que mira el jefe
   const notaFuera = fuera.map(f => {
     const n = f.mas + f.sin;
     const partes = [f.mas ? `${f.mas} ${f.mas === 1 ? 'se despachó' : 'se despacharon'} más de lo que figura cortado` : '',
@@ -4568,14 +4600,20 @@ function pintarPlan() {
     return ` De la T${f.t} ${n === 1 ? 'queda fuera 1 modelo' : `quedan fuera ${n} modelos`} con el corte incompleto en el registro: ${partes}.`;
   }).join('');
   const cuenta = txt => pasados.filter(m => m.tag[0] === txt).length;
-  const filasCorte = pasados.map(m => `<tr>
-      <td><span class="td-code">${m.base}</span></td>
-      <td>${m.bota || '<span class="td-dim">—</span>'}${m.tiro ? ` <span class="td-dim" style="font-size:10px">· ${m.tiro}</span>` : ''}</td>
+  // El filtro sobre la tabla: todos, o solo una lectura. Queda elegido al cambiar las comparables.
+  const LECT = { conf: 'Cortar con confianza', cuid: 'Con cuidado', rev: 'Revisar antes de cortar' };
+  const filasCorteDe = f => conCorte.map(T => {
+    const ms = pasados.filter(m => m.t === T.t && (!f || m.tag[0] === LECT[f]));
+    return !ms.length ? '' : `<tr class="pl-grupo"><td colspan="5">T${T.t} · ${ms.length} modelo${ms.length === 1 ? '' : 's'}</td></tr>` + ms.map(m => `<tr>
+      <td>${celdaModelo(m.base, [m.bota, m.tiro].filter(Boolean).join(' · '))}</td>
       <td class="r td-num">${fmt(m.cort)}</td>
       <td class="r td-num">${fmt(m.vend)}</td>
       <td class="r td-num" style="font-weight:700;color:${m.tag[1]}">${m.pct}%</td>
-      <td><span style="background:${m.tag[2]};color:${m.tag[1]};border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap">${m.tag[0]}</span></td>
+      <td class="pl-sec"><span class="pl-tag" style="background:${m.tag[2]};color:${m.tag[1]}">${m.tag[0]}</span></td>
     </tr>`).join('');
+  }).join('');
+  const sinLect = '<tr><td colspan="5" class="td-dim" style="text-align:center;padding:24px">Ningún modelo con esa lectura</td></tr>';
+  const filasCorte = filasCorteDe(PLAN_LECT) || (pasados.length ? sinLect : '');
 
   // ── 5) A quién ofrecer primero ──
   const cliMap = {};
@@ -4586,15 +4624,13 @@ function pintarPlan() {
   }
   const yaP = P.clientes;
   const clientes = Object.values(cliMap).sort((a, b) => b.u - a.u);
+  const lugar = c => [c.ciudad, c.vendedor].filter(Boolean).join(' · ') || '—';   // va debajo del nombre, no en dos columnas más
   const filasCli = clientes.slice(0, 40).map((c, i) => `<tr>
-      <td class="td-dim">${i + 1}</td>
-      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
-      <td class="td-dim">${c.ciudad || '—'}</td>
-      <td class="td-dim">${c.vendedor || '—'}</td>
-      ${cmp.map(t => `<td class="r td-num td-dim">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
+      <td class="td-dim pl-sec">${i + 1}</td>
+      <td class="pl-wrap"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
+      ${cmp.map(t => `<td class="r td-num td-dim pl-sec">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
       <td class="r td-num" style="font-weight:700">${fmt(c.u)}</td>
-      <td>${c.mes1 ? '<span style="background:var(--ac10);color:var(--ac);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">compra al lanzamiento</span>' : ''}</td>
-      <td>${yaP.has(c.cli) ? '<span style="background:var(--ok10);color:var(--ok);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:10px">todavía no</span>'}</td>
+      <td class="pl-wrap">${yaP.has(c.cli) ? '<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
     </tr>`).join('');
   const yaPidieron = clientes.filter(c => yaP.has(c.cli)).length;
 
@@ -4603,24 +4639,24 @@ function pintarPlan() {
       <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
 
   // ── Lo que abre cada tarjeta: el número desarmado en lo que lo forma ──
-  const pctDim = (a, b) => ` <span class="td-dim" style="font-size:10px">(${planPct(a, b)}%)</span>`;
+  const pctDim = (a, b) => `<span class="pl-sub">${planPct(a, b)}%</span>`;   // debajo del número: en el teléfono no cabe al lado
   const DET = {
     unidades: [`Unidades por colección · ${sg}`, () => vTabla(
-      '<th>Colección</th><th>Lanzada</th><th class="r">Unidades</th><th class="r">Clientes</th><th class="r">Modelos</th><th class="r" title="De lo pedido, cuánto se alcanzó a despachar">Despachado</th>',
+      '<th>Colección</th><th class="pl-sec">Lanzada</th><th class="r">Unidades</th><th class="r">Clientes</th><th class="r pl-sec">Modelos</th><th class="r" title="De lo pedido, cuánto se alcanzó a despachar">Despachado</th>',
       C.map(T => `<tr>
         <td style="font-weight:600">T${T.t}</td>
-        <td class="td-dim">${planMesCorto(T.lanzo)}</td>
+        <td class="td-dim pl-sec">${planMesCorto(T.lanzo)}</td>
         <td class="r td-num">${fmt(T.total)}</td>
         <td class="r td-num">${fmt(T.clientes.size)}</td>
-        <td class="r td-num">${new Set(T.lineas.map(l => l.base)).size}</td>
+        <td class="r td-num pl-sec">${new Set(T.lineas.map(l => l.base)).size}</td>
         <td class="r td-num">${planPct(T.lineas.reduce((a, l) => a + l.desp, 0), T.total)}%</td></tr>`).join('')
-      + `<tr style="font-weight:700"><td>Promedio</td><td></td><td class="r td-num" style="color:var(--ac)">${fmt(promedio)}</td><td colspan="3"></td></tr>`,
+      + `<tr style="font-weight:700"><td>Promedio</td><td class="pl-sec"></td><td class="r td-num" style="color:var(--ac)">${fmt(promedio)}</td><td></td><td class="pl-sec"></td><td></td></tr>`,
       `Todo lo que se pidió de cada colección, de principio a fin. El promedio es la base de lo que se espera de la T${PLAN_TEMP}.`)],
 
     meses: [`Se vende en ${nomMes(0)} y ${nomMes(1)}`, () => vTabla(
       `<th>Colección</th><th class="r">${nomMes(0)}</th><th class="r">${nomMes(1)}</th><th class="r">Los dos</th>`,
       C.map((T, i) => `<tr>
-        <td style="font-weight:600">T${T.t} <span class="td-dim" style="font-weight:400;font-size:10px">${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[1])}</span></td>
+        <td style="font-weight:600">T${T.t}<span class="pl-sub">${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[1])}</span></td>
         <td class="r td-num">${fmt(curvas[i][0])}${pctDim(curvas[i][0], T.total)}</td>
         <td class="r td-num">${fmt(curvas[i][1])}${pctDim(curvas[i][1], T.total)}</td>
         <td class="r td-num" style="font-weight:700">${fmt(curvas[i][0] + curvas[i][1])}${pctDim(curvas[i][0] + curvas[i][1], T.total)}</td></tr>`).join('')
@@ -4658,12 +4694,10 @@ function pintarPlan() {
       P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
       const lista = [...clientes].sort((a, b) => (yaP.has(b.cli) - yaP.has(a.cli)) || (b.u - a.u));   // los que ya pidieron, primero
       return vTabla(
-        `<th>Cliente</th><th>Ciudad</th><th>Vendedor</th>${cmp.map(t => `<th class="r">T${t}</th>`).join('')}<th class="r">Total</th><th class="r">T${PLAN_TEMP}</th>`,
+        `<th>Cliente</th>${cmp.map(t => `<th class="r pl-sec">T${t}</th>`).join('')}<th class="r">Total</th><th class="r">T${PLAN_TEMP}</th>`,
         lista.map(c => `<tr>
-          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}</td>
-          <td class="td-dim">${c.ciudad || '—'}</td>
-          <td class="td-dim">${c.vendedor || '—'}</td>
-          ${cmp.map(t => `<td class="r td-num td-dim">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
+          <td class="pl-wrap">${c.nombre}<span class="pl-sub">${lugar(c)}</span></td>
+          ${cmp.map(t => `<td class="r td-num td-dim pl-sec">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
           <td class="r td-num" style="font-weight:700">${fmt(c.u)}</td>
           <td class="r td-num">${yaP.has(c.cli) ? `<span style="font-weight:700;color:var(--ok)">${fmt(uP[c.cli] || 0)}</span>` : '<span class="td-dim">—</span>'}</td></tr>`).join(''),
         `${fmt(clientes.length)} clientes pidieron de ${sg} · ${yaPidieron} ya pidieron la T${PLAN_TEMP} y van primero`);
@@ -4681,16 +4715,14 @@ function pintarPlan() {
       const filas = Object.values(m).sort((a, b) => b.u - a.u);
       const nPed = new Set(P.lineas.map(l => l.ped).filter(Boolean)).size;
       return vTabla(
-        '<th>Cliente</th><th>Ciudad</th><th>Vendedor</th><th>Desde</th><th class="r">Pedidos</th><th>Modelos</th><th class="r">Unidades</th>',
+        '<th>Cliente</th><th class="pl-sec">Desde</th><th class="r pl-sec">Pedidos</th><th>Modelos</th><th class="r">Unidades</th>',
         filas.map(r => {
           const mods = [...r.mods].sort().join(', ');
           return `<tr>
-          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${r.nombre}</td>
-          <td class="td-dim">${r.ciudad || '—'}</td>
-          <td class="td-dim">${r.vendedor || '—'}</td>
-          <td class="td-dim" style="white-space:nowrap">${r.desde.slice(8, 10)}/${r.desde.slice(5, 7)}</td>
-          <td class="r td-num">${r.peds.size || '—'}</td>
-          <td class="td-dim" style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${mods}">${mods}</td>
+          <td class="pl-wrap">${r.nombre}<span class="pl-sub">${lugar(r)}</span></td>
+          <td class="td-dim pl-sec">${r.desde.slice(8, 10)}/${r.desde.slice(5, 7)}</td>
+          <td class="r td-num pl-sec">${r.peds.size || '—'}</td>
+          <td class="td-dim pl-wrap" style="font-size:11px">${mods}</td>
           <td class="r td-num" style="font-weight:700">${fmt(r.u)}</td></tr>`;
         }).join(''),
         `${fmt(P.total)} unidades en ${nPed} pedido${nPed === 1 ? '' : 's'} de ${filas.length} cliente${filas.length === 1 ? '' : 's'}${P.lanzo ? ' · desde ' + planMesCorto(P.lanzo) : ''}`);
@@ -4712,17 +4744,17 @@ function pintarPlan() {
         <div class="card-sub" style="margin:2px 0 0">Los mismos meses del calendario en cada comparable, el promedio, y lo que la T${PLAN_TEMP} tendría que traer cada mes si se parece a ellas</div></div>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th>Mes</th>${C.map(T => `<th class="r">T${T.t} <span class="td-dim" style="font-weight:400">${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[K - 1])}</span></th>`).join('')}<th class="r">Promedio</th><th class="r" style="color:var(--ac)">T${PLAN_TEMP} esperado</th><th class="r">T${PLAN_TEMP} real</th></tr></thead>
+      <thead><tr><th>Mes</th>${C.map(T => `<th class="r pl-sec">T${T.t}<span class="pl-sub">${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[K - 1])}</span></th>`).join('')}<th class="r pl-sec">Promedio</th><th class="r" style="color:var(--ac)">T${PLAN_TEMP} esperado</th><th class="r">T${PLAN_TEMP} real</th></tr></thead>
       <tbody class="tbl-compacta">${filasCurva}</tbody>
     </table>
     <div class="tbl-foot">El esperado reparte ${fmt(promedio)} unidades —el promedio de ${sg}— con el peso que tuvo cada uno de estos meses en ellas. En estos seis meses se vendió ${C.map((T, i) => `el ${Math.round(curvas[i].reduce((a, u) => a + u, 0) / Math.max(1, T.total) * 100)}% de la T${T.t}`).join(' y ')}; el resto fue antes o después. Es una referencia, no una meta.</div></div>
   </div>
 
-  <div class="chart-row" style="margin-top:14px">${tablaTipo('bota', 'Por bota')}${tablaTipo('tiro', 'Por tiro')}</div>
+  <div class="chart-row" style="margin-top:14px">${tablaTipo('bota', 'Qué se vendió más · por bota')}${tablaTipo('tiro', 'Qué se vendió más · por tiro')}</div>
 
   <div class="tbl-card" style="margin-top:14px;padding:16px 18px">
     <div class="card-ttl" style="margin:0">Con qué partir</div>
-    <div class="card-sub" style="margin:2px 0 12px">Lo que salió en ${nomMes(0)} en ${sg}: ${fmt(uMes1)} unidades</div>
+    <div class="card-sub" style="margin:2px 0 12px">Lo que salió en ${nomMes(0)} en ${sg}: ${fmt(uMes1)} unidades. Toca una para ver sus modelos</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <span class="flbl" style="margin-right:4px">Botas</span>${partirBota.map(r => chip(r.k, planPct(r.u, uMes1), 'bota')).join('')}
       <span class="flbl" style="margin:0 4px 0 14px">Tiro</span>${partirTiro.map(r => chip(r.k, planPct(r.u, uMes1), 'tiro')).join('')}
@@ -4732,12 +4764,14 @@ function pintarPlan() {
   <div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div><div class="card-ttl" style="margin:0">Qué cortar y qué no · lo que pasó en ${sgCorte || sg}</div>
-        <div class="card-sub" style="margin:2px 0 0">Cada modelo de las colecciones pasadas: cuánto se cortó y cuánto se vendió. Si se cortaron 1.400 y se vendieron 1.400, se cortó bien</div></div>
-      <span class="td-dim" style="margin-left:auto">${pasados.length} modelos · ${cuenta('Cortar con confianza')} con confianza · ${cuenta('Con cuidado')} con cuidado · ${cuenta('Revisar antes de cortar')} a revisar</span>
+        <div class="card-sub" style="margin:2px 0 0">Cada modelo de las colecciones pasadas, el más vendido arriba: cuánto se cortó y cuánto se vendió. Si se cortaron 1.400 y se vendieron 1.400, se cortó bien</div></div>
+      <div class="segs" id="planLectSegs" style="margin-left:auto">${[['', 'Todos', pasados.length, ''], ['conf', 'Con confianza', cuenta(LECT.conf), 'var(--ok)'],
+          ['cuid', 'Con cuidado', cuenta(LECT.cuid), 'var(--wa)'], ['rev', 'A revisar', cuenta(LECT.rev), 'var(--er)']]
+        .map(([k, txt, n, col]) => `<button class="seg${PLAN_LECT === k ? ' on' : ''}" data-f="${k}">${col ? `<i class="pl-dot" style="background:${col}"></i>` : ''}${txt} <span style="opacity:.7">${n}</span></button>`).join('')}</div>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th>Modelo</th><th>Bota · tiro</th><th class="r">Cortado</th><th class="r">Vendido</th><th class="r" title="De lo que se cortó, cuánto se vendió">Vendido / cortado</th><th>Lectura</th></tr></thead>
-      <tbody class="tbl-compacta">${filasCorte || `<tr><td colspan="6" class="td-dim" style="text-align:center;padding:24px">${conCorte.length ? 'Sin modelos cortados en estas comparables' : 'Ninguna de estas comparables tiene registro de corte (parte en la T38): suma una más nueva arriba'}</td></tr>`}</tbody>
+      <thead><tr><th>Modelo · bota y tiro</th><th class="r">Cortado</th><th class="r">Vendido</th><th class="r" title="De lo que se cortó, cuánto se vendió">Vendido / cortado</th><th class="pl-sec">Lectura</th></tr></thead>
+      <tbody class="tbl-compacta" id="planCorteBody">${filasCorte || `<tr><td colspan="5" class="td-dim" style="text-align:center;padding:24px">${conCorte.length ? 'Sin modelos cortados en estas comparables' : 'Ninguna de estas comparables tiene registro de corte (parte en la T38): suma una más nueva arriba'}</td></tr>`}</tbody>
     </table>
     <div class="tbl-foot">Cortar con confianza: se vendió el 90% o más de lo cortado. Con cuidado: entre 75% y 90%. Revisar antes de cortar: menos del 75%, se cortó de más. Vendido es lo que pidieron los clientes; sobre 100% es que se pidió más de lo que se cortó.${notaFuera}${sinCorte.length && conCorte.length ? ` La ${sinCorte.map(T => 'T' + T.t).join(' y la ')} no aparece porque no tiene registro de corte.` : ''}</div></div>
   </div>
@@ -4750,7 +4784,7 @@ function pintarPlan() {
       <button class="seg" id="planCliPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th>#</th><th>Cliente</th><th>Ciudad</th><th>Vendedor</th>${cmp.map(t => `<th class="r">T${t}</th>`).join('')}<th class="r">Total</th><th></th><th></th></tr></thead>
+      <thead><tr><th class="pl-sec">#</th><th>Cliente</th>${cmp.map(t => `<th class="r pl-sec">T${t}</th>`).join('')}<th class="r">Total</th><th>T${PLAN_TEMP}</th></tr></thead>
       <tbody class="tbl-compacta">${filasCli}</tbody>
     </table>
     <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP} · "compra al lanzamiento" = pidió en el primer mes de alguna comparable</div></div>
@@ -4758,7 +4792,7 @@ function pintarPlan() {
 
   const abrirDet = (ttl, html) => {
     document.getElementById('vkOvTtl').textContent = ttl;
-    document.getElementById('vkOvBody').innerHTML = html;
+    document.getElementById('vkOvBody').innerHTML = `<div class="pl">${html}</div>`;
     document.getElementById('vkOv').classList.add('open');
   };
   cuerpo.querySelectorAll('.kpi[data-pldet]').forEach(c => c.addEventListener('click', () => {
@@ -4769,6 +4803,13 @@ function pintarPlan() {
     abrirDet(`${el.dataset.k} · ${sg}`, detGrupo(el.dataset.pgrupo, el.dataset.k, false))));
   cuerpo.querySelectorAll('[data-pmes]').forEach(el => el.addEventListener('click', () =>
     abrirDet(`${el.dataset.k} en ${nomMes(0)} · ${sg}`, detGrupo(el.dataset.pmes, el.dataset.k, true))));
+  const botonesLect = cuerpo.querySelectorAll('#planLectSegs .seg');
+  botonesLect.forEach(b => b.addEventListener('click', () => {
+    PLAN_LECT = b.dataset.f;
+    botonesLect.forEach(x => x.classList.toggle('on', x === b));
+    const tb = document.getElementById('planCorteBody');
+    if (tb && pasados.length) tb.innerHTML = filasCorteDe(PLAN_LECT) || sinLect;
+  }));
 
   document.getElementById('planCliPrint')?.addEventListener('click', () => printTable({
     table: document.getElementById('planCliFoot')?.closest('.tbl-scroll')?.querySelector('table'),
@@ -4800,7 +4841,7 @@ async function secPlan() {
     <span class="td-dim" style="font-size:11px">Por defecto, la colección que se lanzó más cerca de estas fechas en cada uno de los dos años anteriores. Toca para cambiar.</span>
     </div>
   </div>
-  <div id="planBody" style="margin-top:14px"></div>`;
+  <div id="planBody" class="pl" style="margin-top:14px"></div>`;
 }
 
 async function secProy() {
