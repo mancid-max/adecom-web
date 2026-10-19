@@ -4478,7 +4478,7 @@ function pintarPlan() {
       <div class="tbl-head"><div class="card-ttl" style="margin:0">${titulo}</div><span class="td-dim" style="margin-left:auto">${sg}</span></div>
       <div class="tbl-scroll"><table>
         <thead><tr><th>${titulo.split(' ')[1] === 'bota' ? 'Bota' : 'Tiro'}</th><th class="r">Pedido</th><th>Participación</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th></tr></thead>
-        <tbody class="tbl-compacta">${filas.map(r => `<tr>
+        <tbody class="tbl-compacta">${filas.map(r => `<tr data-pgrupo="${campo}" data-k="${r.k}" style="cursor:pointer" title="Toca para ver los modelos">
           <td style="font-weight:600">${r.k}</td>
           <td class="r td-num">${fmt(r.u)}</td>
           <td><div style="display:flex;align-items:center;gap:8px"><div class="pbar" style="width:80px;flex-shrink:0"><div class="pbar-fill" style="width:${Math.min(100, r.u / tot * 100 * 2).toFixed(1)}%"></div></div><span class="td-dim">${planPct(r.u, tot)}%</span></div></td>
@@ -4492,7 +4492,41 @@ function pintarPlan() {
   const mes1 = C.flatMap(T => T.lineas.filter(l => l.mes === mesesDe(T)[0]));
   const uMes1 = mes1.reduce((a, l) => a + l.u, 0);
   const partirBota = planAgrupa(mes1, 'bota').slice(0, 5), partirTiro = planAgrupa(mes1, 'tiro').slice(0, 3);
-  const chip = (txt, pct) => `<span style="background:var(--ac10);color:var(--ac);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700;white-space:nowrap">${txt} <span style="opacity:.75">${pct}%</span></span>`;
+  const chip = (txt, pct, campo) => `<span data-pmes="${campo}" data-k="${txt}" role="button" title="Toca para ver los modelos" style="cursor:pointer;background:var(--ac10);color:var(--ac);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700;white-space:nowrap">${txt} <span style="opacity:.75">${pct}%</span></span>`;
+
+  // Lo que abre una fila de "Por bota" / "Por tiro" o una etiqueta de "Con qué partir": los modelos que la forman
+  const stockModelo = base => (attr[base.slice(0, 2) + '|' + base] || {}).stock || 0;
+  const detGrupo = (campo, k, enMes) => {
+    const otro = campo === 'bota' ? 'tiro' : 'bota', otroTh = otro === 'bota' ? 'Bota' : 'Tiro';
+    const m = {};
+    for (const l of enMes ? mes1 : todas) {
+      if ((l[campo] || 'Sin clasificar') !== k) continue;
+      const r = m[l.base] = m[l.base] || { base: l.base, otro: l[otro] || '', u: 0, desp: 0 };
+      r.u += l.u; r.desp += l.desp;
+    }
+    if (!enMes) for (const [key, v] of Object.entries(attr)) {   // lo que quedó en bodega sin pedidos también está en el stock de la fila
+      const [t, base] = key.split('|');
+      if (cmp.includes(t) && (v[campo] || 'Sin clasificar') === k && !m[base]) m[base] = { base, otro: v[otro] || '', u: 0, desp: 0 };
+    }
+    const filas = Object.values(m).sort((a, b) => (b.u - a.u) || (stockModelo(b.base) - stockModelo(a.base)));
+    const u = filas.reduce((a, r) => a + r.u, 0), desp = filas.reduce((a, r) => a + r.desp, 0);
+    if (enMes) return vTabla(
+      `<th>Modelo</th><th>${otroTh}</th><th class="r">Unidades</th><th class="r" title="Del total que se pidió ese mes">Del mes</th>`,
+      filas.map(r => `<tr><td><span class="td-code">${r.base}</span></td><td class="td-dim">${r.otro || '—'}</td>
+        <td class="r td-num">${fmt(r.u)}</td><td class="r td-num td-dim">${planPct(r.u, uMes1)}%</td></tr>`).join('')
+      + `<tr style="font-weight:700"><td colspan="2">Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(u, uMes1)}%</td></tr>`,
+      `Lo que se pidió de ${k} en ${nomMes(0)} en ${sg}: ${fmt(u)} de ${fmt(uMes1)} unidades.`);
+    const stock = filas.reduce((a, r) => a + stockModelo(r.base), 0);
+    const porT = C.map(T => `T${T.t}: ${fmt(filas.filter(r => r.base.slice(0, 2) === T.t).reduce((a, r) => a + r.u, 0))}`).join(' · ');
+    return vTabla(
+      `<th>Modelo</th><th>${otroTh}</th><th class="r">Pedido</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th>`,
+      filas.map(r => `<tr><td><span class="td-code">${r.base}</span></td><td class="td-dim">${r.otro || '—'}</td>
+        <td class="r td-num">${r.u ? fmt(r.u) : '—'}</td>
+        <td class="r td-num" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${r.u ? planPct(r.desp, r.u) + '%' : '—'}</td>
+        <td class="r td-num td-dim">${fmt(stockModelo(r.base))}</td></tr>`).join('')
+      + `<tr style="font-weight:700"><td colspan="2">Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(desp, u)}%</td><td class="r td-num">${fmt(stock)}</td></tr>`,
+      `${fmt(u)} unidades pedidas de ${k} en ${sg}${C.length > 1 ? ` (${porT})` : ''}. Se despachó el ${planPct(desp, u)}% y quedan ${fmt(stock)} en bodega.`);
+  };
 
   // ── 4) Qué cortar: lo que pasó con cada modelo de las colecciones pasadas ──
   /* La lectura de siempre en la fábrica: de lo que se cortó, cuánto se vendió. Si del 4100
@@ -4690,8 +4724,8 @@ function pintarPlan() {
     <div class="card-ttl" style="margin:0">Con qué partir</div>
     <div class="card-sub" style="margin:2px 0 12px">Lo que salió en ${nomMes(0)} en ${sg}: ${fmt(uMes1)} unidades</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <span class="flbl" style="margin-right:4px">Botas</span>${partirBota.map(r => chip(r.k, planPct(r.u, uMes1))).join('')}
-      <span class="flbl" style="margin:0 4px 0 14px">Tiro</span>${partirTiro.map(r => chip(r.k, planPct(r.u, uMes1))).join('')}
+      <span class="flbl" style="margin-right:4px">Botas</span>${partirBota.map(r => chip(r.k, planPct(r.u, uMes1), 'bota')).join('')}
+      <span class="flbl" style="margin:0 4px 0 14px">Tiro</span>${partirTiro.map(r => chip(r.k, planPct(r.u, uMes1), 'tiro')).join('')}
     </div>
   </div>
 
@@ -4731,6 +4765,10 @@ function pintarPlan() {
     const [ttl, armar] = DET[c.dataset.pldet] || [];
     if (armar) abrirDet(ttl, armar());
   }));
+  cuerpo.querySelectorAll('[data-pgrupo]').forEach(el => el.addEventListener('click', () =>
+    abrirDet(`${el.dataset.k} · ${sg}`, detGrupo(el.dataset.pgrupo, el.dataset.k, false))));
+  cuerpo.querySelectorAll('[data-pmes]').forEach(el => el.addEventListener('click', () =>
+    abrirDet(`${el.dataset.k} en ${nomMes(0)} · ${sg}`, detGrupo(el.dataset.pmes, el.dataset.k, true))));
 
   document.getElementById('planCliPrint')?.addEventListener('click', () => printTable({
     table: document.getElementById('planCliFoot')?.closest('.tbl-scroll')?.querySelector('table'),
