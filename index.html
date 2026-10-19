@@ -197,12 +197,13 @@ body.ia-open #iaBtn{display:none}
 /* Lo lee el jefe para decidir qué vender: ninguna tabla se corre a la derecha. Aquí las
    celdas y los títulos de columna pueden partir línea (en el resto del sitio no), lo que
    acompaña a un dato va debajo de él (.pl-sub) en vez de en otra columna, y lo secundario
-   se esconde en el teléfono (.pl-sec). Solo las filas por bota y por tiro se abren. */
+   se esconde en el teléfono (.pl-sec). Solo se abren las filas por bota y por tiro y las de
+   clientes. */
 .pl thead th{white-space:normal;padding:9px 10px;vertical-align:bottom;line-height:1.25}
 .pl thead th .pl-sub{text-transform:none;letter-spacing:0;font-weight:400}
 .pl tbody td{padding:8px 10px}
-.pl tbody tr:not([data-pgrupo]){cursor:default}
-.pl tbody tr:not([data-pgrupo]):hover{background:transparent}
+.pl tbody tr:not([data-pgrupo]):not([data-pcli]){cursor:default}
+.pl tbody tr:not([data-pgrupo]):not([data-pcli]):hover{background:transparent}
 .pl .pl-wrap{white-space:normal}
 .pl .pl-sub{display:block;font-size:11px;font-weight:400;color:var(--tx3);margin-top:2px;white-space:normal}
 .pl .pl-bar{height:4px;background:var(--bd);border-radius:2px;margin-top:6px;max-width:180px}
@@ -4691,13 +4692,6 @@ function pintarPlan() {
   const yaP = P.clientes;
   const clientes = Object.values(cliMap).sort((a, b) => b.u - a.u);
   const lugar = c => [c.ciudad, c.vendedor].filter(Boolean).join(' · ') || '—';   // va debajo del nombre, no en dos columnas más
-  const filasCli = clientes.slice(0, 40).map((c, i) => `<tr>
-      <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
-      <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
-      ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
-      <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
-      <td class="pl-wrap" data-v="${(yaP.has(c.cli) ? 2 : 0) + (c.mes1 ? 1 : 0)}">${yaP.has(c.cli) ? '<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
-    </tr>`).join('');
   const yaPidieron = clientes.filter(c => yaP.has(c.cli)).length;
 
   // ── 6) Estrategia: qué hacer ahora, armada con los datos del día ──
@@ -4816,6 +4810,67 @@ function pintarPlan() {
     </div>`).join('')}
   </div>`;
 
+  // ── 7) Qué ofrecerle a cada cliente ──
+  /* Las botas que más compra cada cliente (en las comparables y en la colección anterior) y los
+     modelos de la nueva de esas botas. De cada modelo se dice si está entre los más pedidos de la
+     nueva, si su bota vale la pena cortarla (lo cortado y lo vendido en la anterior) y si ya hay
+     cortado. Un modelo de la nueva sin pedidos todavía no tiene bota en el ERP (sale del pedido),
+     así que no se puede sugerir por gusto: esos están en "Producción", para ofrecerlos a todos. */
+  const histCols = [...new Set([...C, ...(prev ? [prev] : [])])];
+  const mixCli = {};
+  for (const T of histCols) for (const l of T.lineas) {
+    if (!l.bota) continue;
+    const m = mixCli[l.cli] = mixCli[l.cli] || { tot: 0, b: {} };
+    m.tot += l.u; m.b[l.bota] = (m.b[l.bota] || 0) + l.u;
+  }
+  const topNueva = new Set(Object.entries(pedidoP).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([m]) => m));
+  const CORTAR = { emp: ['Vale la pena', 'var(--ok)', 'var(--ok10)'], cuid: ['Con cuidado', 'var(--wa)', 'var(--wa10)'], rev: ['Revisar', 'var(--er)', 'var(--er10)'], '': ['Sin historia', 'var(--tx3)', 'var(--sf2)'] };
+  const RANGO = { emp: 0, cuid: 1, '': 2, rev: 3 };
+  const disponible = m => { const b = (cat[PLAN_TEMP] || {})[m] || {}; return b.cort >= 20 ? `Cortado · ${fmt(b.cort)}` : b.prog ? 'Programado' : 'Sin programar'; };
+  const pidioP = {};
+  P.lineas.forEach(l => { const x = pidioP[l.cli] = pidioP[l.cli] || {}; x[l.base] = (x[l.base] || 0) + l.u; });
+  const ofrecerA = cli => {
+    const mix = mixCli[cli], ya = pidioP[cli] || {};
+    if (!mix || !mix.tot) return { botas: [], modelos: [], ya };
+    const botas = Object.entries(mix.b).map(([k, u]) => ({ k, pct: Math.round(u / mix.tot * 100) }))
+      .filter(x => x.pct >= 10).sort((a, b) => b.pct - a.pct).slice(0, 4);
+    /* Un modelo por bota, en el orden de lo que más compra, y después un segundo por bota si
+       queda lugar: si no, tres Flare le quitan el puesto al Oxford que también compra. Dentro de
+       cada bota va primero el que está entre los más pedidos, después el que ya está cortado. */
+    const dispRango = m => { const b = (cat[PLAN_TEMP] || {})[m] || {}; return b.cort >= 20 ? 0 : b.prog ? 1 : 2; };
+    const porBota = botas.map(x => modelosNueva.filter(m => !ya[m] && botaDe(m) === x.k)
+      .map(m => ({ m, bota: x.k, pct: x.pct, g: grupoBota(x.k), top: topNueva.has(m), ped: pedidoP[m] || 0, disp: dispRango(m) }))
+      .sort((a, b) => (b.top - a.top) || (a.disp - b.disp) || (b.ped - a.ped)));
+    const modelos = [];
+    for (let vuelta = 0; vuelta < 2; vuelta++) for (const ms of porBota) if (ms[vuelta] && modelos.length < 4) modelos.push(ms[vuelta]);
+    return { botas, modelos, ya };
+  };
+  const tagsOfrecer = c => ofrecerA(c.cli).modelos.slice(0, 3).map(x => `<span class="pl-tag" style="background:var(--sf2);color:var(--tx1)" title="${x.bota}">${x.m}</span>`).join(' ') || '<span class="td-dim">—</span>';
+  const detCliente = c => {
+    const o = ofrecerA(c.cli), ya = Object.entries(o.ya).sort((a, b) => b[1] - a[1]);
+    const cab = `<div style="padding:14px 16px 6px;font-size:13px;line-height:1.5">${o.botas.length ? `Compra sobre todo <b>${lista(o.botas.map(x => `${x.k} (${x.pct}%)`))}</b>` : 'Lo que compró no tiene bota registrada'}, mirando ${lista(histCols.map(T => 'T' + T.t))}.`
+      + (ya.length ? `<br>Ya pidió de la T${PLAN_TEMP}: ${ya.map(([m, u]) => `${m} (${fmt(u)})`).join(', ')}.` : '') + '</div>';
+    if (!o.modelos.length) return cab + `<div class="td-dim" style="padding:12px 16px 22px">La T${PLAN_TEMP} todavía no tiene otros modelos de esas botas con pedidos o en producción.</div>`;
+    return cab + vTabla(
+      `<th data-ord="t">Ofrecer</th><th class="r" data-ord="n" title="Cuánto de lo que compra este cliente es de esa bota">Su compra</th><th data-ord="n" title="Entre los 5 más pedidos de la T${PLAN_TEMP}">Top</th><th data-ord="n" title="Según lo cortado y lo vendido de esa bota en la T${prev ? prev.t : ''}">¿Cortar?</th><th class="pl-sec" data-ord="t">Disponible</th>`,
+      o.modelos.map(x => { const k = CORTAR[x.g]; return `<tr>
+        <td data-v="${x.m}">${celdaModelo(x.m, x.bota)}</td>
+        <td class="r td-num" data-v="${x.pct}">${x.pct}%</td>
+        <td data-v="${x.top ? 1 : 0}">${x.top ? '<span class="pl-tag" style="background:var(--ac10);color:var(--ac)">Top</span>' : '<span class="td-dim">—</span>'}</td>
+        <td data-v="${3 - RANGO[x.g]}"><span class="pl-tag" style="background:${k[2]};color:${k[1]}">${k[0]}</span></td>
+        <td class="td-dim pl-sec" data-v="${disponible(x.m)}">${disponible(x.m)}</td></tr>`; }).join(''),
+      `Modelos de la T${PLAN_TEMP} de las botas que más compra. Top: entre los 5 más pedidos de la T${PLAN_TEMP}. ¿Cortar?: de esa bota, en la T${prev ? prev.t : ''} se vendió el 90% o más de lo cortado (vale la pena), entre 75 y 90 (con cuidado) o menos (revisar). Los modelos sin pedidos todavía no tienen bota y no aparecen aquí.`);
+  };
+
+  const filasCli = clientes.slice(0, 40).map((c, i) => `<tr data-pcli="${i}" title="Toca para ver qué ofrecerle">
+      <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
+      <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
+      ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
+      <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
+      <td class="pl-wrap pl-sec" data-v="${(yaP.has(c.cli) ? 2 : 0) + (c.mes1 ? 1 : 0)}">${yaP.has(c.cli) ? '<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
+      <td class="pl-wrap">${tagsOfrecer(c)}</td>
+    </tr>`).join('');
+
   const tarjeta = (val, lbl, sub, det) => `<div class="kpi" data-pldet="${det}">
     <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
       <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
@@ -4871,12 +4926,13 @@ function pintarPlan() {
       P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
       const lista = [...clientes].sort((a, b) => (yaP.has(b.cli) - yaP.has(a.cli)) || (b.u - a.u));   // los que ya pidieron, primero
       return vTabla(
-        `<th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="r" data-ord="n">T${PLAN_TEMP}</th>`,
+        `<th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="r" data-ord="n">T${PLAN_TEMP}</th><th class="pl-sec">Ofrecer</th>`,
         lista.map(c => `<tr>
           <td class="pl-wrap" data-v="${dv(c.nombre)}">${c.nombre}<span class="pl-sub">${lugar(c)}</span></td>
           ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
           <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
-          <td class="r td-num" data-v="${yaP.has(c.cli) ? uP[c.cli] || 0 : ''}">${yaP.has(c.cli) ? `<span style="font-weight:700;color:var(--ok)">${fmt(uP[c.cli] || 0)}</span>` : '<span class="td-dim">—</span>'}</td></tr>`).join(''),
+          <td class="r td-num" data-v="${yaP.has(c.cli) ? uP[c.cli] || 0 : ''}">${yaP.has(c.cli) ? `<span style="font-weight:700;color:var(--ok)">${fmt(uP[c.cli] || 0)}</span>` : '<span class="td-dim">—</span>'}</td>
+          <td class="pl-wrap pl-sec">${tagsOfrecer(c)}</td></tr>`).join(''),
         `${fmt(clientes.length)} clientes pidieron de ${sg} · ${yaPidieron} ya pidieron la T${PLAN_TEMP} y van primero`);
     }],
 
@@ -4953,9 +5009,16 @@ function pintarPlan() {
 
     const uP = {};
     P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
-    agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', ...cmp.map(t => `T${t}`), 'Total', `Pedido T${PLAN_TEMP}`, 'Compra al lanzamiento'],
-      ...clientes.map(c => [c.nombre, c.ciudad || '', c.vendedor || '', ...cmp.map(t => c.por[t] ? n(c.por[t]) : ''), n(c.u), yaP.has(c.cli) ? n(uP[c.cli]) : '', c.mes1 ? 'Sí' : ''])],
-      [40, 16, 22, ...cmp.map(() => 10), 10, 14, 20]), 'Clientes');
+    agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', ...cmp.map(t => `T${t}`), 'Total', `Pedido T${PLAN_TEMP}`, 'Compra al lanzamiento', `Ofrecer (modelos T${PLAN_TEMP})`],
+      ...clientes.map(c => [c.nombre, c.ciudad || '', c.vendedor || '', ...cmp.map(t => c.por[t] ? n(c.por[t]) : ''), n(c.u), yaP.has(c.cli) ? n(uP[c.cli]) : '', c.mes1 ? 'Sí' : '',
+                            ofrecerA(c.cli).modelos.map(x => `${x.m} ${x.bota}`).join(', ')])],
+      [40, 16, 22, ...cmp.map(() => 10), 10, 14, 20, 40]), 'Clientes');
+
+    agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', `Compró en ${histCols.map(T => 'T' + T.t).join(', ')}`, `Ya pidió T${PLAN_TEMP}`, 'Ofrecer modelo', 'Bota', '% de su compra en esa bota', `Top de la T${PLAN_TEMP}`, '¿Vale la pena cortar?', 'Disponible'],
+      ...clientes.flatMap(c => { const o = ofrecerA(c.cli), base = [c.nombre, c.ciudad || '', c.vendedor || '', n(mixCli[c.cli]?.tot), Object.keys(o.ya).join(', ')];
+        return o.modelos.length ? o.modelos.map(x => [...base, x.m, x.bota, pc(x.pct), x.top ? 'Sí' : '', CORTAR[x.g][0], disponible(x.m)])
+                                : [[...base, '', o.botas.map(x => x.k).join(', '), '', '', '', 'Sin modelos de sus botas en la T' + PLAN_TEMP]]; })],
+      [40, 16, 22, 14, 16, 14, 14, 14, 12, 18, 26]), 'Qué ofrecer');
 
     agrega(hoja([['Vendedor', ...(prev ? [`T${prev.t}`, `% de la T${prev.t}`] : []), `T${PLAN_TEMP}`],
       ...[...new Set([...Object.keys(vPrev), ...Object.keys(vNueva)])].sort((a, b) => (vPrev[b] || 0) - (vPrev[a] || 0))
@@ -5027,12 +5090,12 @@ function pintarPlan() {
   <div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div><div class="card-ttl" style="margin:0">A quién ofrecer primero</div>
-        <div class="card-sub" style="margin:2px 0 0">Los que más compraron de ${sg}, y si ya pidieron la T${PLAN_TEMP}</div></div>
+        <div class="card-sub" style="margin:2px 0 0">Los que más compraron de ${sg}, si ya pidieron la T${PLAN_TEMP} y qué ofrecerles. Toca un cliente para ver el detalle</div></div>
       <span class="td-dim" style="margin-left:auto">${clientes.length > 40 ? 'los 40 primeros de ' : ''}${fmt(clientes.length)} clientes</span>
       <button class="seg" id="planCliPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th data-ord="n" title="Primero los que ya pidieron">T${PLAN_TEMP}</th></tr></thead>
+      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="pl-sec" data-ord="n" title="Primero los que ya pidieron">T${PLAN_TEMP}</th><th title="Modelos de la T${PLAN_TEMP} de las botas que más compra">Ofrecer</th></tr></thead>
       <tbody class="tbl-compacta">${filasCli}</tbody>
     </table>
     <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP} · "compra al lanzamiento" = pidió en el primer mes de alguna comparable</div></div>
@@ -5048,6 +5111,10 @@ function pintarPlan() {
   const DET_ACC = { ritmo: DET.esperar, cli: DET.clientes, vend: [`Vendedores · T${prev ? prev.t + ' y T' : ''}${PLAN_TEMP}`, detVend],
                     vender: prev ? [`Qué vender · según la T${prev.t}`, detVender] : null, prod: [`Producción · T${PLAN_TEMP}`, detProd] };
   document.getElementById('planExcel')?.addEventListener('click', descargarPlan);
+  cuerpo.querySelectorAll('tr[data-pcli]').forEach(tr => tr.addEventListener('click', () => {
+    const c = clientes[+tr.dataset.pcli];
+    if (c) abrirDet(`${c.nombre} · qué ofrecerle`, detCliente(c));
+  }));
   cuerpo.querySelectorAll('.pl-acc[data-pacc]').forEach(el => el.addEventListener('click', () => {
     const [ttl, armar] = DET_ACC[el.dataset.pacc] || [];
     if (armar) abrirDet(ttl, armar());
