@@ -3003,7 +3003,7 @@ function mtDiario(f, jor) {
           <th class="r" title="Hecho menos la meta del día">Dif</th>
           <th class="r">Acumulado</th>
           <th class="r">Meta acum.</th>
-          <th>Estado</th>
+          <th title="Compara lo acumulado hasta ese día con la meta acumulada. Un buen día suelto no alcanza si los anteriores quedaron cortos">Acumulado vs meta</th>
         </tr></thead>
         <tbody class="tbl-compacta">${cuerpo}</tbody>
       </table>
@@ -6019,7 +6019,7 @@ function bindContent(secId) {
         // Unidades por artículo que ya están en cajas armadas (en bodega) de este pedido
         const enCaja = {};
         cj.filter(c => c.estado === 'bodega').forEach(c => { const full = cajaFull(c.caja); (full?.lineas || []).forEach(l => enCaja[l.art] = (enCaja[l.art] || 0) + l.cant); });
-        const rowsHtml = lineas44.map(l => {
+        const filasDet = lineas44.map(l => {
           const clr = l.sal > 0 ? 'var(--wa)' : 'var(--ok)';
           const ec = enCaja[l.art] || 0;
           const falta = Math.max(0, l.sal - ec);          // pendiente que NO está en caja
@@ -6038,7 +6038,19 @@ function bindContent(secId) {
           const estado = l.sal <= 0 ? '<span style="color:var(--ok);font-size:10px;font-weight:700">✓ Completo</span>'
                        : ec >= l.sal ? '<span style="color:var(--ac);font-size:10px;font-weight:700">📦 Listo en caja</span>'
                        : [ec > 0 ? `<span style="color:var(--ac);font-size:10px">📦 En caja parcial · faltan ${fmt(falta)}</span>` : '', prodTag].filter(Boolean).join('<br>');
-          return `<tr>
+          /* El orden de la ventana: primero lo que ya tiene caja, despues lo que esta en
+             bodega listo para encajar, luego lo que viene de produccion de la etapa mas
+             avanzada a la menos, al final de ese grupo lo que no tiene produccion, y abajo
+             del todo lo que ya se completo. Es el orden en que uno lo atacaria. */
+          const k = l.sal <= 0 ? 30
+                  : ec >= l.sal ? 0
+                  : ec > 0 ? 1
+                  : disp >= falta ? 2
+                  : disp > 0 ? 3
+                  : pr?.term > 0 ? 4
+                  : pr ? 10 - (ETAPA_RANK[pr.top] ?? 0)
+                  : 20;
+          const html = `<tr>
             <td class="td-code" style="padding:8px 12px">${l.art}</td>
             <td class="td-dim" style="padding:8px 8px">${l.modelo}</td>
             <td class="td-dim" style="padding:8px 8px">${l.color}</td>
@@ -6047,7 +6059,11 @@ function bindContent(secId) {
             <td class="r td-num" style="padding:8px 12px;color:${l.sal < 0 ? 'var(--ac)' : clr}">${l.sal !== 0 ? fmt(l.sal) : '—'}</td>
             <td style="padding:8px 12px">${estado}</td>
           </tr>`;
-        }).join('');
+          return { k, sal: l.sal, art: l.art, html };
+        });
+        const rowsHtml = filasDet
+          .sort((a, b) => a.k - b.k || b.sal - a.sal || a.art.localeCompare(b.art))
+          .map(f => f.html).join('');
         return infoHtml + `
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="background:var(--sf2)">
