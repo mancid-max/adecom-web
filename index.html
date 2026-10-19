@@ -213,6 +213,9 @@ body.ia-open #iaBtn{display:none}
 .pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
+.pl th[data-ord]{cursor:pointer;user-select:none}
+.pl th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
+.pl th .si{color:var(--ac);white-space:nowrap}
 .pl .pl-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
 @media(max-width:700px){
   .pl .pl-sec{display:none}
@@ -4460,6 +4463,50 @@ function planAgrupa(lineas, campo) {          // u, desp por bota o por tiro
   return Object.values(m).sort((a, b) => b.u - a.u);
 }
 
+/* Ordenar las tablas del Plan tocando el encabezado (los th con data-ord): la primera vez de
+   mayor a menor —de la A a la Z si es texto—, la segunda al revés. Ordena dentro de cada
+   colección (las filas .pl-grupo quedan como separadores) y el total (.pl-total) queda abajo.
+   Compara el data-v de cada celda, porque el texto visible trae pegados el % o la ciudad.
+   Lo que no tiene dato va siempre al final. */
+function planOrdenable(tabla) {
+  const ths = [...tabla.querySelectorAll('thead th[data-ord]')];
+  if (!ths.length) return;
+  const iconos = () => ths.forEach(th => {
+    let ico = th.querySelector('.si');
+    if (!ico) { ico = document.createElement('span'); ico.className = 'si'; th.appendChild(ico); }
+    ico.textContent = tabla.dataset.ordCol === String(th.cellIndex) ? (tabla.dataset.ordDir === '1' ? ' ▲' : ' ▼') : ' ↕';
+  });
+  tabla._ordenar = () => {
+    const tb = tabla.tBodies[0];
+    if (tabla.dataset.ordCol == null || !tb) return;
+    const col = +tabla.dataset.ordCol, dir = +tabla.dataset.ordDir, num = tabla.dataset.ordNum === '1';
+    const bloques = [{ cab: null, filas: [], totales: [] }];
+    for (const tr of [...tb.rows]) {
+      const b = bloques[bloques.length - 1];
+      if (tr.classList.contains('pl-grupo')) bloques.push({ cab: tr, filas: [], totales: [] });
+      else (tr.classList.contains('pl-total') ? b.totales : b.filas).push(tr);
+    }
+    const val = tr => { const v = tr.cells[col]?.dataset.v; return v == null || v === '' ? null : (num ? +v : v); };
+    for (const b of bloques) {
+      b.filas.sort((p, q) => {
+        const a = val(p), c = val(q);
+        if (a === null || c === null) return (a === null) - (c === null);
+        return (num ? a - c : String(a).localeCompare(String(c), 'es')) * dir;
+      });
+      [b.cab, ...b.filas, ...b.totales].forEach(tr => { if (tr) tb.appendChild(tr); });
+    }
+  };
+  ths.forEach(th => th.addEventListener('click', () => {
+    const num = th.dataset.ord === 'n';
+    if (tabla.dataset.ordCol === String(th.cellIndex)) tabla.dataset.ordDir = String(-tabla.dataset.ordDir);
+    else { tabla.dataset.ordCol = th.cellIndex; tabla.dataset.ordDir = num ? '-1' : '1'; }
+    tabla.dataset.ordNum = num ? '1' : '0';
+    tabla._ordenar();
+    iconos();
+  }));
+  iconos();
+}
+
 function pintarPlan() {
   const cuerpo = document.getElementById('planBody');
   if (!cuerpo || !PLAN) return;
@@ -4473,6 +4520,7 @@ function pintarPlan() {
   const promedio = Math.round(totalCmp / C.length);
   const lanzoP = P.lanzo || today().slice(0, 7);
   const sg = cmp.map(t => 'T' + t).join(' y ');
+  const dv = v => String(v ?? '').replace(/"/g, '&quot;');   // el valor con que se ordena una celda (data-v)
 
   // ── 1) Cuándo se vende: la curva desde el lanzamiento, y la proyección ──
   const K = 6;
@@ -4505,13 +4553,13 @@ function pintarPlan() {
       <div class="tbl-head"><div><div class="card-ttl" style="margin:0">${titulo}</div>
         <div class="card-sub" style="margin:2px 0 0">Lo pedido en ${sg}. Toca una fila para ver sus modelos</div></div></div>
       <div class="tbl-scroll"><table>
-        <thead><tr><th>${campo === 'bota' ? 'Bota' : 'Tiro'}</th><th class="r">Pedido</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r pl-sec" title="Lo que quedó en bodega sin vender">Stock hoy</th></tr></thead>
-        <tbody class="tbl-compacta">${filas.map(r => `<tr data-pgrupo="${campo}" data-k="${r.k}" title="Toca para ver los modelos">
-          <td><b style="font-weight:600">${r.k}</b><div class="pl-bar"><i style="width:${(r.u / max * 100).toFixed(1)}%"></i></div></td>
-          <td class="r td-num">${fmt(r.u)}<span class="pl-sub">${planPct(r.u, tot)}% del total</span></td>
-          <td class="r td-num" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${planPct(r.desp, r.u)}%</td>
-          <td class="r td-num td-dim pl-sec">${fmt(stockDe(campo, r.k))}</td>
-        </tr>`).join('')}</tbody>
+        <thead><tr><th data-ord="t">${campo === 'bota' ? 'Bota' : 'Tiro'}</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r pl-sec" data-ord="n" title="Lo que quedó en bodega sin vender">Stock hoy</th></tr></thead>
+        <tbody class="tbl-compacta">${filas.map(r => { const st = stockDe(campo, r.k), pd = planPct(r.desp, r.u); return `<tr data-pgrupo="${campo}" data-k="${r.k}" title="Toca para ver los modelos">
+          <td data-v="${dv(r.k)}"><b style="font-weight:600">${r.k}</b><div class="pl-bar"><i style="width:${(r.u / max * 100).toFixed(1)}%"></i></div></td>
+          <td class="r td-num" data-v="${r.u}">${fmt(r.u)}<span class="pl-sub">${planPct(r.u, tot)}% del total</span></td>
+          <td class="r td-num" data-v="${pd}" style="color:${pd >= 80 ? 'var(--ok)' : 'var(--wa)'}">${pd}%</td>
+          <td class="r td-num td-dim pl-sec" data-v="${st}">${fmt(st)}</td>
+        </tr>`; }).join('')}</tbody>
       </table></div></div>`;
   };
 
@@ -4543,20 +4591,20 @@ function pintarPlan() {
     const filas = Object.values(m).sort((a, b) => (b.u - a.u) || (stockModelo(b.base) - stockModelo(a.base)));
     const u = filas.reduce((a, r) => a + r.u, 0), desp = filas.reduce((a, r) => a + r.desp, 0);
     if (enMes) return vTabla(
-      `<th>Modelo · ${otroTh.toLowerCase()}</th><th class="r">Unidades</th><th class="r" title="Del total que se pidió ese mes">Del mes</th>`,
-      filas.map(r => `<tr><td>${celdaModelo(r.base, r.otro)}</td>
-        <td class="r td-num">${fmt(r.u)}</td><td class="r td-num td-dim">${planPct(r.u, uMes1)}%</td></tr>`).join('')
-      + `<tr style="font-weight:700"><td>Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(u, uMes1)}%</td></tr>`,
+      `<th data-ord="t">Modelo · ${otroTh.toLowerCase()}</th><th class="r" data-ord="n">Unidades</th><th class="r" data-ord="n" title="Del total que se pidió ese mes">Del mes</th>`,
+      filas.map(r => `<tr><td data-v="${r.base}">${celdaModelo(r.base, r.otro)}</td>
+        <td class="r td-num" data-v="${r.u}">${fmt(r.u)}</td><td class="r td-num td-dim" data-v="${r.u}">${planPct(r.u, uMes1)}%</td></tr>`).join('')
+      + `<tr class="pl-total" style="font-weight:700"><td>Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(u, uMes1)}%</td></tr>`,
       `Lo que se pidió de ${k} en ${nomMes(0)} en ${sg}: ${fmt(u)} de ${fmt(uMes1)} unidades.`);
     const stock = filas.reduce((a, r) => a + stockModelo(r.base), 0);
     const porT = C.map(T => `T${T.t}: ${fmt(filas.filter(r => r.base.slice(0, 2) === T.t).reduce((a, r) => a + r.u, 0))}`).join(' · ');
     return vTabla(
-      `<th>Modelo · ${otroTh.toLowerCase()}</th><th class="r">Pedido</th><th class="r" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" title="Lo que quedó en bodega sin vender">Stock hoy</th>`,
-      filas.map(r => `<tr><td>${celdaModelo(r.base, r.otro)}</td>
-        <td class="r td-num">${r.u ? fmt(r.u) : '—'}</td>
-        <td class="r td-num" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${r.u ? planPct(r.desp, r.u) + '%' : '—'}</td>
-        <td class="r td-num td-dim">${fmt(stockModelo(r.base))}</td></tr>`).join('')
-      + `<tr style="font-weight:700"><td>Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(desp, u)}%</td><td class="r td-num">${fmt(stock)}</td></tr>`,
+      `<th data-ord="t">Modelo · ${otroTh.toLowerCase()}</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Lo que se alcanzó a despachar de lo pedido">Despachado</th><th class="r" data-ord="n" title="Lo que quedó en bodega sin vender">Stock hoy</th>`,
+      filas.map(r => `<tr><td data-v="${r.base}">${celdaModelo(r.base, r.otro)}</td>
+        <td class="r td-num" data-v="${r.u || ''}">${r.u ? fmt(r.u) : '—'}</td>
+        <td class="r td-num" data-v="${r.u ? planPct(r.desp, r.u) : ''}" style="color:${planPct(r.desp, r.u) >= 80 ? 'var(--ok)' : 'var(--wa)'}">${r.u ? planPct(r.desp, r.u) + '%' : '—'}</td>
+        <td class="r td-num td-dim" data-v="${stockModelo(r.base)}">${fmt(stockModelo(r.base))}</td></tr>`).join('')
+      + `<tr class="pl-total" style="font-weight:700"><td>Total ${k}</td><td class="r td-num">${fmt(u)}</td><td class="r td-num">${planPct(desp, u)}%</td><td class="r td-num">${fmt(stock)}</td></tr>`,
       `${fmt(u)} unidades pedidas de ${k} en ${sg}${C.length > 1 ? ` (${porT})` : ''}. Se despachó el ${planPct(desp, u)}% y quedan ${fmt(stock)} en bodega.`);
   };
 
@@ -4605,11 +4653,11 @@ function pintarPlan() {
   const filasCorteDe = f => conCorte.map(T => {
     const ms = pasados.filter(m => m.t === T.t && (!f || m.tag[0] === LECT[f]));
     return !ms.length ? '' : `<tr class="pl-grupo"><td colspan="5">T${T.t} · ${ms.length} modelo${ms.length === 1 ? '' : 's'}</td></tr>` + ms.map(m => `<tr>
-      <td>${celdaModelo(m.base, [m.bota, m.tiro].filter(Boolean).join(' · '))}</td>
-      <td class="r td-num">${fmt(m.cort)}</td>
-      <td class="r td-num">${fmt(m.vend)}</td>
-      <td class="r td-num" style="font-weight:700;color:${m.tag[1]}">${m.pct}%</td>
-      <td class="pl-sec"><span class="pl-tag" style="background:${m.tag[2]};color:${m.tag[1]}">${m.tag[0]}</span></td>
+      <td data-v="${m.base}">${celdaModelo(m.base, [m.bota, m.tiro].filter(Boolean).join(' · '))}</td>
+      <td class="r td-num" data-v="${m.cort}">${fmt(m.cort)}</td>
+      <td class="r td-num" data-v="${m.vend}">${fmt(m.vend)}</td>
+      <td class="r td-num" data-v="${m.pct}" style="font-weight:700;color:${m.tag[1]}">${m.pct}%</td>
+      <td class="pl-sec" data-v="${m.pct}"><span class="pl-tag" style="background:${m.tag[2]};color:${m.tag[1]}">${m.tag[0]}</span></td>
     </tr>`).join('');
   }).join('');
   const sinLect = '<tr><td colspan="5" class="td-dim" style="text-align:center;padding:24px">Ningún modelo con esa lectura</td></tr>';
@@ -4626,11 +4674,11 @@ function pintarPlan() {
   const clientes = Object.values(cliMap).sort((a, b) => b.u - a.u);
   const lugar = c => [c.ciudad, c.vendedor].filter(Boolean).join(' · ') || '—';   // va debajo del nombre, no en dos columnas más
   const filasCli = clientes.slice(0, 40).map((c, i) => `<tr>
-      <td class="td-dim pl-sec">${i + 1}</td>
-      <td class="pl-wrap"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
-      ${cmp.map(t => `<td class="r td-num td-dim pl-sec">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
-      <td class="r td-num" style="font-weight:700">${fmt(c.u)}</td>
-      <td class="pl-wrap">${yaP.has(c.cli) ? '<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
+      <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
+      <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
+      ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
+      <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
+      <td class="pl-wrap" data-v="${(yaP.has(c.cli) ? 2 : 0) + (c.mes1 ? 1 : 0)}">${yaP.has(c.cli) ? '<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
     </tr>`).join('');
   const yaPidieron = clientes.filter(c => yaP.has(c.cli)).length;
 
@@ -4694,12 +4742,12 @@ function pintarPlan() {
       P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
       const lista = [...clientes].sort((a, b) => (yaP.has(b.cli) - yaP.has(a.cli)) || (b.u - a.u));   // los que ya pidieron, primero
       return vTabla(
-        `<th>Cliente</th>${cmp.map(t => `<th class="r pl-sec">T${t}</th>`).join('')}<th class="r">Total</th><th class="r">T${PLAN_TEMP}</th>`,
+        `<th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="r" data-ord="n">T${PLAN_TEMP}</th>`,
         lista.map(c => `<tr>
-          <td class="pl-wrap">${c.nombre}<span class="pl-sub">${lugar(c)}</span></td>
-          ${cmp.map(t => `<td class="r td-num td-dim pl-sec">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
-          <td class="r td-num" style="font-weight:700">${fmt(c.u)}</td>
-          <td class="r td-num">${yaP.has(c.cli) ? `<span style="font-weight:700;color:var(--ok)">${fmt(uP[c.cli] || 0)}</span>` : '<span class="td-dim">—</span>'}</td></tr>`).join(''),
+          <td class="pl-wrap" data-v="${dv(c.nombre)}">${c.nombre}<span class="pl-sub">${lugar(c)}</span></td>
+          ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
+          <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
+          <td class="r td-num" data-v="${yaP.has(c.cli) ? uP[c.cli] || 0 : ''}">${yaP.has(c.cli) ? `<span style="font-weight:700;color:var(--ok)">${fmt(uP[c.cli] || 0)}</span>` : '<span class="td-dim">—</span>'}</td></tr>`).join(''),
         `${fmt(clientes.length)} clientes pidieron de ${sg} · ${yaPidieron} ya pidieron la T${PLAN_TEMP} y van primero`);
     }],
 
@@ -4715,15 +4763,15 @@ function pintarPlan() {
       const filas = Object.values(m).sort((a, b) => b.u - a.u);
       const nPed = new Set(P.lineas.map(l => l.ped).filter(Boolean)).size;
       return vTabla(
-        '<th>Cliente</th><th class="pl-sec">Desde</th><th class="r pl-sec">Pedidos</th><th>Modelos</th><th class="r">Unidades</th>',
+        '<th data-ord="t">Cliente</th><th class="pl-sec" data-ord="t">Desde</th><th class="r pl-sec" data-ord="n">Pedidos</th><th data-ord="t">Modelos</th><th class="r" data-ord="n">Unidades</th>',
         filas.map(r => {
           const mods = [...r.mods].sort().join(', ');
           return `<tr>
-          <td class="pl-wrap">${r.nombre}<span class="pl-sub">${lugar(r)}</span></td>
-          <td class="td-dim pl-sec">${r.desde.slice(8, 10)}/${r.desde.slice(5, 7)}</td>
-          <td class="r td-num pl-sec">${r.peds.size || '—'}</td>
-          <td class="td-dim pl-wrap" style="font-size:11px">${mods}</td>
-          <td class="r td-num" style="font-weight:700">${fmt(r.u)}</td></tr>`;
+          <td class="pl-wrap" data-v="${dv(r.nombre)}">${r.nombre}<span class="pl-sub">${lugar(r)}</span></td>
+          <td class="td-dim pl-sec" data-v="${r.desde}">${r.desde.slice(8, 10)}/${r.desde.slice(5, 7)}</td>
+          <td class="r td-num pl-sec" data-v="${r.peds.size || ''}">${r.peds.size || '—'}</td>
+          <td class="td-dim pl-wrap" data-v="${mods}" style="font-size:11px">${mods}</td>
+          <td class="r td-num" data-v="${r.u}" style="font-weight:700">${fmt(r.u)}</td></tr>`;
         }).join(''),
         `${fmt(P.total)} unidades en ${nPed} pedido${nPed === 1 ? '' : 's'} de ${filas.length} cliente${filas.length === 1 ? '' : 's'}${P.lanzo ? ' · desde ' + planMesCorto(P.lanzo) : ''}`);
     }],
@@ -4770,7 +4818,7 @@ function pintarPlan() {
         .map(([k, txt, n, col]) => `<button class="seg${PLAN_LECT === k ? ' on' : ''}" data-f="${k}">${col ? `<i class="pl-dot" style="background:${col}"></i>` : ''}${txt} <span style="opacity:.7">${n}</span></button>`).join('')}</div>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th>Modelo · bota y tiro</th><th class="r">Cortado</th><th class="r">Vendido</th><th class="r" title="De lo que se cortó, cuánto se vendió">Vendido / cortado</th><th class="pl-sec">Lectura</th></tr></thead>
+      <thead><tr><th data-ord="t">Modelo · bota y tiro</th><th class="r" data-ord="n">Cortado</th><th class="r" data-ord="n">Vendido</th><th class="r" data-ord="n" title="De lo que se cortó, cuánto se vendió">Vendido / cortado</th><th class="pl-sec" data-ord="n" title="Ordena de la que más se vendió a la que menos">Lectura</th></tr></thead>
       <tbody class="tbl-compacta" id="planCorteBody">${filasCorte || `<tr><td colspan="5" class="td-dim" style="text-align:center;padding:24px">${conCorte.length ? 'Sin modelos cortados en estas comparables' : 'Ninguna de estas comparables tiene registro de corte (parte en la T38): suma una más nueva arriba'}</td></tr>`}</tbody>
     </table>
     <div class="tbl-foot">Cortar con confianza: se vendió el 90% o más de lo cortado. Con cuidado: entre 75% y 90%. Revisar antes de cortar: menos del 75%, se cortó de más. Vendido es lo que pidieron los clientes; sobre 100% es que se pidió más de lo que se cortó.${notaFuera}${sinCorte.length && conCorte.length ? ` La ${sinCorte.map(T => 'T' + T.t).join(' y la ')} no aparece porque no tiene registro de corte.` : ''}</div></div>
@@ -4784,7 +4832,7 @@ function pintarPlan() {
       <button class="seg" id="planCliPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th class="pl-sec">#</th><th>Cliente</th>${cmp.map(t => `<th class="r pl-sec">T${t}</th>`).join('')}<th class="r">Total</th><th>T${PLAN_TEMP}</th></tr></thead>
+      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th data-ord="n" title="Primero los que ya pidieron">T${PLAN_TEMP}</th></tr></thead>
       <tbody class="tbl-compacta">${filasCli}</tbody>
     </table>
     <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP} · "compra al lanzamiento" = pidió en el primer mes de alguna comparable</div></div>
@@ -4793,8 +4841,10 @@ function pintarPlan() {
   const abrirDet = (ttl, html) => {
     document.getElementById('vkOvTtl').textContent = ttl;
     document.getElementById('vkOvBody').innerHTML = `<div class="pl">${html}</div>`;
+    document.getElementById('vkOvBody').querySelectorAll('table').forEach(planOrdenable);
     document.getElementById('vkOv').classList.add('open');
   };
+  cuerpo.querySelectorAll('table').forEach(planOrdenable);
   cuerpo.querySelectorAll('.kpi[data-pldet]').forEach(c => c.addEventListener('click', () => {
     const [ttl, armar] = DET[c.dataset.pldet] || [];
     if (armar) abrirDet(ttl, armar());
@@ -4808,7 +4858,7 @@ function pintarPlan() {
     PLAN_LECT = b.dataset.f;
     botonesLect.forEach(x => x.classList.toggle('on', x === b));
     const tb = document.getElementById('planCorteBody');
-    if (tb && pasados.length) tb.innerHTML = filasCorteDe(PLAN_LECT) || sinLect;
+    if (tb && pasados.length) { tb.innerHTML = filasCorteDe(PLAN_LECT) || sinLect; tb.closest('table')?._ordenar?.(); }   // el orden elegido se mantiene
   }));
 
   document.getElementById('planCliPrint')?.addEventListener('click', () => printTable({
