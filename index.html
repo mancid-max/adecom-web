@@ -218,6 +218,8 @@ body.ia-open #iaBtn{display:none}
 .segs.camp-tabs{display:inline-flex;flex-wrap:wrap;margin:14px 0 6px}
 .camp-tabs .seg{font-size:13px;padding:7px 16px}
 .camp-desc{font-size:12px;color:var(--tx2);margin:0 0 12px;max-width:900px}
+.rv .rv-av-res{padding:10px 20px 4px;font-size:13px;color:var(--tx1)}
+@media(max-width:700px){.rv .rv-av-bar{display:none}.rv .rv-av-res{padding-left:12px;padding-right:12px}}
 /* ── Reporte para venta: la vista del vendedor ── */
 .rv .rv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:10px 20px 16px}
 .rv .rv-card{border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--sf);min-width:0}
@@ -5498,8 +5500,19 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
     return { ...x, act: x.u[ACT] || 0, prom, nuevaU: x.u[oferta] || 0, misBotas, ofrecer };
   }).sort((a, b) => b.tot - a.tot);
 
+  /* Cuánto lleva cada cliente de la base: su meta es lo que compró en promedio en las comparables
+     (cuenta 0 en las que no compró, así las metas suman la meta de la colección), lleva = lo que ya
+     pidió de la base y le falta = meta − lleva. Arriba, a quienes más les falta (Manu, 21-10-2026:
+     "un porcentaje de éxito por cliente, para ver cuánto faltaría"). */
+  const avance = [...cliV.values()].map(x => {
+    const porT = cmpT.map(t => x.u[t] || 0);
+    // Sin redondear: la suma de las metas tiene que dar la meta del Plan (redondeando cada una se pasaba)
+    const meta = cmpT.length ? porT.reduce((a, u) => a + u, 0) / cmpT.length : 0, lleva = x.u[TA] || 0;
+    return { nombre: x.nombre, ciudad: x.ciudad, porT, meta, lleva, falta: Math.max(0, meta - lleva) };
+  }).filter(x => x.meta > 0 || x.lleva > 0).sort((a, b) => b.falta - a.falta || b.meta - a.meta || b.lleva - a.lleva);
+
   return { TA, ACT, cols, sgC, cmpT, cmpDefecto, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A,
-           tendencia, topC, oferta, lectT: prevO.t, nuevaTop, empujarN, stockMueve, stockRematar, cartera };
+           tendencia, topC, oferta, lectT: prevO.t, nuevaTop, empujarN, stockMueve, stockRematar, cartera, avance };
 }
 
 /* Las hojas, como datos: título, nota de supuestos arriba, columnas con su formato y filas.
@@ -5535,6 +5548,10 @@ function repHojas(R) {
     { nombre: 'Clientes activos grandes', nota: `Estratégicos que sí compraron la T${TA}. Promedio = lo que compraron en promedio en las colecciones de ${base4} en que compraron. Sugerencia: ${Math.round(REP_DESC_ACTIVO * 100)}% condicionado a llegar a su promedio, solo a los que van bajo él. La T${TA} todavía se está vendiendo.`,
       columnas: [['Cliente', 38], ['Ciudad', 15], ['Vendedor', 20], [`T${TA}`, 10, 'n'], [`Promedio ${base4}`, 18, 'n'], ['Diferencia', 12, 'n'], ['Sugerencia', 32]],
       filas: R.activos.map(x => [x.nombre, x.ciudad, x.vendedor, x.act, Math.round(x.prom), Math.round(x.dif), x.sug]) },
+
+    { nombre: 'Avance por cliente', nota: `Meta = lo que compró cada cliente en promedio en ${R.sgC || 'las comparables'} (cuenta 0 en las que no compró, así las metas suman la meta de la colección). Lleva = lo que ya pidió de la T${TA}. Le falta = meta − lleva. De quien más le falta a quien menos.`,
+      columnas: [['Cliente', 38], ['Ciudad', 15], ...R.cmpT.map(t => [`T${t}`, 9, 'n']), ['Meta', 10, 'n'], [`Lleva T${TA}`, 12, 'n'], ['Avance', 10, 'pct1'], ['Le falta', 10, 'n']],
+      filas: R.avance.map(x => [x.nombre, x.ciudad, ...x.porT, Math.round(x.meta), x.lleva, x.meta ? x.lleva / x.meta : '', Math.round(x.falta)]) },
 
     { nombre: 'Pedidos a validar', nota: `Líneas con saldo por despachar de la T${TA} en adelante (las colecciones que todavía se cortan), de la más vieja a la más nueva. Reconfirmar = más de ${REP_DIAS_RECONFIRMAR} días. Reposición = el cliente ya había pedido ese modelo en la misma colección. Stock libre = lo que queda del artículo después de cubrir todos los pedidos.`,
       columnas: [['Cliente', 34], ['Vendedor', 18], ['Pedido', 11], ['Fecha', 12, 'fecha'], ['Días', 8, 'n'], ['Colección', 10], ['Modelo', 9], ['Artículo', 11], ['Pendientes', 11, 'n'], ['Stock físico', 12, 'n'], ['Stock libre', 11, 'n'], ['Marca', 24]],
@@ -5675,6 +5692,29 @@ function rvClientes() {
     <div class="td-dim rv-nada" style="padding:18px 0${compraron.length || rec.length ? ';display:none' : ''}">${compraron.length || rec.length ? 'Ningún cliente con ese nombre o ciudad' : 'Sin clientes en las últimas cuatro colecciones'}</div>`;
 }
 
+const rvPct = (lleva, meta) => meta ? Math.round(lleva / meta * 100) : null;
+const rvPctClr = p => p == null ? 'var(--tx3)' : p >= 90 ? 'var(--ok)' : p >= 50 ? 'var(--wa)' : 'var(--er)';
+const rvAvCelda = (lleva, p) => `<div style="display:flex;align-items:center;gap:8px"><span style="white-space:nowrap"><b>${fmt(lleva)}</b>${p == null
+  ? ' <span class="td-dim" style="font-size:11px">sin meta</span>' : ` <b style="color:${rvPctClr(p)}">· ${p}%</b>`}</span>${p == null ? '' : `<div class="rv-av-bar" style="flex:1;min-width:50px">${vBarra(Math.min(100, p), 100)}</div>`}</div>`;
+function rvAvFilas(R) {
+  if (!R.avance.length) return `<tr class="no-click"><td colspan="4" class="td-dim" style="text-align:center;padding:20px">Sin clientes con meta todavía</td></tr>`;
+  return R.avance.map(x => `<tr class="no-click" data-meta="${x.meta}" data-lleva="${x.lleva}" data-falta="${x.falta}" data-q="${rvSinTilde(x.nombre + ' ' + x.ciudad).replace(/"/g, '')}">
+      <td style="white-space:normal"><span style="font-weight:600">${x.nombre}</span><div class="td-dim" style="font-size:11px">${rvNombre(x.ciudad) || '—'}</div></td>
+      <td class="r td-num">${x.meta ? fmt(Math.round(x.meta)) : '—'}<div class="td-dim" style="font-size:10px;font-weight:400;white-space:normal">${R.cmpT.map((t, i) => `T${t} ${fmt(x.porT[i])}`).join(' · ')}</div></td>
+      <td>${rvAvCelda(x.lleva, rvPct(x.lleva, x.meta))}</td>
+      <td class="r td-num" style="color:${x.falta >= 0.5 ? 'var(--wa)' : 'var(--ok)'};font-weight:700">${x.falta >= 0.5 ? fmt(Math.round(x.falta)) : '✓'}</td></tr>`).join('');
+}
+function rvAvTotal() {
+  let n = 0, meta = 0, lleva = 0, falta = 0;
+  document.querySelectorAll('#rvAvBody tr[data-meta]').forEach(row => {
+    if (row.style.display === 'none') return;
+    n++; meta += +row.dataset.meta; lleva += +row.dataset.lleva; falta += +row.dataset.falta;
+  });
+  const tot = document.getElementById('rvAvTot');
+  if (tot) tot.innerHTML = !n ? '' : `<tr class="no-click" style="background:var(--sf2);font-weight:700"><td>Total · ${n} ${n === 1 ? 'cliente' : 'clientes'}</td>
+    <td class="r td-num">${fmt(Math.round(meta))}</td><td>${rvAvCelda(lleva, rvPct(lleva, meta))}</td><td class="r td-num" style="color:var(--wa)">${fmt(Math.round(falta))}</td></tr>`;
+}
+
 async function secReporte() {
   const ICO = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
   const [peds, pa, ft, sb, bsale] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'),
@@ -5693,6 +5733,7 @@ async function secReporte() {
     ['Mix de fits', `${fmt(R.botas.length)} botas lado a lado con ${R.sgC}${R.sinBota.modelos.length ? `; ${fmt(R.sinBota.modelos.length)} modelos sin bota, aparte` : ''}`],
     ['Clientes a recuperar', `${fmt(R.recuperar.length)} clientes, ${fmt(est)} estratégicos, con descuento sugerido`],
     ['Clientes activos grandes', `${fmt(R.activos.length)} estratégicos que compraron la T${TA}; ${fmt(R.activos.filter(x => x.bajo).length)} van bajo su promedio`],
+    ['Avance por cliente', `${fmt(R.avance.length)} clientes: su meta (lo que compraron en promedio en ${R.sgC || 'las comparables'}), lo que llevan de la T${TA} y lo que les falta`],
     ['Pedidos a validar', `${fmt(R.pendientes.length)} líneas con saldo; ${fmt(viejos)} con más de ${REP_DIAS_RECONFIRMAR} días`],
     ['Stock para ofrecer', `${fmt(R.stock.length)} artículos con stock libre, separados en reponer y promover`],
   ];
@@ -5700,11 +5741,12 @@ async function secReporte() {
   const flecha = x => x.antes == null ? '' : x.act - x.antes >= 0.02 ? '<span style="color:var(--ok);font-weight:700">▲ sube</span>'
                     : x.antes - x.act >= 0.02 ? '<span style="color:var(--er);font-weight:700">▼ baja</span>' : '<span class="td-dim">= igual</span>';
   const maxB = Math.max(0.01, ...R.tendencia.map(x => x.act));
+  const avTot = R.avance.reduce((a, x) => ({ meta: a.meta + x.meta, lleva: a.lleva + x.lleva, falta: a.falta + x.falta }), { meta: 0, lleva: 0, falta: 0 });
   return `${aviso}
   <div class="tbl-card rv">
     <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
       <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA}${R.sgC ? ` contra ${R.sgC}, los modelos que más se vendieron en esas temporadas` : ''} y lo más pedido de la T${TA}. Toca una foto para verla grande</div></div>
-      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 7 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button></div>
+      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 8 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button></div>
     <div class="rv-botas">${R.tendencia.map(x => `<div class="rv-bota">
       <b>${x.k}</b><div class="pl-bar" style="max-width:none;margin:0"><i style="width:${(x.act / maxB * 100).toFixed(1)}%"></i></div>
       <b class="r">${Math.round(x.act * 100)}%</b><span class="td-dim rv-antes">${x.antes == null ? '' : `antes ${Math.round(x.antes * 100)}%`}</span><span>${flecha(x)}</span></div>`).join('')}</div>
@@ -5732,7 +5774,19 @@ async function secReporte() {
   </div>
 
   <div class="tbl-card rv" style="margin-top:14px">
-    <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">3 · A quién llamar</div>
+    <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">3 · Cuánto lleva cada cliente</div>
+      <div class="card-sub" style="margin:2px 0 0">La meta de cada cliente es lo que compró en promedio en ${R.sgC || 'las comparables'}; lleva, lo que ya pidió de la T${TA}. Arriba, a quienes más les falta</div></div>
+      <input id="rvAvSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:190px;margin-left:auto"></div>
+    <div class="rv-av-res">Entre todos llevan <b>${fmt(avTot.lleva)}</b> de <b>${fmt(Math.round(avTot.meta))}</b> (<b style="color:${rvPctClr(rvPct(avTot.lleva, avTot.meta))}">${rvPct(avTot.lleva, avTot.meta) ?? 0}%</b>): faltan <b>${fmt(Math.round(avTot.falta))}</b>.</div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>Cliente</th><th class="r" title="Lo que compró en promedio en ${R.sgC || 'las comparables'}">Meta</th><th>Lleva T${TA}</th><th class="r" title="Meta − lo que lleva">Le falta</th></tr></thead>
+      <tbody id="rvAvBody" class="tbl-compacta">${rvAvFilas(R)}</tbody>
+      <tbody id="rvAvTot" class="tbl-compacta"></tbody>
+    </table></div>
+  </div>
+
+  <div class="tbl-card rv" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">4 · A quién llamar</div>
       <div class="card-sub" style="margin:2px 0 0">Todos los clientes, de los que más compran a los que menos: lo que llevan de la T${R.ACT}${R.sgC ? ` contra su promedio en ${R.sgC}` : ''}, si ya pidieron${R.oferta ? ` la T${R.oferta}` : ''} y qué ofrecerles según las botas que compran${TA !== R.ACT ? `. Esta parte queda siempre en la T${R.ACT}, que es la que se vende hoy` : ''}</div></div>
       <input id="rvCliSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:190px;margin-left:auto"></div>
     <div id="rvClientes" style="padding:4px 20px 18px">${rvClientes()}</div>
@@ -5768,7 +5822,7 @@ function campElegir(temp, cmp) {
 const campDesc = () => {
   const T = PLAN_TEMP, sg = PLAN_CMP.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
   return CAMP_TAB === 'venta'
-    ? `Para salir a vender: lo que más se pidió de la T${T} contra ${sg}, qué ofrecer hoy y a quién llamar.`
+    ? `Para salir a vender: lo que más se vendió en ${sg} y lo que se pide de la T${T}, qué ofrecer hoy, cuánto lleva cada cliente de su meta y a quién llamar.`
     : `Para decidir qué producir: cuánto se debería vender de la T${T}, a qué ritmo va, qué cortar con confianza y qué empujar, según lo que pasó en ${sg}.`;
 };
 
@@ -7942,6 +7996,13 @@ function bindContent(secId) {
 
   // Campaña · Reporte para venta
   if (secId === 'campana' && document.getElementById('repExcel')) {
+    // Cuánto lleva cada cliente: el buscador filtra y el total sigue a lo que se ve
+    document.getElementById('rvAvSearch')?.addEventListener('input', e => {
+      const q = rvSinTilde(e.target.value.trim());
+      document.querySelectorAll('#rvAvBody tr[data-meta]').forEach(row => { row.style.display = !q || row.dataset.q.includes(q) ? '' : 'none'; });
+      rvAvTotal();
+    });
+    rvAvTotal();
     // Buscador de clientes: esconde las filas que no calzan, y el grupo entero si queda vacío
     document.getElementById('rvCliSearch')?.addEventListener('input', e => {
       const q = rvSinTilde(e.target.value.trim());
