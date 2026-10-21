@@ -5209,8 +5209,8 @@ async function secPlan() {
 }
 
 /* ── REPORTE PARA VENTA ──────────────────────────────────────────────
-   Un Excel para el encargado de venta sobre la colección que se está vendiendo
-   (TEMP_ACTIVA): cómo va contra las que se vendían en estas mismas fechas, qué se vende,
+   Una vista y un Excel para el encargado de venta sobre la colección que se elija arriba (por
+   defecto la de estas fechas): cómo va contra las que se vendían en estas mismas fechas, qué se vende,
    a quién recuperar y con qué condición, qué pedidos validar antes de cortar y qué stock
    ofrecer ya. Se arma con lo mismo que calculan Plan de Colección (planBase,
    planComparables), Clientes Inactivos (clInactivos) y Para ofrecer (cybBase), así que
@@ -5225,15 +5225,29 @@ const REP_DESC_ACTIVO      = 0.05;   // a estratégicos que sí compraron, pero 
 const REP_DIAS_RECONFIRMAR = 45;     // un saldo pendiente más viejo que esto se reconfirma antes de cortar
 const REP_EXCELJS = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
 let REP = null;
+let REP_TEMP = '', REP_CMP = [];   // colección base y comparables elegidas arriba ('' y [] = la activa y las del Plan)
 
-function repDatos(peds, pa, ft, sb, bsale) {
-  const TA = TEMP_ACTIVA;
+function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
   const { temps, cat, attr } = planBase(peds, pa, ft, {});
+  /* La base se elige arriba y las comparables también. Por defecto, la colección de estas fechas
+     (la más nueva que ya tiene pedidos, la T45 en octubre de 2026) contra las del Plan: la que se
+     lanzó más cerca de estas fechas en cada uno de los dos años anteriores (la T41 y la T37).
+     "Qué ofrecer" y "A quién llamar" quedan siempre en la activa y la que viene: es lo que se vende hoy. */
+  const ACT = TEMP_ACTIVA;
+  const masNueva = t => [...new Set([...Object.keys(temps), ...Object.keys(cat)])].filter(x => +x > +t).sort((a, b) => +b - +a)[0] || '';
+  const oferta = masNueva(ACT);
+  const TA = temps[base] ? base : (temps[oferta] && temps[oferta].total > 0 ? oferta : ACT);
   const vacia = t => ({ t, lineas: [], total: 0, porMes: {}, clientes: new Set(), lanzo: '' });
   const A = temps[TA] || vacia(TA);
-  const C = planComparables(temps, TA).map(t => temps[t]).filter(Boolean);
+  const cmpDef = planComparables(temps, TA);
+  const cmpT = (cmp.length ? cmp : cmpDef).filter(t => temps[t] && t !== TA).sort((a, b) => +b - +a);
+  const cmpDefecto = cmpT.join() === cmpDef.join();
+  const C = cmpT.map(t => temps[t]);
   const cols = [A, ...C];
-  const sgC = C.map(T => 'T' + T.t).join(' y ');
+  const sgC = cmpT.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
+  // Para los selectores: toda colección con pedidos como base; como comparable, las anteriores con historia
+  const opciones = Object.values(temps).filter(T => T.total > 0).map(T => T.t).sort((a, b) => +b - +a);
+  const histC = Object.values(temps).filter(T => T.total >= 3000 && +T.t < +TA).sort((a, b) => +b.t - +a.t);
   const hoyMs = Date.now();
   const diasDesde = iso => iso ? Math.round((hoyMs - new Date(iso + 'T00:00:00').getTime()) / 86400000) : null;
 
@@ -5350,43 +5364,47 @@ function repDatos(peds, pa, ft, sb, bsale) {
   ].filter(Boolean);
 
   // ── Para la vista web, la que mira el vendedor: qué se vendió más, qué ofrecer y a quién ──
-  // Tendencia de botas: la activa contra el promedio de las tres colecciones anteriores
-  const ant3 = [3, 2, 1].map(i => String(+TA - i)).filter(t => temps[t]);
+  /* Tendencia de botas: la base contra el promedio de las comparables (sin comparables, sin "antes").
+     Entran las botas de las dos: una que se vendía mucho antes y en la base todavía no aparece
+     también hay que verla (pasa al comienzo de una preventa). */
   const parteDe = (T, k) => T.lineas.reduce((a, l) => a + (l.bota === k ? l.u : 0), 0) / Math.max(1, T.total);
-  const tendencia = [...new Set(A.lineas.map(l => l.bota).filter(Boolean))]
-    .map(k => ({ k, act: parteDe(A, k), antes: ant3.length ? ant3.reduce((a, t) => a + parteDe(temps[t], k), 0) / ant3.length : 0 }))
-    .filter(x => x.act >= 0.02 || x.antes >= 0.02).sort((a, b) => b.act - a.act).slice(0, 7);
+  const tendencia = [...new Set([A, ...C].flatMap(T => T.lineas.map(l => l.bota)).filter(Boolean))]
+    .map(k => ({ k, act: parteDe(A, k), antes: C.length ? C.reduce((a, T) => a + parteDe(T, k), 0) / C.length : null }))
+    .filter(x => x.act >= 0.02 || x.antes >= 0.02).sort((a, b) => (b.act - a.act) || (b.antes - a.antes));
 
-  // La colección que viene (la más nueva después de la activa): qué se pide y qué botas empujar
-  const nueva = [...new Set([...Object.keys(temps), ...Object.keys(cat)])].filter(t => +t > +TA).sort((a, b) => +b - +a)[0] || '';
-  const N = temps[nueva] || vacia(nueva);
+  /* La colección que viene: la más nueva que haya. Es la preventa de "Qué ofrecer" (si la base ya
+     es la más nueva, no hay) y lo que se le ofrece a cada cliente en "A quién llamar". */
+  const N = temps[oferta] || vacia(oferta);
   const pedN = {};
   N.lineas.forEach(l => { pedN[l.base] = (pedN[l.base] || 0) + l.u; });
-  const botaN = m => (attr[nueva + '|' + m] || {}).bota || ((cat[nueva] || {})[m] || {}).bota || '';
-  /* La misma lectura de la estrategia del Plan: de lo cortado de cada bota en la activa, cuánto
-     se vendió. Una bota que vendió el 90% o más de lo que se cortó se empuja. */
+  const botaN = m => (attr[oferta + '|' + m] || {}).bota || ((cat[oferta] || {})[m] || {}).bota || '';
+  /* La misma lectura de la estrategia del Plan: de lo cortado de cada bota en la última colección
+     con historia antes de la que viene (la T44 para la T45), cuánto se vendió. Una bota que vendió
+     el 90% o más de lo que se cortó se empuja. No depende de la base elegida arriba. */
+  const tope = oferta ? +oferta : +ACT + 1;    // sin colección nueva, la lectura es de la activa
+  const prevO = Object.values(temps).filter(T => +T.t < tope && T.total >= 3000).sort((a, b) => +b.t - +a.t)[0] || A;
   const lect = {};
   { const vend = {}, desp = {};
-    A.lineas.forEach(l => { vend[l.base] = (vend[l.base] || 0) + l.u; desp[l.base] = (desp[l.base] || 0) + l.desp; });
-    for (const b of Object.values(cat[TA] || {})) {
+    prevO.lineas.forEach(l => { vend[l.base] = (vend[l.base] || 0) + l.u; desp[l.base] = (desp[l.base] || 0) + l.desp; });
+    for (const b of Object.values(cat[prevO.t] || {})) {
       if (b.cort < 20 || !b.bota || (desp[b.base] || 0) > b.cort * 1.05) continue;
       const x = lect[b.bota] = lect[b.bota] || { cort: 0, vend: 0 };
       x.cort += b.cort; x.vend += vend[b.base] || 0;
     } }
   const vendioDeLoCortado = k => lect[k] && lect[k].cort >= 300 ? lect[k].vend / lect[k].cort : null;
-  const modelosN = [...new Set([...Object.keys(pedN), ...Object.values(cat[nueva] || {}).filter(b => b.prog).map(b => b.base)])];
+  const modelosN = [...new Set([...Object.keys(pedN), ...Object.values(cat[oferta] || {}).filter(b => b.prog).map(b => b.base)])];
   const empujarN = [...new Set(modelosN.map(botaN).filter(k => k && vendioDeLoCortado(k) >= 0.9))];
   const nuevaTop = Object.entries(pedN).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([m, u]) => ({ m, u, bota: botaN(m) }));
   const topN = new Set(Object.entries(pedN).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([m]) => m));
-  const dispN = m => { const b = (cat[nueva] || {})[m] || {}; return b.cort >= 20 ? 0 : b.prog ? 1 : 2; };
+  const dispN = m => { const b = (cat[oferta] || {})[m] || {}; return b.cort >= 20 ? 0 : b.prog ? 1 : 2; };
 
   // Stock: lo que se vende solo (tenerlo a mano) y lo que hay que rematar. Sin respaldo no se ofrece.
   const stockMueve = stock.filter(r => r.prio.k === 'mueve' && !r.sinRespaldo).sort((a, b) => b.total - a.total).slice(0, 8);
   const stockRematar = stock.filter(r => r.prio.k !== 'mueve' && !r.sinRespaldo).sort((a, b) => b.total - a.total).slice(0, 4);
 
-  /* Todos los clientes de las cuatro últimas colecciones, sin separar por vendedor (queda uno
-     solo y los ve a todos): lo que compraron, qué botas compran y qué modelos de la nueva ofrecerles. */
-  const recientes = [...ant3, TA];
+  /* Los clientes de la activa y de las comparables, sin separar por vendedor (queda uno solo y
+     los ve a todos): lo que compraron, qué botas compran y qué modelos de la nueva ofrecerles. */
+  const recientes = [...new Set([...cmpT, ACT])];
   const cliV = new Map();
   for (const p of peds) {
     const k = vdKey(p);
@@ -5395,7 +5413,7 @@ function repDatos(peds, pa, ft, sb, bsale) {
     for (const l of (p.lineas || [])) {
       const t = String(l.temp), u = l.sol || 0;
       x.u[t] = (x.u[t] || 0) + u;
-      if (t === nueva) x.enNueva[l.modelo] = (x.enNueva[l.modelo] || 0) + u;
+      if (t === oferta) x.enNueva[l.modelo] = (x.enNueva[l.modelo] || 0) + u;
       if (recientes.includes(t)) {
         x.tot += u;
         const b = (attr[t + '|' + l.modelo] || {}).bota || '';
@@ -5405,7 +5423,7 @@ function repDatos(peds, pa, ft, sb, bsale) {
     cliV.set(k, x);
   }
   const cartera = [...cliV.values()].filter(x => x.tot > 0).map(x => {
-    const compro = ant3.filter(t => (x.u[t] || 0) > 0);
+    const compro = cmpT.filter(t => (x.u[t] || 0) > 0);
     const prom = compro.length ? compro.reduce((a, t) => a + x.u[t], 0) / compro.length : 0;
     const misBotas = Object.entries(x.mix).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
     /* Un modelo de la nueva por cada bota que más compra, sin repetir lo que ya pidió. Dentro de
@@ -5414,11 +5432,11 @@ function repDatos(peds, pa, ft, sb, bsale) {
     const ofrecer = misBotas.map(k => modelosN.filter(m => botaN(m) === k && !x.enNueva[m])
         .sort((a, b) => (topN.has(b) - topN.has(a)) || (dispN(a) - dispN(b)) || ((pedN[b] || 0) - (pedN[a] || 0)))[0])
       .filter(Boolean).map(m => ({ m, bota: botaN(m) }));
-    return { ...x, act: x.u[TA] || 0, prom, nuevaU: x.u[nueva] || 0, misBotas, ofrecer };
+    return { ...x, act: x.u[ACT] || 0, prom, nuevaU: x.u[oferta] || 0, misBotas, ofrecer };
   }).sort((a, b) => b.tot - a.tot);
 
-  return { TA, cols, sgC, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A,
-           ant3, tendencia, nueva, nuevaTop, empujarN, stockMueve, stockRematar, cartera };
+  return { TA, ACT, cols, sgC, cmpT, cmpDefecto, opciones, histC, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A,
+           tendencia, oferta, lectT: prevO.t, nuevaTop, empujarN, stockMueve, stockRematar, cartera };
 }
 
 /* Las hojas, como datos: título, nota de supuestos arriba, columnas con su formato y filas.
@@ -5426,7 +5444,8 @@ function repDatos(peds, pa, ft, sb, bsale) {
 function repHojas(R) {
   const TA = R.TA, t = R.cols.map(T => 'T' + T.t);
   const fecha = iso => iso ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10), 12) : '';
-  const notaCmp = `Colección T${TA}, comparada con ${R.sgC}: las que se lanzaron más cerca de estas fechas en los dos años anteriores. Unidades = lo que pidieron los clientes. Lanzamiento = primer pedido del mes en que la colección empezó a venderse (antes suele haber pedidos sueltos). La T${TA} todavía se está vendiendo.`;
+  const notaCmp = `Colección T${TA}${!R.sgC ? ', sin comparables: no hay colecciones anteriores con historia'
+    : `, comparada con ${R.sgC}${R.cmpDefecto ? ': las que se lanzaron más cerca de estas fechas en los dos años anteriores' : ' (elegidas en la página)'}`}. Unidades = lo que pidieron los clientes. Lanzamiento = primer pedido del mes en que la colección empezó a venderse (antes suele haber pedidos sueltos).${+TA >= +R.ACT ? ` La T${TA} todavía se está vendiendo.` : ''}`;
   const base4 = `T${CL_BASE[0]} a T${CL_BASE[CL_BASE.length - 1]}`;
   return [
     { nombre: 'Resumen', nota: notaCmp,
@@ -5563,7 +5582,8 @@ const rvSinTilde = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
 function rvClientes() {
   const R = REP;
   if (!R) return '';
-  const TA = R.TA, NV = R.nueva;
+  const TA = R.ACT, NV = R.oferta;   // siempre la activa y la que viene, elija lo que elija arriba
+  const niC = R.cmpT.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' ni $1');
   const dq = (...s) => ` data-q="${rvSinTilde(s.join(' ')).replace(/"/g, '')}"`;
   // Los que compraron la activa; los que no, van abajo en "Dejaron de comprar" (si no, salían en las dos listas)
   const compraron = R.cartera.filter(x => x.act > 0);
@@ -5572,7 +5592,7 @@ function rvClientes() {
     return `<div class="rv-cli"${dq(x.nombre, x.ciudad)}>
       <div class="rv-cli-n"><b>${x.nombre}</b><span>${rvNombre(x.ciudad) || '—'}</span></div>
       <div class="rv-cli-u">${x.act ? `<b>${fmt(x.act)}</b> en la T${TA}` : `<b style="color:var(--wa)">No compró</b> la T${TA}`}
-        <span>${x.prom ? `promedio ${fmt(Math.round(x.prom))}${x.act ? (subio >= 0 ? ' · <span style="color:var(--ok)">va arriba</span>' : ' · <span style="color:var(--wa)">va abajo</span>') : ''}` : 'cliente nuevo'}</span></div>
+        <span>${x.prom ? `promedio ${fmt(Math.round(x.prom))}${x.act ? (subio >= 0 ? ' · <span style="color:var(--ok)">va arriba</span>' : ' · <span style="color:var(--wa)">va abajo</span>') : ''}` : niC ? `no compró en ${niC}` : ''}</span></div>
       <div class="rv-cli-e">${NV ? (x.nuevaU ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T${NV} · ${fmt(x.nuevaU)}</span>` : `<span class="td-dim">Todavía no pide la T${NV}</span>`) : ''}</div>
       <div class="rv-cli-o">${x.ofrecer.length ? 'Ofrecer: ' + x.ofrecer.map(o => `<span class="pl-tag" style="background:var(--ac10);color:var(--ac)">${o.m} ${o.bota}</span>`).join(' ')
         : x.misBotas.length ? `<span class="td-dim">Compra ${x.misBotas.join(', ')}</span>` : ''}</div>
@@ -5597,8 +5617,9 @@ async function secReporte() {
   const [peds, pa, ft, sb, bsale] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'),
                                                        load('saldos_bodega.json'), load('stock_bsale.json')]);
   if (!peds.length) return makePH(ICO, 'Reporte para venta', 'Sin datos disponibles');
-  REP = repDatos(peds, pa, ft, sb, (bsale && !Array.isArray(bsale)) ? bsale : null);
+  REP = repDatos(peds, pa, ft, sb, (bsale && !Array.isArray(bsale)) ? bsale : null, REP_TEMP, REP_CMP);
   const R = REP, TA = R.TA;
+  REP_TEMP = TA; REP_CMP = R.cmpT;   // lo que quedó de verdad (una base sin datos vuelve a la activa)
   const est = R.recuperar.filter(c => c.seg === 'Estratégico').length;
   const viejos = R.pendientes.filter(x => x.marcas.includes('Reconfirmar')).length;
   const hojas = [
@@ -5610,23 +5631,33 @@ async function secReporte() {
     ['Pedidos a validar', `${fmt(R.pendientes.length)} líneas con saldo; ${fmt(viejos)} con más de ${REP_DIAS_RECONFIRMAR} días`],
     ['Stock para ofrecer', `${fmt(R.stock.length)} artículos con stock libre, separados en reponer y promover`],
   ];
-  const ant = R.ant3.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1'), NV = R.nueva;
-  const flecha = x => x.act - x.antes >= 0.02 ? '<span style="color:var(--ok);font-weight:700">▲ sube</span>'
+  const NV = R.oferta;   // la preventa de "Qué ofrecer": siempre la que viene, elija lo que elija arriba
+  const flecha = x => x.antes == null ? '' : x.act - x.antes >= 0.02 ? '<span style="color:var(--ok);font-weight:700">▲ sube</span>'
                     : x.antes - x.act >= 0.02 ? '<span style="color:var(--er);font-weight:700">▼ baja</span>' : '<span class="td-dim">= igual</span>';
   const maxB = Math.max(0.01, ...R.tendencia.map(x => x.act));
   return `
   <div class="fbar">
     <div class="fbar-row">
+      <div class="fgrp"><span class="flbl">Colección</span>
+      <select id="rvTemp" class="finput" style="width:150px">
+        ${R.opciones.map(t => `<option value="${t}"${t === TA ? ' selected' : ''}>T${t}${t === R.ACT ? ' · activa' : t === NV ? ' · nueva' : ''}</option>`).join('')}
+      </select></div>
+      <div class="fgrp"><span class="flbl">Comparar con</span>
+      <div class="segs" id="rvCmpSegs">
+        ${R.histC.map(T => `<button class="seg${R.cmpT.includes(T.t) ? ' on' : ''}" data-t="${T.t}" title="${fmt(T.total)} unidades, lanzada en ${planMesCorto(T.lanzo)}">T${T.t} <span style="opacity:.6;font-size:10px">${planMesCorto(T.lanzo)}</span></button>`).join('')
+          || '<span class="td-dim" style="font-size:12px">No hay colecciones anteriores con historia</span>'}
+      </div></div>
       <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 7 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button>
     </div>
+    <span class="td-dim" style="font-size:11px">Por defecto, la colección de estas fechas contra las que se vendían en estas mismas fechas los dos años anteriores, igual que en el Plan. Toca para cambiar.</span>
   </div>
 
   <div class="tbl-card rv">
     <div class="tbl-head"><div><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
-      <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA} contra ${ant}, y los modelos que más pidieron los clientes en la T${TA}. Toca una foto para verla grande</div></div></div>
+      <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA}${R.sgC ? ` contra ${R.sgC}` : ''}, y los modelos que más pidieron los clientes en la T${TA}. Toca una foto para verla grande</div></div></div>
     <div class="rv-botas">${R.tendencia.map(x => `<div class="rv-bota">
       <b>${x.k}</b><div class="pl-bar" style="max-width:none;margin:0"><i style="width:${(x.act / maxB * 100).toFixed(1)}%"></i></div>
-      <b class="r">${Math.round(x.act * 100)}%</b><span class="td-dim rv-antes">antes ${Math.round(x.antes * 100)}%</span><span>${flecha(x)}</span></div>`).join('')}</div>
+      <b class="r">${Math.round(x.act * 100)}%</b><span class="td-dim rv-antes">${x.antes == null ? '' : `antes ${Math.round(x.antes * 100)}%`}</span><span>${flecha(x)}</span></div>`).join('')}</div>
     <div class="rv-grid">${R.ranking.slice(0, 8).map(x => rvCard(rvFotoModelo(x.base), x.base, `${fmt(x.u)} pedidas`,
       [x.bota, x.tiro].filter(Boolean).join(' · ') || 'Sin clasificar', `${fmt(x.clientes)} clientes${x.libre ? ` · ${fmt(x.libre)} libres` : ''}`)).join('')}</div>
   </div>
@@ -5640,14 +5671,15 @@ async function secReporte() {
     ${R.stockRematar.length ? `<div class="rv-sub">Para rematar con promoción</div>
     <div class="rv-grid">${R.stockRematar.map(r => rvCard(rvFotoArt(r.art), r.art.slice(2, 6) + '-' + r.color, `${fmt(r.total)} libres`,
       r.bota || 'Sin clasificar', `T${r.temp} · ${r.prio.k === 'parado' ? 'nadie lo pide hace 180 días' : 'se mueve lento'}`)).join('')}</div>` : ''}
-    ${NV ? `<div class="rv-sub">Preventa T${NV}${R.empujarN.length ? ` · empujar <span style="color:var(--ac)">${R.empujarN.join(', ')}</span>, que en la T${TA} se vendieron completas` : ''}</div>
-    <div class="rv-grid">${R.nuevaTop.map(x => rvCard(rvFotoModelo(x.m), x.m, `${fmt(x.u)} pedidas`, x.bota || 'Sin clasificar', 'lo más pedido de la preventa')).join('')
-      || `<div class="td-dim">Todavía no hay pedidos de la T${NV}</div>`}</div>` : ''}
+    ${NV ? `<div class="rv-sub">Preventa T${NV}${R.empujarN.length ? ` · empujar <span style="color:var(--ac)">${R.empujarN.join(', ')}</span>, que en la T${R.lectT} se vendieron completas` : ''}</div>
+    ${TA === NV ? `<div class="td-dim" style="padding:6px 20px 16px;font-size:12px">Lo más pedido de la preventa está arriba, en «Lo que más se vendió».</div>`
+      : `<div class="rv-grid">${R.nuevaTop.map(x => rvCard(rvFotoModelo(x.m), x.m, `${fmt(x.u)} pedidas`, x.bota || 'Sin clasificar', 'lo más pedido de la preventa')).join('')
+      || `<div class="td-dim">Todavía no hay pedidos de la T${NV}</div>`}</div>`}` : ''}
   </div>
 
   <div class="tbl-card rv" style="margin-top:14px">
     <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">3 · A quién llamar</div>
-      <div class="card-sub" style="margin:2px 0 0">Todos los clientes de las últimas cuatro colecciones, de los que más compran a los que menos: si ya pidieron${NV ? ` la T${NV}` : ''} y qué ofrecerles según las botas que compran</div></div>
+      <div class="card-sub" style="margin:2px 0 0">Todos los clientes, de los que más compran a los que menos: lo que llevan de la T${R.ACT}${R.sgC ? ` contra su promedio en ${R.sgC}` : ''}, si ya pidieron${R.oferta ? ` la T${R.oferta}` : ''} y qué ofrecerles según las botas que compran${TA !== R.ACT ? `. Esta parte queda siempre en la T${R.ACT}, que es la que se vende hoy` : ''}</div></div>
       <input id="rvCliSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:190px;margin-left:auto"></div>
     <div id="rvClientes" style="padding:4px 20px 18px">${rvClientes()}</div>
   </div>
@@ -7785,6 +7817,17 @@ function bindContent(secId) {
 
   // Reporte para venta
   if (secId === 'reporte' && document.getElementById('repExcel')) {
+    // Colección base y comparables: igual que en el Plan; cada cambio vuelve a armar la página
+    document.getElementById('rvTemp')?.addEventListener('change', e => {
+      REP_TEMP = e.target.value; REP_CMP = [];        // las comparables se recalculan para la nueva base
+      go('reporte', 'Reporte para venta');
+    });
+    document.querySelectorAll('#rvCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
+      const t = b.dataset.t;
+      if (REP_CMP.includes(t)) { if (REP_CMP.length === 1) return; REP_CMP = REP_CMP.filter(x => x !== t); }
+      else REP_CMP = [...REP_CMP, t].sort((a, c) => +c - +a);
+      go('reporte', 'Reporte para venta');
+    }));
     // Buscador de clientes: esconde las filas que no calzan, y el grupo entero si queda vacío
     document.getElementById('rvCliSearch')?.addEventListener('input', e => {
       const q = rvSinTilde(e.target.value.trim());
