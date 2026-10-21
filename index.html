@@ -214,6 +214,37 @@ body.ia-open #iaBtn{display:none}
 .pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
+/* ── Reporte para venta: la vista del vendedor ── */
+.rv .rv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:10px 20px 16px}
+.rv .rv-card{border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--sf);min-width:0}
+.rv .rv-foto{position:relative;aspect-ratio:3/4;background:var(--sf2)}
+.rv .rv-foto img.art-thumb{width:100%;height:100%;object-fit:cover;margin:0;border:0;border-radius:0;display:block}
+.rv .rv-foto.sin{aspect-ratio:auto;height:38px}
+.rv .rv-grid{align-items:start}
+.rv .pl-bar{height:6px;background:var(--bd);border-radius:3px}
+.rv .pl-bar>i{display:block;height:100%;border-radius:3px;background:var(--ac)}
+.rv .rv-cod{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.78);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;font-family:ui-monospace,monospace}
+.rv .rv-txt{padding:9px 11px 11px;display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--tx2)}
+.rv .rv-txt b{font-size:16px;color:var(--tx1)}
+.rv .rv-sub{padding:12px 20px 0;font-size:13px;font-weight:700}
+.rv .rv-botas{padding:8px 20px 6px}
+.rv .rv-bota{display:grid;grid-template-columns:110px minmax(60px,1fr) 46px 84px 70px;gap:12px;align-items:center;padding:6px 0;font-size:13px;border-top:1px solid var(--bd)}
+.rv .rv-bota:first-child{border-top:0}
+.rv .rv-bota .r{text-align:right}
+.rv .rv-lista{display:flex;flex-direction:column}
+.rv .rv-cli{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,2fr);gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd);font-size:13px}
+.rv .rv-cli:first-child{border-top:0}
+.rv .rv-cli span{display:block;font-size:11px;color:var(--tx3);margin-top:1px}
+.rv .rv-cli span span{display:inline;margin:0}
+.rv .rv-cli .pl-tag{display:inline-block;margin:2px 4px 2px 0}
+.rv .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap}
+@media(max-width:700px){
+  .rv .rv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 12px 14px}
+  .rv .rv-bota{grid-template-columns:90px minmax(40px,1fr) 40px 56px}
+  .rv .rv-bota .rv-antes{display:none}
+  .rv .rv-cli{grid-template-columns:1fr;gap:4px}
+  .rv .rv-sub,.rv .rv-botas{padding-left:12px;padding-right:12px}
+}
 .pl .pl-acc{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--bd);cursor:pointer}
 .pl .pl-acc:hover{background:var(--ac10)}
 .pl .pl-acc-n{width:28px;height:28px;border-radius:50%;background:var(--ac10);color:var(--ac);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -5196,7 +5227,7 @@ let REP = null;
 
 function repDatos(peds, pa, ft, sb, bsale) {
   const TA = TEMP_ACTIVA;
-  const { temps } = planBase(peds, pa, ft, {});
+  const { temps, cat, attr } = planBase(peds, pa, ft, {});
   const vacia = t => ({ t, lineas: [], total: 0, porMes: {}, clientes: new Set(), lanzo: '' });
   const A = temps[TA] || vacia(TA);
   const C = planComparables(temps, TA).map(t => temps[t]).filter(Boolean);
@@ -5317,7 +5348,76 @@ function repDatos(peds, pa, ft, sb, bsale) {
     `Quedan ${fmt(pendU)} unidades por despachar en ${fmt(pendientes.length)} líneas; ${fmt(pendViejo)} tienen más de ${REP_DIAS_RECONFIRMAR} días y conviene reconfirmarlas antes de cortar. Hay ${fmt(stockLibre)} prendas libres para ofrecer, ${fmt(stockLento)} de ellas lentas o paradas.`,
   ].filter(Boolean);
 
-  return { TA, cols, sgC, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A };
+  // ── Para la vista web, la que mira el vendedor: qué se vendió más, qué ofrecer y a quién ──
+  // Tendencia de botas: la activa contra el promedio de las tres colecciones anteriores
+  const ant3 = [3, 2, 1].map(i => String(+TA - i)).filter(t => temps[t]);
+  const parteDe = (T, k) => T.lineas.reduce((a, l) => a + (l.bota === k ? l.u : 0), 0) / Math.max(1, T.total);
+  const tendencia = [...new Set(A.lineas.map(l => l.bota).filter(Boolean))]
+    .map(k => ({ k, act: parteDe(A, k), antes: ant3.length ? ant3.reduce((a, t) => a + parteDe(temps[t], k), 0) / ant3.length : 0 }))
+    .filter(x => x.act >= 0.02 || x.antes >= 0.02).sort((a, b) => b.act - a.act).slice(0, 7);
+
+  // La colección que viene (la más nueva después de la activa): qué se pide y qué botas empujar
+  const nueva = [...new Set([...Object.keys(temps), ...Object.keys(cat)])].filter(t => +t > +TA).sort((a, b) => +b - +a)[0] || '';
+  const N = temps[nueva] || vacia(nueva);
+  const pedN = {};
+  N.lineas.forEach(l => { pedN[l.base] = (pedN[l.base] || 0) + l.u; });
+  const botaN = m => (attr[nueva + '|' + m] || {}).bota || ((cat[nueva] || {})[m] || {}).bota || '';
+  /* La misma lectura de la estrategia del Plan: de lo cortado de cada bota en la activa, cuánto
+     se vendió. Una bota que vendió el 90% o más de lo que se cortó se empuja. */
+  const lect = {};
+  { const vend = {}, desp = {};
+    A.lineas.forEach(l => { vend[l.base] = (vend[l.base] || 0) + l.u; desp[l.base] = (desp[l.base] || 0) + l.desp; });
+    for (const b of Object.values(cat[TA] || {})) {
+      if (b.cort < 20 || !b.bota || (desp[b.base] || 0) > b.cort * 1.05) continue;
+      const x = lect[b.bota] = lect[b.bota] || { cort: 0, vend: 0 };
+      x.cort += b.cort; x.vend += vend[b.base] || 0;
+    } }
+  const vendioDeLoCortado = k => lect[k] && lect[k].cort >= 300 ? lect[k].vend / lect[k].cort : null;
+  const modelosN = [...new Set([...Object.keys(pedN), ...Object.values(cat[nueva] || {}).filter(b => b.prog).map(b => b.base)])];
+  const empujarN = [...new Set(modelosN.map(botaN).filter(k => k && vendioDeLoCortado(k) >= 0.9))];
+  const nuevaTop = Object.entries(pedN).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([m, u]) => ({ m, u, bota: botaN(m) }));
+  const topN = new Set(Object.entries(pedN).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([m]) => m));
+  const dispN = m => { const b = (cat[nueva] || {})[m] || {}; return b.cort >= 20 ? 0 : b.prog ? 1 : 2; };
+
+  // Stock: lo que se vende solo (tenerlo a mano) y lo que hay que rematar. Sin respaldo no se ofrece.
+  const stockMueve = stock.filter(r => r.prio.k === 'mueve' && !r.sinRespaldo).sort((a, b) => b.total - a.total).slice(0, 8);
+  const stockRematar = stock.filter(r => r.prio.k !== 'mueve' && !r.sinRespaldo).sort((a, b) => b.total - a.total).slice(0, 4);
+
+  /* Todos los clientes de las cuatro últimas colecciones, sin separar por vendedor (queda uno
+     solo y los ve a todos): lo que compraron, qué botas compran y qué modelos de la nueva ofrecerles. */
+  const recientes = [...ant3, TA];
+  const cliV = new Map();
+  for (const p of peds) {
+    const k = vdKey(p);
+    const x = cliV.get(k) || { k, nombre: (p.nombre || p.rut || '').toUpperCase(), ciudad: p.ciudad || '', u: {}, mix: {}, tot: 0, enNueva: {} };
+    if (!x.ciudad) x.ciudad = p.ciudad || '';
+    for (const l of (p.lineas || [])) {
+      const t = String(l.temp), u = l.sol || 0;
+      x.u[t] = (x.u[t] || 0) + u;
+      if (t === nueva) x.enNueva[l.modelo] = (x.enNueva[l.modelo] || 0) + u;
+      if (recientes.includes(t)) {
+        x.tot += u;
+        const b = (attr[t + '|' + l.modelo] || {}).bota || '';
+        if (b) x.mix[b] = (x.mix[b] || 0) + u;
+      }
+    }
+    cliV.set(k, x);
+  }
+  const cartera = [...cliV.values()].filter(x => x.tot > 0).map(x => {
+    const compro = ant3.filter(t => (x.u[t] || 0) > 0);
+    const prom = compro.length ? compro.reduce((a, t) => a + x.u[t], 0) / compro.length : 0;
+    const misBotas = Object.entries(x.mix).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
+    /* Un modelo de la nueva por cada bota que más compra, sin repetir lo que ya pidió. Dentro de
+       la bota, el mismo orden que "qué ofrecerle" del Plan: primero uno de los 5 más pedidos,
+       después lo que ya está cortado, después lo programado. Así las dos secciones dicen lo mismo. */
+    const ofrecer = misBotas.map(k => modelosN.filter(m => botaN(m) === k && !x.enNueva[m])
+        .sort((a, b) => (topN.has(b) - topN.has(a)) || (dispN(a) - dispN(b)) || ((pedN[b] || 0) - (pedN[a] || 0)))[0])
+      .filter(Boolean).map(m => ({ m, bota: botaN(m) }));
+    return { ...x, act: x.u[TA] || 0, prom, nuevaU: x.u[nueva] || 0, misBotas, ofrecer };
+  }).sort((a, b) => b.tot - a.tot);
+
+  return { TA, cols, sgC, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A,
+           ant3, tendencia, nueva, nuevaTop, empujarN, stockMueve, stockRematar, cartera };
 }
 
 /* Las hojas, como datos: título, nota de supuestos arriba, columnas con su formato y filas.
@@ -5434,6 +5534,63 @@ async function repDescargar(R) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
+/* ── La vista web del reporte: lo que mira el vendedor ──
+   Tres preguntas, con fotos y frases cortas: qué se vendió más, qué ofrecer ahora y a quién
+   llamar. El Excel queda abajo, para el análisis completo. */
+const rvNombre = s => String(s || '').toLowerCase().replace(/(^|[\s.(-])\S/g, c => c.toUpperCase());
+const rvFotoModelo = base => `<img class="art-thumb" src="img/art/${base}.jpg" data-key="${base}" data-art="${base}" loading="lazy" onerror="rvFotoErr(this)" alt="">`;
+const rvFotoArt = art => `<img class="art-thumb" src="img/art/${art}.jpg" data-alt="img/art/${art.slice(2, 6)}.jpg" data-art="${art}" loading="lazy" onerror="rvFotoErr(this)" alt="">`;
+/* Sin foto del color se prueba la del modelo; sin ninguna, la tarjeta se achica en vez de
+   quedar con un cuadro gris del alto de una foto (pasa con toda colección nueva). */
+function rvFotoErr(img) {
+  if (img.dataset.alt && !img.src.endsWith(img.dataset.alt)) {
+    img.src = img.dataset.alt; img.dataset.alt = ''; img.dataset.key = (img.dataset.art || '').slice(2, 6);
+    return;
+  }
+  const caja = img.closest('.rv-foto');
+  img.remove();
+  if (caja) caja.classList.add('sin');
+}
+const rvCard = (foto, codigo, grande, sub, chico) => `<div class="rv-card">
+    <div class="rv-foto">${foto}<span class="rv-cod">${codigo}</span></div>
+    <div class="rv-txt"><b>${grande}</b><span>${sub || '&nbsp;'}</span>${chico ? `<span class="td-dim">${chico}</span>` : ''}</div></div>`;
+
+const rvSinTilde = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/* Todos los clientes, sin tope: primero los que compraron la activa, después los que dejaron de
+   comprar. Cada fila lleva su texto de búsqueda en data-q (sin tildes: "chillan" encuentra Chillán). */
+function rvClientes() {
+  const R = REP;
+  if (!R) return '';
+  const TA = R.TA, NV = R.nueva;
+  const dq = (...s) => ` data-q="${rvSinTilde(s.join(' ')).replace(/"/g, '')}"`;
+  // Los que compraron la activa; los que no, van abajo en "Dejaron de comprar" (si no, salían en las dos listas)
+  const compraron = R.cartera.filter(x => x.act > 0);
+  const fila = x => {
+    const subio = x.prom ? x.act - x.prom : 0;
+    return `<div class="rv-cli"${dq(x.nombre, x.ciudad)}>
+      <div class="rv-cli-n"><b>${x.nombre}</b><span>${rvNombre(x.ciudad) || '—'}</span></div>
+      <div class="rv-cli-u">${x.act ? `<b>${fmt(x.act)}</b> en la T${TA}` : `<b style="color:var(--wa)">No compró</b> la T${TA}`}
+        <span>${x.prom ? `promedio ${fmt(Math.round(x.prom))}${x.act ? (subio >= 0 ? ' · <span style="color:var(--ok)">va arriba</span>' : ' · <span style="color:var(--wa)">va abajo</span>') : ''}` : 'cliente nuevo'}</span></div>
+      <div class="rv-cli-e">${NV ? (x.nuevaU ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T${NV} · ${fmt(x.nuevaU)}</span>` : `<span class="td-dim">Todavía no pide la T${NV}</span>`) : ''}</div>
+      <div class="rv-cli-o">${x.ofrecer.length ? 'Ofrecer: ' + x.ofrecer.map(o => `<span class="pl-tag" style="background:var(--ac10);color:var(--ac)">${o.m} ${o.bota}</span>`).join(' ')
+        : x.misBotas.length ? `<span class="td-dim">Compra ${x.misBotas.join(', ')}</span>` : ''}</div>
+    </div>`;
+  };
+  const rec = R.recuperar, est = rec.filter(c => c.seg === 'Estratégico').length, ya = compraron.filter(x => x.nuevaU).length;
+  const ttl = t => `<div class="flbl" style="margin:12px 0 4px;white-space:normal">${t}</div>`;
+  return `${compraron.length ? `<div class="rv-grupo">${ttl(`Compraron la T${TA} · ${fmt(compraron.length)} clientes${NV ? ` · ${fmt(ya)} ya pidieron la T${NV}` : ''}`)}
+      <div class="rv-lista">${compraron.map(fila).join('')}</div></div>` : ''}
+    ${rec.length ? `<div class="rv-grupo">${ttl(`Dejaron de comprar · ${fmt(rec.length)} para recuperar${est ? ` · ${fmt(est)} estratégicos` : ''}`)}
+      <div class="rv-lista">${rec.map(c => `<div class="rv-cli"${dq(c.nombre, c.ciudad)}>
+        <div class="rv-cli-n"><b>${c.nombre}</b><span>${rvNombre(c.ciudad) || '—'} · última compra hace ${fmt(c.dias)} días</span></div>
+        <div class="rv-cli-u"><b>${fmt(c.unidades)}</b> en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]}<span>${c.seg === 'Estratégico' ? 'cliente estratégico' : ''}</span></div>
+        <div class="rv-cli-e">${c.desc === 'Cobrar antes' ? '<span class="pl-tag" style="background:var(--wa10);color:var(--wa)">Cobrar antes</span>'
+          : c.desc.includes('%') ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">${c.desc}</span>` : '<span class="td-dim">Sin descuento</span>'}</div>
+        <div class="rv-cli-o"><span class="td-dim">${c.motivo === 'sin motivo visible' ? 'Sin motivo visible: llamar' : rvNombre(c.motivo)}</span></div></div>`).join('')}</div></div>` : ''}
+    <div class="td-dim rv-nada" style="padding:18px 0${compraron.length || rec.length ? ';display:none' : ''}">${compraron.length || rec.length ? 'Ningún cliente con ese nombre o ciudad' : 'Sin clientes en las últimas cuatro colecciones'}</div>`;
+}
+
 async function secReporte() {
   const ICO = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
   const [peds, pa, ft, sb, bsale] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'),
@@ -5443,8 +5600,6 @@ async function secReporte() {
   const R = REP, TA = R.TA;
   const est = R.recuperar.filter(c => c.seg === 'Estratégico').length;
   const viejos = R.pendientes.filter(x => x.marcas.includes('Reconfirmar')).length;
-  const tarjeta = (val, lbl, sub) => `<div class="kpi" style="cursor:default"><div style="min-width:0"><div class="kpi-val">${val}</div>
-    <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
   const hojas = [
     ['Resumen', `Lanzamiento, último pedido, unidades y clientes de la T${TA} y de ${R.sgC}, y las conclusiones`],
     [`Ranking T${TA}`, `${fmt(R.ranking.length)} modelos del más al menos pedido, con bota, tiro, pendientes, clientes y stock libre`],
@@ -5454,19 +5609,52 @@ async function secReporte() {
     ['Pedidos a validar', `${fmt(R.pendientes.length)} líneas con saldo; ${fmt(viejos)} con más de ${REP_DIAS_RECONFIRMAR} días`],
     ['Stock para ofrecer', `${fmt(R.stock.length)} artículos con stock libre, separados en reponer y promover`],
   ];
+  const ant = R.ant3.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1'), NV = R.nueva;
+  const flecha = x => x.act - x.antes >= 0.02 ? '<span style="color:var(--ok);font-weight:700">▲ sube</span>'
+                    : x.antes - x.act >= 0.02 ? '<span style="color:var(--er);font-weight:700">▼ baja</span>' : '<span class="td-dim">= igual</span>';
+  const maxB = Math.max(0.01, ...R.tendencia.map(x => x.act));
   return `
-  <div class="kpi-grid">
-    ${tarjeta(fmt(R.A.total), `Unidades pedidas T${TA}`, `${fmt(R.A.clientes.size)} clientes`)}
-    ${tarjeta(fmt(R.recuperar.length), 'Clientes a recuperar', `${fmt(est)} estratégicos`)}
-    ${tarjeta(fmt(R.pendientes.reduce((a, x) => a + x.sal, 0)), 'Unidades por despachar', `${fmt(viejos)} líneas a reconfirmar`)}
-    ${tarjeta(fmt(R.stock.reduce((a, r) => a + r.total, 0)), 'Prendas libres para ofrecer', `${fmt(R.stock.filter(r => r.prio.k !== 'mueve').length)} artículos lentos o parados`)}
+  <div class="fbar">
+    <div class="fbar-row">
+      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 7 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button>
+    </div>
+  </div>
+
+  <div class="tbl-card rv">
+    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
+      <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA} contra ${ant}, y los modelos que más pidieron los clientes en la T${TA}. Toca una foto para verla grande</div></div></div>
+    <div class="rv-botas">${R.tendencia.map(x => `<div class="rv-bota">
+      <b>${x.k}</b><div class="pl-bar" style="max-width:none;margin:0"><i style="width:${(x.act / maxB * 100).toFixed(1)}%"></i></div>
+      <b class="r">${Math.round(x.act * 100)}%</b><span class="td-dim rv-antes">antes ${Math.round(x.antes * 100)}%</span><span>${flecha(x)}</span></div>`).join('')}</div>
+    <div class="rv-grid">${R.ranking.slice(0, 8).map(x => rvCard(rvFotoModelo(x.base), x.base, `${fmt(x.u)} pedidas`,
+      [x.bota, x.tiro].filter(Boolean).join(' · ') || 'Sin clasificar', `${fmt(x.clientes)} clientes${x.libre ? ` · ${fmt(x.libre)} libres` : ''}`)).join('')}</div>
+  </div>
+
+  <div class="tbl-card rv" style="margin-top:14px">
+    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">2 · Qué ofrecer ahora</div>
+      <div class="card-sub" style="margin:2px 0 0">Lo que hay en bodega y en la tienda para entregar al tiro${NV ? `, y la preventa de la T${NV}` : ''}</div></div></div>
+    <div class="rv-sub">Se vende solo: tenerlo a la mano</div>
+    <div class="rv-grid">${R.stockMueve.map(r => rvCard(rvFotoArt(r.art), r.art.slice(2, 6) + '-' + r.color, `${fmt(r.total)} libres`,
+      r.bota || 'Sin clasificar', `T${r.temp} · se pidieron ${fmt(r.p90)} en 90 días`)).join('') || '<div class="td-dim">Nada con stock que se esté moviendo</div>'}</div>
+    ${R.stockRematar.length ? `<div class="rv-sub">Para rematar con promoción</div>
+    <div class="rv-grid">${R.stockRematar.map(r => rvCard(rvFotoArt(r.art), r.art.slice(2, 6) + '-' + r.color, `${fmt(r.total)} libres`,
+      r.bota || 'Sin clasificar', `T${r.temp} · ${r.prio.k === 'parado' ? 'nadie lo pide hace 180 días' : 'se mueve lento'}`)).join('')}</div>` : ''}
+    ${NV ? `<div class="rv-sub">Preventa T${NV}${R.empujarN.length ? ` · empujar <span style="color:var(--ac)">${R.empujarN.join(', ')}</span>, que en la T${TA} se vendieron completas` : ''}</div>
+    <div class="rv-grid">${R.nuevaTop.map(x => rvCard(rvFotoModelo(x.m), x.m, `${fmt(x.u)} pedidas`, x.bota || 'Sin clasificar', 'lo más pedido de la preventa')).join('')
+      || `<div class="td-dim">Todavía no hay pedidos de la T${NV}</div>`}</div>` : ''}
+  </div>
+
+  <div class="tbl-card rv" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">3 · A quién llamar</div>
+      <div class="card-sub" style="margin:2px 0 0">Todos los clientes de las últimas cuatro colecciones, de los que más compran a los que menos: si ya pidieron${NV ? ` la T${NV}` : ''} y qué ofrecerles según las botas que compran</div></div>
+      <input id="rvCliSearch" class="finput fsearch" placeholder="Cliente o ciudad…" style="width:190px;margin-left:auto"></div>
+    <div id="rvClientes" style="padding:4px 20px 18px">${rvClientes()}</div>
   </div>
 
   <div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Reporte estratégico de venta · T${TA}</div>
-        <div class="card-sub" style="margin:2px 0 0">Un Excel para el encargado de venta, con los datos del día. Comparado con ${R.sgC}</div></div>
-      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte en un Excel con 7 hojas">⬇ Descargar reporte</button>
+      <div><div class="card-ttl" style="margin:0">Para el análisis completo · Excel T${TA}</div>
+        <div class="card-sub" style="margin:2px 0 0">Lo que trae el botón "Descargar Excel", con los datos del día. Comparado con ${R.sgC}</div></div>
     </div>
     <div style="padding:14px 20px 4px"><div class="flbl">Conclusiones</div>
       <ol style="margin:8px 0 0 18px;font-size:13px;line-height:1.55;color:var(--tx1)">${R.conclusiones.map(c => `<li style="margin-bottom:6px">${c}</li>`).join('')}</ol></div>
@@ -7596,6 +7784,19 @@ function bindContent(secId) {
 
   // Reporte para venta
   if (secId === 'reporte' && document.getElementById('repExcel')) {
+    // Buscador de clientes: esconde las filas que no calzan, y el grupo entero si queda vacío
+    document.getElementById('rvCliSearch')?.addEventListener('input', e => {
+      const q = rvSinTilde(e.target.value.trim());
+      let hay = 0;
+      document.querySelectorAll('#rvClientes .rv-grupo').forEach(g => {
+        let n = 0;
+        g.querySelectorAll('.rv-cli').forEach(f => { const ok = !q || f.dataset.q.includes(q); f.style.display = ok ? '' : 'none'; n += ok; });
+        g.style.display = n ? '' : 'none';
+        hay += n;
+      });
+      const nada = document.querySelector('#rvClientes .rv-nada');
+      if (nada && document.querySelector('#rvClientes .rv-grupo')) nada.style.display = hay ? 'none' : '';
+    });
     const btn = document.getElementById('repExcel');
     btn.addEventListener('click', async () => {
       if (!REP || btn.disabled) return;
