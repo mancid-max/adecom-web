@@ -3792,9 +3792,14 @@ function etapaClr(e) { return ETAPA_COLOR[e] || 'var(--tx3)'; }
 /* Stock por artículo en SAN GERARDO (bodega 04), igual que el informe "Artículos para corte" del
    ERP, que calcula A CORTE = Saldo por entregar − Stock bodega(04) − Producción en proceso. */
 let STOCK_MAP = {};
+let CAJAS_MAP = {};   // artículo → prendas ya en cajas (armadas para un cliente, falta despacharlas): total y en San Gerardo
 function buildStockMap(sb) {
   const m = {};
-  (Array.isArray(sb) ? sb : []).forEach(r => { m[r.art] = (r.suc && r.suc['04']) || 0; });
+  CAJAS_MAP = {};
+  (Array.isArray(sb) ? sb : []).forEach(r => {
+    m[r.art] = (r.suc && r.suc['04']) || 0;
+    if (r.cajas_total) CAJAS_MAP[r.art] = { total: r.cajas_total, s04: (r.cajas && r.cajas['04']) || 0 };
+  });
   return m;
 }
 
@@ -3823,6 +3828,24 @@ function buildFtMap(ft) {
 
 let PVC_FILAS = {};   // articulo -> su fila, para armar el detalle al tocarla
 
+/* Magic World SPA es la tienda propia (Kennedy y Mercado Libre piden a su nombre). A veces sus
+   pedidos cuentan para cortar y a veces no: "Sin Magic" los descuenta artículo por artículo.
+   El stock y lo que está en producción no cambian: son físicos, no de un cliente. */
+let PVC_SIN_MAGIC = false;
+const MAGIC_RUT = '762535491';
+const esMagic = p => vdKey(p) === MAGIC_RUT || /MAGIC WORLD/i.test(p.nombre || '');
+function pvcMagic() {           // artículo → lo que pidió Magic, lo que se le despachó y lo que se le debe
+  const m = {};
+  for (const p of (CACHE['pedidos.json'] || [])) {
+    if (!esMagic(p)) continue;
+    for (const l of (p.lineas || [])) {
+      const x = m[l.art] = m[l.art] || { sol: 0, desp: 0, sal: 0 };
+      x.sol += l.sol || 0; x.desp += l.desp || 0; x.sal += l.sal || 0;
+    }
+  }
+  return m;
+}
+
 function buildPVCRows(t, ftMap, exMap) {
   const byTemp = buildByTemp();
   const rawItems = byTemp[t]?.items || [];
@@ -3832,15 +3855,27 @@ function buildPVCRows(t, ftMap, exMap) {
   // Una fila por ARTÍCULO (modelo + color), igual que el informe "Artículos para corte" del ERP.
   // A cortar = Saldo por entregar − Stock bodega(04) − Producción en proceso.
   const filas = [];
+  const mg = PVC_SIN_MAGIC ? pvcMagic() : null;
   for (const item of rawItems) {
     for (const v of (item.modelos || [])) {
       const mod = String(v.mod).padStart(2, '0');
       const art = `01${t}${item.base.slice(-2)}${mod}`;
       const ftr = ftMap[art] || {};
-      const sal = v.sal != null ? v.sal : v.qty;
-      const stk = STOCK_MAP[art] || 0;
+      const m = (mg && mg[art]) || { sol: 0, desp: 0, sal: 0 };
+      const ped = Math.max(0, (v.qty || 0) - m.sol), desp = Math.max(0, (v.desp || 0) - m.desp);
+      const salTot = Math.max(0, (v.sal != null ? v.sal : v.qty) - m.sal);
+      /* Lo que ya está en cajas (armado para un cliente, falta despacharlo) existe físicamente: no
+         se debe ni se corta. El saldo es lo que se debe de verdad, igual que los pendientes de
+         Adecom (el 4473-00: 51 por despachar, 18 en cajas → 33), y el stock es el libre, sin esas
+         cajas, para no contarlas dos veces. Un stock negativo en el ERP (se despachó más de lo que
+         entró a bodega: "sobrevendido") no son prendas por hacer: cuenta como 0 y se sigue mostrando.
+         Antes se sumaba y el 4473-00 pedía cortar 250 (Manu, 21-10-2026). */
+      const cj = CAJAS_MAP[art] || { total: 0, s04: 0 };
+      const enCaja = Math.min(salTot, cj.total), sal = salTot - enCaja;
+      const stkErp = STOCK_MAP[art] || 0, stk = Math.max(0, stkErp - cj.s04);
       const pro = ftr.pend || 0;
-      filas.push({ art, base: item.base, mod, ped: v.qty || 0, desp: v.desp || 0, sal, stk, pro,
+      if (mg && !ped && !stk && !pro) continue;     // solo lo pidió Magic y no hay nada físico
+      filas.push({ art, base: item.base, mod, ped, desp, sal, enCaja, stk, stkErp, pro,
                    diff: stk + pro - sal, ocs: ftr.ocs || [], etapas: ftr.etapas || {},
                    ex: exMap ? exMap[item.base] : null, bota: item.bota, tiro: item.tiro });
     }
@@ -3884,8 +3919,9 @@ function buildPVCRows(t, ftMap, exMap) {
       <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}</div></div></td>
       <td class="r td-num">${fmt(f.ped)}</td>
       <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
-      <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}</td>
-      <td class="r td-num" style="color:${f.stk<0?'var(--er)':'var(--tx1)'}">${f.stk ? fmt(f.stk) : '—'}</td>
+      <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}${f.enCaja ? `<div class="td-dim" style="font-size:10px;font-weight:400">+${fmt(f.enCaja)} en cajas</div>` : ''}</td>
+      <td class="r td-num"${f.stkErp < 0 ? ' title="El ERP muestra stock negativo: se despachó más de lo que entró a bodega. Para cortar cuenta como 0."' : ''}>${f.stkErp < 0
+        ? `<span style="color:var(--er)">${fmt(f.stkErp)}</span><div class="td-dim" style="font-size:10px;font-weight:400">cuenta 0</div>` : f.stk ? fmt(f.stk) : '—'}</td>
       <td class="r td-num" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
       <td class="r td-num" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
       <td style="text-align:center">${estadoHtml}</td>
@@ -3904,6 +3940,7 @@ function pvcDetalle(art) {
   if (!f) return '<div class="td-dim" style="padding:18px 16px">No tengo el detalle de este artículo</div>';
   const clientes = [];
   for (const p of (CACHE['pedidos.json'] || [])) {
+    if (PVC_SIN_MAGIC && esMagic(p)) continue;       // con "Sin Magic", tampoco aparece en la lista
     for (const l of (p.lineas || [])) {
       if (l.art !== art || (l.sal || 0) <= 0) continue;
       clientes.push({ nombre: p.nombre || p.rut || '—', ciudad: p.ciudad || '', bloqueo: !!p.bloqueo,
@@ -3915,8 +3952,9 @@ function pvcDetalle(art) {
   const resumen = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
       ${[['Pedido', fmt(f.ped), 'var(--tx1)'], ['Despachado', fmt(f.desp), 'var(--ok)'],
-         ['Saldo', fmt(f.sal), 'var(--wa)'],
-         ['En bodega', fmt(f.stk), f.stk > 0 ? 'var(--ok)' : f.stk < 0 ? 'var(--er)' : 'var(--tx3)'],
+         ['Se debe', fmt(f.sal), 'var(--wa)'],
+         ...(f.enCaja ? [['Ya en cajas', fmt(f.enCaja), 'var(--ok)']] : []),
+         ['En bodega', fmt(f.stk), f.stk > 0 ? 'var(--ok)' : 'var(--tx3)'],
          ['En producción', fmt(f.pro), f.pro ? 'var(--ac)' : 'var(--tx3)'],
          ['Hay que cortar', fmt(falta), falta ? 'var(--er)' : 'var(--tx3)']]
         .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
@@ -3927,12 +3965,12 @@ function pvcDetalle(art) {
       f.sal <= 0 ? 'No queda saldo de este artículo.'
       : falta > 0 ? `Faltan <b>${fmt(falta)}</b> que no están ni en bodega ni en producción: eso es lo que hay que cortar.`
       : f.stk >= f.sal ? 'Alcanza con lo que hay en bodega. Solo falta despacharlo.'
-      : 'Lo que falta viene en producción.'}</div>`;
+      : 'Lo que falta viene en producción.'}${f.enCaja ? `<br><b>${fmt(f.enCaja)}</b> ya están en cajas armadas para clientes: existen, solo falta despacharlas, así que no se deben ni se cortan.` : ''}${f.stkErp < 0 ? `<br>El ERP muestra <b style="color:var(--er)">${fmt(f.stkErp)}</b> en San Gerardo: se despachó más de lo que entró a bodega. No son prendas por hacer, así que para cortar cuenta como 0.` : ''}</div>`;
 
-  const suma = clientes.reduce((a, c) => a + c.sal, 0);
-  const aviso = suma !== f.sal
-    ? ` · la suma da ${fmt(suma)} porque a algún cliente se le despachó de más y el saldo del artículo queda en ${fmt(f.sal)}`
-    : '';
+  // La lista suma todo lo que falta despacharle a cada cliente, también lo que ya está en cajas
+  const suma = clientes.reduce((a, c) => a + c.sal, 0), porDespachar = f.sal + (f.enCaja || 0);
+  const aviso = (f.enCaja ? `, ${fmt(f.enCaja)} de ellas ya en cajas` : '')
+    + (suma !== porDespachar ? ` · la suma da ${fmt(suma)} porque a algún cliente se le despachó de más y al artículo le quedan ${fmt(porDespachar)} por despachar` : '');
   const tablaCli = !clientes.length
     ? '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>'
     : vTabla('<th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Se le debe</th><th></th>',
@@ -3981,7 +4019,7 @@ async function secPVC() {
       totalSal += item.saldo ?? item.total;
       for (const v of (item.modelos||[])) {
         const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-        totalProg += (ftMap[art]?.pend || 0) + (STOCK_MAP[art] || 0);
+        totalProg += (ftMap[art]?.pend || 0) + Math.max(0, STOCK_MAP[art] || 0);
       }
     }
     return { totalPed, totalSal, totalProg, diff: totalProg - totalSal };
@@ -3994,6 +4032,11 @@ async function secPVC() {
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="pvcSegs">
       ${temps.map((t,i) => `<button class="seg${t===defT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
+    </div></div>
+    <div class="fgrp"><span class="flbl">Magic</span>
+    <div class="segs" id="pvcMagicSegs">
+      <button class="seg${PVC_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta los pedidos de Magic World, la tienda propia">Con Magic</button>
+      <button class="seg${PVC_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Descuenta los pedidos de Magic World: queda lo que piden los demás clientes">Sin Magic</button>
     </div></div>
     </div>
 
@@ -4041,12 +4084,13 @@ async function secPVC() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Artículo</th><th class="r">Pedido</th><th class="r" title="Ya despachado">Desp.</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en San Gerardo, igual que el informe de corte del ERP">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center">Estado</th><th>EX</th><th class="r" title="Saldo del modelo EX">Cant.</th><th>Dónde</th></tr></thead>
+        <thead><tr><th>Artículo</th><th class="r">Pedido</th><th class="r" title="Ya despachado">Desp.</th><th class="r" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center">Estado</th><th>EX</th><th class="r" title="Saldo del modelo EX">Cant.</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody" class="tbl-compacta">${buildPVCRows(defT, ftMap, exMap)}</tbody>
         <tbody id="pvcTot" class="tbl-compacta"></tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">artículos T${defT}</div>
     </div>
+  </div>
   </div>`;
 }
 /* ── ESTADO DE RESULTADO ─────────────────────────────────────── */
@@ -8601,7 +8645,7 @@ function bindContent(secId) {
       if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || TEMP_SEL;
       const foot = document.getElementById('pvcFoot');
-      if (foot) foot.textContent = `${visible} ${visible === 1 ? 'artículo' : 'artículos'} T${t}`;
+      if (foot) foot.textContent = `${visible} ${visible === 1 ? 'artículo' : 'artículos'} T${t}${PVC_SIN_MAGIC ? ' · sin los pedidos de Magic' : ''}`;
       /* Fila de total de lo que se ve (con búsqueda o filtro, solo eso). "Cortar" es la suma de las
          etiquetas rojas, no la diferencia: por eso puede no calzar con Dif. cuando algún color sobra. */
       const tot = document.getElementById('pvcTot');
@@ -8652,6 +8696,18 @@ function bindContent(secId) {
 
     document.getElementById('pvcSearch')?.addEventListener('input', applyPvcFilter);
 
+    // Con o sin Magic: se rearman las filas y se vuelven a aplicar la búsqueda y los filtros
+    document.querySelectorAll('#pvcMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
+      const sin = b.dataset.mg === 'sin';
+      if (sin === PVC_SIN_MAGIC) return;
+      PVC_SIN_MAGIC = sin;
+      document.querySelectorAll('#pvcMagicSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || TEMP_SEL;
+      document.getElementById('pvcBody').innerHTML = buildPVCRows(t, buildFtMap(CACHE['full_table.json'] || []), CACHE['pvc_ex.json'] || {});
+      bindPvcClick();
+      applyPvcFilter();
+    }));
+
     document.querySelectorAll('#pvcSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#pvcSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on');
@@ -8668,7 +8724,7 @@ function bindContent(secId) {
         totalSal += item.saldo ?? item.total;
         for (const v of (item.modelos||[])) {
           const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-          totalProg += (ftMap[art]?.pend || 0) + (STOCK_MAP[art] || 0);
+          totalProg += (ftMap[art]?.pend || 0) + Math.max(0, STOCK_MAP[art] || 0);
         }
       }
       const diff = totalProg - totalSal;
