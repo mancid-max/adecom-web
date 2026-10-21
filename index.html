@@ -509,6 +509,10 @@ body.ia-open #iaBtn{display:none}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
       Plan Colección
     </button>
+    <button class="nav-item" data-sec="reporte" data-ttl="Reporte para venta" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+      Reporte para venta
+    </button>
     <button class="nav-item" data-sec="proyecciones" data-ttl="Proyecciones" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/><circle cx="19" cy="7" r="1.6"/></svg>
       Proyecciones
@@ -3807,7 +3811,7 @@ function buildPVCRows(t, ftMap, exMap) {
       const pro = ftr.pend || 0;
       filas.push({ art, base: item.base, mod, ped: v.qty || 0, desp: v.desp || 0, sal, stk, pro,
                    diff: stk + pro - sal, ocs: ftr.ocs || [], etapas: ftr.etapas || {},
-                   ex: exMap ? exMap[item.base] : null });
+                   ex: exMap ? exMap[item.base] : null, bota: item.bota, tiro: item.tiro });
     }
   }
   filas.sort((a, b) => {
@@ -3840,10 +3844,13 @@ function buildPVCRows(t, ftMap, exMap) {
         ).join('')
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e)].join(' ').toLowerCase();
+    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e), f.bota, f.tiro].join(' ').toLowerCase();
+    /* La bota y el tiro van debajo del código y no en otra columna: la tabla ya llena el
+       ancho y una columna más la haría correrse a la derecha. */
+    const botaTiro = [f.bota, f.tiro].filter(Boolean).join(' · ');
 
     return `<tr data-expandable data-art="${f.art}" data-estado="${estadoKey}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
-      <td style="white-space:nowrap">${artImg(f.art)}<span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}</td>
+      <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}</div></div></td>
       <td class="r td-num">${fmt(f.ped)}</td>
       <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
       <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}</td>
@@ -3999,7 +4006,7 @@ async function secPVC() {
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver sus cortes</div>
-      <input id="pvcSearch" class="finput fsearch" placeholder="Modelo, OC o EX…" style="width:200px;margin-left:auto">
+      <input id="pvcSearch" class="finput fsearch" placeholder="Modelo, bota, OC o EX…" style="width:200px;margin-left:auto">
     </div>
     <div class="tbl-scroll">
       <table>
@@ -4862,12 +4869,13 @@ function pintarPlan() {
       `Modelos de la T${PLAN_TEMP} de las botas que más compra. Top: entre los 5 más pedidos de la T${PLAN_TEMP}. ¿Cortar?: de esa bota, en la T${prev ? prev.t : ''} se vendió el 90% o más de lo cortado (vale la pena), entre 75 y 90 (con cuidado) o menos (revisar). Los modelos sin pedidos todavía no tienen bota y no aparecen aquí.`);
   };
 
+  const uNuevaDe = cli => Object.values(pidioP[cli] || {}).reduce((a, u) => a + u, 0);   // lo que ya pidió de la nueva
   const filasCli = clientes.slice(0, 40).map((c, i) => `<tr data-pcli="${i}" title="Toca para ver qué ofrecerle">
       <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
       <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
       ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
       <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
-      <td class="pl-wrap pl-sec" data-v="${(yaP.has(c.cli) ? 2 : 0) + (c.mes1 ? 1 : 0)}">${yaP.has(c.cli) ? '<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T' + PLAN_TEMP + '</span>' : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
+      <td class="pl-wrap pl-sec" data-v="${uNuevaDe(c.cli) + (c.mes1 ? 0.5 : 0)}">${yaP.has(c.cli) ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T${PLAN_TEMP} · ${fmt(uNuevaDe(c.cli))}</span>` : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
       <td class="pl-wrap">${tagsOfrecer(c)}</td>
     </tr>`).join('');
 
@@ -5095,7 +5103,7 @@ function pintarPlan() {
       <button class="seg" id="planCliPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="pl-sec" data-ord="n" title="Primero los que ya pidieron">T${PLAN_TEMP}</th><th title="Modelos de la T${PLAN_TEMP} de las botas que más compra">Ofrecer</th></tr></thead>
+      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="pl-sec" data-ord="n" title="Si ya pidió la T${PLAN_TEMP} y cuántas unidades; ordena de quien más pidió">T${PLAN_TEMP}</th><th title="Modelos de la T${PLAN_TEMP} de las botas que más compra">Ofrecer</th></tr></thead>
       <tbody class="tbl-compacta">${filasCli}</tbody>
     </table>
     <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP} · "compra al lanzamiento" = pidió en el primer mes de alguna comparable</div></div>
@@ -5166,6 +5174,307 @@ async function secPlan() {
     </div>
   </div>
   <div id="planBody" class="pl" style="margin-top:14px"></div>`;
+}
+
+/* ── REPORTE PARA VENTA ──────────────────────────────────────────────
+   Un Excel para el encargado de venta sobre la colección que se está vendiendo
+   (TEMP_ACTIVA): cómo va contra las que se vendían en estas mismas fechas, qué se vende,
+   a quién recuperar y con qué condición, qué pedidos validar antes de cortar y qué stock
+   ofrecer ya. Se arma con lo mismo que calculan Plan de Colección (planBase,
+   planComparables), Clientes Inactivos (clInactivos) y Para ofrecer (cybBase), así que
+   las cifras coinciden con las de esas secciones.
+
+   El generador de Excel del resto del sitio (SheetJS) no escribe negritas ni congela
+   filas, y este archivo va a alguien que lo lee solo: por eso usa ExcelJS, que se carga
+   recién al tocar el botón. */
+const REP_PCT_ESTRATEGICO  = 0.20;   // "estratégico": el 20% de clientes que más compró en las 4 colecciones base
+const REP_DESC_ESTRATEGICO = 0.10;   // a estratégicos por recuperar, sin bloqueo, sin deuda y con cupo
+const REP_DESC_ACTIVO      = 0.05;   // a estratégicos que sí compraron, pero bajo su promedio, si suben a él
+const REP_DIAS_RECONFIRMAR = 45;     // un saldo pendiente más viejo que esto se reconfirma antes de cortar
+const REP_EXCELJS = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+let REP = null;
+
+function repDatos(peds, pa, ft, sb, bsale) {
+  const TA = TEMP_ACTIVA;
+  const { temps } = planBase(peds, pa, ft, {});
+  const vacia = t => ({ t, lineas: [], total: 0, porMes: {}, clientes: new Set(), lanzo: '' });
+  const A = temps[TA] || vacia(TA);
+  const C = planComparables(temps, TA).map(t => temps[t]).filter(Boolean);
+  const cols = [A, ...C];
+  const sgC = C.map(T => 'T' + T.t).join(' y ');
+  const hoyMs = Date.now();
+  const diasDesde = iso => iso ? Math.round((hoyMs - new Date(iso + 'T00:00:00').getTime()) / 86400000) : null;
+
+  // 1) Resumen de cada colección: lanzamiento, último pedido, unidades y clientes
+  const resumen = cols.map(T => {
+    const f = T.lineas.map(l => l.fecha).filter(Boolean).sort();
+    // Antes del lanzamiento hay pedidos sueltos (la T40 tiene uno de 2024): cuenta desde el mes en que se vendió de verdad
+    const lanz = f.find(x => x >= (T.lanzo || '') + '-01') || f[0] || '';
+    return { t: T.t, lanz, lanzo: T.lanzo, ultimo: f[f.length - 1] || '', u: T.total,
+             desp: T.lineas.reduce((a, l) => a + l.desp, 0), clientes: T.clientes.size };
+  });
+
+  // Stock libre de cada artículo y de cada modelo: lo mismo que muestra Para ofrecer
+  const cyb = cybBase(sb, bsale, peds, ft);
+  const libreMod = {}, libreArt = {}, fisicoArt = {};
+  for (const r of cyb) { libreMod[r.modelo] = (libreMod[r.modelo] || 0) + r.total; libreArt[r.art] = r.total; fisicoArt[r.art] = r.sgFisico; }
+
+  // 2) Ranking de modelos de la colección activa
+  const porMod = {};
+  for (const l of A.lineas) {
+    const x = porMod[l.base] = porMod[l.base] || { base: l.base, bota: l.bota, tiro: l.tiro, u: 0, desp: 0, sal: 0, cli: new Set() };
+    x.u += l.u; x.desp += l.desp; x.sal += l.sal; x.cli.add(l.cli);
+    x.bota = x.bota || l.bota; x.tiro = x.tiro || l.tiro;
+  }
+  const ranking = Object.values(porMod).sort((a, b) => b.u - a.u)
+    .map((x, i) => ({ ...x, puesto: i + 1, clientes: x.cli.size, libre: libreMod[x.base] || 0, parte: x.u / Math.max(1, A.total) }));
+
+  // 3) Mezcla de botas: la activa al lado de las comparables. Sin bota no se inventa una.
+  const mezcla = cols.map(T => T.lineas.reduce((m, l) => { m[l.bota || ''] = (m[l.bota || ''] || 0) + l.u; return m; }, {}));
+  const parte = (i, k) => (mezcla[i][k] || 0) / Math.max(1, cols[i].total);
+  const botas = [...new Set(mezcla.flatMap(m => Object.keys(m)).filter(Boolean))]
+    .map(k => ({ k, u: cols.map((T, i) => mezcla[i][k] || 0), p: cols.map((T, i) => parte(i, k)),
+                 prom: C.length ? cols.slice(1).reduce((a, T, i) => a + parte(i + 1, k), 0) / C.length : 0 }))
+    .map(x => ({ ...x, vari: x.p[0] - x.prom }))
+    .sort((a, b) => b.u[0] - a.u[0] || b.prom - a.prom);
+  const sinBota = { u: cols.map((T, i) => mezcla[i][''] || 0), p: cols.map((T, i) => parte(i, '')),
+                    modelos: ranking.filter(x => !x.bota) };
+
+  // 4) Segmento: el 20% superior por unidades de las 4 colecciones base, entre todos sus compradores
+  const porCli = new Map();
+  for (const p of peds) {
+    const k = vdKey(p);
+    const x = porCli.get(k) || { nombre: (p.nombre || p.rut || '').toUpperCase(), ciudad: p.ciudad || '', vendedor: p.vendedor || '', u: {} };
+    for (const [t, u] of Object.entries(p.u_temp || {})) x.u[t] = (x.u[t] || 0) + (u || 0);
+    porCli.set(k, x);
+  }
+  const uBase = k => CL_BASE.reduce((a, t) => a + ((porCli.get(k) || { u: {} }).u[t] || 0), 0);
+  const conBase = [...porCli.keys()].map(uBase).filter(u => u > 0).sort((a, b) => b - a);
+  const umbral = conBase.length ? conBase[Math.max(0, Math.ceil(conBase.length * REP_PCT_ESTRATEGICO) - 1)] : Infinity;
+  const estrategico = k => uBase(k) > 0 && uBase(k) >= umbral;
+
+  const recuperar = clInactivos(peds).map(c => {
+    const est = estrategico(vdKey({ rut: c.rut, nombre: c.nombre }));
+    const desc = (c.bloq || c.deuda > 0) ? 'Cobrar antes'
+               : (est && !c.sinCupo) ? `${Math.round(REP_DESC_ESTRATEGICO * 100)}% de descuento` : 'Sin descuento';
+    return { ...c, seg: est ? 'Estratégico' : 'Normal', desc };
+  }).sort((a, b) => (b.seg === 'Estratégico') - (a.seg === 'Estratégico') || b.unidades - a.unidades);
+
+  // 5) Estratégicos que sí compraron la activa: lo que llevan contra su promedio de las base
+  const activos = [...porCli.entries()].filter(([k, x]) => (x.u[TA] || 0) > 0 && estrategico(k)).map(([k, x]) => {
+    const compro = CL_BASE.filter(t => (x.u[t] || 0) > 0);
+    const prom = compro.length ? compro.reduce((a, t) => a + x.u[t], 0) / compro.length : 0;
+    const bajo = x.u[TA] < prom;
+    return { ...x, act: x.u[TA], prom, dif: x.u[TA] - prom, bajo,
+             sug: bajo ? `${Math.round(REP_DESC_ACTIVO * 100)}% si llega a ${fmt(Math.ceil(prom))} unidades` : 'Mantener condiciones' };
+  }).sort((a, b) => b.bajo - a.bajo || a.dif - b.dif);
+
+  // 6) Saldos por despachar, del más viejo al más nuevo
+  const antes = new Map();   // cliente|colección|modelo → pedidos con fecha: para saber si es reposición
+  for (const p of peds) for (const l of (p.lineas || [])) {
+    if ((l.sol || 0) <= 0) continue;
+    const k = vdKey(p) + '|' + l.temp + '|' + l.modelo;
+    if (!antes.has(k)) antes.set(k, []);
+    antes.get(k).push({ pedido: p.pedido, fecha: p.fecha_iso || '' });
+  }
+  const pendientes = [];
+  for (const p of peds) for (const l of (p.lineas || [])) {
+    // Solo la activa y las más nuevas: las anteriores ya no se cortan y sus saldos viejos son otra conversación
+    if ((l.sal || 0) <= 0 || +l.temp < +TA) continue;
+    const dias = diasDesde(p.fecha_iso);
+    const repo = (antes.get(vdKey(p) + '|' + l.temp + '|' + l.modelo) || []).some(x => x.pedido !== p.pedido && x.fecha < (p.fecha_iso || ''));
+    const a8 = String(l.art || '');
+    pendientes.push({ cliente: (p.nombre || p.rut || '').toUpperCase(), vendedor: p.vendedor || '', pedido: p.pedido, fecha: p.fecha_iso || '', dias,
+                      temp: String(l.temp), modelo: l.modelo, art: a8, color: a8.slice(6, 8), sal: l.sal,
+                      libre: libreArt[a8] || 0, fisico: fisicoArt[a8] || 0,
+                      marcas: [dias != null && dias > REP_DIAS_RECONFIRMAR ? 'Reconfirmar' : '', repo ? 'Reposición' : ''].filter(Boolean).join(' · ') });
+  }
+  pendientes.sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
+
+  // 7) Stock libre: lo que se mueve se repone; lo lento o parado se promueve o se reprocesa
+  const stock = cyb.map(r => ({ ...r, grupo: r.prio.k === 'mueve' ? 'Alta rotación · reponer' : 'Baja rotación o parado · promoción o reproceso en dos tonos' }))
+    .sort((a, b) => (a.prio.k !== 'mueve') - (b.prio.k !== 'mueve') || b.total - a.total);
+
+  // Las conclusiones del resumen, en palabras
+  const pctTxt = v => `${Math.round(v * 100)}%`;
+  const promU = C.length ? Math.round(C.reduce((a, T) => a + T.total, 0) / C.length) : 0;
+  const top = botas[0], sube = [...botas].sort((a, b) => b.vari - a.vari)[0], baja = [...botas].sort((a, b) => a.vari - b.vari)[0];
+  const top10 = ranking.slice(0, 10).reduce((a, x) => a + x.u, 0);
+  const estRec = recuperar.filter(c => c.seg === 'Estratégico');
+  const pendU = pendientes.reduce((a, x) => a + x.sal, 0), pendViejo = pendientes.filter(x => x.marcas.includes('Reconfirmar')).reduce((a, x) => a + x.sal, 0);
+  const stockLibre = stock.reduce((a, r) => a + r.total, 0), stockLento = stock.filter(r => r.prio.k !== 'mueve').reduce((a, r) => a + r.total, 0);
+  const conclusiones = [
+    `La T${TA} lleva ${fmt(A.total)} unidades pedidas por ${fmt(A.clientes.size)} clientes; ${C.map(T => `la T${T.t} llegó a ${fmt(T.total)}`).join(' y ')}${C.length ? ` (promedio ${fmt(promU)})` : ''}.`,
+    top ? `${top.k} fue el ${pctTxt(top.p[0])} de lo pedido en la T${TA} (${pctTxt(top.prom)} en ${sgC}). Lo que más creció es ${sube.k}, de ${pctTxt(sube.prom)} a ${pctTxt(sube.p[0])}; lo que más cayó, ${baja.k}, de ${pctTxt(baja.prom)} a ${pctTxt(baja.p[0])}.` : 'Sin botas registradas en esta colección.',
+    ranking.length ? `El modelo más pedido es el ${ranking[0].base}${ranking[0].bota ? ' (' + ranking[0].bota + ')' : ''}, con ${fmt(ranking[0].u)} unidades; los 10 primeros suman el ${pctTxt(top10 / Math.max(1, A.total))} de la colección.` : '',
+    (() => {
+      const conDesc = recuperar.filter(c => c.desc.includes('%')).length, cobrar = recuperar.filter(c => c.desc === 'Cobrar antes').length;
+      const d = Math.round(REP_DESC_ESTRATEGICO * 100);
+      return `${fmt(recuperar.length)} clientes compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y no en la T${TA}; ${fmt(estRec.length)} son estratégicos. `
+        + (conDesc ? `${fmt(conDesc)} pueden recibir el ${d}%` : `Ningún estratégico califica hoy para el ${d}%: tienen deuda, bloqueo o no tienen cupo`)
+        + (cobrar ? `, y ${fmt(cobrar)} clientes deben regularizar su deuda o bloqueo antes de comprar.` : '.');
+    })(),
+    `Quedan ${fmt(pendU)} unidades por despachar en ${fmt(pendientes.length)} líneas; ${fmt(pendViejo)} tienen más de ${REP_DIAS_RECONFIRMAR} días y conviene reconfirmarlas antes de cortar. Hay ${fmt(stockLibre)} prendas libres para ofrecer, ${fmt(stockLento)} de ellas lentas o paradas.`,
+  ].filter(Boolean);
+
+  return { TA, cols, sgC, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A };
+}
+
+/* Las hojas, como datos: título, nota de supuestos arriba, columnas con su formato y filas.
+   La escritura en ExcelJS va aparte (repEscribir) para poder revisar el contenido solo. */
+function repHojas(R) {
+  const TA = R.TA, t = R.cols.map(T => 'T' + T.t);
+  const fecha = iso => iso ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10), 12) : '';
+  const notaCmp = `Colección T${TA}, comparada con ${R.sgC}: las que se lanzaron más cerca de estas fechas en los dos años anteriores. Unidades = lo que pidieron los clientes. Lanzamiento = primer pedido del mes en que la colección empezó a venderse (antes suele haber pedidos sueltos). La T${TA} todavía se está vendiendo.`;
+  const base4 = `T${CL_BASE[0]} a T${CL_BASE[CL_BASE.length - 1]}`;
+  return [
+    { nombre: 'Resumen', nota: notaCmp,
+      columnas: [['Colección', 12], ['Lanzamiento', 14, 'fecha'], ['Último pedido', 14, 'fecha'], ['Unidades pedidas', 16, 'n'], ['Despachadas', 14, 'n'], ['Clientes', 12, 'n']],
+      filas: R.resumen.map(x => ['T' + x.t, fecha(x.lanz), fecha(x.ultimo), x.u, x.desp, x.clientes]),
+      despues: [{ titulo: 'Conclusiones', lineas: R.conclusiones }] },
+
+    { nombre: `Ranking T${TA}`, nota: `Modelos de la T${TA} del más al menos pedido. Pendientes = pedido menos despachado. Stock libre = San Gerardo sin lo embalado ni lo comprometido, más la tienda Kennedy (igual que en "Para ofrecer").`,
+      columnas: [['Puesto', 8, 'n'], ['Modelo', 10], ['Bota', 14], ['Tiro', 12], ['Pedidas', 11, 'n'], ['Despachadas', 13, 'n'], ['Pendientes', 12, 'n'], ['Clientes', 10, 'n'], ['Stock libre', 12, 'n'], ['% de la colección', 17, 'pct1']],
+      filas: R.ranking.map(x => [x.puesto, x.base, x.bota || 'Sin clasificar', x.tiro || '', x.u, x.desp, x.sal, x.clientes, x.libre, x.parte]) },
+
+    { nombre: 'Mix de fits', nota: `Unidades y participación por bota en la T${TA} y en ${R.sgC}. Variación = puntos porcentuales de la T${TA} contra el promedio de las comparables. Los modelos sin bota en el ERP van aparte, sin asignarles una.`,
+      columnas: [['Bota', 16], ...t.flatMap(x => [[`${x} unidades`, 13, 'n'], [`${x} %`, 9, 'pct1']]), ['Promedio comparables %', 22, 'pct1'], ['Variación (pp)', 15, 'pp']],
+      filas: [...R.botas.map(x => [x.k, ...x.u.flatMap((u, i) => [u, x.p[i]]), x.prom, x.vari * 100]),
+              ['Sin clasificar', ...R.sinBota.u.flatMap((u, i) => [u, R.sinBota.p[i]]), '', '']],
+      despues: R.sinBota.modelos.length ? [{ titulo: `Modelos de la T${TA} sin bota asignada (sin clasificar)`,
+        tabla: { columnas: [['Modelo', 16], ['Unidades', 13, 'n']], filas: R.sinBota.modelos.map(x => [x.base, x.u]) } }] : [] },
+
+    { nombre: 'Clientes a recuperar', nota: `Compraron en alguna colección de ${base4} y no en la T${TA}. Estratégico = el ${Math.round(REP_PCT_ESTRATEGICO * 100)}% de clientes que más compró en ${base4} (desde ${fmt(R.umbral)} unidades). Descuento: ${Math.round(REP_DESC_ESTRATEGICO * 100)}% a estratégicos sin bloqueo, sin deuda y con cupo; "Cobrar antes" si tiene deuda o está bloqueado.`,
+      columnas: [['Cliente', 38], ['RUT', 13], ['Ciudad', 15], ['Vendedor', 20], ...CL_BASE.map(x => [`T${x}`, 9, 'n']), [`Total ${base4}`, 15, 'n'], ['Última compra', 14, 'fecha'], ['Días sin comprar', 15, 'n'], ['Deuda', 13, 'clp'], ['Cupo disponible', 15, 'clp'], ['Motivo', 17], ['Segmento', 13], ['Descuento sugerido', 19]],
+      filas: R.recuperar.map(c => [c.nombre, c.rut, c.ciudad, c.vendedor, ...CL_BASE.map(x => c.u[x] || ''), c.unidades, fecha(c.ult), c.dias, c.deuda, c.cupo,
+                                   c.motivo === 'sin motivo visible' ? '' : c.motivo[0].toUpperCase() + c.motivo.slice(1), c.seg, c.desc]) },
+
+    { nombre: 'Clientes activos grandes', nota: `Estratégicos que sí compraron la T${TA}. Promedio = lo que compraron en promedio en las colecciones de ${base4} en que compraron. Sugerencia: ${Math.round(REP_DESC_ACTIVO * 100)}% condicionado a llegar a su promedio, solo a los que van bajo él. La T${TA} todavía se está vendiendo.`,
+      columnas: [['Cliente', 38], ['Ciudad', 15], ['Vendedor', 20], [`T${TA}`, 10, 'n'], [`Promedio ${base4}`, 18, 'n'], ['Diferencia', 12, 'n'], ['Sugerencia', 32]],
+      filas: R.activos.map(x => [x.nombre, x.ciudad, x.vendedor, x.act, Math.round(x.prom), Math.round(x.dif), x.sug]) },
+
+    { nombre: 'Pedidos a validar', nota: `Líneas con saldo por despachar de la T${TA} en adelante (las colecciones que todavía se cortan), de la más vieja a la más nueva. Reconfirmar = más de ${REP_DIAS_RECONFIRMAR} días. Reposición = el cliente ya había pedido ese modelo en la misma colección. Stock libre = lo que queda del artículo después de cubrir todos los pedidos.`,
+      columnas: [['Cliente', 34], ['Vendedor', 18], ['Pedido', 11], ['Fecha', 12, 'fecha'], ['Días', 8, 'n'], ['Colección', 10], ['Modelo', 9], ['Artículo', 11], ['Pendientes', 11, 'n'], ['Stock físico', 12, 'n'], ['Stock libre', 11, 'n'], ['Marca', 24]],
+      filas: R.pendientes.map(x => [x.cliente, x.vendedor, x.pedido, fecha(x.fecha), x.dias, 'T' + x.temp, x.modelo, x.art, x.sal, x.fisico, x.libre, x.marcas]) },
+
+    { nombre: 'Stock para ofrecer', nota: 'Stock libre de San Gerardo y de la tienda Kennedy (igual que en "Para ofrecer"). Alta rotación: se pidió en los últimos 90 días y sale en menos de 6 meses; candidatos a reposición. Baja rotación o parado: candidatos a promoción o a reproceso en dos tonos.',
+      columnas: [['Grupo', 46], ['Artículo', 11], ['Colección', 10], ['Modelo', 9], ['Color', 8], ['Bota', 14], ['Libre San Gerardo', 17, 'n'], ['Kennedy', 10, 'n'], ['Total libre', 12, 'n'], ['Pedido 90 días', 14, 'n'], ['Meses de stock', 14, 'n1'], ['Rotación', 11], ['Sin respaldo', 13]],
+      filas: R.stock.map(r => [r.grupo, r.art, 'T' + r.temp, r.modelo, r.color, r.bota || 'Sin clasificar', r.sg, r.kn, r.total, r.p90, r.meses == null ? '' : Math.min(99, r.meses), r.prio.txt, r.sinRespaldo ? 'Sí, revisar en bodega' : '']) },
+  ];
+}
+
+const repCargarExcelJS = (() => {
+  let p = null;
+  return () => p || (p = new Promise((ok, mal) => {
+    if (window.ExcelJS) return ok(window.ExcelJS);
+    const s = document.createElement('script');
+    s.src = REP_EXCELJS;
+    s.onload = () => window.ExcelJS ? ok(window.ExcelJS) : mal(new Error('sin ExcelJS'));
+    s.onerror = () => { p = null; mal(new Error('No se pudo cargar el generador de Excel')); };
+    document.head.appendChild(s);
+  }));
+})();
+
+function repEscribir(ExcelJS, hojas) {
+  const FMT = { n: '#,##0', n1: '#,##0.0', pct1: '0.0%', pp: '+0.0;-0.0;0.0', clp: '"$"#,##0', fecha: 'dd-mm-yyyy' };
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'ADECOM · Mohicano Jeans';
+  wb.created = new Date();
+  const encabezado = (fila, n) => {
+    fila.font = { bold: true };
+    for (let c = 1; c <= n; c++) {
+      const celda = fila.getCell(c);
+      celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      celda.border = { bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } } };
+      celda.alignment = { vertical: 'bottom', wrapText: true };
+    }
+  };
+  for (const h of hojas) {
+    const n = h.columnas.length;
+    const ws = wb.addWorksheet(h.nombre.slice(0, 31), { views: [{ state: 'frozen', ySplit: 2 }] });
+    ws.columns = h.columnas.map(([, w, f]) => ({ width: w, style: f ? { numFmt: FMT[f] } : {} }));
+    // Fila 1: los supuestos de la hoja
+    ws.mergeCells(1, 1, 1, Math.max(n, 6));
+    const nota = ws.getCell(1, 1);
+    nota.value = h.nota;
+    nota.font = { italic: true, color: { argb: 'FF475569' } };
+    nota.alignment = { wrapText: true, vertical: 'top' };
+    ws.getRow(1).height = Math.min(90, 16 * Math.ceil(h.nota.length / Math.max(60, h.columnas.slice(0, Math.max(n, 6)).reduce((a, [, w]) => a + w, 0) * 1.1)) + 6);
+    // Fila 2: encabezados, con filtro; desde la 3: los datos
+    encabezado(ws.addRow(h.columnas.map(([titulo]) => titulo)), n);
+    for (const fila of h.filas) ws.addRow(fila.map(v => v === null || v === undefined ? '' : v));
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2 + Math.max(0, h.filas.length), column: n } };
+    for (const extra of (h.despues || [])) {
+      ws.addRow([]);
+      const tit = ws.addRow([extra.titulo]);
+      tit.font = { bold: true };
+      if (extra.lineas) for (const l of extra.lineas) { const fr = ws.addRow([l]); ws.mergeCells(fr.number, 1, fr.number, Math.max(n, 6)); fr.getCell(1).alignment = { wrapText: true, vertical: 'top' }; fr.height = 32; }
+      if (extra.tabla) {
+        encabezado(ws.addRow(extra.tabla.columnas.map(([titulo]) => titulo)), extra.tabla.columnas.length);
+        for (const fila of extra.tabla.filas) {
+          const fr = ws.addRow(fila);
+          extra.tabla.columnas.forEach(([, , f], i) => { if (f) fr.getCell(i + 1).numFmt = FMT[f]; });
+        }
+      }
+    }
+  }
+  return wb;
+}
+
+async function repDescargar(R) {
+  const ExcelJS = await repCargarExcelJS();
+  const wb = repEscribir(ExcelJS, repHojas(R));
+  const buf = await wb.xlsx.writeBuffer();
+  const h = new Date();
+  const nombre = `Reporte estratégico venta T${R.TA} ${String(h.getDate()).padStart(2, '0')}-${String(h.getMonth() + 1).padStart(2, '0')}-${h.getFullYear()}.xlsx`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+async function secReporte() {
+  const ICO = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+  const [peds, pa, ft, sb, bsale] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'),
+                                                       load('saldos_bodega.json'), load('stock_bsale.json')]);
+  if (!peds.length) return makePH(ICO, 'Reporte para venta', 'Sin datos disponibles');
+  REP = repDatos(peds, pa, ft, sb, (bsale && !Array.isArray(bsale)) ? bsale : null);
+  const R = REP, TA = R.TA;
+  const est = R.recuperar.filter(c => c.seg === 'Estratégico').length;
+  const viejos = R.pendientes.filter(x => x.marcas.includes('Reconfirmar')).length;
+  const tarjeta = (val, lbl, sub) => `<div class="kpi" style="cursor:default"><div style="min-width:0"><div class="kpi-val">${val}</div>
+    <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
+  const hojas = [
+    ['Resumen', `Lanzamiento, último pedido, unidades y clientes de la T${TA} y de ${R.sgC}, y las conclusiones`],
+    [`Ranking T${TA}`, `${fmt(R.ranking.length)} modelos del más al menos pedido, con bota, tiro, pendientes, clientes y stock libre`],
+    ['Mix de fits', `${fmt(R.botas.length)} botas lado a lado con ${R.sgC}${R.sinBota.modelos.length ? `; ${fmt(R.sinBota.modelos.length)} modelos sin bota, aparte` : ''}`],
+    ['Clientes a recuperar', `${fmt(R.recuperar.length)} clientes, ${fmt(est)} estratégicos, con descuento sugerido`],
+    ['Clientes activos grandes', `${fmt(R.activos.length)} estratégicos que compraron la T${TA}; ${fmt(R.activos.filter(x => x.bajo).length)} van bajo su promedio`],
+    ['Pedidos a validar', `${fmt(R.pendientes.length)} líneas con saldo; ${fmt(viejos)} con más de ${REP_DIAS_RECONFIRMAR} días`],
+    ['Stock para ofrecer', `${fmt(R.stock.length)} artículos con stock libre, separados en reponer y promover`],
+  ];
+  return `
+  <div class="kpi-grid">
+    ${tarjeta(fmt(R.A.total), `Unidades pedidas T${TA}`, `${fmt(R.A.clientes.size)} clientes`)}
+    ${tarjeta(fmt(R.recuperar.length), 'Clientes a recuperar', `${fmt(est)} estratégicos`)}
+    ${tarjeta(fmt(R.pendientes.reduce((a, x) => a + x.sal, 0)), 'Unidades por despachar', `${fmt(viejos)} líneas a reconfirmar`)}
+    ${tarjeta(fmt(R.stock.reduce((a, r) => a + r.total, 0)), 'Prendas libres para ofrecer', `${fmt(R.stock.filter(r => r.prio.k !== 'mueve').length)} artículos lentos o parados`)}
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Reporte estratégico de venta · T${TA}</div>
+        <div class="card-sub" style="margin:2px 0 0">Un Excel para el encargado de venta, con los datos del día. Comparado con ${R.sgC}</div></div>
+      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte en un Excel con 7 hojas">⬇ Descargar reporte</button>
+    </div>
+    <div style="padding:14px 20px 4px"><div class="flbl">Conclusiones</div>
+      <ol style="margin:8px 0 0 18px;font-size:13px;line-height:1.55;color:var(--tx1)">${R.conclusiones.map(c => `<li style="margin-bottom:6px">${c}</li>`).join('')}</ol></div>
+    <div style="padding:6px 20px 16px"><div class="flbl">Qué trae el Excel</div>
+      <div style="margin-top:6px">${hojas.map(([n, d], i) => `<div style="display:flex;gap:10px;padding:7px 0;border-top:${i ? '1px solid var(--bd)' : '0'};font-size:13px">
+        <span style="font-weight:700;min-width:170px">${i + 1}. ${n}</span><span class="td-dim" style="font-size:13px">${d}</span></div>`).join('')}</div></div>
+    <div class="tbl-foot">Estratégico = el ${Math.round(REP_PCT_ESTRATEGICO * 100)}% de clientes que más compró en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]}. Descuentos sugeridos: ${Math.round(REP_DESC_ESTRATEGICO * 100)}% a estratégicos por recuperar sin deuda ni bloqueo, ${Math.round(REP_DESC_ACTIVO * 100)}% a estratégicos activos que suban a su promedio. Un saldo con más de ${REP_DIAS_RECONFIRMAR} días se reconfirma.</div>
+  </div>`;
 }
 
 async function secProy() {
@@ -5971,6 +6280,7 @@ const SECS = {
   'venta-despacho': () => secVentaDespacho(),
   'clientes':       () => secClientes(),
   'plan':           () => secPlan(),
+  'reporte':        () => secReporte(),
   'proyecciones':   () => secProy(),
   'er':             () => secER(),
 };
@@ -7282,6 +7592,19 @@ function bindContent(secId) {
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     pintarPlan();
+  }
+
+  // Reporte para venta
+  if (secId === 'reporte' && document.getElementById('repExcel')) {
+    const btn = document.getElementById('repExcel');
+    btn.addEventListener('click', async () => {
+      if (!REP || btn.disabled) return;
+      const txt = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Armando el Excel…';
+      try { await repDescargar(REP); }
+      catch (e) { alert('No se pudo armar el Excel: ' + (e && e.message ? e.message : e) + '. Revisa la conexión y vuelve a intentar.'); }
+      finally { btn.disabled = false; btn.textContent = txt; }
+    });
   }
 
   // Stock Kennedy
