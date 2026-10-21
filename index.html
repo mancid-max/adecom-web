@@ -214,6 +214,10 @@ body.ia-open #iaBtn{display:none}
 .pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
+/* Campaña: las dos pestañas (más grandes que un filtro) y la línea que dice para qué sirve cada una */
+.segs.camp-tabs{display:inline-flex;flex-wrap:wrap;margin:14px 0 6px}
+.camp-tabs .seg{font-size:13px;padding:7px 16px}
+.camp-desc{font-size:12px;color:var(--tx2);margin:0 0 12px;max-width:900px}
 /* ── Reporte para venta: la vista del vendedor ── */
 .rv .rv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:10px 20px 16px}
 .rv .rv-card{border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--sf);min-width:0}
@@ -536,13 +540,9 @@ body.ia-open #iaBtn{display:none}
       Clientes Inactivos
     </button>
 
-    <button class="nav-item" data-sec="plan" data-ttl="Plan de Colección" data-admin-only>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-      Plan Colección
-    </button>
-    <button class="nav-item" data-sec="reporte" data-ttl="Reporte para venta" data-admin-only>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
-      Reporte para venta
+    <button class="nav-item" data-sec="campana" data-ttl="Campaña" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+      Campaña
     </button>
     <button class="nav-item" data-sec="proyecciones" data-ttl="Proyecciones" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/><circle cx="19" cy="7" r="1.6"/></svg>
@@ -4730,13 +4730,13 @@ function pintarPlan() {
   }
   const yaP = P.clientes;
   const clientes = Object.values(cliMap).sort((a, b) => b.u - a.u);
-  const lugar = c => [c.ciudad, c.vendedor].filter(Boolean).join(' · ') || '—';   // va debajo del nombre, no en dos columnas más
+  const lugar = c => c.ciudad || '—';   // va debajo del nombre. Sin vendedor: queda uno solo (21-10-2026) y el del pedido es historia
   const yaPidieron = clientes.filter(c => yaP.has(c.cli)).length;
 
   // ── 6) Estrategia: qué hacer ahora, armada con los datos del día ──
-  /* Cinco acciones de una frase cada una, para el jefe: cómo vamos contra las comparables a
-     esta misma fecha, qué vendedores y qué clientes faltan, qué botas empujar y qué hacer en
-     producción. El detalle (nombres, porcentajes, modelos) va en la ventana que abre cada una:
+  /* Acciones de una frase cada una, para el jefe y para Pato: cómo vamos contra las comparables
+     a esta misma fecha, qué clientes faltan, qué botas empujar y qué hacer en producción. La de
+     vendedores se sacó el 21-10-2026: queda uno solo, Pato. El detalle (nombres, porcentajes, modelos) va en la ventana que abre cada una:
      con todo a la vista era demasiado para leer de una pasada. Las botas se leen con la última colección que ya
      se vendió (la anterior a esta), porque las modas cambian más rápido que un año: Wide Leg
      no existía en la T41 y en la T44 ya era casi un quinto de la venta. */
@@ -4755,25 +4755,6 @@ function pintarPlan() {
       x: `<b>${fmt(real)}</b> de ${fmt(espHoy)} que a esta fecha llevaban ${sg}. Faltan <b>${fmt(Math.max(0, proy[kHoyE] - real))}</b> para cumplir ${nomMes(kHoyE)}${!bien && despues >= 50 ? `; se puede, el ${despues}% de ${nomMes(kHoyE)} llegó después del día ${+diaHoy}` : ''}.
         <div class="pl-bar" style="max-width:280px"><i style="width:${Math.min(100, real / Math.max(1, espHoy) * 100).toFixed(0)}%;background:var(--${bien ? 'ok' : 'wa'})"></i></div>` });
   } else acciones.push({ k: 'ritmo', est: '', t: 'Cómo vamos', x: `<b>${fmt(P.total)}</b> de ${fmt(promedio)} por colección (${planPct(P.total, promedio)}%).` });
-
-  // 2) Vendedores: quién ya vende la nueva y quién vendía la anterior y todavía no
-  const porVend = ls => ls.reduce((m, l) => { const v = l.vendedor || 'Sin vendedor'; m[v] = (m[v] || 0) + l.u; return m; }, {});
-  const vNueva = porVend(P.lineas), vPrev = prev ? porVend(prev.lineas) : {};
-  const venden = Object.entries(vNueva).sort((a, b) => b[1] - a[1]);
-  const faltanV = prev ? Object.entries(vPrev).filter(([v, u]) => !vNueva[v] && u >= prev.total * 0.03) : [];
-  acciones.push({ k: 'vend', est: faltanV.length ? 'wa' : 'ok', t: faltanV.length ? 'Que vendan todos' : 'Todos están vendiendo',
-    x: (!venden.length ? `Nadie ha vendido la T${PLAN_TEMP} todavía.`
-        : `${venden.length === 1 ? `Solo <b>${venden[0][0]}</b> ha vendido` : `<b>${venden.length} vendedores</b> han vendido`} la T${PLAN_TEMP}.`)
-      + (faltanV.length ? ` Faltan ${faltanV.length}, que hicieron el <b>${planPct(faltanV.reduce((a, [, u]) => a + u, 0), prev.total)}%</b> de la T${prev.t}.` : '') });
-  const detVend = () => {
-    const nombres = [...new Set([...Object.keys(vPrev), ...Object.keys(vNueva)])].sort((a, b) => ((vPrev[b] || 0) - (vPrev[a] || 0)) || ((vNueva[b] || 0) - (vNueva[a] || 0)));
-    return vTabla(
-      `<th data-ord="t">Vendedor</th>${prev ? `<th class="r" data-ord="n">T${prev.t}</th>` : ''}<th class="r" data-ord="n">T${PLAN_TEMP}</th>`,
-      nombres.map(v => `<tr><td data-v="${dv(v)}">${v}</td>
-        ${prev ? `<td class="r td-num" data-v="${vPrev[v] || ''}">${vPrev[v] ? fmt(vPrev[v]) : '—'}<span class="pl-sub">${vPrev[v] ? planPct(vPrev[v], prev.total) + '%' : ''}</span></td>` : ''}
-        <td class="r td-num" data-v="${vNueva[v] || ''}" style="font-weight:700;color:${vNueva[v] ? 'var(--ok)' : 'var(--tx3)'}">${vNueva[v] ? fmt(vNueva[v]) : '—'}</td></tr>`).join(''),
-      prev ? `Lo que vendió cada uno de la T${prev.t} y lo que lleva de la T${PLAN_TEMP}.` : '');
-  };
 
   // 3) Clientes: los mejores de las comparables que todavía no piden
   const sinPedirE = clientes.slice(0, 20).filter(c => !yaP.has(c.cli));
@@ -4821,7 +4802,57 @@ function pintarPlan() {
       `Empujar: en la T${prev.t} se vendió el 90% o más de lo cortado. Con cuidado: entre 75% y 90%. Revisar: menos del 75%, se cortó de más. Arriba, las botas que tienen modelos en la T${PLAN_TEMP}; un modelo sin pedidos todavía no tiene bota.`);
   };
 
-  // 5) Producción: lo cortado que nadie pide todavía y lo pedido que no está programado
+  /* 5) Cuánto cortar: la meta de la temporada (lo que vendieron las comparables), repartida por
+     bota como se vendió la última colección y solo entre las botas que tiene esta. Lo programado
+     de más en una bota no cubre lo que falta en otra, igual que el total de Pedido vs Corte. */
+  const prodN = Object.values(cat[PLAN_TEMP] || {}).filter(b => b.prog || b.cort);
+  const totProg = prodN.reduce((a, b) => a + b.prog, 0), totCort = prodN.reduce((a, b) => a + b.cort, 0);
+  const mixPrev = {};
+  if (prev) planAgrupa(prev.lineas, 'bota').forEach(r => { if (r.k !== 'Sin clasificar') mixPrev[r.k] = r.u; });
+  const porBotaN = {};
+  prodN.forEach(b => { const k = botaDe(b.base) || b.bota || 'Sin bota todavía', x = porBotaN[k] = porBotaN[k] || { prog: 0, cort: 0 }; x.prog += b.prog; x.cort += b.cort; });
+  const botasCorte = botasNueva.filter(k => mixPrev[k]);
+  const baseMix = botasCorte.reduce((a, k) => a + mixPrev[k], 0);
+  const cortar = botasCorte.map(k => {
+    const meta = Math.round(promedio * mixPrev[k] / baseMix), x = porBotaN[k] || { prog: 0, cort: 0 };
+    return { k, meta, parte: mixPrev[k] / baseMix, prog: x.prog, cort: x.cort, falta: Math.max(0, meta - x.prog), pct: pctPrev[k], l: LECT_E[grupoBota(k)] };
+  }).sort((a, b) => b.meta - a.meta);
+  // Botas nuevas (sin historia en la anterior) o modelos sin bota: tienen programado, pero no meta que repartir
+  const sinMeta = Object.entries(porBotaN).filter(([k]) => !botasCorte.includes(k)).map(([k, x]) => ({ k, ...x }));
+  /* Lo programado en modelos que todavía no tienen bota va a caer en alguna: descuenta del total
+     de lo que falta, pero no de una bota en particular (no se sabe de cuál). */
+  const progSinBota = (porBotaN['Sin bota todavía'] || {}).prog || 0;
+  const faltaTot = cortar.length ? Math.max(0, cortar.reduce((a, x) => a + x.falta, 0) - progSinBota) : Math.max(0, promedio - totProg);
+  if (C.length && promedio > 0) {
+    const top = cortar.filter(x => x.falta > 0).sort((a, b) => b.falta - a.falta).slice(0, 3);
+    acciones.push({ k: 'cortar', est: faltaTot > 0 ? 'wa' : 'ok', t: 'Cuánto cortar',
+      x: `<b>${fmt(promedio)}</b> en la temporada, lo que vendieron ${sg}. Hay <b>${fmt(totProg)}</b> programadas (${fmt(totCort)} ya cortadas)`
+        + (!faltaTot ? '. Alcanza con lo programado.'
+           : `; faltan <b>${fmt(faltaTot)}</b>${top.length ? `, sobre todo ${lista(top.map(x => `${x.k} ${fmt(x.falta)}`))}` : ''}.`)
+        + (cortar.length ? '' : ` El reparto por bota aparece cuando los modelos de la T${PLAN_TEMP} tengan bota.`) });
+  }
+  const detCortar = () => {
+    const filas = cortar.map(x => `<tr>
+        <td data-v="${dv(x.k)}" style="font-weight:600">${x.k}</td>
+        <td class="r td-num" data-v="${x.meta}" style="font-weight:700">${fmt(x.meta)}<span class="pl-sub">${Math.round(x.parte * 100)}%</span></td>
+        <td class="r td-num" data-v="${x.prog}">${x.prog ? fmt(x.prog) : '—'}<span class="pl-sub">${x.cort ? fmt(x.cort) + ' cortadas' : ''}</span></td>
+        <td class="r td-num" data-v="${x.falta}" style="color:${x.falta ? 'var(--er)' : 'var(--ok)'}">${x.falta ? fmt(x.falta) : '✓'}</td>
+        <td class="pl-sec" data-v="${x.pct ?? ''}"><span class="pl-tag" style="background:${x.l[2]};color:${x.l[1]}">${x.l[0]}</span><span class="pl-sub">${x.pct == null ? '' : x.pct + '% vendido'}</span></td></tr>`).join('')
+      + sinMeta.map(x => `<tr><td data-v="${dv(x.k)}" style="font-weight:600">${x.k}</td><td class="r td-dim" data-v="">sin historia</td>
+        <td class="r td-num" data-v="${x.prog}">${x.prog ? fmt(x.prog) : '—'}<span class="pl-sub">${x.cort ? fmt(x.cort) + ' cortadas' : ''}</span></td><td class="r td-dim" data-v="">—</td><td class="pl-sec"></td></tr>`).join('')
+      + `<tr class="pl-total"><td>Total</td><td class="r td-num">${fmt(promedio)}</td><td class="r td-num">${fmt(totProg)}<span class="pl-sub">${fmt(totCort)} cortadas</span></td><td class="r td-num" style="color:${faltaTot ? 'var(--er)' : 'var(--ok)'}">${faltaTot ? fmt(faltaTot) : '✓'}</td><td class="pl-sec"></td></tr>`;
+    const mods = prodN.slice().sort((a, b) => (botaDe(a.base) || a.bota || '~').localeCompare(botaDe(b.base) || b.bota || '~') || b.prog - a.prog);
+    return vTabla(
+      `<th data-ord="t">Bota</th><th class="r" data-ord="n" title="La meta repartida como se vendió la T${prev ? prev.t : ''}">Cortar</th><th class="r" data-ord="n">Programado T${PLAN_TEMP}</th><th class="r" data-ord="n">Falta</th><th class="pl-sec" data-ord="n" title="De lo cortado de esa bota en la T${prev ? prev.t : ''}, cuánto se vendió">Cómo se vendió T${prev ? prev.t : ''}</th>`,
+      filas,
+      `Cortar = ${fmt(promedio)}, lo que vendieron ${sg}, repartido como se vendió la T${prev ? prev.t : ''} y solo entre las botas que tiene la T${PLAN_TEMP}. Falta = cortar − programado: lo programado de más en una bota no cubre lo que falta en otra. Una bota sin historia en la T${prev ? prev.t : ''} no tiene meta.${progSinBota ? ` Las ${fmt(progSinBota)} programadas en modelos sin bota todavía descuentan del total, no de una bota: cuando tengan bota, lo que falta en esa fila baja.` : ''}`)
+      + (mods.length ? `<div class="flbl" style="padding:14px 16px 0">Modelos de la T${PLAN_TEMP} en producción</div>` + vTabla(
+        `<th data-ord="t">Modelo</th><th class="r" data-ord="n">Programado</th><th class="r" data-ord="n">Cortado</th><th class="r" data-ord="n">Pedido</th>`,
+        mods.map(b => `<tr><td data-v="${b.base}">${celdaModelo(b.base, botaDe(b.base) || b.bota)}</td><td class="r td-num" data-v="${b.prog}">${b.prog ? fmt(b.prog) : '—'}</td>
+          <td class="r td-num" data-v="${b.cort}">${b.cort ? fmt(b.cort) : '—'}</td><td class="r td-num" data-v="${pedidoP[b.base] || ''}">${pedidoP[b.base] ? fmt(pedidoP[b.base]) : '—'}</td></tr>`).join(''), '') : '');
+  };
+
+  // 6) Producción: lo cortado que nadie pide todavía y lo pedido que no está programado
   const cortSinPed = Object.values(cat[PLAN_TEMP] || {}).filter(b => b.cort >= 20 && !pedidoP[b.base]).sort((a, b) => b.cort - a.cort);
   const pedSinProg = Object.entries(pedidoP).filter(([m]) => !((cat[PLAN_TEMP] || {})[m] || {}).prog).sort((a, b) => b[1] - a[1]);
   const nM = n => `${n} modelo${n === 1 ? '' : 's'}`;
@@ -5043,6 +5074,13 @@ function pintarPlan() {
     if (prev) agrega(hoja([['Bota', `Vendido / cortado T${prev.t}`, 'Lectura', `Modelos T${PLAN_TEMP}`, `Pedido T${PLAN_TEMP}`],
       ...datosVender().map(x => [x.k, pc(x.pct), x.l[0], x.ms.join(', '), x.ped ? n(x.ped) : ''])], [16, 22, 14, 34, 14]), 'Qué vender');
 
+    // Cuánto cortar: el mismo reparto de la ventana, con su total abajo
+    if (C.length && promedio > 0) agrega(hoja([['Bota', 'Cortar en la temporada', '% del total', `Programado T${PLAN_TEMP}`, `Cortado T${PLAN_TEMP}`, 'Falta',
+        ...(prev ? [`Vendido / cortado T${prev.t}`, 'Lectura'] : [])],
+      ...cortar.map(x => [x.k, n(x.meta), pc(Math.round(x.parte * 100)), n(x.prog), n(x.cort), n(x.falta), ...(prev ? [pc(x.pct), x.l[0]] : [])]),
+      ...sinMeta.map(x => [x.k, '', '', n(x.prog), n(x.cort), '', ...(prev ? ['', 'Sin historia'] : [])]),
+      ['Total', n(promedio), '', n(totProg), n(totCort), n(faltaTot)]], [18, 20, 11, 16, 14, 10, 20, 14]), 'Cuánto cortar');
+
     agrega(hoja([['Colección', 'Modelo', 'Bota', 'Tiro', 'Cortado', 'Vendido', 'Vendido / cortado', 'Lectura'],
       ...pasados.map(m => [`T${m.t}`, m.base, m.bota || 'Sin clasificar', m.tiro || '', n(m.cort), n(m.vend), pc(m.pct), m.tag[0]])],
       [11, 9, 16, 13, 10, 10, 17, 24]), 'Qué cortar');
@@ -5059,11 +5097,6 @@ function pintarPlan() {
         return o.modelos.length ? o.modelos.map(x => [...base, x.m, x.bota, pc(x.pct), x.top ? 'Sí' : '', CORTAR[x.g][0], disponible(x.m)])
                                 : [[...base, '', o.botas.map(x => x.k).join(', '), '', '', '', 'Sin modelos de sus botas en la T' + PLAN_TEMP]]; })],
       [40, 16, 22, 14, 16, 14, 14, 14, 12, 18, 26]), 'Qué ofrecer');
-
-    agrega(hoja([['Vendedor', ...(prev ? [`T${prev.t}`, `% de la T${prev.t}`] : []), `T${PLAN_TEMP}`],
-      ...[...new Set([...Object.keys(vPrev), ...Object.keys(vNueva)])].sort((a, b) => (vPrev[b] || 0) - (vPrev[a] || 0))
-        .map(v => [v, ...(prev ? [vPrev[v] ? n(vPrev[v]) : '', vPrev[v] ? pc(planPct(vPrev[v], prev.total)) : ''] : []), vNueva[v] ? n(vNueva[v]) : ''])],
-      [26, 12, 14, 12]), 'Vendedores');
 
     // Primero lo que pide una acción (ofrecer, programar), después lo que está en producción y al final las muestras
     const queHacer = m => { const b = (cat[PLAN_TEMP] || {})[m] || {};
@@ -5148,8 +5181,9 @@ function pintarPlan() {
     document.getElementById('vkOv').classList.add('open');
   };
   cuerpo.querySelectorAll('table').forEach(planOrdenable);
-  const DET_ACC = { ritmo: DET.esperar, cli: DET.clientes, vend: [`Vendedores · T${prev ? prev.t + ' y T' : ''}${PLAN_TEMP}`, detVend],
-                    vender: prev ? [`Qué vender · según la T${prev.t}`, detVender] : null, prod: [`Producción · T${PLAN_TEMP}`, detProd] };
+  const DET_ACC = { ritmo: DET.esperar, cli: DET.clientes,
+                    vender: prev ? [`Qué vender · según la T${prev.t}`, detVender] : null, cortar: [`Cuánto cortar · T${PLAN_TEMP}`, detCortar],
+                    prod: [`Producción · T${PLAN_TEMP}`, detProd] };
   document.getElementById('planExcel')?.addEventListener('click', descargarPlan);
   cuerpo.querySelectorAll('tr[data-pcli]').forEach(tr => tr.addEventListener('click', () => {
     const c = clientes[+tr.dataset.pcli];
@@ -5181,32 +5215,6 @@ function pintarPlan() {
   }));
 }
 
-async function secPlan() {
-  const [peds, pa, ft, cortesHist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
-  PLAN = planBase(peds, pa, ft, Array.isArray(cortesHist) ? {} : cortesHist);   // si no está, load() devuelve []
-  const conProd = Object.keys(PLAN.cat).sort((a, b) => +b - +a);
-  const todas = [...new Set([...Object.keys(PLAN.temps), ...conProd])].sort((a, b) => +b - +a);
-  if (!todas.length) return makePH('<path d="M12 20h9"/>', 'Plan de Colección', 'Sin historia de pedidos');
-  if (!PLAN_TEMP || !todas.includes(PLAN_TEMP)) PLAN_TEMP = conProd[0] || todas[0];
-  if (!PLAN_CMP.length) PLAN_CMP = planComparables(PLAN.temps, PLAN_TEMP);
-  const hist = Object.values(PLAN.temps).filter(T => T.total >= 3000 && T.t !== PLAN_TEMP).sort((a, b) => +b.t - +a.t);
-
-  return `
-  <div class="fbar">
-    <div class="fbar-row">
-    <div class="fgrp"><span class="flbl">Colección a planear</span>
-    <select id="planTemp" class="finput" style="width:150px">
-      ${todas.map(t => `<option value="${t}"${t === PLAN_TEMP ? ' selected' : ''}>T${t}</option>`).join('')}
-    </select></div>
-    <div class="fgrp"><span class="flbl">Comparar con</span>
-    <div class="segs" id="planCmpSegs">
-      ${hist.map(T => `<button class="seg${PLAN_CMP.includes(T.t) ? ' on' : ''}" data-t="${T.t}" title="${fmt(T.total)} unidades, lanzada en ${planMesCorto(T.lanzo)}">T${T.t} <span style="opacity:.6;font-size:10px">${planMesCorto(T.lanzo)}</span></button>`).join('')}
-    </div></div>
-    <span class="td-dim" style="font-size:11px">Por defecto, la colección que se lanzó más cerca de estas fechas en cada uno de los dos años anteriores. Toca para cambiar.</span>
-    </div>
-  </div>
-  <div id="planBody" class="pl" style="margin-top:14px"></div>`;
-}
 
 /* ── REPORTE PARA VENTA ──────────────────────────────────────────────
    Una vista y un Excel para el encargado de venta sobre la colección que se elija arriba (por
@@ -5245,9 +5253,6 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
   const C = cmpT.map(t => temps[t]);
   const cols = [A, ...C];
   const sgC = cmpT.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
-  // Para los selectores: toda colección con pedidos como base; como comparable, las anteriores con historia
-  const opciones = Object.values(temps).filter(T => T.total > 0).map(T => T.t).sort((a, b) => +b - +a);
-  const histC = Object.values(temps).filter(T => T.total >= 3000 && +T.t < +TA).sort((a, b) => +b.t - +a.t);
   const hoyMs = Date.now();
   const diasDesde = iso => iso ? Math.round((hoyMs - new Date(iso + 'T00:00:00').getTime()) / 86400000) : null;
 
@@ -5372,6 +5377,20 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
     .map(k => ({ k, act: parteDe(A, k), antes: C.length ? C.reduce((a, T) => a + parteDe(T, k), 0) / C.length : null }))
     .filter(x => x.act >= 0.02 || x.antes >= 0.02).sort((a, b) => (b.act - a.act) || (b.antes - a.antes));
 
+  /* Lo que más se vendió en las comparables, las temporadas pasadas. Es la pregunta de fondo
+     ("qué se vendió más"); la base, sobre todo una que recién parte, va al lado. Los primeros de
+     cada una por separado: juntas, la más grande (la T37 dobla a la T41) se llevaba casi todos. */
+  const porC = Math.max(3, Math.floor(8 / Math.max(1, C.length)));
+  const topC = C.flatMap(T => {
+    const m = {};
+    T.lineas.forEach(l => {
+      const x = m[l.base] = m[l.base] || { base: l.base, t: T.t, bota: '', tiro: '', u: 0, cli: new Set() };
+      x.u += l.u; if (l.cli) x.cli.add(l.cli);
+      x.bota = x.bota || l.bota || ''; x.tiro = x.tiro || l.tiro || '';
+    });
+    return Object.values(m).sort((a, b) => b.u - a.u).slice(0, porC).map(({ cli, ...x }) => ({ ...x, clientes: cli.size }));
+  });
+
   /* La colección que viene: la más nueva que haya. Es la preventa de "Qué ofrecer" (si la base ya
      es la más nueva, no hay) y lo que se le ofrece a cada cliente en "A quién llamar". */
   const N = temps[oferta] || vacia(oferta);
@@ -5435,8 +5454,8 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
     return { ...x, act: x.u[ACT] || 0, prom, nuevaU: x.u[oferta] || 0, misBotas, ofrecer };
   }).sort((a, b) => b.tot - a.tot);
 
-  return { TA, ACT, cols, sgC, cmpT, cmpDefecto, opciones, histC, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A,
-           tendencia, oferta, lectT: prevO.t, nuevaTop, empujarN, stockMueve, stockRematar, cartera };
+  return { TA, ACT, cols, sgC, cmpT, cmpDefecto, resumen, ranking, botas, sinBota, recuperar, activos, pendientes, stock, conclusiones, umbral, A,
+           tendencia, topC, oferta, lectT: prevO.t, nuevaTop, empujarN, stockMueve, stockRematar, cartera };
 }
 
 /* Las hojas, como datos: título, nota de supuestos arriba, columnas con su formato y filas.
@@ -5617,9 +5636,11 @@ async function secReporte() {
   const [peds, pa, ft, sb, bsale] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'),
                                                        load('saldos_bodega.json'), load('stock_bsale.json')]);
   if (!peds.length) return makePH(ICO, 'Reporte para venta', 'Sin datos disponibles');
+  const pedida = REP_TEMP;
   REP = repDatos(peds, pa, ft, sb, (bsale && !Array.isArray(bsale)) ? bsale : null, REP_TEMP, REP_CMP);
   const R = REP, TA = R.TA;
-  REP_TEMP = TA; REP_CMP = R.cmpT;   // lo que quedó de verdad (una base sin datos vuelve a la activa)
+  // Una colección sin pedidos todavía (programada nomás) no tiene qué mostrar: se ve la de estas fechas y se avisa
+  const aviso = pedida && pedida !== TA ? `<div class="td-dim" style="font-size:12px;margin:0 0 10px">La T${pedida} todavía no tiene pedidos: aquí se muestra la T${TA}.</div>` : '';
   const est = R.recuperar.filter(c => c.seg === 'Estratégico').length;
   const viejos = R.pendientes.filter(x => x.marcas.includes('Reconfirmar')).length;
   const hojas = [
@@ -5635,31 +5656,20 @@ async function secReporte() {
   const flecha = x => x.antes == null ? '' : x.act - x.antes >= 0.02 ? '<span style="color:var(--ok);font-weight:700">▲ sube</span>'
                     : x.antes - x.act >= 0.02 ? '<span style="color:var(--er);font-weight:700">▼ baja</span>' : '<span class="td-dim">= igual</span>';
   const maxB = Math.max(0.01, ...R.tendencia.map(x => x.act));
-  return `
-  <div class="fbar">
-    <div class="fbar-row">
-      <div class="fgrp"><span class="flbl">Colección</span>
-      <select id="rvTemp" class="finput" style="width:150px">
-        ${R.opciones.map(t => `<option value="${t}"${t === TA ? ' selected' : ''}>T${t}${t === R.ACT ? ' · activa' : t === NV ? ' · nueva' : ''}</option>`).join('')}
-      </select></div>
-      <div class="fgrp"><span class="flbl">Comparar con</span>
-      <div class="segs" id="rvCmpSegs">
-        ${R.histC.map(T => `<button class="seg${R.cmpT.includes(T.t) ? ' on' : ''}" data-t="${T.t}" title="${fmt(T.total)} unidades, lanzada en ${planMesCorto(T.lanzo)}">T${T.t} <span style="opacity:.6;font-size:10px">${planMesCorto(T.lanzo)}</span></button>`).join('')
-          || '<span class="td-dim" style="font-size:12px">No hay colecciones anteriores con historia</span>'}
-      </div></div>
-      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 7 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button>
-    </div>
-    <span class="td-dim" style="font-size:11px">Por defecto, la colección de estas fechas contra las que se vendían en estas mismas fechas los dos años anteriores, igual que en el Plan. Toca para cambiar.</span>
-  </div>
-
+  return `${aviso}
   <div class="tbl-card rv">
-    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
-      <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA}${R.sgC ? ` contra ${R.sgC}` : ''}, y los modelos que más pidieron los clientes en la T${TA}. Toca una foto para verla grande</div></div></div>
+    <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
+      <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA}${R.sgC ? ` contra ${R.sgC}, los modelos que más se vendieron en esas temporadas` : ''} y lo más pedido de la T${TA}. Toca una foto para verla grande</div></div>
+      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 7 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button></div>
     <div class="rv-botas">${R.tendencia.map(x => `<div class="rv-bota">
       <b>${x.k}</b><div class="pl-bar" style="max-width:none;margin:0"><i style="width:${(x.act / maxB * 100).toFixed(1)}%"></i></div>
       <b class="r">${Math.round(x.act * 100)}%</b><span class="td-dim rv-antes">${x.antes == null ? '' : `antes ${Math.round(x.antes * 100)}%`}</span><span>${flecha(x)}</span></div>`).join('')}</div>
+    ${R.topC.length ? `<div class="rv-sub">Lo que más se vendió en ${R.sgC}</div>
+    <div class="rv-grid">${R.topC.map(x => rvCard(rvFotoModelo(x.base), x.base, `${fmt(x.u)} vendidas`,
+      [x.bota, x.tiro].filter(Boolean).join(' · ') || 'Sin clasificar', `T${x.t} · ${fmt(x.clientes)} clientes`)).join('')}</div>` : ''}
+    <div class="rv-sub">Lo más pedido de la T${TA}${+TA >= +R.ACT ? ' hasta hoy' : ''}</div>
     <div class="rv-grid">${R.ranking.slice(0, 8).map(x => rvCard(rvFotoModelo(x.base), x.base, `${fmt(x.u)} pedidas`,
-      [x.bota, x.tiro].filter(Boolean).join(' · ') || 'Sin clasificar', `${fmt(x.clientes)} clientes${x.libre ? ` · ${fmt(x.libre)} libres` : ''}`)).join('')}</div>
+      [x.bota, x.tiro].filter(Boolean).join(' · ') || 'Sin clasificar', `${fmt(x.clientes)} clientes${x.libre ? ` · ${fmt(x.libre)} libres` : ''}`)).join('') || `<div class="td-dim">Todavía no hay pedidos de la T${TA}</div>`}</div>
   </div>
 
   <div class="tbl-card rv" style="margin-top:14px">
@@ -5696,6 +5706,61 @@ async function secReporte() {
         <span style="font-weight:700;min-width:170px">${i + 1}. ${n}</span><span class="td-dim" style="font-size:13px">${d}</span></div>`).join('')}</div></div>
     <div class="tbl-foot">Estratégico = el ${Math.round(REP_PCT_ESTRATEGICO * 100)}% de clientes que más compró en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]}. Descuentos sugeridos: ${Math.round(REP_DESC_ESTRATEGICO * 100)}% a estratégicos por recuperar sin deuda ni bloqueo, ${Math.round(REP_DESC_ACTIVO * 100)}% a estratégicos activos que suban a su promedio. Un saldo con más de ${REP_DIAS_RECONFIRMAR} días se reconfirma.</div>
   </div>`;
+}
+
+/* ── CAMPAÑA ─────────────────────────────────────────────────────────
+   Plan de Colección y Reporte para venta en una sola sección, una pestaña cada uno: el menú
+   se estaba llenando de secciones (Manu, 21-10-2026). Es lo que miran el jefe y Pato para
+   decidir, así que arriba va UN filtro (colección y comparables) que vale para las dos
+   pestañas, y bajo las pestañas una línea que dice para qué sirve cada una. */
+let CAMP_TAB = 'plan';
+try { if (localStorage.getItem('adecom_campana_tab') === 'venta') CAMP_TAB = 'venta'; } catch (e) {}
+
+function campElegir(temp, cmp) {
+  PLAN_TEMP = REP_TEMP = temp;
+  PLAN_CMP = [...cmp]; REP_CMP = [...cmp];
+}
+
+const campDesc = () => {
+  const T = PLAN_TEMP, sg = PLAN_CMP.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
+  return CAMP_TAB === 'venta'
+    ? `Para salir a vender: lo que más se pidió de la T${T} contra ${sg}, qué ofrecer hoy y a quién llamar.`
+    : `Para decidir qué producir: cuánto se debería vender de la T${T}, a qué ritmo va, qué cortar con confianza y qué empujar, según lo que pasó en ${sg}.`;
+};
+
+async function secCampana() {
+  const [peds, pa, ft, cortesHist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
+  PLAN = planBase(peds, pa, ft, Array.isArray(cortesHist) ? {} : cortesHist);   // si no está, load() devuelve []
+  const conProd = Object.keys(PLAN.cat).sort((a, b) => +b - +a);
+  const todas = [...new Set([...Object.keys(PLAN.temps), ...conProd])].sort((a, b) => +b - +a);
+  if (!todas.length) return makePH('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>', 'Campaña', 'Sin historia de pedidos');
+  // Por defecto, la colección de estas fechas (la más nueva) contra las del Plan
+  if (!PLAN_TEMP || !todas.includes(PLAN_TEMP)) PLAN_TEMP = conProd[0] || todas[0];
+  if (!PLAN_CMP.length) PLAN_CMP = planComparables(PLAN.temps, PLAN_TEMP);
+  campElegir(PLAN_TEMP, PLAN_CMP);
+  const hist = Object.values(PLAN.temps).filter(T => T.total >= 3000 && T.t !== PLAN_TEMP).sort((a, b) => +b.t - +a.t);
+  const etiqueta = t => t === TEMP_ACTIVA ? ' · activa' : (t === todas[0] && +t > +TEMP_ACTIVA ? ' · nueva' : '');
+  const cuerpo = CAMP_TAB === 'venta' ? await secReporte() : '<div id="planBody" class="pl"></div>';
+  return `
+  <div class="fbar">
+    <div class="fbar-row">
+      <div class="fgrp"><span class="flbl">Colección</span>
+      <select id="campTemp" class="finput" style="width:150px">
+        ${todas.map(t => `<option value="${t}"${t === PLAN_TEMP ? ' selected' : ''}>T${t}${etiqueta(t)}</option>`).join('')}
+      </select></div>
+      <div class="fgrp"><span class="flbl">Comparar con</span>
+      <div class="segs" id="campCmpSegs">
+        ${hist.map(T => `<button class="seg${PLAN_CMP.includes(T.t) ? ' on' : ''}" data-t="${T.t}" title="${fmt(T.total)} unidades, lanzada en ${planMesCorto(T.lanzo)}">T${T.t} <span style="opacity:.6;font-size:10px">${planMesCorto(T.lanzo)}</span></button>`).join('')}
+      </div></div>
+    </div>
+    <span class="td-dim" style="font-size:11px">Por defecto, la colección de estas fechas contra las que se vendían en estas mismas fechas los dos años anteriores. Toca para cambiar.</span>
+  </div>
+  <div class="camp-tabs segs" id="campTabs">
+    <button class="seg${CAMP_TAB === 'plan' ? ' on' : ''}" data-tab="plan">Plan: qué producir</button>
+    <button class="seg${CAMP_TAB === 'venta' ? ' on' : ''}" data-tab="venta">Venta: qué ofrecer y a quién</button>
+  </div>
+  <div class="camp-desc" id="campDesc">${campDesc()}</div>
+  ${cuerpo}`;
 }
 
 async function secProy() {
@@ -6500,8 +6565,7 @@ const SECS = {
   'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
   'clientes':       () => secClientes(),
-  'plan':           () => secPlan(),
-  'reporte':        () => secReporte(),
+  'campana':        () => secCampana(),
   'proyecciones':   () => secProy(),
   'er':             () => secER(),
 };
@@ -7798,36 +7862,42 @@ function bindContent(secId) {
     pintarKen();
   }
 
-  // Plan de colección
-  if (secId === 'plan' && document.getElementById('planBody')) {
-    document.getElementById('planTemp')?.addEventListener('change', e => {
-      PLAN_TEMP = e.target.value; PLAN_CMP = [];        // las comparables se recalculan para la nueva
-      go('plan', 'Plan de Colección');
-    });
-    document.querySelectorAll('#planCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
-      const t = b.dataset.t;
-      if (PLAN_CMP.includes(t)) { if (PLAN_CMP.length === 1) return; PLAN_CMP = PLAN_CMP.filter(x => x !== t); b.classList.remove('on'); }
-      else { PLAN_CMP = [...PLAN_CMP, t].sort((a, c) => +c - +a); b.classList.add('on'); }
-      pintarPlan();
+  // Campaña: las dos pestañas y el filtro de arriba, que vale para las dos
+  if (secId === 'campana') {
+    document.querySelectorAll('#campTabs .seg').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.tab === CAMP_TAB) return;
+      CAMP_TAB = b.dataset.tab;
+      try { localStorage.setItem('adecom_campana_tab', CAMP_TAB); } catch (e) {}
+      go('campana', 'Campaña');
     }));
+    document.getElementById('campTemp')?.addEventListener('change', e => {
+      campElegir(e.target.value, []);                    // las comparables se recalculan para la nueva
+      go('campana', 'Campaña');
+    });
+    document.querySelectorAll('#campCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
+      const t = b.dataset.t;
+      let cmp = PLAN_CMP;
+      if (cmp.includes(t)) { if (cmp.length === 1) return; cmp = cmp.filter(x => x !== t); }
+      else cmp = [...cmp, t].sort((a, c) => +c - +a);
+      campElegir(PLAN_TEMP, cmp);
+      // El Plan se repinta en el lugar (PLAN ya está calculado); el reporte se vuelve a armar entero
+      if (document.getElementById('planBody')) {
+        b.classList.toggle('on', cmp.includes(t));
+        document.getElementById('campDesc').textContent = campDesc();
+        pintarPlan();
+      } else go('campana', 'Campaña');
+    }));
+  }
+
+  // Campaña · Plan de colección
+  if (secId === 'campana' && document.getElementById('planBody')) {
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     pintarPlan();
   }
 
-  // Reporte para venta
-  if (secId === 'reporte' && document.getElementById('repExcel')) {
-    // Colección base y comparables: igual que en el Plan; cada cambio vuelve a armar la página
-    document.getElementById('rvTemp')?.addEventListener('change', e => {
-      REP_TEMP = e.target.value; REP_CMP = [];        // las comparables se recalculan para la nueva base
-      go('reporte', 'Reporte para venta');
-    });
-    document.querySelectorAll('#rvCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
-      const t = b.dataset.t;
-      if (REP_CMP.includes(t)) { if (REP_CMP.length === 1) return; REP_CMP = REP_CMP.filter(x => x !== t); }
-      else REP_CMP = [...REP_CMP, t].sort((a, c) => +c - +a);
-      go('reporte', 'Reporte para venta');
-    }));
+  // Campaña · Reporte para venta
+  if (secId === 'campana' && document.getElementById('repExcel')) {
     // Buscador de clientes: esconde las filas que no calzan, y el grupo entero si queda vacío
     document.getElementById('rvCliSearch')?.addEventListener('input', e => {
       const q = rvSinTilde(e.target.value.trim());
