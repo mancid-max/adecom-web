@@ -3891,7 +3891,7 @@ function buildPVCRows(t, ftMap, exMap) {
       <td style="text-align:center">${estadoHtml}</td>
       <td>${exHtml}</td>
       <td class="r">${cantExHtml}</td>
-      <td style="padding-left:4px">${modelEtapaHtml}</td>
+      <td style="padding-left:4px;white-space:normal">${modelEtapaHtml}</td>
     </tr>`;
   }).join('');
 }
@@ -4043,6 +4043,7 @@ async function secPVC() {
       <table>
         <thead><tr><th>Artículo</th><th class="r">Pedido</th><th class="r" title="Ya despachado">Desp.</th><th class="r" title="Pedido − Despachado: lo que falta entregar">Saldo</th><th class="r" title="Stock en San Gerardo, igual que el informe de corte del ERP">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center">Estado</th><th>EX</th><th class="r" title="Saldo del modelo EX">Cant.</th><th>Dónde</th></tr></thead>
         <tbody id="pvcBody" class="tbl-compacta">${buildPVCRows(defT, ftMap, exMap)}</tbody>
+        <tbody id="pvcTot" class="tbl-compacta"></tbody>
       </table>
       <div class="tbl-foot" id="pvcFoot">artículos T${defT}</div>
     </div>
@@ -8439,7 +8440,7 @@ function bindContent(secId) {
       const etapa  = document.querySelector('#pvcEtapaSegs .seg.on')?.dataset.etapa  || 'all';
       const q      = (document.getElementById('pvcSearch')?.value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
-      let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0;
+      let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0, sumDesp = 0, sumStk = 0, sumPro = 0, aCortar = 0, sobra = 0;
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado;
         const showEtapa  = etapa  === 'all' || (row.dataset.etapas || row.dataset.etapa || '').split('|').includes(etapa);
@@ -8461,9 +8462,16 @@ function bindContent(secId) {
         }
         if (show) {
           visible++;
+          const stk = parseInt(row.dataset.stk || 0), pro = parseInt(row.dataset.prod || 0), sal = parseInt(row.dataset.sal || 0);
           sumPed  += parseInt(row.dataset.ped  || 0);
-          sumSal  += parseInt(row.dataset.sal  || 0);
-          sumCort += (parseInt(row.dataset.stk || 0) + parseInt(row.dataset.prod || 0));
+          sumSal  += sal;
+          sumCort += stk + pro;
+          sumDesp += parseInt(row.dataset.desp || 0);
+          sumStk  += stk;
+          sumPro  += pro;
+          // Lo que sobra de un color no cubre lo que falta de otro: a cortar se suma artículo por artículo
+          const d = stk + pro - sal;
+          if (d < 0) aCortar -= d; else sobra += d;
         }
       });
       // Actualizar KPIs con los totales filtrados
@@ -8480,7 +8488,23 @@ function bindContent(secId) {
       if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || TEMP_SEL;
       const foot = document.getElementById('pvcFoot');
-      if (foot) foot.textContent = `${visible} artículos T${t}`;
+      if (foot) foot.textContent = `${visible} ${visible === 1 ? 'artículo' : 'artículos'} T${t}`;
+      /* Fila de total de lo que se ve (con búsqueda o filtro, solo eso). "Cortar" es la suma de las
+         etiquetas rojas, no la diferencia: por eso puede no calzar con Dif. cuando algún color sobra. */
+      const tot = document.getElementById('pvcTot');
+      if (tot) tot.innerHTML = !visible ? '' : `<tr class="no-click" style="background:var(--sf2);font-weight:700">
+        <td>Total</td>
+        <td class="r td-num">${fmt(sumPed)}</td>
+        <td class="r td-num" style="color:var(--ok)">${sumDesp ? fmt(sumDesp) : '—'}</td>
+        <td class="r td-num" style="color:${sumSal > 0 ? 'var(--wa)' : 'var(--tx3)'}">${sumSal ? fmt(sumSal) : '—'}</td>
+        <td class="r td-num" style="color:${sumStk < 0 ? 'var(--er)' : 'var(--tx1)'}">${sumStk ? fmt(sumStk) : '—'}</td>
+        <td class="r td-num" style="color:var(--ac)">${sumPro ? fmt(sumPro) : '—'}</td>
+        <td class="r td-num" style="color:${diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--er)' : 'var(--tx3)'}">${diff > 0 ? '+' : ''}${diff ? fmt(diff) : '—'}</td>
+        <td style="text-align:center" title="Suma de lo que falta en cada artículo. Lo que sobra de un color no sirve para otro">${aCortar
+          ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar ${fmt(aCortar)}</span>`
+          : '<span style="background:var(--sf);color:var(--tx3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">✓ Alcanza</span>'}${sobra
+          ? `<div class="td-dim" style="font-size:10px;font-weight:600;margin-top:3px;white-space:normal;line-height:1.25">+${fmt(sobra)} para ofrecer</div>` : ''}</td>
+        <td colspan="3"></td></tr>`;
     }
 
     document.querySelectorAll('#pvcEstadoSegs .seg').forEach(b => b.addEventListener('click', () => {
