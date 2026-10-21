@@ -3940,16 +3940,30 @@ function buildPVCRows(t, ftMap, exMap) {
 function pvcDetalle(art) {
   const f = PVC_FILAS[art];
   if (!f) return '<div class="td-dim" style="padding:18px 16px">No tengo el detalle de este artículo</div>';
+  /* Lo que cada pedido ya tiene de este artículo en una caja armada que sigue en bodega (sin
+     despachar), con el número de la caja: lo mismo que Adecom pone al lado del cliente en
+     "Pedidos pendientes por artículo". Eso no se le debe: ya existe. */
+  const enCajaPed = {};
+  const cjData = CACHE['cajas.json'];
+  for (const c of ((!Array.isArray(cjData) && cjData?.cajas) || [])) {
+    if ((c.estado || '') !== 'bodega') continue;
+    const u = (c.lineas || []).filter(l => l.art === art).reduce((a, l) => a + Math.max(0, (l.cant || 0) - (l.desp || 0)), 0);
+    if (!u) continue;
+    const x = enCajaPed[c.pedido] = enCajaPed[c.pedido] || { u: 0, cajas: [] };
+    x.u += u; x.cajas.push(c.caja);
+  }
   const clientes = [];
   for (const p of (CACHE['pedidos.json'] || [])) {
     if (PVC_SIN_MAGIC && esMagic(p)) continue;       // con "Sin Magic", tampoco aparece en la lista
     for (const l of (p.lineas || [])) {
       if (l.art !== art || (l.sal || 0) <= 0) continue;
+      const ec = enCajaPed[p.pedido], caja = ec ? Math.min(l.sal, ec.u) : 0;
       clientes.push({ nombre: p.nombre || p.rut || '—', ciudad: p.ciudad || '', bloqueo: !!p.bloqueo,
-                      cli: p.cli, pedido: p.pedido, sol: l.sol || 0, desp: l.desp || 0, sal: l.sal || 0 });
+                      cli: p.cli, pedido: p.pedido, sol: l.sol || 0, desp: l.desp || 0, sal: l.sal || 0,
+                      caja, cajas: ec ? ec.cajas : [], debe: (l.sal || 0) - caja });
     }
   }
-  clientes.sort((a, b) => b.sal - a.sal);
+  clientes.sort((a, b) => b.debe - a.debe || b.caja - a.caja);
   const falta = Math.max(0, f.sal - f.stk - f.pro);
   const resumen = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
@@ -3970,8 +3984,9 @@ function pvcDetalle(art) {
       : 'Lo que falta viene en producción.'}${f.enCaja ? `<br><b>${fmt(f.enCaja)}</b> ya están en cajas armadas para clientes: existen, solo falta despacharlas, así que no se deben ni se cortan.` : ''}${f.stkErp < 0 ? `<br>El ERP muestra <b style="color:var(--er)">${fmt(f.stkErp)}</b> en San Gerardo: se despachó más de lo que entró a bodega. No son prendas por hacer, así que para cortar cuenta como 0.` : ''}</div>`;
 
   // La lista suma todo lo que falta despacharle a cada cliente, también lo que ya está en cajas
-  const suma = clientes.reduce((a, c) => a + c.sal, 0), porDespachar = f.sal + (f.enCaja || 0);
-  const aviso = (f.enCaja ? `, ${fmt(f.enCaja)} de ellas ya en cajas` : '')
+  const suma = clientes.reduce((a, c) => a + c.sal, 0), sumaDebe = clientes.reduce((a, c) => a + c.debe, 0);
+  const sumaCaja = suma - sumaDebe, porDespachar = f.sal + (f.enCaja || 0);
+  const aviso = (sumaCaja ? ` · ${fmt(sumaCaja)} ya en cajas, así que se deben ${fmt(sumaDebe)}` : '')
     + (suma !== porDespachar ? ` · la suma da ${fmt(suma)} porque a algún cliente se le despachó de más y al artículo le quedan ${fmt(porDespachar)} por despachar` : '');
   const tablaCli = !clientes.length
     ? '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>'
@@ -3979,14 +3994,15 @@ function pvcDetalle(art) {
         clientes.map(c => {
           const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
           return `<tr>
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}${c.caja
+              ? `<div style="font-size:11px;font-weight:600;color:var(--ok)">📦 caja ${c.cajas.join(', ')} · ${fmt(c.caja)} en caja</div>` : ''}</td>
             <td class="td-dim">${c.ciudad || '—'}</td>
             <td class="r td-num">${fmt(c.sol)}</td>
             <td class="r td-num td-dim">${fmt(c.desp)}</td>
-            <td class="r td-num" style="color:var(--wa);font-weight:700">${fmt(c.sal)}</td>
-            <td style="width:26%">${vBarra(c.sal, Math.max(...clientes.map(x => x.sal)), false)}</td></tr>`;
+            <td class="r td-num" style="color:${c.debe ? 'var(--wa)' : 'var(--ok)'};font-weight:700">${c.debe ? fmt(c.debe) : '✓ en caja'}</td>
+            <td style="width:26%">${c.debe ? vBarra(c.debe, Math.max(1, ...clientes.map(x => x.debe)), false) : ''}</td></tr>`;
         }).join(''),
-        `${clientes.length} ${clientes.length === 1 ? 'cliente esperando' : 'clientes esperando'} ${fmt(suma)} prendas${aviso}`);
+        `${clientes.length} ${clientes.length === 1 ? 'cliente esperando' : 'clientes esperando'} ${fmt(suma)} prendas${aviso}. «Se le debe» no cuenta lo que ya está en caja`);
 
   const tablaOC = !f.ocs.length ? '' : `
     <div class="flbl" style="padding:14px 16px 0">Sus órdenes de corte</div>` + vTabla(
@@ -4004,6 +4020,7 @@ function pvcDetalle(art) {
 async function secPVC() {
   const ft = await load('full_table.json');
   await load('pedidos.json');     // para saber a quien se le debe cada articulo
+  await load('cajas.json');       // y quién ya lo tiene en una caja armada (con su número, como en Adecom)
   const exMap = await load('pvc_ex.json');
   STOCK_MAP = buildStockMap(await load('saldos_bodega.json'));
   const ftMap = buildFtMap(ft);
