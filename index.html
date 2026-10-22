@@ -213,11 +213,30 @@ body.ia-open #iaBtn{display:none}
 .pl .pl-foto .art-thumb{width:26px;height:34px;margin:0}
 .pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
 .pl tr.pl-total td{font-weight:700;background:var(--sf2)}
-/* Ventana del cliente en Campaña: qué hacer con él y el mensaje listo para mandarle por WhatsApp */
-.pl .pl-qh{padding:14px 16px 4px;font-size:13px;line-height:1.5}
+/* Ventana del cliente en Campaña, en bloques: qué hacer y sus números, qué ofrecerle con el mensaje al lado y lo que compra */
 .pl .pl-wa{display:inline-flex;align-items:center;gap:6px;background:#25D366;color:#fff;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;text-decoration:none;white-space:nowrap}
 .pl .pl-wa:hover{filter:brightness(.94)}
-.pl .pl-msg{margin-top:10px;background:var(--sf2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.45}
+.pl .pc{padding:16px 18px 20px;display:flex;flex-direction:column;gap:18px}
+.pl .pc-dec{border-left:4px solid;border-radius:8px;padding:10px 14px;display:flex;gap:2px 10px;align-items:baseline;flex-wrap:wrap}
+.pl .pc-dec-t{font-size:15px;font-weight:800;white-space:nowrap}
+.pl .pc-dec-x{font-size:13px;color:var(--tx1)}
+.pl .pc-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.pl .pc-kpi{border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+.pl .pc-kpi>b{display:block;font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.pl .pc-kpi>b em{font-style:normal;font-size:13px;margin-left:6px}
+.pl .pc-kpi>span{display:block;font-size:12px;color:var(--tx2);margin-top:2px}
+.pl .pc-kpi>i{display:block;font-style:normal;font-size:11px;color:var(--tx3)}
+.pl .pc-bar{margin-top:7px}
+.pl .pc-cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px;align-items:start}
+.pl .pc-h{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);margin-bottom:8px}
+.pl .pc-mod{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--bd)}
+.pl .pc-burbuja{background:var(--ok10);border-radius:12px 12px 3px 12px;padding:10px 12px;font-size:13px;line-height:1.45;color:var(--tx1)}
+.pl .pc-wa{display:flex;justify-content:center;margin-top:10px}
+.pl .pc-tel{font-size:11px;color:var(--tx3);margin-top:6px;text-align:center}
+.pl .pc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pl .pc-chip{background:var(--sf2);border-radius:14px;padding:3px 10px;font-size:12px;color:var(--tx2)}
+.pl .pc-chip b{color:var(--tx1);font-weight:700;margin-right:3px}
+@media(max-width:700px){.pl .pc{padding:14px 14px 18px}.pl .pc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.pl .pc-cols{grid-template-columns:minmax(0,1fr);gap:16px}}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
 /* Campaña: las dos pestañas (más grandes que un filtro) y la línea que dice para qué sirve cada una */
@@ -5034,31 +5053,43 @@ function pintarPlan() {
     return { botas, modelos, ya };
   };
   const tagsOfrecer = c => ofrecerA(c.cli).modelos.slice(0, 3).map(x => `<span class="pl-tag" style="background:var(--sf2);color:var(--tx1)" title="${x.bota}">${x.m}</span>`).join(' ') || '<span class="td-dim">—</span>';
+  /* La ventana del cliente, en bloques (Manu, 22-10-2026: "está demasiado desordenada"): arriba qué
+     hacer y sus números, al medio qué ofrecerle con el mensaje al lado, abajo lo que compra. Lo de
+     cortar no va aquí: es para decidir producción, y está en las tablas del Plan. */
   const detCliente = c => {
     const o = ofrecerA(c.cli), ya = Object.entries(o.ya).sort((a, b) => b[1] - a[1]);
-    const a = avanceCli(c), d = decisionDe(c), tel = celularDe(c.cli), msg = mensajeA(d, o);
+    const a = avanceCli(c), d = decisionDe(c), tel = celularDe(c.cli), msg = mensajeA(d, o), alDia = c.alDia / C.length;
     const h = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const contacto = String((fichas[c.cli] || {}).contacto || '').trim();
-    const qh = `<div class="pl-qh">
-      <div style="display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap"><span class="pl-tag" style="background:${d.bg};color:${d.clr};font-size:12px;padding:3px 10px">Qué hacer: ${d.t}</span>
-        <span>Meta T${PLAN_TEMP} <b>${fmt(Math.round(a.meta))}</b> · lleva <b>${fmt(a.lleva)}</b>${a.p == null ? '' : ` <b style="color:${rvPctClr(a.p)}">(${a.p}%)</b>`}</span></div>
-      <div style="margin-top:6px">${d.x}${c.mes1 ? ' Suele pedir apenas sale la colección.' : ''}</div>
-      <div style="margin-top:10px;display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap">
-        <a class="pl-wa" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 Mandarle mensaje</a>
-        <span class="td-dim" style="font-size:11px">${tel ? `${contacto ? h(contacto) + ' · ' : ''}+${tel.slice(0, 2)} ${tel.slice(2, 3)} ${tel.slice(3, 7)} ${tel.slice(7)}` : 'Sin celular en su ficha: WhatsApp te deja elegir el contacto'}</span></div>
-      <div class="pl-msg">${h(msg)}</div></div>`;
-    const cab = `<div style="padding:14px 16px 6px;font-size:13px;line-height:1.5">${o.botas.length ? `Compra sobre todo <b>${lista(o.botas.map(x => `${x.k} (${x.pct}%)`))}</b>` : 'Lo que compró no tiene bota registrada'}, mirando ${lista(histCols.map(T => 'T' + T.t))}.`
-      + (ya.length ? `<br>Ya pidió de la T${PLAN_TEMP}: ${ya.map(([m, u]) => `${m} (${fmt(u)})`).join(', ')}.` : '') + '</div>';
-    if (!o.modelos.length) return qh + cab + `<div class="td-dim" style="padding:12px 16px 22px">La T${PLAN_TEMP} todavía no tiene otros modelos de esas botas con pedidos o en producción.</div>`;
-    return qh + cab + vTabla(
-      `<th data-ord="t">Ofrecer</th><th class="r" data-ord="n" title="Cuánto de lo que compra este cliente es de esa bota">Su compra</th><th data-ord="n" title="Entre los 5 más pedidos de la T${PLAN_TEMP}">Top</th><th data-ord="n" title="Según lo cortado y lo vendido de esa bota en la T${prev ? prev.t : ''}">¿Cortar?</th><th class="pl-sec" data-ord="t">Disponible</th>`,
-      o.modelos.map(x => { const k = CORTAR[x.g]; return `<tr>
-        <td data-v="${x.m}">${celdaModelo(x.m, x.bota)}</td>
-        <td class="r td-num" data-v="${x.pct}">${x.pct}%</td>
-        <td data-v="${x.top ? 1 : 0}">${x.top ? '<span class="pl-tag" style="background:var(--ac10);color:var(--ac)">Top</span>' : '<span class="td-dim">—</span>'}</td>
-        <td data-v="${3 - RANGO[x.g]}"><span class="pl-tag" style="background:${k[2]};color:${k[1]}">${k[0]}</span></td>
-        <td class="td-dim pl-sec" data-v="${disponible(x.m)}">${disponible(x.m)}</td></tr>`; }).join(''),
-      `Modelos de la T${PLAN_TEMP} de las botas que más compra. Top: entre los 5 más pedidos de la T${PLAN_TEMP}. ¿Cortar?: de esa bota, en la T${prev ? prev.t : ''} se vendió el 90% o más de lo cortado (vale la pena), entre 75 y 90 (con cuidado) o menos (revisar). Los modelos sin pedidos todavía no tienen bota y no aparecen aquí.`);
+    const kpi = (v, lbl, sub = '') => `<div class="pc-kpi"><b>${v}</b><span>${lbl}</span>${sub}</div>`;
+    const disp = m => { const t = disponible(m), k = t.startsWith('Cortado') ? 'ok' : t === 'Programado' ? 'ac' : '';
+      return `<span class="pl-tag" style="background:${k ? `var(--${k}10)` : 'var(--sf2)'};color:${k ? `var(--${k})` : 'var(--tx3)'}">${t}</span>`; };
+    const chips = (xs, vacio) => `<div class="pc-chips">${xs.length ? xs.join('') : `<span class="td-dim" style="font-size:12px">${vacio}</span>`}</div>`;
+    return `<div class="pc">
+      <div class="pc-dec" style="border-color:${d.clr};background:${d.bg}"><span class="pc-dec-t" style="color:${d.clr}">${d.t}</span>
+        <span class="pc-dec-x">${d.corto}${!a.lleva && c.mes1 ? ' Suele pedir apenas sale la colección.' : ''}</span></div>
+      <div class="pc-kpis">
+        ${kpi(`<span style="color:var(--ac)">${fmt(Math.round(a.meta))}</span>`, `Meta T${PLAN_TEMP}`, `<i>su promedio en ${sg}</i>`)}
+        ${kpi(`${fmt(a.lleva)}<em style="color:${rvPctClr(a.p)}">${a.p ?? 0}%</em>`, 'Lleva', `<div class="pc-bar">${vBarra(Math.min(100, a.p || 0), 100)}</div>`)}
+        ${kpi(fmt(Math.round(alDia)), 'A esta fecha solía llevar', `<i>en ${sg}</i>`)}
+        ${kpi(fmt(Math.round(Math.max(0, a.meta - a.lleva))), 'Le falta', '<i>para su meta</i>')}
+      </div>
+      <div class="pc-cols">
+        <div><div class="pc-h">Qué ofrecerle</div>
+          ${o.modelos.length ? o.modelos.map(x => `<div class="pc-mod">${celdaModelo(x.m, `${x.bota} · ${x.pct}% de lo que compra${x.top ? ' · <b style="color:var(--ac)">Top</b>' : ''}`)}${disp(x.m)}</div>`).join('')
+            : `<div class="td-dim" style="font-size:13px">La T${PLAN_TEMP} todavía no tiene otros modelos de sus botas con pedidos o en producción.</div>`}</div>
+        <div><div class="pc-h">Mensaje por WhatsApp</div>
+          <div class="pc-burbuja">${h(msg)}</div>
+          <a class="pl-wa pc-wa" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 Mandarle mensaje</a>
+          <div class="pc-tel">${tel ? `${contacto ? h(contacto) + ' · ' : ''}+${tel.slice(0, 2)} ${tel.slice(2, 3)} ${tel.slice(3, 7)} ${tel.slice(7)}` : 'Sin celular en su ficha: WhatsApp te deja elegir el contacto'}</div></div>
+      </div>
+      <div class="pc-cols">
+        <div><div class="pc-h">Lo que más compra · ${lista(histCols.map(T => 'T' + T.t))}</div>
+          ${chips(o.botas.map(x => `<span class="pc-chip"><b>${x.k}</b>${x.pct}%</span>`), 'Sin bota registrada')}</div>
+        <div><div class="pc-h">Ya pidió de la T${PLAN_TEMP}${a.lleva ? ` · ${fmt(a.lleva)}` : ''}</div>
+          ${chips(ya.map(([m, u]) => `<span class="pc-chip"><b>${m}</b>${fmt(u)}</span>`), 'Todavía nada')}</div>
+      </div>
+    </div>`;
   };
 
   const uNuevaDe = cli => Object.values(pidioP[cli] || {}).reduce((a, u) => a + u, 0);   // lo que ya pidió de la nueva
@@ -5069,13 +5100,18 @@ function pintarPlan() {
      está en el 100%. Una palabra para la tabla y una frase para su ventana. */
   const decisionDe = c => {
     const { meta, lleva } = avanceCli(c), alDia = c.alDia / C.length, r = v => fmt(Math.round(v));
-    const d = (k, t, clr, x) => ({ k, t, clr: `var(--${clr})`, bg: `var(--${clr}10)`, x });
+    const d = (k, t, clr, corto, x) => ({ k, t, clr: `var(--${clr})`, bg: `var(--${clr}10)`, corto, x });
     if (!lleva) return alDia > 0
-      ? d('llamar', 'Llamar hoy', 'er', `Todavía no pide la T${PLAN_TEMP} y a esta fecha, en ${sg}, ya llevaba ${r(alDia)} en promedio.`)
-      : d('ofrecer', 'Ofrecerle', 'ac', `Todavía no pide la T${PLAN_TEMP}: en ${sg} pedía más adelante. Compra unas ${r(meta)} por temporada.`);
-    if (lleva >= meta) return d('cumplio', 'Cumplió', 'ok', `Ya pidió ${fmt(lleva)}, lo que compra en toda una temporada (${r(meta)}): ofrecerle reposición o lo nuevo.`);
-    if (lleva < alDia * 0.75) return d('empujar', 'Empujar', 'wa', `Lleva ${fmt(lleva)} y a esta fecha solía llevar ${r(alDia)}: va atrasado. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
-    return d('bien', 'Va bien', 'ok', `Lleva ${fmt(lleva)}${alDia > 0 ? ` y a esta fecha solía llevar ${r(alDia)}` : ': pidió antes que otras temporadas'}. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
+      ? d('llamar', 'Llamar hoy', 'er', `Todavía no pide la T${PLAN_TEMP} y a esta fecha ya solía haber pedido.`,
+          `Todavía no pide la T${PLAN_TEMP} y a esta fecha, en ${sg}, ya llevaba ${r(alDia)} en promedio.`)
+      : d('ofrecer', 'Ofrecerle', 'ac', `Todavía no pide la T${PLAN_TEMP}: en otras temporadas pedía más adelante.`,
+          `Todavía no pide la T${PLAN_TEMP}: en ${sg} pedía más adelante. Compra unas ${r(meta)} por temporada.`);
+    if (lleva >= meta) return d('cumplio', 'Cumplió', 'ok', 'Ya compró lo de toda una temporada: ofrecerle reposición o lo nuevo.',
+      `Ya pidió ${fmt(lleva)}, lo que compra en toda una temporada (${r(meta)}): ofrecerle reposición o lo nuevo.`);
+    if (lleva < alDia * 0.75) return d('empujar', 'Empujar', 'wa', 'Va atrasado: a esta fecha solía llevar más.',
+      `Lleva ${fmt(lleva)} y a esta fecha solía llevar ${r(alDia)}: va atrasado. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
+    return d('bien', 'Va bien', 'ok', alDia > 0 ? 'Va al ritmo de otras temporadas.' : 'Pidió antes que en otras temporadas.',
+      `Lleva ${fmt(lleva)}${alDia > 0 ? ` y a esta fecha solía llevar ${r(alDia)}` : ': pidió antes que otras temporadas'}. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
   };
   /* El mensaje para mandarle por WhatsApp: lo arman la decisión y los modelos que se le ofrecen.
      Se abre listo en WhatsApp para revisarlo y mandarlo; nada se envía solo. */
