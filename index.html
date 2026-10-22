@@ -243,6 +243,16 @@ body.ia-open #iaBtn{display:none}
 .pl .db-t.ac{background:var(--ac10);color:var(--ac)}
 .pl .db-t.er{background:var(--er10);color:var(--er)}
 .pl tr.db-fila td{vertical-align:top}
+.pl .db-debe{display:flex;align-items:baseline;gap:5px}
+.pl .db-debe b{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.pl .db-debe span{font-size:11px;color:var(--tx3)}
+.pl .db-tallas{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.pl .db-t2{display:inline-flex;flex-direction:column;align-items:center;min-width:32px;margin:0;padding:2px 5px;line-height:1.2}
+.pl .db-t2 i{font-style:normal;font-size:10px;font-weight:600;opacity:.75}
+.pl .db-t2 b{font-size:13px;font-weight:800}
+.pl .db-movil{display:none}
+@media(max-width:700px){.pl .db-movil{display:block}}
+.pl .db-aviso{font-size:12px;color:var(--tx2);background:var(--sf2);border-radius:8px;padding:8px 12px}
 .pl .db-alt{margin-top:8px;padding-top:6px;border-top:1px dashed var(--bd)}
 .pl .db-alt-i{display:flex;align-items:center;margin-top:6px}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
@@ -6914,14 +6924,16 @@ function debDatos(peds, ft, ftMap) {
       const k = vdKey(p);
       if (!porCli.has(k)) porCli.set(k, { k, nombre: p.nombre || p.rut || '—', ciudad: p.ciudad || '', items: {}, debe: 0, enCaja: 0, pedidos: new Set(), dias: 0 });
       const c = porCli.get(k), x = caja[p.pedido + '|' + l.art], enC = x ? Math.min(l.sal, x.u) : 0;
-      const it = c.items[l.art] = c.items[l.art] || { art: l.art, sal: 0, enCaja: 0, cajas: new Set(), st: {}, cajaT: {}, hayST: false };
+      const it = c.items[l.art] = c.items[l.art] || { art: l.art, sal: 0, enCaja: 0, cajas: new Set(), st: {}, cajaT: {}, hayST: false, pedidos: new Set(), dias: 0 };
       it.sal += l.sal; it.enCaja += enC;
       if (x) { x.cajas.forEach(n => it.cajas.add(n)); for (const [t, n] of Object.entries(x.t)) it.cajaT[t] = (it.cajaT[t] || 0) + n; }
       if (l.st) { it.hayST = true; for (const [t, n] of Object.entries(l.st)) it.st[t] = (it.st[t] || 0) + n; }
+      it.pedidos.add(p.pedido); it.dias = Math.max(it.dias, p.dias || 0);
       c.debe += l.sal - enC; c.enCaja += enC; c.pedidos.add(p.pedido); c.dias = Math.max(c.dias, p.dias || 0);
     }
   }
-  const clientes = [...porCli.values()].sort((a, b) => b.debe - a.debe || b.enCaja - a.enCaja);
+  // El que lleva más tiempo esperando, primero (Manu, 22-10-2026: "siempre mostrando el más antiguo")
+  const clientes = [...porCli.values()].sort((a, b) => b.dias - a.dias || b.debe - a.debe);
   return { arts, etapas, tallaArt, parecidos, clientes };
 }
 
@@ -6940,7 +6952,7 @@ function debDetalle(c) {
       tallas.push({ t, n, k: !x ? '' : x.libre >= need ? 'ok' : x.libre + x.prod >= need ? 'ac' : 'er' });
     }
     return { it, f, debe, est, tallas };
-  }).sort((a, b) => DEB_ORDEN[a.est] - DEB_ORDEN[b.est] || b.debe - a.debe);
+  }).sort((a, b) => b.it.dias - a.it.dias || DEB_ORDEN[a.est] - DEB_ORDEN[b.est] || b.debe - a.debe);   // lo más antiguo primero
 
   const suma = ests => items.filter(x => ests.includes(x.est)).reduce((a, x) => a + Math.max(0, x.debe), 0);
   const kpi = (v, lbl, sub) => `<div class="pc-kpi"><b>${v}</b><span>${lbl}</span><i>${sub}</i></div>`;
@@ -6950,11 +6962,15 @@ function debDetalle(c) {
     const et = Object.entries(D.etapas[it.art] || {}).sort((a, b) => (ETAPA_RANK[b[0]] ?? -2) - (ETAPA_RANK[a[0]] ?? -2));
     const donde = (f.stk > 0 ? chip(`Bodega ${fmt(f.stk)}`, 'ok') : '') + et.map(([e, u]) => chip(`${DEB_ETAPA[e] || e} ${fmt(u)}`, '', `color:${etapaClr(e)}`)).join('');
     const alt = est === 'parcial' || est === 'cortar' ? D.parecidos(f, tallas.map(x => x.t)) : [];
+    const peds = [...it.pedidos];
     return `<tr class="db-fila">
       <td class="pl-wrap" data-v="${it.art}"><div style="display:flex;align-items:center">${artImg(it.art)}<div><span class="td-code">${cod(it.art)}</span>
         <span class="pl-sub">${[f.bota, f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${it.art.slice(2, 4)}</span></div></div></td>
-      <td class="pl-wrap" data-v="${debe}"><b style="font-size:15px;color:${debe > 0 ? 'var(--wa)' : 'var(--ok)'}">${debe > 0 ? fmt(debe) : '✓'}</b>
-        ${tallas.length ? `<div>${tallas.map(x => chip(`${x.t} · ${fmt(x.n)}`, x.k)).join('')}</div>` : ''}
+      <td class="pl-wrap pl-sec" data-v="${it.dias}"><b>${fmt(it.dias)} días</b>
+        <span class="pl-sub">${peds.length === 1 ? `pedido ${peds[0].replace(/^0+/, '')}` : `${peds.length} pedidos`}</span></td>
+      <td class="pl-wrap" data-v="${debe}"><div class="db-debe"><b style="color:${debe > 0 ? 'var(--wa)' : 'var(--ok)'}">${debe > 0 ? fmt(debe) : '✓'}</b><span>${debe > 0 ? (debe === 1 ? 'prenda' : 'prendas') : 'todo en su caja'}</span></div>
+        <span class="pl-sub db-movil">esperando ${fmt(it.dias)} días</span>
+        ${tallas.length ? `<div class="db-tallas">${tallas.map(x => `<span class="db-t db-t2${x.k ? ' ' + x.k : ''}"><i>${x.t}</i><b>${fmt(x.n)}</b></span>`).join('')}</div>` : ''}
         ${it.enCaja ? `<span class="pl-sub" style="color:var(--ok);font-weight:600">📦 caja ${[...it.cajas].join(', ')} · ${fmt(it.enCaja)} en caja</span>` : ''}</td>
       <td class="pl-wrap" data-v="${DEB_ORDEN[est]}"><span class="pl-tag" style="background:var(--${clr}10);color:var(--${clr})">${lbl}</span>
         ${donde ? `<div>${donde}</div>` : ''}
@@ -6972,12 +6988,12 @@ function debDetalle(c) {
         ${kpi(fmt(c.enCaja), 'Ya en su caja', 'listo para despachar')}
         ${kpi(fmt(suma(['bodega', 'produccion'])), 'En bodega o en producción', 'alcanza para todos')}
         ${kpi(fmt(suma(['parcial', 'cortar'])), 'Falta cortar', 'ofrecerle otro modelo')}
-      </div></div>
-    <div class="tbl-scroll"><table>
-      <thead><tr><th data-ord="t">Artículo</th><th data-ord="n">Le debemos<span class="pl-sub">${conTallas ? 'por talla' : ''}</span></th><th data-ord="n">Dónde está</th></tr></thead>
-      <tbody>${filas || '<tr><td colspan="3" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
-    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar. '
-      : 'El detalle por talla aparece con la próxima actualización de datos. '}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
+      </div>
+      ${conTallas ? '' : '<div class="db-aviso">Por talla: los pedidos de hoy todavía no traen la talla. Aparece con la próxima actualización de datos.</div>'}</div>
+    <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
+      <thead><tr><th data-ord="t">Artículo</th><th class="pl-sec" data-ord="n" title="Días desde el pedido más antiguo que todavía lo debe">Esperando</th><th data-ord="n">Le debemos${conTallas ? '<span class="pl-sub">por talla</span>' : ''}</th><th data-ord="n">Dónde está</th></tr></thead>
+      <tbody>${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
+    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
 }
 
 async function secDebemos() {
@@ -6987,6 +7003,7 @@ async function secDebemos() {
   if (!peds.length) return makePH(ICO, 'Qué le debemos', 'Sin datos disponibles');
   STOCK_MAP = buildStockMap(sb);
   DEB = debDatos(peds, ft, buildFtMap(ft));
+  const dvDeb = v => String(v ?? '').replace(/"/g, '&quot;');
   const cl = DEB.clientes, tot = cl.reduce((a, c) => a + c.debe, 0), totCaja = cl.reduce((a, c) => a + c.enCaja, 0);
   return `
   <div class="fbar">
@@ -6997,14 +7014,14 @@ async function secDebemos() {
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
       <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
       <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes · se deben ${fmt(tot)} prendas${totCaja ? ` y ${fmt(totCaja)} más ya están en cajas` : ''}</span></div>
-    <div class="tbl-scroll"><table>
-      <thead><tr><th>Cliente</th><th class="r">Le debemos</th><th class="r pl-sec">En caja</th><th class="r pl-sec">Artículos</th><th class="r pl-sec" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
+    <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
+      <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n">Le debemos</th><th class="r pl-sec" data-ord="n">En caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
       <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-pcli title="Toca para ver qué le debemos">
-        <td class="pl-wrap"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.ciudad || '—'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span></td>
-        <td class="r td-num" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${c.debe ? fmt(c.debe) : '✓ todo en caja'}</td>
-        <td class="r td-num pl-sec">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
-        <td class="r td-num pl-sec">${fmt(Object.keys(c.items).length)}</td>
-        <td class="r td-num td-dim pl-sec">${fmt(c.dias)} días</td></tr>`).join('')}
+        <td class="pl-wrap" data-v="${dvDeb(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.ciudad || '—'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span></td>
+        <td class="r td-num" data-v="${c.debe}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${c.debe ? fmt(c.debe) : '✓ todo en caja'}</td>
+        <td class="r td-num pl-sec" data-v="${c.enCaja}">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
+        <td class="r td-num pl-sec" data-v="${Object.keys(c.items).length}">${fmt(Object.keys(c.items).length)}</td>
+        <td class="r td-num td-dim pl-sec" data-v="${c.dias}">${fmt(c.dias)} días</td></tr>`).join('')}
         <tr id="debNada" style="display:none"><td colspan="5" class="td-dim" style="text-align:center;padding:22px">Ningún cliente con ese nombre tiene algo por despachar</td></tr></tbody>
     </table></div>
   </div></div>`;
@@ -8330,6 +8347,8 @@ function bindContent(secId) {
   // Qué le debemos: el buscador filtra por nombre; tocar un cliente abre lo que se le debe
   if (secId === 'debemos') {
     const inp = document.getElementById('debSearch');
+    const tablaDeb = document.getElementById('debBody')?.closest('table');
+    if (tablaDeb) planOrdenable(tablaDeb);   // de mayor a menor en cada encabezado; parte por el más antiguo
     const filas = [...document.querySelectorAll('#debBody tr[data-deb]')];
     const abrir = tr => {
       const c = DEB && DEB.clientes[+tr.dataset.deb];
