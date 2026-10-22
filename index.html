@@ -212,6 +212,12 @@ body.ia-open #iaBtn{display:none}
 .pl .pl-foto{display:inline-block;width:26px;height:34px;flex-shrink:0}
 .pl .pl-foto .art-thumb{width:26px;height:34px;margin:0}
 .pl .pl-tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 0}
+.pl tr.pl-total td{font-weight:700;background:var(--sf2)}
+/* Ventana del cliente en Campaña: qué hacer con él y el mensaje listo para mandarle por WhatsApp */
+.pl .pl-qh{padding:14px 16px 4px;font-size:13px;line-height:1.5}
+.pl .pl-wa{display:inline-flex;align-items:center;gap:6px;background:#25D366;color:#fff;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;text-decoration:none;white-space:nowrap}
+.pl .pl-wa:hover{filter:brightness(.94)}
+.pl .pl-msg{margin-top:10px;background:var(--sf2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.45}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
 /* Campaña: las dos pestañas (más grandes que un filtro) y la línea que dice para qué sirve cada una */
@@ -219,7 +225,7 @@ body.ia-open #iaBtn{display:none}
 .camp-tabs .seg{font-size:13px;padding:7px 16px}
 .camp-desc{font-size:12px;color:var(--tx2);margin:0 0 12px;max-width:900px}
 .rv .rv-av-res{padding:10px 20px 4px;font-size:13px;color:var(--tx1)}
-@media(max-width:700px){.rv .rv-av-bar{display:none}.rv .rv-av-res{padding-left:12px;padding-right:12px}}
+@media(max-width:700px){.rv .rv-av-bar,.pl .rv-av-bar{display:none}.rv .rv-av-res{padding-left:12px;padding-right:12px}}
 /* ── Reporte para venta: la vista del vendedor ── */
 .rv .rv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:10px 20px 16px}
 .rv .rv-card{border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--sf);min-width:0}
@@ -4528,11 +4534,12 @@ const planPct = (a, b) => b ? Math.round(a / b * 100) : 0;
 function planBase(peds, pa, ft, hist) {
   const attr = {};
   pa.forEach(x => { attr[String(x.temp) + '|' + x.base] = { bota: x.bota || '', tiro: x.tiro || '', stock: x.stock || 0 }; });
-  const temps = {};
+  const temps = {}, fichas = {};   // fichas: la ficha del ERP de cada cliente (contacto y celular, para mandarle un mensaje)
   for (const p of peds) {
     const f = p.fecha_iso || '';
     if (!f) continue;
     const cli = vdKey(p);
+    if (p.cli && !fichas[cli]) fichas[cli] = p.cli;
     for (const l of (p.lineas || [])) {
       const t = l.temp;
       if (!planTempOk(t)) continue;
@@ -4575,7 +4582,7 @@ function planBase(peds, pa, ft, hist) {
       (C[base] = C[base] || { base, prog: 0, cort: 0, muestra: false, bota: a2.bota || '', tiro: a2.tiro || '' }).cort = u;
     }
   }
-  return { temps, cat, attr };
+  return { temps, cat, attr, fichas };
 }
 
 /* Las comparables por defecto: por cada uno de los dos años anteriores, la colección
@@ -4656,7 +4663,7 @@ function planOrdenable(tabla) {
 function pintarPlan() {
   const cuerpo = document.getElementById('planBody');
   if (!cuerpo || !PLAN) return;
-  const { temps, cat, attr } = PLAN;
+  const { temps, cat, attr, fichas = {} } = PLAN;
   const P = temps[PLAN_TEMP] || { t: PLAN_TEMP, lineas: [], total: 0, porMes: {}, clientes: new Set(), lanzo: '' };
   const cmp = PLAN_CMP.filter(t => temps[t]);
   if (!cmp.length) { cuerpo.innerHTML = '<div class="td-dim" style="padding:30px;text-align:center">Elige al menos una colección para comparar</div>'; return; }
@@ -4815,11 +4822,18 @@ function pintarPlan() {
   const filasCorte = filasCorteDe(PLAN_LECT) || (pasados.length ? sinLect : '');
 
   // ── 5) A quién ofrecer primero ──
+  /* Meta de cada cliente: lo que compró en promedio en las comparables. Y lo que llevaba a esta
+     misma fecha (el mismo día, uno o dos años atrás): contra eso se decide qué hacer con él. */
+  const hoyD = today();
   const cliMap = {};
-  for (const T of C) for (const l of T.lineas) {
-    const c = cliMap[l.cli] = cliMap[l.cli] || { cli: l.cli, nombre: l.nombre, ciudad: l.ciudad, vendedor: l.vendedor, u: 0, por: {}, mes1: false };
-    c.u += l.u; c.por[T.t] = (c.por[T.t] || 0) + l.u;
-    if (l.mes === T.lanzo) c.mes1 = true;
+  for (const T of C) {
+    const corte = `${+hoyD.slice(0, 4) - aniosAtras(T)}${hoyD.slice(4)}`;
+    for (const l of T.lineas) {
+      const c = cliMap[l.cli] = cliMap[l.cli] || { cli: l.cli, nombre: l.nombre, ciudad: l.ciudad, vendedor: l.vendedor, u: 0, por: {}, mes1: false, alDia: 0 };
+      c.u += l.u; c.por[T.t] = (c.por[T.t] || 0) + l.u;
+      if (l.fecha <= corte) c.alDia += l.u;
+      if (l.mes === T.lanzo) c.mes1 = true;
+    }
   }
   const yaP = P.clientes;
   const clientes = Object.values(cliMap).sort((a, b) => b.u - a.u);
@@ -4916,6 +4930,17 @@ function pintarPlan() {
      de lo que falta, pero no de una bota en particular (no se sabe de cuál). */
   const progSinBota = (porBotaN['Sin bota todavía'] || {}).prog || 0;
   const faltaTot = cortar.length ? Math.max(0, cortar.reduce((a, x) => a + x.falta, 0) - progSinBota) : Math.max(0, promedio - totProg);
+  /* Cuánto lleva cada artículo de la nueva: la meta de su bota (la de "Cuánto cortar", sin
+     redondear) en partes iguales entre los modelos de esa bota, así las metas suman la de la
+     temporada. Un modelo sin bota todavía, o de una bota que no se vendió en la anterior, no
+     tiene meta (Manu, 22-10-2026: cuánto debería venderse de cada uno y cuánto lleva). */
+  const nBota = {};
+  modelosNueva.forEach(m => { const k = botaDe(m); if (k) nBota[k] = (nBota[k] || 0) + 1; });
+  const articulos = modelosNueva.map(m => {
+    const k = botaDe(m), meta = botasCorte.includes(k) ? promedio * mixPrev[k] / baseMix / nBota[k] : null, lleva = pedidoP[m] || 0;
+    const tiro = (attr[PLAN_TEMP + '|' + m] || {}).tiro || ((cat[PLAN_TEMP] || {})[m] || {}).tiro || '';
+    return { m, k, tiro, meta, lleva, p: meta ? Math.round(lleva / meta * 100) : null };
+  }).sort((a, b) => (b.meta ?? -1) - (a.meta ?? -1) || b.lleva - a.lleva);
   if (C.length && promedio > 0) {
     const top = cortar.filter(x => x.falta > 0).sort((a, b) => b.falta - a.falta).slice(0, 3);
     acciones.push({ k: 'cortar', est: faltaTot > 0 ? 'wa' : 'ok', t: 'Cuánto cortar',
@@ -5011,10 +5036,21 @@ function pintarPlan() {
   const tagsOfrecer = c => ofrecerA(c.cli).modelos.slice(0, 3).map(x => `<span class="pl-tag" style="background:var(--sf2);color:var(--tx1)" title="${x.bota}">${x.m}</span>`).join(' ') || '<span class="td-dim">—</span>';
   const detCliente = c => {
     const o = ofrecerA(c.cli), ya = Object.entries(o.ya).sort((a, b) => b[1] - a[1]);
+    const a = avanceCli(c), d = decisionDe(c), tel = celularDe(c.cli), msg = mensajeA(d, o);
+    const h = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const contacto = String((fichas[c.cli] || {}).contacto || '').trim();
+    const qh = `<div class="pl-qh">
+      <div style="display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap"><span class="pl-tag" style="background:${d.bg};color:${d.clr};font-size:12px;padding:3px 10px">Qué hacer: ${d.t}</span>
+        <span>Meta T${PLAN_TEMP} <b>${fmt(Math.round(a.meta))}</b> · lleva <b>${fmt(a.lleva)}</b>${a.p == null ? '' : ` <b style="color:${rvPctClr(a.p)}">(${a.p}%)</b>`}</span></div>
+      <div style="margin-top:6px">${d.x}${c.mes1 ? ' Suele pedir apenas sale la colección.' : ''}</div>
+      <div style="margin-top:10px;display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap">
+        <a class="pl-wa" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 Mandarle mensaje</a>
+        <span class="td-dim" style="font-size:11px">${tel ? `${contacto ? h(contacto) + ' · ' : ''}+${tel.slice(0, 2)} ${tel.slice(2, 3)} ${tel.slice(3, 7)} ${tel.slice(7)}` : 'Sin celular en su ficha: WhatsApp te deja elegir el contacto'}</span></div>
+      <div class="pl-msg">${h(msg)}</div></div>`;
     const cab = `<div style="padding:14px 16px 6px;font-size:13px;line-height:1.5">${o.botas.length ? `Compra sobre todo <b>${lista(o.botas.map(x => `${x.k} (${x.pct}%)`))}</b>` : 'Lo que compró no tiene bota registrada'}, mirando ${lista(histCols.map(T => 'T' + T.t))}.`
       + (ya.length ? `<br>Ya pidió de la T${PLAN_TEMP}: ${ya.map(([m, u]) => `${m} (${fmt(u)})`).join(', ')}.` : '') + '</div>';
-    if (!o.modelos.length) return cab + `<div class="td-dim" style="padding:12px 16px 22px">La T${PLAN_TEMP} todavía no tiene otros modelos de esas botas con pedidos o en producción.</div>`;
-    return cab + vTabla(
+    if (!o.modelos.length) return qh + cab + `<div class="td-dim" style="padding:12px 16px 22px">La T${PLAN_TEMP} todavía no tiene otros modelos de esas botas con pedidos o en producción.</div>`;
+    return qh + cab + vTabla(
       `<th data-ord="t">Ofrecer</th><th class="r" data-ord="n" title="Cuánto de lo que compra este cliente es de esa bota">Su compra</th><th data-ord="n" title="Entre los 5 más pedidos de la T${PLAN_TEMP}">Top</th><th data-ord="n" title="Según lo cortado y lo vendido de esa bota en la T${prev ? prev.t : ''}">¿Cortar?</th><th class="pl-sec" data-ord="t">Disponible</th>`,
       o.modelos.map(x => { const k = CORTAR[x.g]; return `<tr>
         <td data-v="${x.m}">${celdaModelo(x.m, x.bota)}</td>
@@ -5026,14 +5062,56 @@ function pintarPlan() {
   };
 
   const uNuevaDe = cli => Object.values(pidioP[cli] || {}).reduce((a, u) => a + u, 0);   // lo que ya pidió de la nueva
-  const filasCli = clientes.slice(0, 40).map((c, i) => `<tr data-pcli="${i}" title="Toca para ver qué ofrecerle">
+  // Meta de cada cliente: lo que compró en promedio en las comparables (sin redondear: así suman la de la temporada)
+  const avanceCli = c => { const meta = c.u / C.length, lleva = uNuevaDe(c.cli); return { meta, lleva, p: meta ? Math.round(lleva / meta * 100) : null }; };
+  /* Qué hacer con cada cliente: lo que lleva de la nueva contra lo que él mismo llevaba a esta
+     misma fecha en las comparables. Contra la temporada entera no sirve: a mitad de camino nadie
+     está en el 100%. Una palabra para la tabla y una frase para su ventana. */
+  const decisionDe = c => {
+    const { meta, lleva } = avanceCli(c), alDia = c.alDia / C.length, r = v => fmt(Math.round(v));
+    const d = (k, t, clr, x) => ({ k, t, clr: `var(--${clr})`, bg: `var(--${clr}10)`, x });
+    if (!lleva) return alDia > 0
+      ? d('llamar', 'Llamar hoy', 'er', `Todavía no pide la T${PLAN_TEMP} y a esta fecha, en ${sg}, ya llevaba ${r(alDia)} en promedio.`)
+      : d('ofrecer', 'Ofrecerle', 'ac', `Todavía no pide la T${PLAN_TEMP}: en ${sg} pedía más adelante. Compra unas ${r(meta)} por temporada.`);
+    if (lleva >= meta) return d('cumplio', 'Cumplió', 'ok', `Ya pidió ${fmt(lleva)}, lo que compra en toda una temporada (${r(meta)}): ofrecerle reposición o lo nuevo.`);
+    if (lleva < alDia * 0.75) return d('empujar', 'Empujar', 'wa', `Lleva ${fmt(lleva)} y a esta fecha solía llevar ${r(alDia)}: va atrasado. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
+    return d('bien', 'Va bien', 'ok', `Lleva ${fmt(lleva)}${alDia > 0 ? ` y a esta fecha solía llevar ${r(alDia)}` : ': pidió antes que otras temporadas'}. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
+  };
+  /* El mensaje para mandarle por WhatsApp: lo arman la decisión y los modelos que se le ofrecen.
+     Se abre listo en WhatsApp para revisarlo y mandarlo; nada se envía solo. */
+  const celularDe = cli => {
+    for (const parte of String((fichas[cli] || {}).fono || '').split(/[\/,;|]| - | y |\s{2,}/)) {
+      const n = parte.replace(/\D/g, '');
+      if (/^(56)?9\d{8}$/.test(n)) return '56' + n.slice(-9);
+      if (/^[5-9]\d{7}$/.test(n)) return '569' + n;   // celular anotado antes de 2012, sin el 9
+    }
+    return '';
+  };
+  const mensajeA = (d, o) => {
+    const ms = lista(o.modelos.map(x => `${x.m} (${x.bota})`));
+    return '¡Hola! ' + (d.k === 'llamar' || d.k === 'ofrecer'
+      ? `Te escribo de Mohicano Jeans: ya está disponible nuestra nueva colección${ms ? ` y te separé modelos de lo que más vendes: ${ms}` : ''}. ¿Te mando fotos y precios?`
+      : `Gracias por tu pedido de la nueva colección. ${d.k === 'cumplio' ? 'Si necesitas reponer o sumar algo nuevo' : 'Para complementarlo'}${ms ? `, te recomiendo ${ms}` : ', tenemos más modelos disponibles'}. ¿Te mando fotos?`);
+  };
+  const filasCli = clientes.slice(0, 40).map((c, i) => { const a = avanceCli(c), d = decisionDe(c); return `<tr data-pcli="${i}" title="Toca para ver qué hacer y mandarle un mensaje">
       <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
       <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
       ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
-      <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
-      <td class="pl-wrap pl-sec" data-v="${uNuevaDe(c.cli) + (c.mes1 ? 0.5 : 0)}">${yaP.has(c.cli) ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">✓ ya pidió T${PLAN_TEMP} · ${fmt(uNuevaDe(c.cli))}</span>` : '<span class="td-dim" style="font-size:11px">todavía no</span>'}${c.mes1 ? ' <span class="pl-tag" style="background:var(--ac10);color:var(--ac)">compra al lanzamiento</span>' : ''}</td>
-      <td class="pl-wrap">${tagsOfrecer(c)}</td>
-    </tr>`).join('');
+      <td class="r td-num pl-sec" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
+      <td class="r td-num" data-v="${a.meta}" style="font-weight:700;color:var(--ac)">${fmt(Math.round(a.meta))}</td>
+      <td class="pl-wrap" data-v="${a.p ?? -1}">${a.lleva ? rvAvCelda(a.lleva, a.p) : '<span class="td-dim" style="font-size:11px">todavía no</span>'}<span class="pl-sub"><span class="pl-tag" style="background:${d.bg};color:${d.clr}" title="${dv(d.x)}">${d.t}</span></span></td>
+      <td class="pl-wrap pl-sec">${tagsOfrecer(c)}</td>
+    </tr>`; }).join('');
+  const llevaCli = clientes.reduce((a, c) => a + uNuevaDe(c.cli), 0), nuevosU = Math.max(0, P.total - llevaCli);
+  const nLlamar = clientes.filter(c => decisionDe(c).k === 'llamar').length;
+  const filasArt = articulos.map((x, i) => `<tr>
+      <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
+      <td data-v="${x.m}">${celdaModelo(x.m, [x.k || 'Sin bota todavía', x.tiro].filter(Boolean).join(' · '))}</td>
+      <td class="r td-num" data-v="${x.meta ?? ''}" style="font-weight:700;color:var(--ac)">${x.meta == null ? '<span class="td-dim" style="font-weight:400">sin meta</span>' : fmt(Math.round(x.meta))}</td>
+      <td data-v="${x.p ?? ''}">${x.meta == null ? (x.lleva ? `<b>${fmt(x.lleva)}</b>` : '<span class="td-dim">—</span>') : rvAvCelda(x.lleva, x.p)}</td>
+      <td class="r td-num pl-sec" data-v="${x.meta == null ? '' : Math.max(0, x.meta - x.lleva)}">${x.meta == null ? '<span class="td-dim">—</span>' : x.lleva >= x.meta ? '<span style="color:var(--ok)">✓</span>' : fmt(Math.round(x.meta - x.lleva))}</td></tr>`).join('')
+    + `<tr class="pl-total"><td class="pl-sec"></td><td>Total</td><td class="r td-num">${fmt(promedio)}</td><td>${rvAvCelda(P.total, planPct(P.total, promedio))}</td>
+      <td class="r td-num pl-sec">${P.total >= promedio ? '<span style="color:var(--ok)">✓</span>' : fmt(promedio - P.total)}</td></tr>`;
 
   const tarjeta = (val, lbl, sub, det) => `<div class="kpi" data-pldet="${det}">
     <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
@@ -5178,12 +5256,14 @@ function pintarPlan() {
       ...pasados.map(m => [`T${m.t}`, m.base, m.bota || 'Sin clasificar', m.tiro || '', n(m.cort), n(m.vend), pc(m.pct), m.tag[0]])],
       [11, 9, 16, 13, 10, 10, 17, 24]), 'Qué cortar');
 
-    const uP = {};
-    P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
-    agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', ...cmp.map(t => `T${t}`), 'Total', `Pedido T${PLAN_TEMP}`, 'Compra al lanzamiento', `Ofrecer (modelos T${PLAN_TEMP})`],
-      ...clientes.map(c => [c.nombre, c.ciudad || '', c.vendedor || '', ...cmp.map(t => c.por[t] ? n(c.por[t]) : ''), n(c.u), yaP.has(c.cli) ? n(uP[c.cli]) : '', c.mes1 ? 'Sí' : '',
-                            ofrecerA(c.cli).modelos.map(x => `${x.m} ${x.bota}`).join(', ')])],
-      [40, 16, 22, ...cmp.map(() => 10), 10, 14, 20, 40]), 'Clientes');
+    agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', ...cmp.map(t => `T${t}`), 'Total', `Meta T${PLAN_TEMP}`, `Pedido T${PLAN_TEMP}`, 'Avance', 'Le falta', 'Qué hacer', 'Compra al lanzamiento', `Ofrecer (modelos T${PLAN_TEMP})`],
+      ...clientes.map(c => { const a = avanceCli(c); return [c.nombre, c.ciudad || '', c.vendedor || '', ...cmp.map(t => c.por[t] ? n(c.por[t]) : ''), n(c.u), n(Math.round(a.meta)), a.lleva ? n(a.lleva) : '', pc(a.p),
+                             n(Math.round(Math.max(0, a.meta - a.lleva))), decisionDe(c).t, c.mes1 ? 'Sí' : '', ofrecerA(c.cli).modelos.map(x => `${x.m} ${x.bota}`).join(', ')]; })],
+      [40, 16, 22, ...cmp.map(() => 10), 10, 11, 13, 9, 10, 12, 20, 40]), 'Clientes');
+
+    agrega(hoja([['Modelo', 'Bota', 'Tiro', `Meta T${PLAN_TEMP}`, `Pedido T${PLAN_TEMP}`, 'Avance', 'Le falta'],
+      ...articulos.map(x => [x.m, x.k || 'Sin bota todavía', x.tiro, x.meta == null ? '' : n(Math.round(x.meta)), n(x.lleva), pc(x.p), x.meta == null ? '' : n(Math.round(Math.max(0, x.meta - x.lleva)))]),
+      ['Total', '', '', n(promedio), n(P.total), pc(planPct(P.total, promedio)), n(Math.max(0, promedio - P.total))]], [10, 18, 13, 12, 13, 10, 10]), 'Artículos');
 
     agrega(hoja([['Cliente', 'Ciudad', 'Vendedor', `Compró en ${histCols.map(T => 'T' + T.t).join(', ')}`, `Ya pidió T${PLAN_TEMP}`, 'Ofrecer modelo', 'Bota', '% de su compra en esa bota', `Top de la T${PLAN_TEMP}`, '¿Vale la pena cortar?', 'Disponible'],
       ...clientes.flatMap(c => { const o = ofrecerA(c.cli), base = [c.nombre, c.ciudad || '', c.vendedor || '', n(mixCli[c.cli]?.tot), Object.keys(o.ya).join(', ')];
@@ -5256,15 +5336,28 @@ function pintarPlan() {
   <div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div><div class="card-ttl" style="margin:0">A quién ofrecer primero</div>
-        <div class="card-sub" style="margin:2px 0 0">Los que más compraron de ${sg}, si ya pidieron la T${PLAN_TEMP} y qué ofrecerles. Toca un cliente para ver el detalle</div></div>
+        <div class="card-sub" style="margin:2px 0 0">Los que más compraron de ${sg}: cuánto deberían comprar de la T${PLAN_TEMP} (su promedio), cuánto llevan y qué hacer con cada uno. Toca un cliente para ver qué ofrecerle y mandarle un mensaje</div></div>
       <span class="td-dim" style="margin-left:auto">${clientes.length > 40 ? 'los 40 primeros de ' : ''}${fmt(clientes.length)} clientes</span>
       <button class="seg" id="planCliPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
     </div>
     <div class="tbl-scroll"><table>
-      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="pl-sec" data-ord="n" title="Si ya pidió la T${PLAN_TEMP} y cuántas unidades; ordena de quien más pidió">T${PLAN_TEMP}</th><th title="Modelos de la T${PLAN_TEMP} de las botas que más compra">Ofrecer</th></tr></thead>
+      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r pl-sec" data-ord="n">Total</th><th class="r" data-ord="n" title="Lo que compró en promedio en ${sg}: lo que debería comprar de la T${PLAN_TEMP}">Meta T${PLAN_TEMP}</th><th data-ord="n" title="Cuánto lleva de su meta y qué hacer con él; ordena por avance">T${PLAN_TEMP}<span class="pl-sub">lleva · qué hacer</span></th><th class="pl-sec" title="Modelos de la T${PLAN_TEMP} de las botas que más compra">Ofrecer</th></tr></thead>
       <tbody class="tbl-compacta">${filasCli}</tbody>
     </table>
-    <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP} · "compra al lanzamiento" = pidió en el primer mes de alguna comparable</div></div>
+    <div class="tbl-foot" id="planCliFoot">${yaPidieron} de ${clientes.length} ya pidieron la T${PLAN_TEMP}${nLlamar ? ` · ${nLlamar} para llamar hoy` : ''} · entre todos llevan ${fmt(llevaCli)} de las ${fmt(promedio)} que suelen comprar (${planPct(llevaCli, promedio)}%)${nuevosU ? `, y ${fmt(nuevosU)} más de clientes nuevos` : ''}. Meta = lo que compró en promedio en ${sg}. Qué hacer = lo que lleva contra lo que llevaba a esta misma fecha en ${sg}</div></div>
+  </div>
+
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
+      <div><div class="card-ttl" style="margin:0">Cuánto lleva cada artículo</div>
+        <div class="card-sub" style="margin:2px 0 0">Cuánto debería venderse de cada modelo de la T${PLAN_TEMP} y cuánto lleva. Meta: las ${fmt(promedio)} de la temporada, repartidas por bota como se vendió ${prev ? `la T${prev.t}` : 'la colección anterior'} y en partes iguales entre los modelos de cada bota</div></div>
+      <span class="td-dim" style="margin-left:auto">${fmt(articulos.length)} modelos</span>
+    </div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th class="pl-sec" data-ord="n">#</th><th data-ord="t">Modelo · bota y tiro</th><th class="r" data-ord="n" title="La meta de su bota repartida en partes iguales entre los modelos de esa bota">Meta T${PLAN_TEMP}</th><th data-ord="n" title="Cuánto se ha pedido y qué parte de su meta es; ordena por avance">T${PLAN_TEMP}<span class="pl-sub">lleva · avance</span></th><th class="r pl-sec" data-ord="n">Le falta</th></tr></thead>
+      <tbody class="tbl-compacta">${filasArt}</tbody>
+    </table>
+    <div class="tbl-foot">Un modelo sin bota todavía (sin pedidos) o de una bota que no se vendió en ${prev ? `la T${prev.t}` : 'la colección anterior'} no tiene meta, pero lo que lleva cuenta en el total.</div></div>
   </div>`;
 
   const abrirDet = (ttl, html) => {
@@ -5280,7 +5373,7 @@ function pintarPlan() {
   document.getElementById('planExcel')?.addEventListener('click', descargarPlan);
   cuerpo.querySelectorAll('tr[data-pcli]').forEach(tr => tr.addEventListener('click', () => {
     const c = clientes[+tr.dataset.pcli];
-    if (c) abrirDet(`${c.nombre} · qué ofrecerle`, detCliente(c));
+    if (c) abrirDet(`${c.nombre} · qué hacer y qué ofrecerle`, detCliente(c));
   }));
   cuerpo.querySelectorAll('.pl-acc[data-pacc]').forEach(el => el.addEventListener('click', () => {
     const [ttl, armar] = DET_ACC[el.dataset.pacc] || [];
@@ -5341,8 +5434,8 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
   const vacia = t => ({ t, lineas: [], total: 0, porMes: {}, clientes: new Set(), lanzo: '' });
   const A = temps[TA] || vacia(TA);
   const cmpDef = planComparables(temps, TA);
-  const cmpT = (cmp.length ? cmp : cmpDef).filter(t => temps[t] && t !== TA).sort((a, b) => +b - +a);
-  const cmpDefecto = cmpT.join() === cmpDef.join();
+  const cmpT = (cmp.length ? cmp : cmpDef).filter(t => temps[t] && t !== TA).sort((a, b) => +a - +b);   // de la más antigua a la más nueva
+  const cmpDefecto = cmpT.join() === [...cmpDef].sort((a, b) => +a - +b).join();
   const C = cmpT.map(t => temps[t]);
   const cols = [A, ...C];
   const sgC = cmpT.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
@@ -5863,7 +5956,8 @@ try { if (localStorage.getItem('adecom_campana_tab') === 'venta') CAMP_TAB = 've
 
 function campElegir(temp, cmp) {
   PLAN_TEMP = REP_TEMP = temp;
-  PLAN_CMP = [...cmp]; REP_CMP = [...cmp];
+  // De la más antigua a la más nueva (T37, T41) y después el total, en todas las tablas (Manu, 22-10-2026)
+  PLAN_CMP = [...cmp].sort((a, b) => +a - +b); REP_CMP = [...PLAN_CMP];
 }
 
 const campDesc = () => {
