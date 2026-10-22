@@ -7172,7 +7172,7 @@ const SECS = {
   'top10':          () => secTop10(),
   'pvc':            () => secPVC(),
   'stock':          () => secStock(),
-  'cyber':          () => secCyber(),
+  'kennedy':        () => secKennedy(),
   'cajas':          () => secCajas(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
@@ -7203,10 +7203,25 @@ async function go(secId, title) {
   document.getElementById('hdTitle').textContent = title;
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
-  const html = await SECS[secId]();
+  /* Si una sección falla al armarse, se dice y se ofrece reintentar. Antes el error quedaba sin atrapar y la
+     página se quedaba en "Cargando…" para siempre: así pasó con Stock Kennedy el 22-10-2026, cuando su entrada
+     se borró por error de esta lista al sacar "Para ofrecer". */
+  let html;
+  try {
+    html = await SECS[secId]();
+  } catch (e) {
+    console.error('No se pudo cargar la sección', secId, e);
+    if (seq !== _goSeq) return;
+    const msg = String((e && e.message) || e).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    document.getElementById('content').innerHTML = `<div style="padding:40px;text-align:center;color:var(--tx2)">No se pudo cargar esta sección.
+      <div class="td-dim" style="font-size:12px;margin-top:6px">${msg}</div>
+      <button class="seg" id="goReintentar" style="margin-top:14px;border:1px solid var(--bd2)">Reintentar</button></div>`;
+    document.getElementById('goReintentar')?.addEventListener('click', () => go(secId, title));
+    return;
+  }
   if (seq !== _goSeq) return;
   document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
-  bindContent(secId);
+  try { bindContent(secId); } catch (e) { console.error('Falló al activar la sección', secId, e); }
 }
 
 /* ── BIND EVENTS ────────────────────────────────────────────── */
@@ -9627,7 +9642,7 @@ async function init(role) {
   });
   bindMobile();
   // Bodega parte en Stock Bodega; admin en el Resumen
-  await (esBodega ? go('stock', 'Stock Bodega') : go('resumen', 'Resumen General'));
+  await (esBodega ? go('stock', 'Stock Bodega') : go(...vistaInicio()));
 }
 </script>
 
@@ -9789,15 +9804,18 @@ function iaIniciar() {
   });
 }
 
-/* Vista del menú (Manu, 22-10-2026): Ambos, San Gerardo o Kennedy. Kennedy deja solo la tienda (su stock y su
-   venta, más el resumen); San Gerardo esconde esas dos; Ambos muestra todo. Se recuerda en este computador y es
-   solo para el administrador. Cambia el menú, no los datos de cada sección. */
-const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy']), VISTA_AMBAS = new Set(['resumen']);
-function aplicarVista(v) {
+/* Vista del menú (Manu, 22-10-2026): Ambos, San Gerardo o Kennedy. Kennedy deja solo la tienda, su stock y su
+   venta, y abre en Venta Kennedy: el Resumen es de San Gerardo (despachos, su venta, producción) y Manu lo vio
+   ahí con los datos de San Gerardo. San Gerardo esconde lo de Kennedy; Ambos muestra todo. Se recuerda en este
+   computador y es solo para el administrador. Cambia el menú, no los datos de cada sección. */
+const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy']);
+const leerVista = () => { try { const v = localStorage.getItem('adecom_vista'); return ['ambos', 'sg', 'k'].includes(v) ? v : 'ambos'; } catch (e) { return 'ambos'; } };
+const vistaInicio = () => leerVista() === 'k' ? ['venta-kennedy', 'Venta Kennedy'] : ['resumen', 'Resumen General'];
+function aplicarVista(v, navegar = true) {
   if (!['ambos', 'sg', 'k'].includes(v)) v = 'ambos';
   try { localStorage.setItem('adecom_vista', v); } catch (e) {}
   document.querySelectorAll('#sbVista .seg').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  const ver = sec => VISTA_AMBAS.has(sec) || v === 'ambos' || (v === 'k') === VISTA_KENNEDY.has(sec);
+  const ver = sec => v === 'ambos' || (v === 'k') === VISTA_KENNEDY.has(sec);
   document.querySelectorAll('.sb-nav .nav-item[data-sec]').forEach(b => b.classList.toggle('vista-oculta', !ver(b.dataset.sec)));
   // Un título de grupo sin ninguna sección visible debajo también se esconde
   let grp = null, alguna = false;
@@ -9807,9 +9825,9 @@ function aplicarVista(v) {
     else if (el.classList.contains('nav-item') && !el.classList.contains('vista-oculta')) alguna = true;
   }
   cerrarGrp();
-  // Si la sección abierta quedó escondida, se abre la primera que se ve (el resumen)
+  // Si la sección abierta quedó escondida, se abre la de inicio de esa vista (al entrar lo hace init)
   const activa = document.querySelector('.sb-nav .nav-item.active');
-  if (activa && activa.classList.contains('vista-oculta')) document.querySelector('.sb-nav .nav-item:not(.vista-oculta)')?.click();
+  if (navegar && activa && activa.classList.contains('vista-oculta')) go(...vistaInicio());
 }
 
 function applyRole(role, email) {
@@ -9825,13 +9843,11 @@ function applyRole(role, email) {
   // El título va escrito en el HTML como "Resumen General": se corrige antes de cargar los datos,
   // si no el usuario de bodega lo alcanza a ver unos segundos.
   const hdT = document.getElementById('hdTitle');
-  if (hdT) hdT.textContent = role === 'admin' ? 'Resumen General' : 'Stock Bodega';
+  if (hdT) hdT.textContent = role === 'admin' ? vistaInicio()[1] : 'Stock Bodega';
   if (role === 'admin') iaIniciar();   // el asistente es solo para el administrador
   if (role === 'admin') {               // la vista del menú, también solo para el administrador
     document.querySelectorAll('#sbVista .seg').forEach(b => b.addEventListener('click', () => aplicarVista(b.dataset.v)));
-    let v = 'ambos';
-    try { v = localStorage.getItem('adecom_vista') || 'ambos'; } catch (e) {}
-    aplicarVista(v);
+    aplicarVista(leerVista(), false);   // la primera sección la abre init, según la vista
   }
   init(role);   // los datos se cargan recién ahora, con la sesión ya iniciada
 }
