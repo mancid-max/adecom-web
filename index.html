@@ -242,6 +242,7 @@ body.ia-open #iaBtn{display:none}
 .pl .db-t.ok{background:var(--ok10);color:var(--ok)}
 .pl .db-t.ac{background:var(--ac10);color:var(--ac)}
 .pl .db-t.er{background:var(--er10);color:var(--er)}
+.pl .db-t.wa{background:var(--wa10);color:var(--wa)}
 .pl tr.db-fila td{vertical-align:top}
 .pl .db-debe{display:flex;align-items:baseline;gap:5px}
 .pl .db-debe b{font-size:19px;font-weight:800;letter-spacing:-.02em}
@@ -6859,6 +6860,12 @@ const DEB_EST = {
   caja:       ['Todo en su caja', 'ok'],
 };
 const DEB_ORDEN = { cortar: 0, parcial: 1, produccion: 2, bodega: 3, caja: 4 };
+/* Lo que sobra de cada talla en un modelo para ofrecer, en cuadritos como "le debemos" (talla arriba, cuántas
+   sobran abajo): verde alcanza para lo que se le debe de esa talla, amarillo alcanza en parte, rojo no hay. */
+const debDisp = (tallasOk, necesita = {}) => tallasOk.length ? `<div class="db-tallas">${tallasOk.map(([t, v]) => {
+  const n = Math.max(1, necesita[t] || 0), k = v == null ? '' : v >= n ? 'ok' : v > 0 ? 'wa' : 'er';
+  return `<span class="db-t db-t2${k ? ' ' + k : ''}"><i>${t}</i><b>${v == null ? '?' : fmt(v)}</b></span>`;
+}).join('')}</div>` : '';
 
 function debDatos(peds, ft, ftMap) {
   // Cada artículo, en todas las temporadas con pedidos y con Magic
@@ -7021,7 +7028,7 @@ function debDetalle(c) {
         ${alt.length ? `<div class="db-alt"><span class="pl-sub" style="margin:0;font-weight:700;color:var(--tx2)">${est === 'cortar' ? 'Ofrecerle en su lugar' : 'Si no le alcanza, ofrecerle'}</span>
           ${alt.map(a => `<div class="db-alt-i">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span>
             <span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
-            ${a.tallasOk.length ? `<div>${a.tallasOk.map(([t, v]) => chip(`${t} ${v == null ? '?' : v > 0 ? '✓' : '✗'}`, v == null ? '' : v > 0 ? 'ok' : 'er')).join('')}</div>` : ''}</div></div>`).join('')}</div>`
+            ${debDisp(a.tallasOk, Object.fromEntries(tallas.map(x => [x.t, x.n])))}</div></div>`).join('')}</div>`
           : est === 'cortar' ? `<span class="pl-sub">${f.bota ? 'Sin otro modelo de esa bota que sobre' : 'El ERP todavía no le asigna bota: no hay con qué compararlo'}</span>` : ''}</td></tr>`;
   }).join('');
 
@@ -7040,7 +7047,7 @@ function debDetalle(c) {
     <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Artículo</th><th class="pl-sec" data-ord="n" title="Días desde el pedido más antiguo que todavía lo debe">Esperando</th><th data-ord="n">Le debemos${conTallas ? '<span class="pl-sub">por talla</span>' : ''}</th><th data-ord="n">Dónde está</th></tr></thead>
       <tbody>${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
-    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
+    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar. En lo que se puede ofrecer, el número es lo que sobra de esa talla: verde alcanza para lo que se le debe, amarillo alcanza en parte, rojo no hay. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
 }
 
 /* El detalle de un artículo para un cliente (Manu, 22-10-2026: "cuando presione en uno me muestre más
@@ -7111,7 +7118,7 @@ function debArticulo(c, art) {
       ${otros.length ? `<div><div class="pc-h">También lo esperan</div><div class="pc-chips">${otros.slice(0, 8).map(x => `<span class="pc-chip"><b>${x.c.nombre}</b>${fmt(x.debe)}</span>`).join('')}${otros.length > 8 ? `<span class="pc-chip">y ${fmt(otros.length - 8)} más</span>` : ''}</div></div>` : ''}
       ${alt.length ? `<div><div class="pc-h">${est === 'cortar' ? 'Ofrecerle en su lugar' : 'Si no le alcanza, ofrecerle'}</div>
         ${alt.map(a => `<div class="pc-mod"><div class="pl-mod">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span><span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
-          ${a.tallasOk.length ? `<div>${a.tallasOk.map(([t, v]) => chip(`${t} ${v == null ? '?' : v > 0 ? '✓' : '✗'}`, v == null ? '' : v > 0 ? 'ok' : 'er')).join('')}</div>` : ''}</div></div></div>`).join('')}</div>`
+          ${debDisp(a.tallasOk, suyo)}</div></div></div>`).join('')}</div>`
         : est === 'cortar' ? `<div class="td-dim" style="font-size:12px">${f.bota ? 'Sin otro modelo de esa bota que sobre.' : 'El ERP todavía no le asigna bota a este artículo: no hay con qué compararlo para ofrecer otro.'}</div>` : ''}
     </div>`;
 }
