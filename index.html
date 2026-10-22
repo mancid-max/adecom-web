@@ -4008,15 +4008,6 @@ function pvcDetalle(art) {
         }).join(''),
         `${clientes.length} ${clientes.length === 1 ? 'cliente esperando' : 'clientes esperando'} ${fmt(suma)} prendas${aviso}. «Se le debe» no cuenta lo que ya está en caja`);
 
-  const tablaOC = !f.ocs.length ? '' : `
-    <div class="flbl" style="padding:14px 16px 0">Sus órdenes de corte</div>` + vTabla(
-    '<th>OC</th><th class="r">Cortadas</th><th class="r" title="Lo que todavía no llega a bodega">Por llegar</th><th>Etapa</th>',
-    f.ocs.map((oc, i) => `<tr>
-      <td class="td-code">${oc.oc || i + 1}</td>
-      <td class="r td-num">${oc.unidades ? fmt(oc.unidades) : '—'}</td>
-      <td class="r td-num" style="color:${oc.saldo > 0 ? 'var(--wa)' : 'var(--tx3)'}">${oc.saldo ? fmt(oc.saldo) : '—'}</td>
-      <td><span style="color:${etapaClr(oc.etapa)};font-size:11px;font-weight:600">${oc.etapa}</span></td></tr>`).join(''),
-    `${f.ocs.length} ${f.ocs.length === 1 ? 'orden' : 'órdenes'} · ${fmt(f.pro)} prendas todavía en producción`);
 
   /* Por talla: se debe = saldo de Adecom − lo que está en caja (igual que su informe por talla),
      hay = stock libre en San Gerardo + lo que está en corte, y cortar talla por talla. Lo despachado
@@ -4053,7 +4044,7 @@ function pvcDetalle(art) {
     tablaTallas = '<div class="td-dim" style="font-size:12px;padding:10px 16px 0">El detalle por talla aparece con la próxima actualización de datos.</div>';
   }
 
-  return resumen + tablaTallas + tablaCli + tablaOC;
+  return resumen + tablaTallas + tablaCli;   // sin las órdenes de corte: Manu, 22-10-2026
 }
 
 async function secPVC() {
@@ -4137,7 +4128,7 @@ async function secPVC() {
   </div>
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver sus cortes</div>
+      <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver a quién se le debe</div>
       <input id="pvcSearch" class="finput fsearch" placeholder="Modelo, bota, OC o EX…" style="width:200px;margin-left:auto">
     </div>
     <div class="tbl-scroll">
