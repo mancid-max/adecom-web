@@ -237,6 +237,14 @@ body.ia-open #iaBtn{display:none}
 .pl .pc-chip{background:var(--sf2);border-radius:14px;padding:3px 10px;font-size:12px;color:var(--tx2)}
 .pl .pc-chip b{color:var(--tx1);font-weight:700;margin-right:3px}
 @media(max-width:700px){.pl .pc{padding:14px 14px 18px}.pl .pc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.pl .pc-cols{grid-template-columns:minmax(0,1fr);gap:16px}}
+/* Qué le debemos: las tallas que se le deben, de color según si hay en bodega, viene en producción o falta cortar */
+.pl .db-t{display:inline-block;border-radius:6px;padding:1px 6px;margin:3px 3px 0 0;font-size:11px;font-weight:700;white-space:nowrap;background:var(--sf2);color:var(--tx2)}
+.pl .db-t.ok{background:var(--ok10);color:var(--ok)}
+.pl .db-t.ac{background:var(--ac10);color:var(--ac)}
+.pl .db-t.er{background:var(--er10);color:var(--er)}
+.pl tr.db-fila td{vertical-align:top}
+.pl .db-alt{margin-top:8px;padding-top:6px;border-top:1px dashed var(--bd)}
+.pl .db-alt-i{display:flex;align-items:center;margin-top:6px}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
 .pl .segs{flex-wrap:wrap}
 /* Campaña: las dos pestañas (más grandes que un filtro) y la línea que dice para qué sirve cada una */
@@ -561,6 +569,10 @@ body.ia-open #iaBtn{display:none}
     <button class="nav-item" data-sec="venta-despacho" data-ttl="Venta vs Despacho" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       Venta vs Despacho
+    </button>
+    <button class="nav-item" data-sec="debemos" data-ttl="Qué le debemos" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      Qué le debemos
     </button>
     <button class="nav-item" data-sec="clientes" data-ttl="Clientes Inactivos" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -3876,16 +3888,14 @@ function pvcMagic() {           // artículo → lo que pidió Magic, lo que se 
   return m;
 }
 
-function buildPVCRows(t, ftMap, exMap) {
-  const byTemp = buildByTemp();
-  const rawItems = byTemp[t]?.items || [];
-  const tc = tcFor(t);
-  if (!rawItems.length) return '<tr class="no-click"><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
-
+/* Las filas de Pedido vs Corte de una temporada, sin dibujarlas. También las usa "Qué le debemos",
+   que va siempre con Magic: ahí se ve lo de cada cliente. */
+function pvcFilasDe(t, ftMap, exMap, sinMagic = PVC_SIN_MAGIC) {
+  const rawItems = buildByTemp()[t]?.items || [];
   // Una fila por ARTÍCULO (modelo + color), igual que el informe "Artículos para corte" del ERP.
   // A cortar = Saldo por entregar − Stock bodega(04) − Producción en proceso.
   const filas = [];
-  const mg = PVC_SIN_MAGIC ? pvcMagic() : null;
+  const mg = sinMagic ? pvcMagic() : null;
   for (const item of rawItems) {
     for (const v of (item.modelos || [])) {
       const mod = String(v.mod).padStart(2, '0');
@@ -3910,6 +3920,17 @@ function buildPVCRows(t, ftMap, exMap) {
                    ex: exMap ? exMap[item.base] : null, bota: item.bota, tiro: item.tiro });
     }
   }
+  return filas;
+}
+
+function buildPVCRows(t, ftMap, exMap) {
+  const byTemp = buildByTemp();
+  const rawItems = byTemp[t]?.items || [];
+  const tc = tcFor(t);
+  if (!rawItems.length) return '<tr class="no-click"><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos de pedidos para T'+t+'</td></tr>';
+
+  const filas = pvcFilasDe(t, ftMap, exMap);
+
   filas.sort((a, b) => {
     if (a.diff >= 0 && b.diff >= 0) return b.diff - a.diff;   // ambos positivos: mayor primero
     if (a.diff < 0  && b.diff < 0)  return a.diff - b.diff;   // ambos negativos: más negativo primero
@@ -4713,13 +4734,6 @@ function pintarPlan() {
   const diaHoy = today().slice(8, 10);
   const parteAlDia = k => C.reduce((a, T) => a + T.lineas.filter(l => l.mes === mesesDe(T)[k] && l.fecha.slice(8, 10) <= diaHoy)
                                                   .reduce((b, l) => b + l.u, 0) / Math.max(1, T.total), 0) / C.length;
-  const filasCurva = Array.from({ length: K }, (_, k) => `<tr>
-      <td><b>${planMesCorto(mesesP[k])}</b></td>
-      ${C.map((T, i) => `<td class="r td-num td-dim pl-sec">${fmt(curvas[i][k])} <span style="font-size:10px">(${planPct(curvas[i][k], T.total)}%)</span></td>`).join('')}
-      <td class="r td-num pl-sec" style="font-weight:700">${Math.round(shareProm[k] * 100)}%</td>
-      <td class="r td-num" style="font-weight:700;color:var(--ac)">${fmt(proy[k])}</td>
-      <td class="r td-num">${planMesMas(lanzoP, k) <= hoyMes ? `<span style="font-weight:700;color:${realP[k] >= proy[k] ? 'var(--ok)' : 'var(--wa)'}">${fmt(realP[k])}</span>` : '<span class="td-dim">—</span>'}</td>
-    </tr>`).join('');
 
   // ── 2) Qué se vendió más: bota y tiro, con cuánto se despachó y cuánto quedó ──
   const stockDe = (campo, k) => C.reduce((a, T) => a + Object.entries(attr).filter(([key, v]) => key.startsWith(T.t + '|') && (v[campo] || 'Sin clasificar') === k).reduce((b, [, v]) => b + (v.stock || 0), 0), 0);
@@ -5005,17 +5019,9 @@ function pintarPlan() {
       pedSinProg.map(([m, u]) => `<tr><td data-v="${m}">${celdaModelo(m, botaDe(m))}</td><td class="r td-num" data-v="${u}">${fmt(u)}</td></tr>`).join(''), '') : '')
     || '<div class="td-dim" style="padding:28px;text-align:center">Todo lo cortado tiene pedidos y todo lo pedido está programado</div>';
 
-  const estrategia = `<div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">Estrategia T${PLAN_TEMP} · qué hacer ahora</div>
-      <div class="card-sub" style="margin:2px 0 0">Con los datos del día. Toca una para ver el detalle</div></div>
-      <button class="seg" id="planExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja la estrategia y todas las tablas del Plan a un Excel, una hoja por tema: para trabajarlo o pasárselo a Claude o ChatGPT">⬇ Descargar Excel</button></div>
-    ${acciones.map((a, i) => `<div class="pl-acc" data-pacc="${a.k}" title="Toca para ver el detalle">
-      <span class="pl-acc-n ${a.est}">${i + 1}</span>
-      <span class="pl-acc-t">${a.t}</span>
-      <div class="pl-acc-x">${a.x}</div>
-      <span class="pl-acc-v">Ver ›</span>
-    </div>`).join('')}
-  </div>`;
+  /* La lista "Estrategia · qué hacer ahora" y la tabla "Cuándo se vende" salieron de la página el
+     22-10-2026 (Manu: "sácame esas dos tablas"). Las acciones y la curva se siguen armando: van en
+     las hojas Estrategia y Cuándo se vende del Excel, y la curva alimenta las tarjetas de arriba. */
 
   // ── 7) Qué ofrecerle a cada cliente ──
   /* Las botas que más compra cada cliente (en las comparables y en la colección anterior) y los
@@ -5257,7 +5263,7 @@ function pintarPlan() {
     const hoy = new Date(), fecha = `${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${hoy.getFullYear()}`;
 
     agrega(hoja([
-      [`Plan de colección T${PLAN_TEMP} · Mohicano Jeans`, ''], ['Descargado el', fecha], ['Colecciones con que se compara', sg],
+      [`Plan de colección T${PLAN_TEMP} · Mohicano Jeans`, ''], ['Descargado el', fecha], ['Colecciones con que se compara', sg], ['Clientes', CAMP_SIN_MAGIC ? 'Sin Magic World: no cuentan sus pedidos (lo cortado es de toda la empresa)' : 'Todos, con Magic World'],
       ['Meta: unidades por colección (promedio de las comparables)', n(promedio)], [`Pedido de la T${PLAN_TEMP} hasta hoy`, n(P.total)], [],
       ['Qué hacer ahora', ''], ...acciones.map((a, i) => [`${i + 1}. ${a.t}`, plano(a.x)]), [],
       ['Cómo leer las hojas', ''],
@@ -5318,10 +5324,11 @@ function pintarPlan() {
         return [m, botaDe(m) || 'Sin clasificar', (attr[PLAN_TEMP + '|' + m] || {}).tiro || b.tiro || '', n(b.prog), n(b.cort), pedidoP[m] ? n(pedidoP[m]) : '', queHacer(m)[1]]; })],
       [9, 16, 13, 12, 10, 13, 40]), `Producción T${PLAN_TEMP}`);
 
-    XLSX.writeFile(libro, `Plan de colección T${PLAN_TEMP} ${fecha}.xlsx`);
+    XLSX.writeFile(libro, `Plan de colección T${PLAN_TEMP}${CAMP_SIN_MAGIC ? ' sin Magic' : ''} ${fecha}.xlsx`);
   };
 
   cuerpo.innerHTML = `
+  <div style="display:flex;justify-content:flex-end;margin:0 0 10px"><button class="seg" id="planExcel" style="border:1px solid var(--bd2)" title="Baja todas las tablas del Plan a un Excel, una hoja por tema, con la estrategia del día y cuándo se vende: para trabajarlo o pasárselo a Claude o ChatGPT">⬇ Descargar Excel</button></div>
   <div class="kpi-grid">
     ${tarjeta(fmt(promedio), 'Unidades por colección', `promedio de ${sg}`, 'unidades')}
     ${tarjeta(Math.round((shareProm[0] + shareProm[1]) * 100) + '%', `Se vende en ${nomMes(0)} y ${nomMes(1)}`, `${Math.round(shareProm[0] * 100)}% en ${nomMes(0)}`, 'meses')}
@@ -5329,20 +5336,6 @@ function pintarPlan() {
     ${tarjeta(fmt(clientes.length), 'Clientes que compraron', `${yaPidieron} ya pidieron T${PLAN_TEMP}`, 'clientes')}
     ${tarjeta(fmt(P.total), 'Pedido T' + PLAN_TEMP + ' hasta hoy', P.lanzo ? 'desde ' + planMesCorto(P.lanzo) : 'todavía sin lanzamiento', 'pedido')}
   </div>
-  ${estrategia}
-
-  <div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Cuándo se vende</div>
-        <div class="card-sub" style="margin:2px 0 0">Los mismos meses del calendario en cada comparable, el promedio, y lo que la T${PLAN_TEMP} tendría que traer cada mes si se parece a ellas</div></div>
-    </div>
-    <div class="tbl-scroll"><table>
-      <thead><tr><th>Mes</th>${C.map(T => `<th class="r pl-sec">T${T.t}<span class="pl-sub">${planMesCorto(mesesDe(T)[0])} – ${planMesCorto(mesesDe(T)[K - 1])}</span></th>`).join('')}<th class="r pl-sec">Promedio</th><th class="r" style="color:var(--ac)">T${PLAN_TEMP} esperado</th><th class="r">T${PLAN_TEMP} real</th></tr></thead>
-      <tbody class="tbl-compacta">${filasCurva}</tbody>
-    </table>
-    <div class="tbl-foot">El esperado reparte ${fmt(promedio)} unidades —el promedio de ${sg}— con el peso que tuvo cada uno de estos meses en ellas. En estos seis meses se vendió ${C.map((T, i) => `el ${Math.round(curvas[i].reduce((a, u) => a + u, 0) / Math.max(1, T.total) * 100)}% de la T${T.t}`).join(' y ')}; el resto fue antes o después. Es una referencia, no una meta.</div></div>
-  </div>
-
   <div class="chart-row" style="margin-top:14px">${tablaTipo('bota', 'Qué se vendió más · por bota')}${tablaTipo('tiro', 'Qué se vendió más · por tiro')}</div>
 
   <div class="tbl-card" style="margin-top:14px;padding:16px 18px">
@@ -5700,7 +5693,7 @@ function repHojas(R) {
     : `, comparada con ${R.sgC}${R.cmpDefecto ? ': las que se lanzaron más cerca de estas fechas en los dos años anteriores' : ' (elegidas en la página)'}`}. Unidades = lo que pidieron los clientes. Lanzamiento = primer pedido del mes en que la colección empezó a venderse (antes suele haber pedidos sueltos).${+TA >= +R.ACT ? ` La T${TA} todavía se está vendiendo.` : ''}`;
   const base4 = `T${CL_BASE[0]} a T${CL_BASE[CL_BASE.length - 1]}`;
   return [
-    { nombre: 'Resumen', nota: notaCmp,
+    { nombre: 'Resumen', nota: notaCmp + (CAMP_SIN_MAGIC ? ' Sin Magic World: no cuentan sus pedidos.' : ''),
       columnas: [['Colección', 12], ['Lanzamiento', 14, 'fecha'], ['Último pedido', 14, 'fecha'], ['Unidades pedidas', 16, 'n'], ['Despachadas', 14, 'n'], ['Clientes', 12, 'n']],
       filas: R.resumen.map(x => ['T' + x.t, fecha(x.lanz), fecha(x.ultimo), x.u, x.desp, x.clientes]),
       despues: [{ titulo: 'Conclusiones', lineas: R.conclusiones }] },
@@ -5802,7 +5795,7 @@ async function repDescargar(R) {
   const wb = repEscribir(ExcelJS, repHojas(R));
   const buf = await wb.xlsx.writeBuffer();
   const h = new Date();
-  const nombre = `Reporte estratégico venta T${R.TA} ${String(h.getDate()).padStart(2, '0')}-${String(h.getMonth() + 1).padStart(2, '0')}-${h.getFullYear()}.xlsx`;
+  const nombre = `Reporte estratégico venta T${R.TA}${CAMP_SIN_MAGIC ? ' sin Magic' : ''} ${String(h.getDate()).padStart(2, '0')}-${String(h.getMonth() + 1).padStart(2, '0')}-${h.getFullYear()}.xlsx`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   a.download = nombre;
@@ -5897,7 +5890,7 @@ async function secReporte() {
                                                        load('saldos_bodega.json'), load('stock_bsale.json')]);
   if (!peds.length) return makePH(ICO, 'Reporte para venta', 'Sin datos disponibles');
   const pedida = REP_TEMP;
-  REP = repDatos(peds, pa, ft, sb, (bsale && !Array.isArray(bsale)) ? bsale : null, REP_TEMP, REP_CMP);
+  REP = repDatos(campPeds(peds), pa, ft, sb, (bsale && !Array.isArray(bsale)) ? bsale : null, REP_TEMP, REP_CMP);
   const R = REP, TA = R.TA;
   // Una colección sin pedidos todavía (programada nomás) no tiene qué mostrar: se ve la de estas fechas y se avisa
   const aviso = pedida && pedida !== TA ? `<div class="td-dim" style="font-size:12px;margin:0 0 10px">La T${pedida} todavía no tiene pedidos: aquí se muestra la T${TA}.</div>` : '';
@@ -5989,6 +5982,12 @@ async function secReporte() {
    pestañas, y bajo las pestañas una línea que dice para qué sirve cada una. */
 let CAMP_TAB = 'plan';
 try { if (localStorage.getItem('adecom_campana_tab') === 'venta') CAMP_TAB = 'venta'; } catch (e) {}
+/* Con o sin Magic World (la tienda propia) para toda Campaña, las dos pestañas y sus Excel (Manu,
+   22-10-2026). Sin Magic, sus pedidos no cuentan en ninguna cifra: metas, ritmo, clientes, artículos.
+   Lo cortado y el stock son de toda la empresa: esos no se pueden separar por cliente. Como en Pedido
+   vs Corte, no se recuerda: cada vez parte con Magic, para que nadie lea cifras sin ella sin darse cuenta. */
+let CAMP_SIN_MAGIC = false;
+const campPeds = peds => CAMP_SIN_MAGIC ? peds.filter(p => !esMagic(p)) : peds;
 
 function campElegir(temp, cmp) {
   PLAN_TEMP = REP_TEMP = temp;
@@ -5998,14 +5997,15 @@ function campElegir(temp, cmp) {
 
 const campDesc = () => {
   const T = PLAN_TEMP, sg = PLAN_CMP.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
-  return CAMP_TAB === 'venta'
+  const txt = CAMP_TAB === 'venta'
     ? `Para salir a vender: lo que más se vendió en ${sg} y lo que se pide de la T${T}, qué ofrecer hoy, cuánto lleva cada cliente de su meta y a quién llamar.`
     : `Para decidir qué producir: cuánto se debería vender de la T${T}, a qué ritmo va, qué cortar con confianza y qué empujar, según lo que pasó en ${sg}.`;
+  return txt + (CAMP_SIN_MAGIC ? ' Sin contar los pedidos de Magic World.' : '');
 };
 
 async function secCampana() {
   const [peds, pa, ft, cortesHist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
-  PLAN = planBase(peds, pa, ft, Array.isArray(cortesHist) ? {} : cortesHist);   // si no está, load() devuelve []
+  PLAN = planBase(campPeds(peds), pa, ft, Array.isArray(cortesHist) ? {} : cortesHist);   // si no está, load() devuelve []
   const conProd = Object.keys(PLAN.cat).sort((a, b) => +b - +a);
   const todas = [...new Set([...Object.keys(PLAN.temps), ...conProd])].sort((a, b) => +b - +a);
   if (!todas.length) return makePH('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>', 'Campaña', 'Sin historia de pedidos');
@@ -6027,8 +6027,13 @@ async function secCampana() {
       <div class="segs" id="campCmpSegs">
         ${hist.map(T => `<button class="seg${PLAN_CMP.includes(T.t) ? ' on' : ''}" data-t="${T.t}" title="${fmt(T.total)} unidades, lanzada en ${planMesCorto(T.lanzo)}">T${T.t} <span style="opacity:.6;font-size:10px">${planMesCorto(T.lanzo)}</span></button>`).join('')}
       </div></div>
+      <div class="fgrp"><span class="flbl">Magic</span>
+      <div class="segs" id="campMagicSegs">
+        <button class="seg${CAMP_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta los pedidos de Magic World, la tienda propia">Con Magic</button>
+        <button class="seg${CAMP_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin los pedidos de Magic World: queda lo que piden los demás clientes">Sin Magic</button>
+      </div></div>
     </div>
-    <span class="td-dim" style="font-size:11px">Por defecto, la colección de estas fechas contra las que se vendían en estas mismas fechas los dos años anteriores. Toca para cambiar.</span>
+    <span class="td-dim" style="font-size:11px">Por defecto, la colección de estas fechas contra las que se vendían en estas mismas fechas los dos años anteriores. Toca para cambiar.${CAMP_SIN_MAGIC ? ' <b style="color:var(--wa)">Sin Magic: sus pedidos no cuentan en ninguna cifra; lo cortado y el stock son los de toda la empresa.</b>' : ''}</span>
   </div>
   <div class="camp-tabs segs" id="campTabs">
     <button class="seg${CAMP_TAB === 'plan' ? ' on' : ''}" data-tab="plan">Plan: qué producir</button>
@@ -6822,6 +6827,190 @@ async function secCyber() {
   </div>`;
 }
 
+/* ── QUÉ LE DEBEMOS ──────────────────────────────────────────────────
+   Para el vendedor (Manu, 22-10-2026): busca un cliente por su nombre y ve qué le falta despacharle,
+   artículo por artículo y talla por talla; dónde está (en su caja, en bodega o en qué etapa de
+   producción) y, si no hay ni en bodega ni en producción, qué modelo parecido se le puede ofrecer en
+   su lugar. Las cuentas son las de Pedido vs Corte: lo que hay se compara con lo que se les debe a
+   todos los clientes, no solo a él, y lo que ya está en una caja armada no se debe. */
+let DEB = null;
+const DEB_ETAPA = { 'T.Externo': 'Taller externo', 'Sin movimiento': 'Programado' };
+const DEB_EST = {
+  cortar:     ['No hay: falta cortar', 'er'],
+  parcial:    ['No alcanza para todos', 'wa'],
+  produccion: ['Viene en producción', 'ac'],
+  bodega:     ['Hay en bodega', 'ok'],
+  caja:       ['Todo en su caja', 'ok'],
+};
+const DEB_ORDEN = { cortar: 0, parcial: 1, produccion: 2, bodega: 3, caja: 4 };
+
+function debDatos(peds, ft, ftMap) {
+  // Cada artículo, en todas las temporadas con pedidos y con Magic
+  const arts = {};
+  for (const t of Object.keys(buildByTemp())) for (const f of pvcFilasDe(t, ftMap, null, false)) arts[f.art] = f;
+
+  /* Lo que está en producción, por etapa: el ERP dice cuántas prendas de cada orden de corte siguen
+     en cada etapa. Si eso no cuadra con el saldo de la orden, la orden entera va a su etapa más
+     avanzada: así las etapas suman lo mismo que "en producción" de Pedido vs Corte. */
+  const P = [['Terminación', 'p_terminacion'], ['Lavandería', 'p_lavanderia'], ['Limpiado', 'p_limpiado'],
+             ['T.Externo', 'p_texterno'], ['Costura', 'p_taller'], ['Corte', 'p_corte']];
+  const etapas = {};
+  for (const r of ft) {
+    const s = Math.max(0, r.saldo || 0), a = (r.articulo || '').trim();
+    if (!s || !a) continue;
+    const e = etapas[a] = etapas[a] || {};
+    const ps = P.map(([n, k]) => [n, Math.max(0, r[k] || 0)]);
+    if (ps.reduce((x, [, v]) => x + v, 0) === s) ps.forEach(([n, v]) => { if (v) e[n] = (e[n] || 0) + v; });
+    else { const n = getEtapa(r); e[n] = (e[n] || 0) + s; }
+  }
+
+  // Las cajas armadas que siguen en bodega, de pedidos que todavía deben ese artículo
+  const debePed = new Set();
+  for (const p of peds) for (const l of (p.lineas || [])) if ((l.sal || 0) > 0) debePed.add(p.pedido + '|' + l.art);
+  const caja = {}, cajaArtT = {};   // pedido|art → { u, cajas, t: {talla: n} } · art → {talla: n} de todos los clientes
+  const cj = CACHE['cajas.json'];
+  for (const c of ((!Array.isArray(cj) && cj?.cajas) || [])) {
+    if ((c.estado || '') !== 'bodega') continue;
+    for (const l of (c.lineas || [])) {
+      const k = c.pedido + '|' + l.art, u = Math.max(0, (l.cant || 0) - (l.desp || 0));
+      if (!u || !debePed.has(k)) continue;
+      const x = caja[k] = caja[k] || { u: 0, cajas: new Set(), t: {} };
+      x.u += u; x.cajas.add(c.caja); x.t[l.talla] = (x.t[l.talla] || 0) + u;
+      const y = cajaArtT[l.art] = cajaArtT[l.art] || {};
+      y[l.talla] = (y[l.talla] || 0) + u;
+    }
+  }
+
+  /* Por talla, igual que la tabla de Pedido vs Corte: se debe (a todos) = saldo − lo que está en
+     cajas; hay = stock libre en San Gerardo + lo que está en corte. Tallas del ERP: 36, 38, 40… */
+  const tallaArt = art => {
+    const f = arts[art];
+    if (!f || !f.ts) return null;
+    const libre = STOCK_TALLA[art] || {}, cajaT = cajaArtT[art] || {}, out = {};
+    for (let i = 0; i < 9; i++) {
+      const t = String(36 + 2 * i);
+      out[t] = { debe: (f.ts[i] || 0) - (cajaT[t] || 0), libre: libre[t] || 0, prod: (f.tc || [])[i] || 0 };
+    }
+    return out;
+  };
+
+  /* Para ofrecer en su lugar: artículos que sobran (lo que hay pasa lo que se debe a todos) de la
+     misma bota, de cualquier colección. Primero el mismo modelo en otro color, después los del mismo
+     tiro, los que tienen más de las tallas que se le deben, los más nuevos y los que más sobran. */
+  const sobran = Object.values(arts).filter(f => f.diff > 0 && f.bota);
+  const parecidos = (f0, tallas) => sobran.filter(f => f.art !== f0.art && f.bota === f0.bota).map(f => {
+    const tt = tallaArt(f.art);
+    const tallasOk = tallas.map(t => [t, tt && tt[t] ? Math.max(0, tt[t].libre + tt[t].prod - Math.max(0, tt[t].debe)) : null]);
+    return { f, mismo: f.art.slice(2, 6) === f0.art.slice(2, 6), tiro: f.tiro === f0.tiro, cubre: tallasOk.filter(([, v]) => v > 0).length, tallasOk };
+  }).sort((a, b) => b.mismo - a.mismo || b.tiro - a.tiro || b.cubre - a.cubre || (+b.f.art.slice(2, 4)) - (+a.f.art.slice(2, 4)) || b.f.diff - a.f.diff).slice(0, 2);
+
+  // Cada cliente con lo que se le debe, artículo por artículo (juntando sus pedidos)
+  const porCli = new Map();
+  for (const p of peds) {
+    for (const l of (p.lineas || [])) {
+      /* Desde la colección activa: lo de antes son saldos viejos que ya no se despachan (de la T35 a la
+         T38 quedan más de 30.000 prendas "pendientes" de 2023 y 2024). Igual que "Pedidos a validar". */
+      if ((l.sal || 0) <= 0 || !arts[l.art] || +l.temp < +TEMP_ACTIVA) continue;
+      const k = vdKey(p);
+      if (!porCli.has(k)) porCli.set(k, { k, nombre: p.nombre || p.rut || '—', ciudad: p.ciudad || '', items: {}, debe: 0, enCaja: 0, pedidos: new Set(), dias: 0 });
+      const c = porCli.get(k), x = caja[p.pedido + '|' + l.art], enC = x ? Math.min(l.sal, x.u) : 0;
+      const it = c.items[l.art] = c.items[l.art] || { art: l.art, sal: 0, enCaja: 0, cajas: new Set(), st: {}, cajaT: {}, hayST: false };
+      it.sal += l.sal; it.enCaja += enC;
+      if (x) { x.cajas.forEach(n => it.cajas.add(n)); for (const [t, n] of Object.entries(x.t)) it.cajaT[t] = (it.cajaT[t] || 0) + n; }
+      if (l.st) { it.hayST = true; for (const [t, n] of Object.entries(l.st)) it.st[t] = (it.st[t] || 0) + n; }
+      c.debe += l.sal - enC; c.enCaja += enC; c.pedidos.add(p.pedido); c.dias = Math.max(c.dias, p.dias || 0);
+    }
+  }
+  const clientes = [...porCli.values()].sort((a, b) => b.debe - a.debe || b.enCaja - a.enCaja);
+  return { arts, etapas, tallaArt, parecidos, clientes };
+}
+
+function debDetalle(c) {
+  const D = DEB, chip = (txt, k, st = '') => `<span class="db-t${k ? ' ' + k : ''}"${st ? ` style="${st}"` : ''}>${txt}</span>`;
+  const cod = art => `${art.slice(2, 6)}-${art.slice(6, 8)}`;
+  const items = Object.values(c.items).filter(it => D.arts[it.art]).map(it => {
+    const f = D.arts[it.art], debe = it.sal - it.enCaja;
+    const est = debe <= 0 ? 'caja' : f.stk >= f.sal ? 'bodega' : f.stk + f.pro >= f.sal ? 'produccion' : f.stk + f.pro > 0 ? 'parcial' : 'cortar';
+    // Talla por talla: lo que se le debe (sin lo de su caja) y si hay, viene o falta para todos los que la deben
+    const tt = D.tallaArt(it.art), tallas = [];
+    for (const [t, n0] of Object.entries(it.st).sort((a, b) => +a[0] - +b[0])) {
+      const n = n0 - (it.cajaT[t] || 0), x = tt && tt[t];
+      if (n <= 0) continue;
+      const need = x ? Math.max(x.debe, n) : n;
+      tallas.push({ t, n, k: !x ? '' : x.libre >= need ? 'ok' : x.libre + x.prod >= need ? 'ac' : 'er' });
+    }
+    return { it, f, debe, est, tallas };
+  }).sort((a, b) => DEB_ORDEN[a.est] - DEB_ORDEN[b.est] || b.debe - a.debe);
+
+  const suma = ests => items.filter(x => ests.includes(x.est)).reduce((a, x) => a + Math.max(0, x.debe), 0);
+  const kpi = (v, lbl, sub) => `<div class="pc-kpi"><b>${v}</b><span>${lbl}</span><i>${sub}</i></div>`;
+  const conTallas = items.some(x => x.it.hayST);
+  const filas = items.map(({ it, f, debe, est, tallas }) => {
+    const [lbl, clr] = DEB_EST[est];
+    const et = Object.entries(D.etapas[it.art] || {}).sort((a, b) => (ETAPA_RANK[b[0]] ?? -2) - (ETAPA_RANK[a[0]] ?? -2));
+    const donde = (f.stk > 0 ? chip(`Bodega ${fmt(f.stk)}`, 'ok') : '') + et.map(([e, u]) => chip(`${DEB_ETAPA[e] || e} ${fmt(u)}`, '', `color:${etapaClr(e)}`)).join('');
+    const alt = est === 'parcial' || est === 'cortar' ? D.parecidos(f, tallas.map(x => x.t)) : [];
+    return `<tr class="db-fila">
+      <td class="pl-wrap" data-v="${it.art}"><div style="display:flex;align-items:center">${artImg(it.art)}<div><span class="td-code">${cod(it.art)}</span>
+        <span class="pl-sub">${[f.bota, f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${it.art.slice(2, 4)}</span></div></div></td>
+      <td class="pl-wrap" data-v="${debe}"><b style="font-size:15px;color:${debe > 0 ? 'var(--wa)' : 'var(--ok)'}">${debe > 0 ? fmt(debe) : '✓'}</b>
+        ${tallas.length ? `<div>${tallas.map(x => chip(`${x.t} · ${fmt(x.n)}`, x.k)).join('')}</div>` : ''}
+        ${it.enCaja ? `<span class="pl-sub" style="color:var(--ok);font-weight:600">📦 caja ${[...it.cajas].join(', ')} · ${fmt(it.enCaja)} en caja</span>` : ''}</td>
+      <td class="pl-wrap" data-v="${DEB_ORDEN[est]}"><span class="pl-tag" style="background:var(--${clr}10);color:var(--${clr})">${lbl}</span>
+        ${donde ? `<div>${donde}</div>` : ''}
+        ${est === 'parcial' ? `<span class="pl-sub">Faltan ${fmt(Math.max(0, f.sal - f.stk - f.pro))} por cortar para cubrir a todos los clientes</span>` : ''}
+        ${alt.length ? `<div class="db-alt"><span class="pl-sub" style="margin:0;font-weight:700;color:var(--tx2)">${est === 'cortar' ? 'Ofrecerle en su lugar' : 'Si no le alcanza, ofrecerle'}</span>
+          ${alt.map(a => `<div class="db-alt-i">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span>
+            <span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
+            ${a.tallasOk.length ? `<div>${a.tallasOk.map(([t, v]) => chip(`${t} ${v == null ? '?' : v > 0 ? '✓' : '✗'}`, v == null ? '' : v > 0 ? 'ok' : 'er')).join('')}</div>` : ''}</div></div>`).join('')}</div>`
+          : est === 'cortar' ? '<span class="pl-sub">Sin otro modelo de esa bota que sobre</span>' : ''}</td></tr>`;
+  }).join('');
+
+  return `<div class="pc">
+      <div class="pc-kpis">
+        ${kpi(fmt(c.debe), 'Le debemos', `${items.length} artículo${items.length === 1 ? '' : 's'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}`)}
+        ${kpi(fmt(c.enCaja), 'Ya en su caja', 'listo para despachar')}
+        ${kpi(fmt(suma(['bodega', 'produccion'])), 'En bodega o en producción', 'alcanza para todos')}
+        ${kpi(fmt(suma(['parcial', 'cortar'])), 'Falta cortar', 'ofrecerle otro modelo')}
+      </div></div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th data-ord="t">Artículo</th><th data-ord="n">Le debemos<span class="pl-sub">${conTallas ? 'por talla' : ''}</span></th><th data-ord="n">Dónde está</th></tr></thead>
+      <tbody>${filas || '<tr><td colspan="3" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
+    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar. '
+      : 'El detalle por talla aparece con la próxima actualización de datos. '}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
+}
+
+async function secDebemos() {
+  const ICO = '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>';
+  const [peds, ft, sb] = await Promise.all([load('pedidos.json'), load('full_table.json'), load('saldos_bodega.json')]);
+  await load('cajas.json');
+  if (!peds.length) return makePH(ICO, 'Qué le debemos', 'Sin datos disponibles');
+  STOCK_MAP = buildStockMap(sb);
+  DEB = debDatos(peds, ft, buildFtMap(ft));
+  const cl = DEB.clientes, tot = cl.reduce((a, c) => a + c.debe, 0), totCaja = cl.reduce((a, c) => a + c.enCaja, 0);
+  return `
+  <div class="fbar">
+    <div class="fbar-row"><div class="fgrp"><span class="flbl">Cliente</span>
+      <input id="debSearch" class="finput fsearch" placeholder="Nombre del cliente…" autocomplete="off" style="width:300px;max-width:100%"></div></div>
+  </div>
+  <div class="pl"><div class="tbl-card">
+    <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
+      <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
+      <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes · se deben ${fmt(tot)} prendas${totCaja ? ` y ${fmt(totCaja)} más ya están en cajas` : ''}</span></div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>Cliente</th><th class="r">Le debemos</th><th class="r pl-sec">En caja</th><th class="r pl-sec">Artículos</th><th class="r pl-sec" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
+      <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-pcli title="Toca para ver qué le debemos">
+        <td class="pl-wrap"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.ciudad || '—'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span></td>
+        <td class="r td-num" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${c.debe ? fmt(c.debe) : '✓ todo en caja'}</td>
+        <td class="r td-num pl-sec">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
+        <td class="r td-num pl-sec">${fmt(Object.keys(c.items).length)}</td>
+        <td class="r td-num td-dim pl-sec">${fmt(c.dias)} días</td></tr>`).join('')}
+        <tr id="debNada" style="display:none"><td colspan="5" class="td-dim" style="text-align:center;padding:22px">Ningún cliente con ese nombre tiene algo por despachar</td></tr></tbody>
+    </table></div>
+  </div></div>`;
+}
+
+
 /* ── ROUTER ─────────────────────────────────────────────────── */
 const SECS = {
   'resumen':        () => secResumen(),
@@ -6839,6 +7028,7 @@ const SECS = {
   'reporte-venta':  () => Promise.resolve(secReporteVenta()),
   'rep-pedidos':    () => secRepPedidos(),
   'venta-despacho': () => secVentaDespacho(),
+  'debemos':        () => secDebemos(),
   'clientes':       () => secClientes(),
   'campana':        () => secCampana(),
   'proyecciones':   () => secProy(),
@@ -8137,6 +8327,31 @@ function bindContent(secId) {
     pintarKen();
   }
 
+  // Qué le debemos: el buscador filtra por nombre; tocar un cliente abre lo que se le debe
+  if (secId === 'debemos') {
+    const inp = document.getElementById('debSearch');
+    const filas = [...document.querySelectorAll('#debBody tr[data-deb]')];
+    const abrir = tr => {
+      const c = DEB && DEB.clientes[+tr.dataset.deb];
+      if (!c) return;
+      document.getElementById('vkOvTtl').textContent = `${c.nombre} · qué le debemos`;
+      document.getElementById('vkOvBody').innerHTML = `<div class="pl">${debDetalle(c)}</div>`;
+      document.getElementById('vkOvBody').querySelectorAll('table').forEach(planOrdenable);
+      document.getElementById('vkOv').classList.add('open');
+    };
+    const filtrar = () => {
+      const q = rvSinTilde(inp.value.trim());
+      let n = 0;
+      filas.forEach(tr => { const ok = !q || tr.dataset.q.includes(q); tr.style.display = ok ? '' : 'none'; n += ok; });
+      document.getElementById('debNada').style.display = n ? 'none' : '';
+      return n;
+    };
+    inp?.addEventListener('input', filtrar);
+    // Enter con un solo cliente a la vista: se abre directo
+    inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
+    filas.forEach(tr => tr.addEventListener('click', () => abrir(tr)));
+  }
+
   // Campaña: las dos pestañas y el filtro de arriba, que vale para las dos
   if (secId === 'campana') {
     document.querySelectorAll('#campTabs .seg').forEach(b => b.addEventListener('click', () => {
@@ -8149,6 +8364,13 @@ function bindContent(secId) {
       campElegir(e.target.value, []);                    // las comparables se recalculan para la nueva
       go('campana', 'Campaña');
     });
+    // Con o sin Magic World: vale para las dos pestañas y sus Excel, así que se arma todo de nuevo
+    document.querySelectorAll('#campMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
+      const sin = b.dataset.mg === 'sin';
+      if (sin === CAMP_SIN_MAGIC) return;
+      CAMP_SIN_MAGIC = sin;
+      go('campana', 'Campaña');
+    }));
     document.querySelectorAll('#campCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
       const t = b.dataset.t;
       let cmp = PLAN_CMP;
