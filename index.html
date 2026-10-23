@@ -4021,7 +4021,9 @@ function buildPVCRows(t, ftMap, exMap) {
     const apurarHtml = apurar ? `<span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">⏱ Apurar corte${cortarMas ? ` ${fmt(apurar)}` : ''}</span>` : '';
     const estadoHtml = f.diff < 0 && apurar
       ? (cortarMas ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar ${fmt(cortarMas)}</span><div style="margin-top:4px">${apurarHtml}</div>`
-          : `${apurarHtml}<div class="td-dim" style="font-size:10px;font-weight:600;margin-top:3px">programado ${fmt(f.prog)}</div>`)
+          : `${apurarHtml}<div class="td-dim" style="font-size:10px;font-weight:600;margin-top:3px">falta ${fmt(falta)} · ya programado ${fmt(f.prog)}</div>`)
+      : f.diff < 0
+        ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar ${fmt(-f.diff)}</span><div class="td-dim" style="font-size:10px;font-weight:600;margin-top:3px" title="No tiene ninguna orden de corte programada que falte cortar: hay que programarla">sin programar</div>`
       : f.diff > 0
       ? `<span style="background:var(--ok10);color:var(--ok);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▲ Ofrecer</span>`
       : f.diff < 0
@@ -4047,13 +4049,13 @@ function buildPVCRows(t, ftMap, exMap) {
     const botaTiro = [f.bota, f.tiro].filter(Boolean).join(' · ');
 
     return `<tr data-expandable data-art="${f.art}" data-estado="${estadoKey}" data-prog="${f.prog}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
-      <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}</div></div></td>
+      <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}${f.prog ? `<div style="margin-top:3px"><span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">📋 ${fmt(f.prog)} programado · OC ${f.progOcs.map(o => o.oc).join(', ')}</span></div>` : ''}</div></div></td>
       <td class="r td-num">${fmt(f.ped)}</td>
       <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
       <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}${f.enCaja ? `<div class="td-dim" style="font-size:10px;font-weight:400">+${fmt(f.enCaja)} en cajas</div>` : ''}</td>
       <td class="r td-num"${f.stkErp < 0 ? ' title="El ERP muestra stock negativo: se despachó más de lo que entró a bodega. Para cortar cuenta como 0."' : ''}>${f.stkErp < 0
         ? `<span style="color:var(--er)">${fmt(f.stkErp)}</span><div class="td-dim" style="font-size:10px;font-weight:400">cuenta 0</div>` : f.stk ? fmt(f.stk) : '—'}</td>
-      <td class="r td-num" style="color:var(--ac)"${f.prog ? ` title="${progTit}"` : ''}>${f.pro ? fmt(f.pro) : '—'}${f.prog ? `<div style="font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap">📋 ${fmt(f.prog)} programado</div>` : ''}</td>
+      <td class="r td-num" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
       <td class="r td-num" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
       <td style="text-align:center">${estadoHtml}</td>
       <td>${exHtml}</td>
@@ -4226,8 +4228,8 @@ async function secPVC() {
     <div class="segs" id="pvcEstadoSegs">
       <button class="seg on" data-estado="all">Todos</button>
       <button class="seg" data-estado="ofrecer">▲ Ofrecer</button>
-      <button class="seg" data-estado="cortar">▼ Cortar más</button>
-      <button class="seg" data-estado="apurar" title="Lo que falta ya está programado en una orden de corte que todavía no se corta">⏱ Apurar corte</button>
+      <button class="seg" data-estado="cortar" title="Lo que se les debe a los clientes y no está ni en bodega ni en producción. Al lado de cada uno dice si ya está programado (hay que apurar ese corte) o si hay que programarlo">▼ Falta cortar</button>
+      <button class="seg" data-estado="apurar" title="Solo los que ya tienen una orden de corte programada que todavía no se corta">⏱ Apurar corte</button>
     </div></div>
     <div class="fgrp"><span class="flbl">Etapa</span>
     <div class="segs" id="pvcEtapaSegs">
@@ -9683,7 +9685,9 @@ function bindContent(secId) {
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
       let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0, sumDesp = 0, sumStk = 0, sumPro = 0, aCortar = 0, sobra = 0, aApurar = 0, sumProg = 0;
       rows.forEach(row => {
-        const showEstado = estado === 'all' || row.dataset.estado === estado || (estado === 'apurar' && +row.dataset.prog > 0 && row.dataset.estado === 'cortar');
+        const showEstado = estado === 'all' || row.dataset.estado === estado
+          || (estado === 'cortar' && row.dataset.estado === 'apurar')                                  // falta cortar: también lo ya programado
+          || (estado === 'apurar' && +row.dataset.prog > 0 && row.dataset.estado === 'cortar');        // apurar: también lo programado que no alcanza
         const showEtapa  = etapa  === 'all' || (row.dataset.etapas || row.dataset.etapa || '').split('|').includes(etapa);
         // Una búsqueda numérica compara contra el modelo, el artículo, la OC o el EX completos:
         // con subcadena libre, "4440" también calzaba dentro de 01444400, que es el modelo 4444.
