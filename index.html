@@ -270,6 +270,12 @@ body.ia-open #iaBtn{display:none}
 .db-hero{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 22px;margin:0 0 14px}
 .db-eq{display:grid;grid-template-columns:minmax(0,1.5fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
 .db-eq-op{font-size:32px;font-weight:300;line-height:1;color:var(--tx3);padding-top:24px}
+.graf-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;margin:0 0 14px;min-width:0}
+.graf-head{margin-bottom:10px}
+.graf-box{position:relative;width:100%}
+.graf-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
+.graf-chip{display:inline-flex;align-items:center;gap:6px;background:var(--ac10);color:var(--ac);border-radius:14px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
+@media(max-width:900px){.graf-grid{grid-template-columns:1fr}}
 .pvc-eq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
 @media(max-width:700px){.pvc-eq{grid-template-columns:1fr;gap:4px}.pvc-eq .db-eq-op{padding:0;font-size:22px}}
 .db-hero-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
@@ -4260,7 +4266,7 @@ async function secPVC() {
     </div>
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico ${k.diff>=0?'c-ok':'c-er'}" id="pvcKDiffIco"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></div>
-      <div><div class="kpi-val" id="pvcKDiff" style="color:${k.diff>=0?'var(--ok)':'var(--er)'}">${k.diff>0?'+':''}${fmt(k.diff)}</div><div class="kpi-lbl">Diferencia (u)</div></div>
+      <div><div class="kpi-val" id="pvcKDiff" style="color:${k.diff>=0?'var(--ok)':'var(--er)'}">${k.diff>0?'+':''}${fmt(k.diff)}</div><div class="kpi-lbl">Diferencia (u)</div><div class="kpi-delta d-nu" id="pvcKDiffP" style="display:none"></div></div>
     </div>
   </div>
   <!-- Lo que debemos sin cubrir − lo programado = lo que falta programar (Manu, 23-10-2026: "Total = lo que debemos −
@@ -4270,7 +4276,7 @@ async function secPVC() {
     <div class="pvc-eq">
       <div><div class="db-hero-lbl" title="Lo que se les debe a los clientes y no está ni en bodega ni en producción, artículo por artículo">Lo que debemos sin cubrir</div>
         <div class="db-hero-n2" id="pvcEqFalta" style="color:var(--er)">—</div>
-        <div class="db-hero-sub">se debe y no está ni en bodega ni en producción</div></div>
+        <div class="db-hero-sub" id="pvcEqFaltaSub">se debe y no está ni en bodega ni en producción</div></div>
       <div class="db-eq-op">−</div>
       <div><div class="db-hero-lbl">📋 Programado</div>
         <div class="db-hero-n2" id="pvcEqProg" style="color:#6d28d9">—</div>
@@ -4281,6 +4287,7 @@ async function secPVC() {
         <div class="db-hero-sub">hay que programar una orden nueva</div></div>
     </div>
   </div>
+  ${grafCard('pvcGraf', '¿Qué cortar primero? Lo que más falta', 'Los 15 artículos con más falta de lo que se ve (cambia con la temporada, los filtros y la búsqueda): en morado lo que ya está programado, hay que apurar ese corte; en rojo lo que falta programar. Toca una barra para ver a quién se le debe.', 300)}
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver a quién se le debe</div>
@@ -7036,6 +7043,7 @@ async function secProgramado() {
     ${kpi(fmt(conCli.length), 'Con clientes esperando', `se les deben ${fmt(sumSal)} prendas de esos artículos`, 'var(--wa)', 'cli', 'Ver cuáles')}
     ${kpi(fmt(n30), 'Más de 30 días sin cortar', n30 ? 'son las primeras que hay que apurar' : 'ninguna', n30 ? 'var(--er)' : 'var(--ok)', 'd30', 'Ver cuáles')}
   </div>
+  ${grafCard('progGraf', '¿Qué orden apurar? Días sin cortar', 'Cada orden de lo que se ve, la más antigua arriba: en rojo más de 30 días, en amarillo más de 14. Pasa el mouse para ver cuánto se programó y cuánto se debe; tócala para ver a quién.', 300)}
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Órdenes de corte programadas que todavía no se cortan</div>
       <div class="card-sub" style="margin:2px 0 0">La más antigua arriba. Toca una para ver a quién se le debe ese artículo, talla por talla. Son las órdenes de producción con programa y nada cortado de los últimos 180 días: las más viejas quedaron sin hacerse.</div></div>
@@ -7537,13 +7545,18 @@ async function secDebemos() {
         <button class="seg${DEB_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin los pedidos de Magic World: queda lo que se les debe a los demás clientes">Sin Magic</button></div></div></div>
   </div>
   ${tarjetas}
+  <div class="graf-grid">
+    ${grafCard('debGraf', '¿A quién despachar o llamar primero?', 'Los 15 clientes a los que más se les debe de lo que se ve: en verde lo que ya está en caja o en bodega, en amarillo lo que viene en producción, en rojo lo que falta cortar. Toca una barra para ver qué se le debe.', 420)}
+    ${grafCard('debEdad', '¿Desde cuándo les debemos?', 'Prendas que se deben según los días del pedido. Toca una barra para ver solo los clientes con pedidos de esa antigüedad.', 260)}
+  </div>
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
       <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
+      <span id="debEdadChip" class="graf-chip" style="display:none;margin-left:auto" title="Quitar el filtro"></span>
       <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes${DEB_SIN_MAGIC ? ' sin Magic World' : ''} · el más antiguo arriba</span></div>
     <div class="tbl-scroll"><table data-ord-col="5" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Todo lo que falta despacharle, contando lo que ya está en cajas">Le debemos</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que ya está armado en cajas">En caja</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que todavía no está en una caja">Sin caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
-      <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
+      <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-ed="${debEdades(c)}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
         <td class="pl-wrap" data-v="${dvDeb(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.ciudad || '—'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span>${c.bloq.size ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Bloqueado</span> ' : ''}${c.sinCupo ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">Sin cupo</span>' : ''}</td>
         <td class="r td-num" data-v="${c.debe + c.enCaja}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${fmt(c.debe + c.enCaja)}${!c.debe ? '<span class="pl-sub" style="color:var(--ok)">todo en caja</span>' : c.enCaja ? `<span class="pl-sub db-movil">📦 ${fmt(c.enCaja)} en caja</span>` : ''}</td>
         <td class="r td-num pl-sec" data-v="${c.enCaja}" style="color:var(--ok)">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
@@ -7589,9 +7602,144 @@ function secPermitida(secId) {
 }
 
 let _goSeq = 0;   // si se cambia de sección mientras otra carga, solo la última pinta
+/* ── GRÁFICOS ───────────────────────────────────────────────── */
+/* Gráficos para decidir rápido (Manu, 23-10-2026: "gráficos en cada sección, que sean interactivos"). Chart.js se carga
+   solo la primera vez que una sección lo necesita; pasar el mouse muestra el número y tocar una barra abre o filtra. */
+let CHART_JS = null;
+const GRAFICOS = {};   // id del canvas → gráfico: se actualiza en vez de rehacerse, y se cierra al cambiar de sección
+const color = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#98a2b3';
+const rgba = (hex, a) => { const h = String(hex).replace('#', ''), n = parseInt(h.length === 3 ? [...h].map(x => x + x).join('') : h, 16);
+  return isNaN(n) ? hex : `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+const cargarChart = () => CHART_JS || (CHART_JS = new Promise((ok, mal) => {
+  if (window.Chart) return ok(window.Chart);
+  const sc = document.createElement('script');
+  sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+  sc.onload = () => { const C = window.Chart; C.defaults.font.family = getComputedStyle(document.body).fontFamily; C.defaults.color = color('--tx2'); ok(C); };
+  sc.onerror = () => { CHART_JS = null; mal(new Error('no se pudo cargar la librería de gráficos')); };
+  document.head.appendChild(sc);
+}));
+function cerrarGraficos() { for (const k of Object.keys(GRAFICOS)) { try { GRAFICOS[k].destroy(); } catch (e) {} delete GRAFICOS[k]; } }
+/* Barras (horizontales por defecto, apiladas si hay varias series). alTocar(i) recibe el índice de la barra tocada. */
+function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = true, sufijo = ' prendas', leyenda = true, extra = null } = {}) {
+  return cargarChart().then(Chart => {
+    const cv = document.getElementById(id);
+    if (!cv) return null;
+    const prev = GRAFICOS[id];
+    if (prev && prev.canvas === cv) {
+      prev.data.labels = labels; prev.data.datasets = datasets; prev.$alTocar = alTocar; prev.$extra = extra;
+      prev.update('none');
+      return prev;
+    }
+    if (prev) prev.destroy();
+    const ejeV = { stacked: apiladas, grid: { color: color('--bd') }, ticks: { callback: v => fmt(v) }, beginAtZero: true };
+    const ejeC = { stacked: apiladas, grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } } };
+    const g = new Chart(cv, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        indexAxis: horizontal ? 'y' : 'x', responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+        scales: horizontal ? { x: ejeV, y: ejeC } : { x: ejeC, y: ejeV },
+        plugins: {
+          legend: { display: leyenda, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}${sufijo}`, footer: items => (g.$extra && items.length ? g.$extra(items[0].dataIndex) : '') } },
+        },
+        onHover: (e, el) => { if (e.native && e.native.target) e.native.target.style.cursor = el.length ? 'pointer' : 'default'; },
+        onClick: (e, el) => { if (el.length && g.$alTocar) g.$alTocar(el[0].index); },
+      },
+    });
+    g.$alTocar = alTocar; g.$extra = extra;
+    GRAFICOS[id] = g;
+    return g;
+  }).catch(e => {
+    const cv = document.getElementById(id);
+    if (cv && cv.parentElement) cv.parentElement.innerHTML = `<div class="td-dim" style="padding:14px">No se pudo mostrar el gráfico: ${String((e && e.message) || e)}</div>`;
+    return null;
+  });
+}
+const grafCard = (id, titulo, sub, alto) => `<div class="graf-card" id="${id}Card">
+    <div class="graf-head"><div class="card-ttl" style="margin:0">${titulo}</div><div class="card-sub" style="margin:2px 0 0">${sub}</div></div>
+    <div class="graf-box" id="${id}Box" style="height:${alto}px"><canvas id="${id}"></canvas></div></div>`;
+
+/* Pedido vs Corte: ¿qué cortar primero? Los 15 artículos con más falta de lo que se ve (temporada, filtros y búsqueda),
+   cada barra partida en lo ya programado (apurar el corte) y lo que falta programar. Tocar una barra abre el artículo. */
+function pvcGrafDatos(rows) {
+  const xs = rows.map(r => {
+    const sal = +r.dataset.sal || 0, hay = (+r.dataset.stk || 0) + (+r.dataset.prod || 0), falta = Math.max(0, sal - hay);
+    return { art: r.dataset.art, falta, cubre: Math.min(+r.dataset.prog || 0, falta) };
+  }).filter(x => x.falta > 0).sort((a, b) => b.falta - a.falta).slice(0, 15);
+  return { arts: xs.map(x => x.art), cubre: xs.map(x => x.cubre), sinProg: xs.map(x => x.falta - x.cubre),
+    labels: xs.map(x => { const f = PVC_FILAS[x.art]; return `${x.art.slice(2, 6)}-${x.art.slice(6, 8)}${f && f.bota ? ' ' + f.bota : ''}`; }) };
+}
+function pvcGrafico(rows) {
+  const card = document.getElementById('pvcGrafCard');
+  if (!card) return;
+  const d = pvcGrafDatos(rows);
+  card.style.display = d.arts.length ? '' : 'none';
+  if (!d.arts.length) return;
+  document.getElementById('pvcGrafBox').style.height = `${d.arts.length * 26 + 60}px`;
+  barras('pvcGraf', d.labels, [
+    { label: 'Ya programado: apurar el corte', data: d.cubre, backgroundColor: '#8b5cf6' },
+    { label: 'Falta programar', data: d.sinProg, backgroundColor: color('--er') },
+  ], i => document.querySelector(`#pvcBody tr[data-art="${d.arts[i]}"]`)?.click(),
+  { extra: i => `Falta ${fmt(d.cubre[i] + d.sinProg[i])} · toca para ver a quién se le debe` });
+}
+
+/* Programado sin cortar: ¿qué orden apurar? Cada orden de lo que se ve, con sus días sin cortar en semáforo. */
+function progGrafico(rows) {
+  const card = document.getElementById('progGrafCard');
+  if (!card) return;
+  const xs = rows.slice().sort((a, b) => +b.dataset.dias - +a.dataset.dias).slice(0, 20);
+  card.style.display = xs.length ? '' : 'none';
+  if (!xs.length) return;
+  document.getElementById('progGrafBox').style.height = `${xs.length * 26 + 40}px`;
+  const clr = d => d > 30 ? color('--er') : d > 14 ? color('--wa') : color('--ok');
+  barras('progGraf', xs.map(tr => `${tr.dataset.cod} · OC ${tr.dataset.oc}`),
+    [{ label: 'Días sin cortar', data: xs.map(tr => +tr.dataset.dias), backgroundColor: xs.map(tr => clr(+tr.dataset.dias)) }],
+    i => xs[i].click(),
+    { apiladas: false, sufijo: ' días', leyenda: false,
+      extra: i => `${fmt(+xs[i].dataset.prog)} programadas el ${xs[i].dataset.fecha}${+xs[i].dataset.sal ? ` · se deben ${fmt(+xs[i].dataset.sal)}` : ' · nadie lo espera'}` });
+}
+
+/* Qué le debemos: ¿a quién despachar o llamar primero? y ¿desde cuándo les debemos? */
+const DEB_EDADES = [[0, 30, '0–30 días'], [31, 60, '31–60'], [61, 90, '61–90'], [91, 180, '91–180'], [181, Infinity, 'Más de 180']];
+const debEdadDe = d => Math.max(0, DEB_EDADES.findIndex(([a, b]) => d >= a && d <= b));
+function debEdades(c) {
+  const k = new Set();
+  for (const it of Object.values(c.items)) for (const p of it.peds) if (p.sal > 0) k.add(debEdadDe(p.dias));
+  return ` ${[...k].join(' ')} `;
+}
+function debPartes(c) {
+  const x = { caja: 0, bod: 0, prod: 0, falta: 0 };
+  for (const it of Object.values(c.items)) {
+    x.caja += it.enCaja;
+    if (it.est === 'bodega') x.bod += it.debe; else if (it.est === 'produccion') x.prod += it.debe; else if (it.est === 'parcial' || it.est === 'cortar') x.falta += it.debe;
+  }
+  return x;
+}
+function debGraficos(visibles, paraEdad, edadSel, abrir, tocarEdad) {
+  const top = visibles.map(c => { const x = debPartes(c); return { c, ...x, tot: x.caja + x.bod + x.prod + x.falta }; })
+    .filter(x => x.tot > 0).sort((a, b) => b.tot - a.tot).slice(0, 15);
+  const box = document.getElementById('debGrafBox');
+  if (box) box.style.height = `${Math.max(3, top.length) * 26 + 60}px`;
+  const corto = t => (t.length > 24 ? t.slice(0, 23) + '…' : t);
+  barras('debGraf', top.map(x => corto(x.c.nombre)), [
+    { label: '📦 En caja', data: top.map(x => x.caja), backgroundColor: color('--ok') },
+    { label: 'En bodega', data: top.map(x => x.bod), backgroundColor: rgba(color('--ok'), .45) },
+    { label: 'Viene en producción', data: top.map(x => x.prod), backgroundColor: color('--wa') },
+    { label: 'Falta cortar', data: top.map(x => x.falta), backgroundColor: color('--er') },
+  ], i => abrir(top[i].c), { extra: i => `Le debemos ${fmt(top[i].tot)} · toca para ver qué` });
+  const tot = DEB_EDADES.map(() => 0);
+  for (const c of paraEdad) for (const it of Object.values(c.items)) for (const p of it.peds) if (p.sal > 0) tot[debEdadDe(p.dias)] += p.sal;
+  const base = [color('--ok'), rgba(color('--ok'), .55), color('--wa'), color('--er'), '#7f1d1d'];
+  barras('debEdad', DEB_EDADES.map(e => e[2]), [{ label: 'Prendas que se deben', data: tot,
+    backgroundColor: base.map((b, i) => edadSel == null || edadSel === i ? b : rgba(b.startsWith('#') ? b : color('--tx3'), .25)) }],
+    i => tocarEdad(i), { horizontal: false, apiladas: false, leyenda: false, extra: () => 'Toca para ver solo esos clientes' });
+}
+
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
   const seq = ++_goSeq;
+  cerrarGraficos();   // los de la sección anterior: su canvas se va con ella
   document.getElementById('hdTitle').textContent = title;
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
@@ -8925,6 +9073,7 @@ function bindContent(secId) {
       const c = document.getElementById('progCuenta');
       if (c) c.textContent = n === filas.length ? `${fmt(n)} órdenes` : `${fmt(n)} de ${fmt(filas.length)} órdenes`;
       tarjetas(enAlcance);
+      progGrafico(filas.filter(tr => tr.style.display !== 'none'));
     };
     document.getElementById('progSearch')?.addEventListener('input', filtrar);
     for (const [id, set] of [['progSegs', v => { fEst = v.f; }], ['progTSegs', v => { fT = v.t; }]])
@@ -8953,6 +9102,7 @@ function bindContent(secId) {
     }));
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+    filtrar();   // dibuja el gráfico (y deja las tarjetas como están)
   }
 
   // Qué le debemos: el buscador filtra por nombre; tocar un cliente abre lo que se le debe
@@ -9006,14 +9156,27 @@ function bindContent(secId) {
       el.addEventListener('click', () => abrirK(el.dataset.dk));
       el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirK(el.dataset.dk); } });
     });
-    let filtro = '';   // el botón de arriba: se combina con el nombre buscado
+    let filtro = '', edad = null;   // el botón de arriba y la barra de antigüedad: se combinan con el nombre buscado
+    const chip = document.getElementById('debEdadChip');
     const filtrar = () => {
       const q = rvSinTilde(inp.value.trim());
       let n = 0;
-      filas.forEach(tr => { const ok = (!q || tr.dataset.q.includes(q)) && (!filtro || tr.dataset.f.includes(` ${filtro} `)); tr.style.display = ok ? '' : 'none'; n += ok; });
+      const sinEdad = [], visibles = [];
+      filas.forEach(tr => {
+        const base = (!q || tr.dataset.q.includes(q)) && (!filtro || tr.dataset.f.includes(` ${filtro} `));
+        const ok = base && (edad === null || tr.dataset.ed.includes(` ${edad} `));
+        tr.style.display = ok ? '' : 'none'; n += ok;
+        const c = DEB && DEB.clientes[+tr.dataset.deb];
+        if (c && base) sinEdad.push(c);
+        if (c && ok) visibles.push(c);
+      });
       document.getElementById('debNada').style.display = n ? 'none' : '';
+      if (chip) { chip.style.display = edad === null ? 'none' : ''; chip.textContent = edad === null ? '' : `Pedidos de ${DEB_EDADES[edad][2]}${edad ? ' días' : ''} ✕`; }
+      // los gráficos: el de clientes con todo lo filtrado; el de antigüedad sin su propio filtro, para poder cambiar de barra
+      debGraficos(visibles, sinEdad, edad, c => abrirCli(c), i => { edad = edad === i ? null : i; filtrar(); });
       return n;
     };
+    chip?.addEventListener('click', () => { edad = null; filtrar(); });
     inp?.addEventListener('input', filtrar);
     document.querySelectorAll('#debSegs .seg').forEach(b => b.addEventListener('click', () => {
       filtro = b.dataset.f;
@@ -9023,6 +9186,7 @@ function bindContent(secId) {
     // Enter con un solo cliente a la vista: se abre directo
     inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
     filas.forEach(tr => tr.addEventListener('click', () => abrir(tr)));
+    filtrar();   // dibuja los gráficos
     // Con o sin Magic World: se rearma todo, porque cambia lo que alcanza para los demás
     document.querySelectorAll('#debMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
       const sin = b.dataset.mg === 'sin';
@@ -9742,6 +9906,7 @@ function bindContent(secId) {
       const q      = (document.getElementById('pvcSearch')?.value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
       let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0, sumDesp = 0, sumStk = 0, sumPro = 0, aCortar = 0, sobra = 0, aApurar = 0, sumProg = 0;
+      const vis = [];   // lo que se ve, para el gráfico
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado
           || (estado === 'cortar' && row.dataset.estado === 'apurar')                                  // falta cortar: también lo ya programado
@@ -9764,7 +9929,7 @@ function bindContent(secId) {
           next = next.nextElementSibling;
         }
         if (show) {
-          visible++;
+          visible++; vis.push(row);
           const stk = parseInt(row.dataset.stk || 0), pro = parseInt(row.dataset.prod || 0), sal = parseInt(row.dataset.sal || 0);
           sumPed  += parseInt(row.dataset.ped  || 0);
           sumSal  += sal;
@@ -9788,9 +9953,14 @@ function bindContent(secId) {
       const kdiffEl = document.getElementById('pvcKDiff');
       if (kpedEl)  kpedEl.textContent  = fmt(sumPed);
       if (kprogEl) kprogEl.textContent = fmt(sumCort);
+      /* La diferencia junta lo que sobra de unos artículos con lo que falta de otros: se dice cada parte */
+      const kdiffP = document.getElementById('pvcKDiffP');
+      if (kdiffP) { kdiffP.style.display = sobra && aCortar + aApurar ? '' : 'none'; kdiffP.textContent = `sobran ${fmt(sobra)} en unos artículos y faltan ${fmt(aCortar + aApurar)} en otros`; }
       const eqF = document.getElementById('pvcEqFalta');
       if (eqF) {
         eqF.textContent = fmt(aCortar + aApurar);
+        /* del saldo, lo que ya está en bodega o en producción de ese mismo artículo no falta */
+        document.getElementById('pvcEqFaltaSub').textContent = sumSal ? `de ${fmt(sumSal)} de saldo pendiente, ${fmt(sumSal - aCortar - aApurar)} ya están en bodega o en producción` : 'no hay saldo pendiente';
         document.getElementById('pvcEqProg').textContent = fmt(aApurar);
         document.getElementById('pvcEqRes').textContent = fmt(aCortar);
         document.getElementById('pvcEqProgSub').textContent = sumProg > aApurar
@@ -9798,6 +9968,7 @@ function bindContent(secId) {
       }
       const kprogP = document.getElementById('pvcKProgP');
       if (kprogP) { kprogP.style.display = sumProg ? '' : 'none'; kprogP.textContent = `📋 ${fmt(sumProg)} programado sin cortar`; }
+      pvcGrafico(vis);
       if (kdiffEl) { kdiffEl.textContent = (diff>0?'+':'')+fmt(diff); kdiffEl.style.color = diff>=0?'var(--ok)':'var(--er)'; }
       const kico = document.getElementById('pvcKDiffIco');
       if (kico) { kico.classList.toggle('c-ok', diff>=0); kico.classList.toggle('c-er', diff<0); }
