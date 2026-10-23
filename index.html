@@ -253,6 +253,7 @@ body.ia-open #iaBtn{display:none}
 .pl .db-debe b{font-size:19px;font-weight:800;letter-spacing:-.02em}
 .pl .db-debe span{font-size:11px;color:var(--tx3)}
 .pl .db-tallas{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.pl .db-tl{align-self:center;font-size:10.5px;font-weight:700;color:var(--tx3);margin-right:2px;white-space:nowrap}
 .pl .db-t2{display:inline-flex;flex-direction:column;align-items:center;min-width:32px;margin:0;padding:2px 5px;line-height:1.2}
 .pl .db-t2 i{font-style:normal;font-size:10px;font-weight:600;opacity:.75}
 .pl .db-t2 b{font-size:13px;font-weight:800}
@@ -266,6 +267,16 @@ body.ia-open #iaBtn{display:none}
 .seg .db-n{opacity:.6;font-size:11px;margin-left:2px}
 /* Qué le debemos: tarjetas con semáforo */
 .db-kpis{margin:0 0 14px}
+.db-hero{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 22px;margin:0 0 14px;display:grid;grid-template-columns:1fr auto;gap:8px 28px;align-items:end}
+.db-hero-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+.db-hero-n{font-size:46px;font-weight:800;letter-spacing:-.04em;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:4px}
+.db-hero-n2{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ok);font-variant-numeric:tabular-nums;margin-top:4px}
+.db-hero-n span,.db-hero-n2 span{font-size:14px;font-weight:600;letter-spacing:0;color:var(--tx2);margin-left:8px}
+.db-hero-sub{font-size:12.5px;color:var(--tx2);margin-top:4px}
+.db-hero-r{text-align:right}
+.db-hero-bar{grid-column:1 / -1;display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--bd);margin-top:8px}
+.db-hero-bar>i{display:block;height:100%}
+@media(max-width:700px){.db-hero{grid-template-columns:1fr;padding:16px}.db-hero-r{text-align:left}.db-hero-n{font-size:38px}}
 .db-kpis .db-k{flex:1 1 200px;cursor:default}
 .db-k .db-k-p{font-size:15px;font-weight:700;margin-left:6px;letter-spacing:0}
 .db-sem{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
@@ -7028,16 +7039,18 @@ function debDetalle(c) {
     const et = Object.entries(D.etapas[it.art] || {}).sort((a, b) => (ETAPA_RANK[b[0]] ?? -2) - (ETAPA_RANK[a[0]] ?? -2));
     const donde = (f.stk > 0 ? chip(`Bodega ${fmt(f.stk)}`, 'ok') : '') + et.map(([e, u]) => chip(`${DEB_ETAPA[e] || e} ${fmt(u)}`, '', `color:${etapaClr(e)}`)).join('');
     const alt = est === 'parcial' || est === 'cortar' ? D.parecidos(f, tallas.map(x => x.t)) : [];
-    const peds = [...it.pedidos];
+    const peds = [...it.pedidos], enCajaT = Object.entries(it.cajaT).filter(([, n]) => n > 0).sort((a, b) => +a[0] - +b[0]);
+    const nCajas = [...it.cajas].map(n => String(n).replace(/^0+/, '')).join(', ');
     return `<tr class="db-fila" data-dart="${it.art}" data-f=" ${it.cats.join(' ')} " data-pcli title="Toca para ver el detalle de este artículo">
       <td class="pl-wrap" data-v="${it.art}"><div style="display:flex;align-items:center">${artImg(it.art)}<div><span class="td-code">${cod(it.art)}</span>
         <span class="pl-sub">${[f.bota, f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${it.art.slice(2, 4)}</span>${it.bloq ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Pedido bloqueado</span>' : ''}</div></div></td>
       <td class="pl-wrap pl-sec" data-v="${it.dias}"><b>${fmt(it.dias)} días</b>
         <span class="pl-sub">${peds.length === 1 ? `pedido ${peds[0].replace(/^0+/, '')}` : `${peds.length} pedidos`}</span></td>
-      <td class="pl-wrap" data-v="${debe}"><div class="db-debe"><b style="color:${debe > 0 ? 'var(--wa)' : 'var(--ok)'}">${debe > 0 ? fmt(debe) : '✓'}</b><span>${debe > 0 ? (debe === 1 ? 'prenda' : 'prendas') : 'todo en su caja'}</span></div>
+      <td class="pl-wrap" data-v="${it.sal}"><div class="db-debe"><b style="color:${debe > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(it.sal)}</b><span>${it.sal === 1 ? 'prenda' : 'prendas'}${debe > 0 ? '' : ' · todo en su caja'}</span></div>
         <span class="pl-sub db-movil">esperando ${fmt(it.dias)} días</span>
-        ${tallas.length ? `<div class="db-tallas">${tallas.map(x => `<span class="db-t db-t2${x.k ? ' ' + x.k : ''}"><i>${x.t}</i><b>${fmt(x.n)}</b></span>`).join('')}</div>` : ''}
-        ${it.enCaja ? `<span class="pl-sub" style="color:var(--ok);font-weight:600">📦 caja ${[...it.cajas].join(', ')} · ${fmt(it.enCaja)} en caja</span>` : ''}</td>
+        ${tallas.length ? `<div class="db-tallas">${it.enCaja ? '<span class="db-tl">Faltan</span>' : ''}${tallas.map(x => `<span class="db-t db-t2${x.k ? ' ' + x.k : ''}"><i>${x.t}</i><b>${fmt(x.n)}</b></span>`).join('')}</div>` : ''}
+        ${!it.enCaja ? '' : enCajaT.length ? `<div class="db-tallas"><span class="db-tl" style="color:var(--ok)">📦 Caja ${nCajas}</span>${enCajaT.map(([t, n]) => `<span class="db-t db-t2"><i>${t}</i><b>${fmt(n)}</b></span>`).join('')}</div>`
+          : `<span class="pl-sub" style="color:var(--ok);font-weight:600">📦 caja ${nCajas} · ${fmt(it.enCaja)} en caja</span>`}</td>
       <td class="pl-wrap" data-v="${DEB_ORDEN[est]}"><span class="pl-tag" style="background:var(--${clr}10);color:var(--${clr})">${lbl}</span>
         ${donde ? `<div>${donde}</div>` : ''}
         ${est === 'parcial' ? `<span class="pl-sub">Faltan ${fmt(Math.max(0, f.sal - f.stk - f.pro))} por cortar para cubrir a todos los clientes</span>` : ''}
@@ -7053,8 +7066,8 @@ function debDetalle(c) {
   return `<div class="pc">
       ${debTraba(c)}
       <div class="pc-kpis">
-        ${kpi(fmt(c.debe), 'Le debemos', `${items.length} artículo${items.length === 1 ? '' : 's'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}`)}
-        ${kpi(fmt(c.enCaja), 'Ya en su caja', 'listo para despachar')}
+        ${kpi(fmt(c.debe + c.enCaja), 'Le debemos', `${items.length} artículo${items.length === 1 ? '' : 's'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}`)}
+        ${kpi(fmt(c.enCaja), 'Ya en su caja', c.enCaja ? 'de eso, listo para despachar' : 'nada armado todavía')}
         ${kpi(fmt(suma(['bodega', 'produccion'])), 'En bodega o en producción', 'alcanza para todos')}
         ${kpi(fmt(suma(['parcial', 'cortar'])), 'Falta cortar', 'ofrecerle otro modelo')}
       </div>
@@ -7063,7 +7076,7 @@ function debDetalle(c) {
     <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Artículo</th><th class="pl-sec" data-ord="n" title="Días desde el pedido más antiguo que todavía lo debe">Esperando</th><th data-ord="n">Le debemos${conTallas ? '<span class="pl-sub">por talla</span>' : ''}</th><th data-ord="n">Dónde está</th></tr></thead>
       <tbody>${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
-    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar. En lo que se puede ofrecer, el número es lo que sobra de esa talla: verde alcanza para lo que se le debe, amarillo alcanza en parte, rojo no hay. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
+    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar; las que siguen a 📦 ya están en su caja. En lo que se puede ofrecer, el número es lo que sobra de esa talla: verde alcanza para lo que se le debe, amarillo alcanza en parte, rojo no hay. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
 }
 
 /* El detalle de un artículo para un cliente (Manu, 22-10-2026: "cuando presione en uno me muestre más
@@ -7083,8 +7096,8 @@ function debArticulo(c, art) {
       <td class="pl-wrap" data-v="${p.pedido}"><b>${p.pedido.replace(/^0+/, '')}</b>${p.bloq ? ' <span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 bloqueado</span>' : ''}<span class="pl-sub">${p.fecha} · hace ${fmt(p.dias)} días</span></td>
       <td class="r td-num" data-v="${p.sol}">${fmt(p.sol)}</td>
       <td class="r td-num td-dim" data-v="${p.desp}">${p.desp ? fmt(p.desp) : '—'}</td>
-      <td class="r td-num" data-v="${p.sal - p.caja}" style="font-weight:700;color:${p.sal - p.caja > 0 ? 'var(--wa)' : 'var(--ok)'}">${p.sal - p.caja > 0 ? fmt(p.sal - p.caja) : '✓'}</td>
-      <td class="pl-wrap" data-v="${p.caja}">${p.caja ? `<span style="color:var(--ok);font-weight:600">📦 ${fmt(p.caja)} en caja ${p.cajas.join(', ')}</span>` : '<span class="td-dim">—</span>'}</td></tr>`).join('');
+      <td class="r td-num" data-v="${p.sal}" style="font-weight:700;color:${p.sal - p.caja > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(p.sal)}</td>
+      <td class="pl-wrap" data-v="${p.caja}">${p.caja ? `<span style="color:var(--ok);font-weight:600">📦 ${fmt(p.caja)} en caja ${p.cajas.map(n => String(n).replace(/^0+/, '')).join(', ')}</span>` : '<span class="td-dim">—</span>'}</td></tr>`).join('');
 
   /* Talla por talla: lo que se le debe a él (sin lo de su caja), lo que se les debe a todos, lo que hay
      (stock libre + en corte) y lo que falta cortar. Lo de todos sale del informe por talla del ERP. */
@@ -7103,7 +7116,7 @@ function debArticulo(c, art) {
   }).join('');
 
   const et = Object.entries(D.etapas[art] || {}).sort((a, b) => (ETAPA_RANK[b[0]] ?? -2) - (ETAPA_RANK[a[0]] ?? -2));
-  const otros = D.quienes(art).filter(x => x.c !== c);
+  const otros = D.quienes(art).filter(x => x.c !== c), cajasTodos = D.clientes.reduce((a, x) => a + ((x.items[art] || {}).enCaja || 0), 0);
   const deTallas = Object.keys(suyo).length ? Object.keys(suyo).filter(t => suyo[t] > 0) : tallas.filter(t => (tt[t] || {}).debe > 0);
   const alt = est === 'parcial' || est === 'cortar' ? D.parecidos(f, deTallas, 4) : [];
   const chip = (txt, k) => `<span class="db-t${k ? ' ' + k : ''}">${txt}</span>`;
@@ -7117,8 +7130,8 @@ function debArticulo(c, art) {
           <div style="margin-top:6px"><span class="pl-tag" style="background:var(--${clr}10);color:var(--${clr});font-size:12px;padding:3px 10px">${lbl}</span></div></div>
       </div>
       <div class="pc-kpis">
-        ${kpi(debe > 0 ? fmt(debe) : '✓', 'Le debemos', `${fmt(it.peds.length)} pedido${it.peds.length === 1 ? '' : 's'} · hace ${fmt(it.dias)} días`, debe > 0 ? 'var(--wa)' : 'var(--ok)')}
-        ${kpi(fmt(f.sal), 'Se debe a todos', otros.length ? `a él y a ${fmt(otros.length)} cliente${otros.length === 1 ? '' : 's'} más` : 'solo a él')}
+        ${kpi(fmt(it.sal), 'Le debemos', `${it.enCaja ? `${debe > 0 ? `${fmt(it.enCaja)} ya en su caja` : 'todo en su caja'} · ` : ''}${fmt(it.peds.length)} pedido${it.peds.length === 1 ? '' : 's'} · hace ${fmt(it.dias)} días`, debe > 0 ? 'var(--wa)' : 'var(--ok)')}
+        ${kpi(fmt(f.sal + f.enCaja), 'Se debe a todos', `${cajasTodos ? `${fmt(cajasTodos)} en cajas · ` : ''}${otros.length ? `a él y a ${fmt(otros.length)} cliente${otros.length === 1 ? '' : 's'} más` : 'solo a él'}`)}
         ${kpi(fmt(f.stk + f.pro), 'Hay', `${fmt(f.stk)} en bodega · ${fmt(f.pro)} en producción`)}
         ${kpi(fmt(faltan), 'Falta cortar', 'para cubrir a todos', faltan ? 'var(--er)' : '')}
       </div>
@@ -7127,7 +7140,7 @@ function debArticulo(c, art) {
     <div class="pc-h" style="padding:0 18px">Sus pedidos de este artículo</div>
     ${tbl('<th data-ord="n">Pedido</th><th class="r" data-ord="n">Pidió</th><th class="r" data-ord="n">Despachado</th><th class="r" data-ord="n">Le debemos</th><th data-ord="n">En caja</th>', peds)}
     <div class="pc-h" style="padding:16px 18px 0">Por talla</div>
-    ${filasT ? tbl(`<th data-ord="n">Talla</th>${it.hayST ? '<th class="r" data-ord="n">A él</th>' : ''}<th class="r" data-ord="n" title="Lo que se les debe a todos los clientes, sin lo que ya está en cajas">Se debe a todos</th><th class="r pl-sec" data-ord="n">En caja</th><th class="r" data-ord="n" title="Stock libre en San Gerardo + lo que está en corte">Hay</th><th class="r" data-ord="n">Falta cortar</th>`, filasT,
+    ${filasT ? tbl(`<th data-ord="n">Talla</th>${it.hayST ? '<th class="r" data-ord="n" title="Lo que le falta a él en esa talla, sin lo que ya está en su caja">A él<span class="pl-sub">sin su caja</span></th>' : ''}<th class="r" data-ord="n" title="Lo que se les debe a todos los clientes, sin lo que ya está en cajas">Se debe a todos<span class="pl-sub">sin las cajas</span></th><th class="r pl-sec" data-ord="n">En caja</th><th class="r" data-ord="n" title="Stock libre en San Gerardo + lo que está en corte">Hay</th><th class="r" data-ord="n">Falta cortar</th>`, filasT,
         `${it.hayST ? 'A él: en verde hay en bodega, en azul viene en producción, en rojo falta cortar. ' : 'Lo que se le debe a él por talla aparece con la próxima actualización de datos. '}Falta cortar se calcula talla por talla, como en Pedido vs Corte.`)
       : '<div class="td-dim" style="font-size:12px;padding:6px 18px 0">Este artículo todavía no tiene el detalle por talla del ERP.</div>'}
     <div class="pc" style="padding-top:14px">
@@ -7169,13 +7182,29 @@ async function secDebemos() {
         <div class="kpi-lbl"><span class="db-sem" style="background:${color}"></span>${lbl}</div>
         <div class="kpi-delta d-nu">${sub}</div>
         ${p != null ? `<div class="db-k-bar"><i style="width:${Math.min(100, p)}%;background:${color}"></i></div>` : ''}</div></div>`;
-  const tarjetas = `<div class="kpi-grid db-kpis">
-      ${tarjeta(fmt(porDesp), 'Por despachar', `${fmt(S.caja)} ya en cajas · se despachó el ${despPct}% de lo pedido`, rvPctClr(despPct), DEB.tot.ped ? 100 - despPct : null)}
-      ${tarjeta(fmt(S.listo), 'Listo para despachar', 'en su caja o con stock en bodega', 'var(--ok)', pS(S.listo))}
+  /* El total va en grande, con lo que ya está en cajas al lado (Manu, 23-10-2026: "¿no crees que es importante el
+     total que debemos como para mostrarlo tan pequeño, y de ese total cuántos tenemos en caja?"). La barra de abajo
+     lo reparte con los colores del semáforo: en caja, en bodega, viene en producción y falta cortar. */
+  const bodega = S.listo - S.caja, clr = rvPctClr(despPct);
+  const total = `<div class="db-hero" style="border-top:3px solid ${clr}">
+      <div><div class="db-hero-lbl" title="Todo lo que falta despachar desde la T${TEMP_ACTIVA}, contando lo que ya está en cajas">Le debemos</div>
+        <div class="db-hero-n" style="color:${clr}">${fmt(porDesp)}<span>prendas</span></div>
+        <div class="db-hero-sub">a ${DEB.clientes.length === 1 ? '1 cliente' : `${fmt(DEB.clientes.length)} clientes`} · ${DEB.tot.ped ? `el ${100 - despPct}% de lo que pidieron desde la T${TEMP_ACTIVA}; ya se despachó el ${despPct}%` : `desde la T${TEMP_ACTIVA}`}</div></div>
+      <div class="db-hero-r"><div class="db-hero-lbl">📦 Ya en cajas</div>
+        <div class="db-hero-n2">${fmt(S.caja)}<span>${pS(S.caja)}% del total</span></div>
+        <div class="db-hero-sub">de eso, armado y listo para despachar</div></div>
+      <div class="db-hero-bar" title="En caja ${pS(S.caja)}% · en bodega ${pS(bodega)}% · en producción ${pS(S.prod)}% · falta cortar ${pS(S.falta)}%">
+        <i style="width:${pS(S.caja)}%;background:var(--ok)"></i><i style="width:${pS(bodega)}%;background:var(--ok);opacity:.5"></i><i style="width:${pS(S.prod)}%;background:var(--wa)"></i><i style="width:${pS(S.falta)}%;background:var(--er)"></i>
+      </div>
+    </div>`;
+  const tarjetas = `${total}<div class="kpi-grid db-kpis">
+      ${tarjeta(fmt(S.listo), 'Listo para despachar', `${fmt(S.caja)} en caja · ${fmt(bodega)} en bodega`, 'var(--ok)', pS(S.listo))}
       ${tarjeta(fmt(S.prod), 'Viene en producción', 'alcanza con lo que se está haciendo', 'var(--wa)', pS(S.prod))}
       ${tarjeta(fmt(S.falta), 'Falta cortar', `${fmt(S.sinProd)} sin nada en producción`, 'var(--er)', pS(S.falta))}
     </div>`;
-  const cl = DEB.clientes, tot = cl.reduce((a, c) => a + c.debe, 0), totCaja = cl.reduce((a, c) => a + c.enCaja, 0);
+  /* En toda la sección "le debemos" es todo lo que falta despachar, contando lo que ya está en cajas, y "en caja" es la
+     parte de eso que ya está armada: así la lista suma lo mismo que la tarjeta grande. */
+  const cl = DEB.clientes;
   return `
   <div class="fbar">
     <div class="fbar-row"><div class="fgrp"><span class="flbl">Cliente</span>
@@ -7186,12 +7215,12 @@ async function secDebemos() {
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
       <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
-      <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes · se deben ${fmt(tot)} prendas${totCaja ? ` y ${fmt(totCaja)} más ya están en cajas` : ''}</span></div>
+      <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes · el más antiguo arriba</span></div>
     <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
-      <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n">Le debemos</th><th class="r pl-sec" data-ord="n">En caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
+      <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Todo lo que falta despacharle, contando lo que ya está en cajas">Le debemos</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que ya está armado en cajas">En caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
       <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
         <td class="pl-wrap" data-v="${dvDeb(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.ciudad || '—'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span>${c.bloq.size ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Bloqueado</span> ' : ''}${c.sinCupo ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">Sin cupo</span>' : ''}</td>
-        <td class="r td-num" data-v="${c.debe}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${c.debe ? fmt(c.debe) : '✓ todo en caja'}</td>
+        <td class="r td-num" data-v="${c.debe + c.enCaja}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${fmt(c.debe + c.enCaja)}${!c.debe ? '<span class="pl-sub" style="color:var(--ok)">todo en caja</span>' : c.enCaja ? `<span class="pl-sub db-movil">📦 ${fmt(c.enCaja)} en caja</span>` : ''}</td>
         <td class="r td-num pl-sec" data-v="${c.enCaja}">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
         <td class="r td-num pl-sec" data-v="${Object.keys(c.items).length}">${fmt(Object.keys(c.items).length)}</td>
         <td class="r td-num td-dim pl-sec" data-v="${c.dias}">${fmt(c.dias)} días</td></tr>`).join('')}
