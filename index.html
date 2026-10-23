@@ -264,6 +264,13 @@ body.ia-open #iaBtn{display:none}
 .pl .db-traba.er{background:var(--er10);border-left-color:var(--er)}
 .pl .db-segs{flex-wrap:wrap;align-self:flex-start}
 .seg .db-n{opacity:.6;font-size:11px;margin-left:2px}
+/* Qué le debemos: tarjetas con semáforo */
+.db-kpis{margin:0 0 14px}
+.db-kpis .db-k{flex:1 1 200px;cursor:default}
+.db-k .db-k-p{font-size:15px;font-weight:700;margin-left:6px;letter-spacing:0}
+.db-sem{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.db-k-bar{height:5px;background:var(--bd);border-radius:3px;margin-top:10px;overflow:hidden}
+.db-k-bar>i{display:block;height:100%;border-radius:3px}
 .pl .db-alt{margin-top:8px;padding-top:6px;border-top:1px dashed var(--bd)}
 .pl .db-alt-i{display:flex;align-items:center;margin-top:6px}
 .pl tr.pl-grupo td{background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:700;letter-spacing:.04em;padding-top:6px;padding-bottom:6px}
@@ -6976,9 +6983,12 @@ function debDatos(peds, ft, ftMap) {
     if (c.bloq.size || c.sinCupo) c.cats.add('traba');
     if (c.deuda > 0) c.cats.add('deuda');
   }
+  // Lo pedido y lo despachado desde la colección activa, para decir qué parte de lo pedido falta despachar
+  const tot = { ped: 0, desp: 0 };
+  for (const p of peds) for (const l of (p.lineas || [])) if (arts[l.art] && +l.temp >= +TEMP_ACTIVA) { tot.ped += l.sol || 0; tot.desp += l.desp || 0; }
   // Quiénes más esperan un artículo (para saber con quién se reparte lo que hay)
   const quienes = art => clientes.filter(c => c.items[art]).map(c => ({ c, debe: c.items[art].sal - c.items[art].enCaja })).filter(x => x.debe > 0).sort((a, b) => b.debe - a.debe);
-  return { arts, etapas, tallaArt, parecidos, quienes, clientes };
+  return { arts, etapas, tallaArt, parecidos, quienes, clientes, tot };
 }
 
 const DEB_FILTROS = [['', 'Todo'], ['bodega', 'En bodega, sin despachar'], ['produccion', 'Viene en producción'],
@@ -7140,6 +7150,31 @@ async function secDebemos() {
   const LISTA_F = [['', 'Todos'], ['bodega', 'Con algo en bodega sin despachar'], ['traba', 'Bloqueados o sin cupo'], ['deuda', 'Con deuda'], ['cortar', 'Con algo sin producción']];
   const nF = k => k ? DEB.clientes.filter(c => c.cats.has(k)).length : DEB.clientes.length;
   const segsLista = LISTA_F.map(([k, t]) => `<button class="seg${k ? '' : ' on'}" data-f="${k}">${t} <span class="db-n">${nF(k)}</span></button>`).join('');
+  /* Tarjetas con semáforo (Manu, 23-10-2026: "el total que debemos y que lo muestre en porcentaje, con semáforos").
+     Lo que hay por despachar (lo que se debe más lo que ya está en cajas) en tres luces que suman el 100%: verde
+     listo (en su caja o con stock en bodega), amarillo viene en producción, rojo falta cortar. La primera dice qué
+     parte de lo pedido falta despachar, con el color de cuánto se ha despachado. */
+  const S = { listo: 0, prod: 0, falta: 0, sinProd: 0, caja: 0 };
+  for (const c of DEB.clientes) for (const it of Object.values(c.items)) {
+    S.caja += it.enCaja;
+    S.listo += it.enCaja + (it.est === 'bodega' ? it.debe : 0);
+    if (it.est === 'produccion') S.prod += it.debe;
+    if (it.est === 'parcial' || it.est === 'cortar') S.falta += it.debe;
+    if (it.est === 'cortar') S.sinProd += it.debe;
+  }
+  const porDesp = S.listo + S.prod + S.falta, pS = v => porDesp ? Math.round(v / porDesp * 100) : 0;
+  const despPct = DEB.tot.ped ? Math.round(DEB.tot.desp / DEB.tot.ped * 100) : 0;
+  const tarjeta = (val, lbl, sub, color, p) => `<div class="kpi db-k" style="border-top:3px solid ${color}">
+      <div style="min-width:0;width:100%"><div class="kpi-val" style="color:${color}">${val}${p != null ? `<span class="db-k-p">${p}%</span>` : ''}</div>
+        <div class="kpi-lbl"><span class="db-sem" style="background:${color}"></span>${lbl}</div>
+        <div class="kpi-delta d-nu">${sub}</div>
+        ${p != null ? `<div class="db-k-bar"><i style="width:${Math.min(100, p)}%;background:${color}"></i></div>` : ''}</div></div>`;
+  const tarjetas = `<div class="kpi-grid db-kpis">
+      ${tarjeta(fmt(porDesp), 'Por despachar', `${fmt(S.caja)} ya en cajas · se despachó el ${despPct}% de lo pedido`, rvPctClr(despPct), DEB.tot.ped ? 100 - despPct : null)}
+      ${tarjeta(fmt(S.listo), 'Listo para despachar', 'en su caja o con stock en bodega', 'var(--ok)', pS(S.listo))}
+      ${tarjeta(fmt(S.prod), 'Viene en producción', 'alcanza con lo que se está haciendo', 'var(--wa)', pS(S.prod))}
+      ${tarjeta(fmt(S.falta), 'Falta cortar', `${fmt(S.sinProd)} sin nada en producción`, 'var(--er)', pS(S.falta))}
+    </div>`;
   const cl = DEB.clientes, tot = cl.reduce((a, c) => a + c.debe, 0), totCaja = cl.reduce((a, c) => a + c.enCaja, 0);
   return `
   <div class="fbar">
@@ -7147,6 +7182,7 @@ async function secDebemos() {
       <input id="debSearch" class="finput fsearch" placeholder="Nombre del cliente…" autocomplete="off" style="width:300px;max-width:100%"></div>
       <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="debSegs">${segsLista}</div></div></div>
   </div>
+  ${tarjetas}
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
       <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
