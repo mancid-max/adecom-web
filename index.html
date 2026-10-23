@@ -276,6 +276,17 @@ body.ia-open #iaBtn{display:none}
 .graf-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
 .graf-chip{display:inline-flex;align-items:center;gap:6px;background:var(--ac10);color:var(--ac);border-radius:14px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
 @media(max-width:900px){.graf-grid{grid-template-columns:1fr}}
+.pvc-cli{cursor:pointer}
+.pvc-cli.abierta>td{background:var(--ac10)}
+.pvc-ts{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:4px 0}
+.pvc-ts-l{font-size:11px;font-weight:700;color:var(--tx2);margin-right:6px;min-width:74px}
+.pvc-t{display:inline-flex;flex-direction:column;align-items:center;min-width:34px;padding:2px 6px;border-radius:6px;background:var(--sf);border:1px solid var(--bd);line-height:1.2}
+.pvc-t i{font-style:normal;font-size:10px;font-weight:600;color:var(--tx3)}
+.pvc-t b{font-size:13px;font-weight:800;color:var(--tx1)}
+.pvc-t.ok{background:var(--ok10);border-color:transparent}.pvc-t.ok b{color:var(--ok)}
+.pvc-t.ac{background:var(--ac10);border-color:transparent}.pvc-t.ac b{color:var(--ac)}
+.pvc-t.er{background:var(--er10);border-color:transparent}.pvc-t.er b{color:var(--er)}
+.pvc-t.cj b{color:var(--ok)}
 .pvc-eq-t{cursor:pointer;border-radius:10px;padding:4px 8px;margin:-4px -8px;transition:background .12s}
 .pvc-eq-t:hover{background:var(--sf2)}
 .pvc-eq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
@@ -4075,6 +4086,15 @@ function buildPVCRows(t, ftMap, exMap) {
   }).join('');
 }
 
+/* Pedido vs Corte: tocar un cliente en el detalle abre o cierra lo que se le debe por talla (Manu, 23-10-2026) */
+function pvcVerTallas(tr) {
+  const sub = tr.nextElementSibling;
+  if (!sub || !sub.classList.contains('pvc-cli-t')) return;
+  const abrir = sub.style.display === 'none';
+  sub.style.display = abrir ? '' : 'none';
+  tr.classList.toggle('abierta', abrir);
+}
+
 /* A quien se le debe un articulo, visto desde Pedido vs Corte. Los pedidos traen el
    saldo por cliente; las ordenes de corte van al final, que es el otro lado de la
    misma pregunta: cuanto viene en camino. */
@@ -4090,8 +4110,9 @@ function pvcDetalle(art) {
     if ((c.estado || '') !== 'bodega') continue;
     const u = (c.lineas || []).filter(l => l.art === art).reduce((a, l) => a + Math.max(0, (l.cant || 0) - (l.desp || 0)), 0);
     if (!u) continue;
-    const x = enCajaPed[c.pedido] = enCajaPed[c.pedido] || { u: 0, cajas: [] };
+    const x = enCajaPed[c.pedido] = enCajaPed[c.pedido] || { u: 0, cajas: [], t: {} };
     x.u += u; x.cajas.push(c.caja);
+    for (const l of (c.lineas || [])) if (l.art === art) x.t[l.talla] = (x.t[l.talla] || 0) + Math.max(0, (l.cant || 0) - (l.desp || 0));
   }
   const clientes = [];
   for (const p of (CACHE['pedidos.json'] || [])) {
@@ -4101,7 +4122,7 @@ function pvcDetalle(art) {
       const ec = enCajaPed[p.pedido], caja = ec ? Math.min(l.sal, ec.u) : 0;
       clientes.push({ nombre: p.nombre || p.rut || '—', ciudad: p.ciudad || '', bloqueo: !!p.bloqueo,
                       cli: p.cli, pedido: p.pedido, sol: l.sol || 0, desp: l.desp || 0, sal: l.sal || 0,
-                      caja, cajas: ec ? ec.cajas : [], debe: (l.sal || 0) - caja });
+                      caja, cajas: ec ? ec.cajas : [], debe: (l.sal || 0) - caja, st: l.st || null, cajaT: ec ? ec.t : {} });
     }
   }
   clientes.sort((a, b) => b.debe - a.debe || b.caja - a.caja);
@@ -4131,21 +4152,6 @@ function pvcDetalle(art) {
   const sumaCaja = suma - sumaDebe, porDespachar = f.sal + (f.enCaja || 0);
   const aviso = (sumaCaja ? ` · ${fmt(sumaCaja)} ya en cajas, así que se deben ${fmt(sumaDebe)}` : '')
     + (suma !== porDespachar ? ` · la suma da ${fmt(suma)} porque a algún cliente se le despachó de más y al artículo le quedan ${fmt(porDespachar)} por despachar` : '');
-  const tablaCli = !clientes.length
-    ? '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>'
-    : vTabla('<th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Se le debe</th><th></th>',
-        clientes.map(c => {
-          const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
-          return `<tr>
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}${c.caja
-              ? `<div style="font-size:11px;font-weight:600;color:var(--ok)">📦 caja ${c.cajas.join(', ')} · ${fmt(c.caja)} en caja</div>` : ''}</td>
-            <td class="td-dim">${c.ciudad || '—'}</td>
-            <td class="r td-num">${fmt(c.sol)}</td>
-            <td class="r td-num td-dim">${fmt(c.desp)}</td>
-            <td class="r td-num" style="color:${c.debe ? 'var(--wa)' : 'var(--ok)'};font-weight:700">${c.debe ? fmt(c.debe) : '✓ en caja'}</td>
-            <td style="width:26%">${c.debe ? vBarra(c.debe, Math.max(1, ...clientes.map(x => x.debe)), false) : ''}</td></tr>`;
-        }).join(''),
-        `${clientes.length} ${clientes.length === 1 ? 'cliente esperando' : 'clientes esperando'} ${fmt(suma)} prendas${aviso}. «Se le debe» no cuenta lo que ya está en caja`);
 
 
   /* Por talla: se debe = saldo de Adecom − lo que está en caja (igual que su informe por talla),
@@ -4153,6 +4159,7 @@ function pvcDetalle(art) {
      de más en una talla (negativo) no cubre otra: por eso el corte por talla puede sumar más que el
      del artículo. Las tallas van en el orden del ERP: 36, 38, 40… */
   let tablaTallas = '';
+  const estT = {};   // talla → 'er' falta cortar, 'ok' hay en bodega, 'ac' viene en producción (para pintar lo de cada cliente)
   if (f.ts) {
     // Solo las cajas de pedidos que todavía deben este artículo: las mismas de la lista de clientes
     const cajaT = {}, pedPend = new Set(clientes.map(c => c.pedido));
@@ -4171,6 +4178,7 @@ function pvcDetalle(art) {
       const sal = (f.ts[i] || 0) - (stMag[talla] || 0), caja = cajaT[talla] || 0, libre = libreT[talla] || 0, prod = (f.tc || [])[i] || 0;
       if (!sal && !caja && !libre && !prod) continue;
       const debe = sal - caja, cortar = Math.max(0, debe - libre - prod);
+      if (debe > 0) estT[talla] = cortar > 0 ? 'er' : libre >= debe ? 'ok' : 'ac';
       tot.debe += debe; tot.caja += caja; tot.hay += libre + prod; tot.cortar += cortar;
       filasT.push(`<tr><td class="td-code">${talla}</td>
         <td class="r td-num" style="color:${debe < 0 ? 'var(--er)' : debe ? 'var(--wa)' : 'var(--tx3)'}">${fmt(debe)}${debe < 0 ? '<div class="td-dim" style="font-size:10px;font-weight:400">se despachó de más</div>' : ''}</td>
@@ -4188,6 +4196,36 @@ function pvcDetalle(art) {
     tablaTallas = '<div class="td-dim" style="font-size:12px;padding:10px 16px 0">El detalle por talla aparece con la próxima actualización de datos.</div>';
   }
 
+  /* Lo que se le debe a cada cliente, talla por talla (Manu, 23-10-2026: "cuando se seleccione un cliente, que se sepa
+     cuánto se le debe por talla, y así sabemos cuánto tenemos que cortar"): lo de su pedido menos lo de su caja, cada
+     talla pintada con lo que pasa en esa talla para todos (rojo falta cortar, verde hay en bodega, azul en producción). */
+  const ordenT = (x, y) => (isNaN(+x) || isNaN(+y) ? String(x).localeCompare(String(y)) : +x - +y);
+  const tallasCli = c => {
+    if (!c.st) return '<span class="td-dim">Este pedido no trae el detalle por talla.</span>';
+    const tt = Object.keys({ ...c.st, ...c.cajaT }).sort(ordenT);
+    const debeT = tt.map(t => [t, Math.max(0, (c.st[t] || 0) - (c.cajaT[t] || 0))]).filter(([, n]) => n > 0);
+    const enCajaT = tt.map(t => [t, Math.min(c.cajaT[t] || 0, c.st[t] || 0)]).filter(([, n]) => n > 0);
+    const tit = { er: 'En esta talla falta cortar', ok: 'Hay en bodega para todos los que la esperan', ac: 'Viene en producción' };
+    return (debeT.length ? `<div class="pvc-ts"><span class="pvc-ts-l">Se le debe</span>${debeT.map(([t, n]) => `<span class="pvc-t ${estT[t] || ''}" title="${tit[estT[t]] || ''}"><i>${t}</i><b>${fmt(n)}</b></span>`).join('')}</div>` : '')
+      + (enCajaT.length ? `<div class="pvc-ts"><span class="pvc-ts-l" style="color:var(--ok)">📦 En caja</span>${enCajaT.map(([t, n]) => `<span class="pvc-t cj"><i>${t}</i><b>${fmt(n)}</b></span>`).join('')}</div>` : '')
+      || '<span class="td-dim">Todo lo suyo ya está en caja.</span>';
+  };
+  const tablaCli = !clientes.length
+    ? '<div class="td-dim" style="padding:18px 16px">Nadie tiene saldo pendiente de este artículo</div>'
+    : vTabla('<th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Se le debe</th><th></th>',
+        clientes.map(c => {
+          const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
+          return `<tr class="pvc-cli" onclick="pvcVerTallas(this)" title="Toca para ver lo que se le debe por talla">
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}${c.caja
+              ? `<div style="font-size:11px;font-weight:600;color:var(--ok)">📦 caja ${c.cajas.join(', ')} · ${fmt(c.caja)} en caja</div>` : ''}</td>
+            <td class="td-dim">${c.ciudad || '—'}</td>
+            <td class="r td-num">${fmt(c.sol)}</td>
+            <td class="r td-num td-dim">${fmt(c.desp)}</td>
+            <td class="r td-num" style="color:${c.debe ? 'var(--wa)' : 'var(--ok)'};font-weight:700">${c.debe ? fmt(c.debe) : '✓ en caja'}</td>
+            <td style="width:26%">${c.debe ? vBarra(c.debe, Math.max(1, ...clientes.map(x => x.debe)), false) : ''}</td></tr>
+          <tr class="pvc-cli-t" style="display:none"><td colspan="6" style="padding:6px 16px 12px;background:var(--sf2)">${tallasCli(c)}</td></tr>`;
+        }).join(''),
+        `${clientes.length} ${clientes.length === 1 ? 'cliente esperando' : 'clientes esperando'} ${fmt(suma)} prendas${aviso}. «Se le debe» no cuenta lo que ya está en caja. Toca un cliente para ver lo suyo por talla: en rojo las tallas en que falta cortar, en verde las que hay en bodega, en azul las que vienen en producción`);
   return resumen + tablaTallas + tablaCli;   // sin las órdenes de corte: Manu, 22-10-2026
 }
 
