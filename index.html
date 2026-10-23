@@ -3615,21 +3615,21 @@ async function secCajas() {
     <input id="cjSearch" class="finput fsearch" placeholder="Cliente, pedido, caja, artículo…" style="width:230px"></div>
   </div>
   <div class="kpi-grid">
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-ck="todas" role="button" tabindex="0" title="Ver todas las cajas">
       <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO}</svg></div>
-      <div><div class="kpi-val" id="cjKN">—</div><div class="kpi-lbl">Cajas</div></div>
+      <div><div class="kpi-val" id="cjKN">—</div><div class="kpi-lbl">Cajas</div><div class="db-k-ver">Ver todas las cajas ›</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-ck="prendas" role="button" tabindex="0" title="Ordenar por prendas, de mayor a menor">
       <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div><div class="kpi-val" id="cjKPrendas">—</div><div class="kpi-lbl">Prendas</div></div>
+      <div><div class="kpi-val" id="cjKPrendas">—</div><div class="kpi-lbl">Prendas</div><div class="db-k-ver">Ordenar por prendas ›</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-ck="valor" role="button" tabindex="0" title="Ordenar por valor, de mayor a menor">
       <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-      <div><div class="kpi-val" id="cjKValor" style="font-size:20px">—</div><div class="kpi-lbl">Valor neto (precio pedido)</div></div>
+      <div><div class="kpi-val" id="cjKValor" style="font-size:20px">—</div><div class="kpi-lbl">Valor neto (precio pedido)</div><div class="db-k-ver">Ordenar por valor ›</div></div>
     </div>
-    <div class="kpi" style="cursor:default">
+    <div class="kpi" data-ck="viejas" role="button" tabindex="0" title="Ver las cajas con un mes o más en bodega">
       <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-      <div><div class="kpi-val" id="cjKViejas">—</div><div class="kpi-lbl">Más de 30 días</div></div>
+      <div><div class="kpi-val" id="cjKViejas">—</div><div class="kpi-lbl">Un mes o más</div><div class="db-k-ver">Ver cuáles ›</div></div>
     </div>
   </div>
   <div class="tbl-card">
@@ -8792,7 +8792,7 @@ function bindContent(secId) {
         let sib = row.nextElementSibling;
         while (sib && sib.classList.contains('cj-line')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
         const chv = row.querySelector('.chv'); if (chv) chv.textContent = '▸';
-        if (ok) { n++; prendas += parseInt(row.dataset.prendas) || 0; valor += parseInt(row.dataset.valor) || 0; if (d > 30) viejas++; }
+        if (ok) { n++; prendas += parseInt(row.dataset.prendas) || 0; valor += parseInt(row.dataset.valor) || 0; if (d >= 30) viejas++; }   // igual que el botón "+1 mes" 
       });
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       set('cjKN', n); set('cjKPrendas', fmt(prendas)); set('cjKValor', fmtM(valor)); set('cjKViejas', viejas);
@@ -8839,6 +8839,20 @@ function bindContent(secId) {
     });
     document.getElementById('cjVend')?.addEventListener('change', applyCjFilters);
     document.getElementById('cjSearch')?.addEventListener('input', applyCjFilters);
+    /* Tocar una tarjeta cambia los filtros (Manu, 23-10-2026: "presiono en la tarjeta y que se cambien los filtros igual"):
+       Cajas muestra todas, Un mes o más aplica "+1 mes", Prendas y Valor ordenan de mayor a menor. Después lleva a la tabla. */
+    document.querySelectorAll('[data-ck]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.ck;
+        if (k === 'todas') document.querySelector('#cjDiasSegs .seg[data-d="0"]')?.click();
+        if (k === 'viejas') document.querySelector('#cjDiasSegs .seg[data-d="30"]')?.click();
+        if (k === 'prendas' || k === 'valor') { cjSortCol = null; sortCj(k); }   // de mayor a menor
+        const tb = document.getElementById('cjBody');
+        (tb?.closest('.tbl-card') || tb)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
     document.querySelectorAll('#cjBody tr.cj-row').forEach(row => row.addEventListener('click', () => {
       let open = false, sib = row.nextElementSibling;
       while (sib && sib.classList.contains('cj-line')) { if (sib.style.display !== 'none') open = true; sib = sib.nextElementSibling; }
