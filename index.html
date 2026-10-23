@@ -276,6 +276,8 @@ body.ia-open #iaBtn{display:none}
 .graf-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
 .graf-chip{display:inline-flex;align-items:center;gap:6px;background:var(--ac10);color:var(--ac);border-radius:14px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
 @media(max-width:900px){.graf-grid{grid-template-columns:1fr}}
+.pvc-eq-t{cursor:pointer;border-radius:10px;padding:4px 8px;margin:-4px -8px;transition:background .12s}
+.pvc-eq-t:hover{background:var(--sf2)}
 .pvc-eq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
 @media(max-width:700px){.pvc-eq{grid-template-columns:1fr;gap:4px}.pvc-eq .db-eq-op{padding:0;font-size:22px}}
 .db-hero-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
@@ -4238,6 +4240,7 @@ async function secPVC() {
       <button class="seg" data-estado="ofrecer">▲ Ofrecer</button>
       <button class="seg" data-estado="cortar" title="Lo que se les debe a los clientes y no está ni en bodega ni en producción. Al lado de cada uno dice si ya está programado (hay que apurar ese corte) o si hay que programarlo">▼ Falta cortar</button>
       <button class="seg" data-estado="apurar" title="Solo los que ya tienen una orden de corte programada que todavía no se corta">⏱ Apurar corte</button>
+      <button class="seg" data-estado="programar" title="Lo que falta cubrir y no está en ninguna orden programada: hay que programar una orden nueva">📝 Falta programar</button>
     </div></div>
     <div class="fgrp"><span class="flbl">Etapa</span>
     <div class="segs" id="pvcEtapaSegs">
@@ -4273,17 +4276,17 @@ async function secPVC() {
        de más no se resta. La llena applyPvcFilter con lo que se ve (temporada, filtros y búsqueda). -->
   <div class="db-hero" style="border-top:3px solid #6d28d9">
     <div class="pvc-eq">
-      <div><div class="db-hero-lbl" title="Lo que se les debe a los clientes y no está ni en bodega ni en producción, artículo por artículo">Lo que debemos sin cubrir</div>
+      <div class="pvc-eq-t" data-eq="cortar" role="button" tabindex="0" title="Ver en la tabla todo lo que falta cubrir"><div class="db-hero-lbl" title="Lo que se les debe a los clientes y no está ni en bodega ni en producción, artículo por artículo">Lo que debemos sin cubrir</div>
         <div class="db-hero-n2" id="pvcEqFalta" style="color:var(--er)">—</div>
-        <div class="db-hero-sub" id="pvcEqFaltaSub">se debe y no está ni en bodega ni en producción</div></div>
+        <div class="db-hero-sub" id="pvcEqFaltaSub">se debe y no está ni en bodega ni en producción</div><div class="db-k-ver">Ver cuáles ›</div></div>
       <div class="db-eq-op">−</div>
-      <div><div class="db-hero-lbl">📋 Programado</div>
+      <div class="pvc-eq-t" data-eq="apurar" role="button" tabindex="0" title="Ver en la tabla lo que ya está programado: hay que apurar esos cortes"><div class="db-hero-lbl">📋 Programado</div>
         <div class="db-hero-n2" id="pvcEqProg" style="color:#6d28d9">—</div>
-        <div class="db-hero-sub" id="pvcEqProgSub">órdenes programadas que todavía no se cortan</div></div>
+        <div class="db-hero-sub" id="pvcEqProgSub">órdenes programadas que todavía no se cortan</div><div class="db-k-ver">Ver cuáles ›</div></div>
       <div class="db-eq-op">=</div>
-      <div><div class="db-hero-lbl">Total: falta programar</div>
+      <div class="pvc-eq-t" data-eq="programar" role="button" tabindex="0" title="Ver en la tabla lo que falta cubrir por fuera de lo programado"><div class="db-hero-lbl">Total: falta programar</div>
         <div class="db-hero-n2" id="pvcEqRes" style="color:var(--tx1)">—</div>
-        <div class="db-hero-sub">hay que programar una orden nueva</div></div>
+        <div class="db-hero-sub">hay que programar una orden nueva</div><div class="db-k-ver">Ver cuáles ›</div></div>
     </div>
   </div>
   ${grafCard('pvcGraf', '¿Qué cortar primero? Lo que más falta', 'Los 15 artículos con más falta de lo que se ve (cambia con la temporada, los filtros y la búsqueda): en morado lo que ya está programado, hay que apurar ese corte; en rojo lo que falta programar. Toca una barra para ver a quién se le debe.', 300)}
@@ -9909,7 +9912,8 @@ function bindContent(secId) {
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado
           || (estado === 'cortar' && row.dataset.estado === 'apurar')                                  // falta cortar: también lo ya programado
-          || (estado === 'apurar' && +row.dataset.prog > 0 && row.dataset.estado === 'cortar');        // apurar: también lo programado que no alcanza
+          || (estado === 'apurar' && +row.dataset.prog > 0 && row.dataset.estado === 'cortar')         // apurar: también lo programado que no alcanza
+          || (estado === 'programar' && row.dataset.estado === 'cortar');                             // falta programar: lo que lo programado no cubre
         const showEtapa  = etapa  === 'all' || (row.dataset.etapas || row.dataset.etapa || '').split('|').includes(etapa);
         // Una búsqueda numérica compara contra el modelo, el artículo, la OC o el EX completos:
         // con subcadena libre, "4440" también calzaba dentro de 01444400, que es el modelo 4444.
@@ -10002,6 +10006,16 @@ function bindContent(secId) {
       b.classList.add('on');
       applyPvcFilter();
     }));
+    /* Tocar un término de la resta filtra la tabla con eso y lleva a ella (Manu, 23-10-2026: "ver los que faltan por
+       cubrir por fuera de lo programado") */
+    document.querySelectorAll('[data-eq]').forEach(el => {
+      const ir = () => {
+        document.querySelector(`#pvcEstadoSegs .seg[data-estado="${el.dataset.eq}"]`)?.click();
+        document.getElementById('pvcBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      el.addEventListener('click', ir);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
 
     document.querySelectorAll('#pvcEtapaSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#pvcEtapaSegs .seg').forEach(x => x.classList.remove('on'));
