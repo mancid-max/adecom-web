@@ -4148,10 +4148,15 @@ function pvcDetalle(art) {
       if ((c.estado || '') !== 'bodega' || !pedPend.has(c.pedido)) continue;
       for (const l of (c.lineas || [])) if (l.art === art) cajaT[l.talla] = (cajaT[l.talla] || 0) + Math.max(0, (l.cant || 0) - (l.desp || 0));
     }
+    /* Con "Sin Magic", lo que se le debe a Magic en cada talla tampoco cuenta (sus líneas traen la talla): antes la tabla
+       la incluía y no calzaba con lo de arriba (Manu, 23-10-2026, el 4431-00: arriba 91, la tabla 115) */
+    const stMag = {};
+    if (PVC_SIN_MAGIC) for (const p of (CACHE['pedidos.json'] || [])) if (esMagic(p))
+      for (const l of (p.lineas || [])) if (l.art === art) for (const [t, n] of Object.entries(l.st || {})) stMag[t] = (stMag[t] || 0) + n;
     const libreT = STOCK_TALLA[art] || {}, tot = { debe: 0, caja: 0, hay: 0, cortar: 0 }, filasT = [];
     for (let i = 0; i < 9; i++) {
       const talla = String(36 + 2 * i);
-      const sal = f.ts[i] || 0, caja = cajaT[talla] || 0, libre = libreT[talla] || 0, prod = (f.tc || [])[i] || 0;
+      const sal = (f.ts[i] || 0) - (stMag[talla] || 0), caja = cajaT[talla] || 0, libre = libreT[talla] || 0, prod = (f.tc || [])[i] || 0;
       if (!sal && !caja && !libre && !prod) continue;
       const debe = sal - caja, cortar = Math.max(0, debe - libre - prod);
       tot.debe += debe; tot.caja += caja; tot.hay += libre + prod; tot.cortar += cortar;
@@ -4166,7 +4171,7 @@ function pvcDetalle(art) {
     tablaTallas = `<div class="flbl" style="padding:14px 16px 0">Por talla · cuánto se debe y cuánto cortar</div>` + vTabla(
       '<th>Talla</th><th class="r" title="Saldo de Adecom − lo que ya está en caja">Se debe</th><th class="r">En caja</th><th class="r" title="Stock libre en San Gerardo + lo que está en corte">Hay</th><th class="r">Cortar</th>',
       filasT.join(''),
-      `Se debe = saldo de Adecom − lo que ya está en caja, igual que su informe por talla. Hay = stock libre en San Gerardo + lo que está en corte. Cortar se calcula talla por talla: lo despachado de más en una talla no sirve para otra, por eso puede sumar más que el total del artículo.${PVC_SIN_MAGIC ? ' El detalle por talla incluye los pedidos de Magic.' : ''}`);
+      `Se debe = saldo de Adecom − lo que ya está en caja, igual que su informe por talla. Hay = stock libre en San Gerardo + lo que está en corte. Cortar se calcula talla por talla: lo despachado de más en una talla no sirve para otra, por eso puede sumar más que el total del artículo.${PVC_SIN_MAGIC ? ' Sin los pedidos de Magic, también por talla.' : ''}`);
   } else if (!PVC_HAY_TALLAS) {
     tablaTallas = '<div class="td-dim" style="font-size:12px;padding:10px 16px 0">El detalle por talla aparece con la próxima actualización de datos.</div>';
   }
