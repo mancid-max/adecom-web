@@ -270,6 +270,8 @@ body.ia-open #iaBtn{display:none}
 .db-hero{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 22px;margin:0 0 14px}
 .db-eq{display:grid;grid-template-columns:minmax(0,1.5fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
 .db-eq-op{font-size:32px;font-weight:300;line-height:1;color:var(--tx3);padding-top:24px}
+.pvc-eq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
+@media(max-width:700px){.pvc-eq{grid-template-columns:1fr;gap:4px}.pvc-eq .db-eq-op{padding:0;font-size:22px}}
 .db-hero-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
 .db-hero-n{font-size:46px;font-weight:800;letter-spacing:-.04em;line-height:1.05;color:var(--tx1);font-variant-numeric:tabular-nums;margin-top:4px}
 .db-hero-n2{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:4px}
@@ -4261,6 +4263,24 @@ async function secPVC() {
       <div><div class="kpi-val" id="pvcKDiff" style="color:${k.diff>=0?'var(--ok)':'var(--er)'}">${k.diff>0?'+':''}${fmt(k.diff)}</div><div class="kpi-lbl">Diferencia (u)</div></div>
     </div>
   </div>
+  <!-- Lo que debemos sin cubrir − lo programado = lo que falta programar (Manu, 23-10-2026: "Total = lo que debemos −
+       programado"). Artículo por artículo: lo programado de un modelo no tapa lo que falta de otro, y lo que una orden trae
+       de más no se resta. La llena applyPvcFilter con lo que se ve (temporada, filtros y búsqueda). -->
+  <div class="db-hero" style="border-top:3px solid #6d28d9">
+    <div class="pvc-eq">
+      <div><div class="db-hero-lbl" title="Lo que se les debe a los clientes y no está ni en bodega ni en producción, artículo por artículo">Lo que debemos sin cubrir</div>
+        <div class="db-hero-n2" id="pvcEqFalta" style="color:var(--er)">—</div>
+        <div class="db-hero-sub">se debe y no está ni en bodega ni en producción</div></div>
+      <div class="db-eq-op">−</div>
+      <div><div class="db-hero-lbl">📋 Programado</div>
+        <div class="db-hero-n2" id="pvcEqProg" style="color:#6d28d9">—</div>
+        <div class="db-hero-sub" id="pvcEqProgSub">órdenes programadas que todavía no se cortan</div></div>
+      <div class="db-eq-op">=</div>
+      <div><div class="db-hero-lbl">Total: falta programar</div>
+        <div class="db-hero-n2" id="pvcEqRes" style="color:var(--tx1)">—</div>
+        <div class="db-hero-sub">hay que programar una orden nueva</div></div>
+    </div>
+  </div>
   <div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
       <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver a quién se le debe</div>
@@ -6996,8 +7016,10 @@ async function secProgramado() {
   const totProg = filas.reduce((a, x) => a + x.o.programa, 0);
   const conCli = filas.filter(x => x.sal > 0), sumSal = arts.reduce((a, k) => a + (PVC_FILAS[k] ? PVC_FILAS[k].sal : 0), 0);
   const n30 = filas.filter(x => x.o.dias > 30).length, vieja = filas[0];
-  const kpi = (val, lbl, sub, color) => `<div class="kpi" style="cursor:default;border-top:3px solid ${color}"><div style="min-width:0">
-      <div class="kpi-val" style="color:${color}">${val}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-delta d-nu">${sub}</div></div></div>`;
+  /* Las tarjetas se recalculan con la colección y la búsqueda (Manu, 23-10: "cuando presione el filtro por cole, que
+     cambie el dato de las tarjetas"); con los botones "Ver" no, porque son esos mismos números */
+  const kpi = (val, lbl, sub, color, k, ver, extra = '') => `<div class="kpi" data-pk="${k}" ${extra} role="button" tabindex="0" title="${ver}" id="pk-${k || 'n'}" style="border-top:3px solid ${color}"><div style="min-width:0">
+      <div class="kpi-val" id="pk-${k || 'n'}-val" style="color:${color}">${val}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-delta d-nu" id="pk-${k || 'n'}-sub">${sub}</div><div class="db-k-ver">${ver} ›</div></div></div>`;
   const temps = [...new Set(filas.map(x => x.temp))].sort((a, b) => +b - +a);
   const segs = [['', 'Todas', filas.length], ['cli', 'Con clientes esperando', conCli.length], ['sin', 'Nadie lo espera', filas.length - conCli.length], ['d30', 'Más de 30 días', n30]]
     .filter(([k, , n]) => !k || n).map(([k, t, n]) => `<button class="seg${k ? '' : ' on'}" data-f="${k}">${t} <span class="db-n">${n}</span></button>`).join('');
@@ -7009,10 +7031,10 @@ async function secProgramado() {
       ${temps.length > 1 ? `<div class="fgrp"><span class="flbl">Temp</span><div class="segs" id="progTSegs"><button class="seg on" data-t="">Todas</button>${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}</div></div>` : ''}</div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${kpi(fmt(filas.length), 'Órdenes programadas sin cortar', `${fmt(totProg)} prendas programadas`, '#6d28d9')}
-    ${kpi(dias(vieja.o.dias), 'La más antigua', `OC ${vieja.o.oc} · ${cod(vieja.art)} · ${fmt(vieja.o.programa)} prendas, del ${vieja.o.fecha}`, diasClr(vieja.o.dias))}
-    ${kpi(fmt(conCli.length), 'Con clientes esperando', `se les deben ${fmt(sumSal)} prendas de esos artículos`, 'var(--wa)')}
-    ${kpi(fmt(n30), 'Más de 30 días sin cortar', n30 ? 'son las primeras que hay que apurar' : 'ninguna', n30 ? 'var(--er)' : 'var(--ok)')}
+    ${kpi(fmt(filas.length), 'Órdenes programadas sin cortar', `${fmt(totProg)} prendas programadas`, '#6d28d9', '', 'Ver todas')}
+    ${kpi(dias(vieja.o.dias), 'La más antigua', `OC ${vieja.o.oc} · ${cod(vieja.art)} · ${fmt(vieja.o.programa)} prendas, del ${vieja.o.fecha}`, diasClr(vieja.o.dias), 'vieja', 'Ver a quién se le debe', `data-art="${vieja.art}"`)}
+    ${kpi(fmt(conCli.length), 'Con clientes esperando', `se les deben ${fmt(sumSal)} prendas de esos artículos`, 'var(--wa)', 'cli', 'Ver cuáles')}
+    ${kpi(fmt(n30), 'Más de 30 días sin cortar', n30 ? 'son las primeras que hay que apurar' : 'ninguna', n30 ? 'var(--er)' : 'var(--ok)', 'd30', 'Ver cuáles')}
   </div>
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Órdenes de corte programadas que todavía no se cortan</div>
@@ -7022,7 +7044,7 @@ async function secProgramado() {
       <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n" title="Días desde que se programó la orden">Programada</th><th class="r pl-sec" data-ord="n">Programado</th>
         <th data-ord="n">Se debe<span class="pl-sub">por talla</span></th><th class="r pl-sec" data-ord="n" title="Stock libre en San Gerardo + lo que ya está cortado">Hay</th>
         <th data-ord="n">Qué hacer</th><th class="r pl-sec" data-ord="n" title="Días del pedido más antiguo que espera este artículo">Espera</th></tr></thead>
-      <tbody id="progBody">${filas.map(x => `<tr data-part="${x.art}" data-t="${x.temp}" data-f=" ${x.sal ? 'cli' : 'sin'} ${x.o.dias > 30 ? 'd30' : ''} " data-q="${rvSinTilde([x.art, cod(x.art), x.art.slice(2, 6), x.o.oc, bota[x.art] || ''].join(' ').toLowerCase())}" title="Toca para ver a quién se le debe">
+      <tbody id="progBody">${filas.map(x => `<tr data-part="${x.art}" data-cod="${cod(x.art)}" data-oc="${x.o.oc}" data-fecha="${x.o.fecha}" data-dias="${x.o.dias}" data-prog="${x.o.programa}" data-sal="${x.sal}" data-t="${x.temp}" data-f=" ${x.sal ? 'cli' : 'sin'} ${x.o.dias > 30 ? 'd30' : ''} " data-q="${rvSinTilde([x.art, cod(x.art), x.art.slice(2, 6), x.o.oc, bota[x.art] || ''].join(' ').toLowerCase())}" title="Toca para ver a quién se le debe">
         <td class="pl-wrap" data-v="${x.art}"><div style="display:flex;align-items:center">${artImg(x.art)}<div><span class="td-code">${cod(x.art)}</span>
           <span class="pl-sub">${bota[x.art] || 'Sin bota'} · T${x.temp} · OC ${x.o.oc}</span><span class="pl-sub db-movil">${fmt(x.o.programa)} programadas</span></div></div></td>
         <td class="r td-num" data-v="${x.o.dias}"><b style="color:${diasClr(x.o.dias)}">${dias(x.o.dias)}</b><span class="pl-sub">${x.o.fecha}</span></td>
@@ -8871,13 +8893,38 @@ function bindContent(secId) {
     if (tabla) planOrdenable(tabla);
     const filas = [...document.querySelectorAll('#progBody tr[data-part]')];
     let fEst = '', fT = '';
+    const diasClr = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'var(--ok)';
+    const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    // Las tarjetas y las cuentas de los botones, con lo que entra por colección y búsqueda
+    const tarjetas = rs => {
+      const d = tr => +tr.dataset.dias, vieja = rs.slice().sort((a, b) => d(b) - d(a) || +b.dataset.prog - +a.dataset.prog)[0];
+      const conCli = rs.filter(tr => +tr.dataset.sal > 0), arts = new Map(conCli.map(tr => [tr.dataset.part, +tr.dataset.sal]));
+      const n30 = rs.filter(tr => d(tr) > 30).length;
+      poner('pk-n-val', fmt(rs.length)); poner('pk-n-sub', `${fmt(rs.reduce((a, tr) => a + +tr.dataset.prog, 0))} prendas programadas`);
+      const cv = document.getElementById('pk-vieja');
+      if (cv) {
+        cv.dataset.art = vieja ? vieja.dataset.part : '';
+        const clr = vieja ? diasClr(d(vieja)) : 'var(--tx3)';
+        cv.style.borderTopColor = clr; document.getElementById('pk-vieja-val').style.color = clr;
+        poner('pk-vieja-val', vieja ? `${fmt(d(vieja))} día${d(vieja) === 1 ? '' : 's'}` : '—');
+        poner('pk-vieja-sub', vieja ? `OC ${vieja.dataset.oc} · ${vieja.dataset.cod} · ${fmt(+vieja.dataset.prog)} prendas, del ${vieja.dataset.fecha}` : 'ninguna');
+      }
+      poner('pk-cli-val', fmt(conCli.length)); poner('pk-cli-sub', `se les deben ${fmt([...arts.values()].reduce((a, v) => a + v, 0))} prendas de esos artículos`);
+      poner('pk-d30-val', fmt(n30)); poner('pk-d30-sub', n30 ? 'son las primeras que hay que apurar' : 'ninguna');
+      const c30 = document.getElementById('pk-d30');
+      if (c30) { const clr = n30 ? 'var(--er)' : 'var(--ok)'; c30.style.borderTopColor = clr; document.getElementById('pk-d30-val').style.color = clr; }
+      document.querySelectorAll('#progSegs .seg').forEach(b => { const k = b.dataset.f, el = b.querySelector('.db-n');
+        if (el) el.textContent = k ? rs.filter(tr => tr.dataset.f.includes(` ${k} `)).length : rs.length; });
+    };
     const filtrar = () => {
       const q = rvSinTilde((document.getElementById('progSearch')?.value || '').trim().toLowerCase());
+      const enAlcance = filas.filter(tr => (!fT || tr.dataset.t === fT) && (!q || tr.dataset.q.includes(q)));
       let n = 0;
-      filas.forEach(tr => { const ok = (!fEst || tr.dataset.f.includes(` ${fEst} `)) && (!fT || tr.dataset.t === fT) && (!q || tr.dataset.q.includes(q)); tr.style.display = ok ? '' : 'none'; n += ok; });
+      filas.forEach(tr => { const ok = enAlcance.includes(tr) && (!fEst || tr.dataset.f.includes(` ${fEst} `)); tr.style.display = ok ? '' : 'none'; n += ok; });
       document.getElementById('progNada').style.display = n ? 'none' : '';
       const c = document.getElementById('progCuenta');
       if (c) c.textContent = n === filas.length ? `${fmt(n)} órdenes` : `${fmt(n)} de ${fmt(filas.length)} órdenes`;
+      tarjetas(enAlcance);
     };
     document.getElementById('progSearch')?.addEventListener('input', filtrar);
     for (const [id, set] of [['progSegs', v => { fEst = v.f; }], ['progTSegs', v => { fT = v.t; }]])
@@ -8886,6 +8933,17 @@ function bindContent(secId) {
         document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.toggle('on', x === b));
         filtrar();
       }));
+    // Tocar una tarjeta: la más antigua abre su detalle; las otras filtran la lista y llevan a ella
+    document.querySelectorAll('[data-pk]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.pk;
+        if (k === 'vieja') { filas.find(tr => tr.dataset.part === card.dataset.art)?.click(); return; }
+        document.querySelector(`#progSegs .seg[data-f="${k}"]`)?.click();   // sin tocar la colección elegida
+        document.getElementById('progBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
     filas.forEach(tr => tr.addEventListener('click', () => {
       const art = tr.dataset.part;
       document.getElementById('vkOvTtl').textContent = `${art.slice(2, 6)}-${art.slice(6, 8)} · programado sin cortar`;
@@ -9730,6 +9788,14 @@ function bindContent(secId) {
       const kdiffEl = document.getElementById('pvcKDiff');
       if (kpedEl)  kpedEl.textContent  = fmt(sumPed);
       if (kprogEl) kprogEl.textContent = fmt(sumCort);
+      const eqF = document.getElementById('pvcEqFalta');
+      if (eqF) {
+        eqF.textContent = fmt(aCortar + aApurar);
+        document.getElementById('pvcEqProg').textContent = fmt(aApurar);
+        document.getElementById('pvcEqRes').textContent = fmt(aCortar);
+        document.getElementById('pvcEqProgSub').textContent = sumProg > aApurar
+          ? `lo que cubre de lo que falta; hay ${fmt(sumProg)} programadas en total` : 'órdenes programadas que todavía no se cortan';
+      }
       const kprogP = document.getElementById('pvcKProgP');
       if (kprogP) { kprogP.style.display = sumProg ? '' : 'none'; kprogP.textContent = `📋 ${fmt(sumProg)} programado sin cortar`; }
       if (kdiffEl) { kdiffEl.textContent = (diff>0?'+':'')+fmt(diff); kdiffEl.style.color = diff>=0?'var(--ok)':'var(--er)'; }
