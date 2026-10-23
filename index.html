@@ -281,7 +281,18 @@ body.ia-open #iaBtn{display:none}
 .db-hero-ley i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
 .db-hero-ley b{font-weight:700;color:var(--tx1)}
 @media(max-width:700px){.db-hero{padding:16px}.db-eq{grid-template-columns:1fr 1fr;gap:14px 16px}.db-eq-tot{grid-column:1 / -1}.db-eq-op{display:none}.db-hero-n{font-size:38px}.db-hero-n2{font-size:28px}}
-.db-kpis .db-k{flex:1 1 200px;cursor:default}
+.db-kpis .db-k{flex:1 1 200px}
+.db-k-ver{font-size:11.5px;font-weight:600;color:var(--ac);margin-top:8px}
+.db-eq-k{cursor:pointer;border-radius:10px;padding:4px 8px;margin:-4px -8px;transition:background .12s}
+.db-eq-k:hover{background:var(--ok10)}
+.pl .pc-kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pl .db-kcs{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center}
+.pl .db-kc{border:1px solid var(--bd);background:var(--sf);border-radius:12px;padding:2px 8px;font:inherit;font-size:11px;color:var(--tx2);cursor:pointer;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.pl .db-kc b{color:var(--tx1);font-weight:700;margin-left:2px}
+.pl .db-kc:hover{border-color:var(--ac);color:var(--ac)}
+.pl .db-kc[hidden]{display:none}
+.pl .db-kc-mas{color:var(--ac);font-weight:600}
+@media(max-width:700px){.pl .pc-kpis.k3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .db-k .db-k-p{font-size:15px;font-weight:700;margin-left:6px;letter-spacing:0}
 .db-sem{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
 .db-k-bar{height:5px;background:var(--bd);border-radius:3px;margin-top:10px;overflow:hidden}
@@ -499,6 +510,7 @@ body.ia-open #iaBtn{display:none}
 <div class="overlay" id="overlay"></div>
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
 <div class="det-ov" id="cliOv" style="z-index:250"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cliTtl">Cliente</div><button class="det-close" id="cliClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cliBody" style="padding:14px 16px"></div></div></div>
+<div class="det-ov" id="debKOv" style="z-index:245"><div class="det-panel" style="width:min(880px,96vw)"><div class="det-hd"><div class="det-ttl" id="debKOvTtl">Detalle</div><button class="det-close" id="debKOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="debKOvBody" style="padding:0 0 4px"></div></div></div>
 <div class="det-ov" id="vkOv" style="z-index:250"><div class="det-panel" style="width:min(760px,96vw)"><div class="det-hd"><div class="det-ttl" id="vkOvTtl">Detalle</div><button class="det-close" id="vkOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="vkOvBody" style="padding:0 0 4px"></div></div></div>
 <div class="det-ov" id="pedOv" style="z-index:240"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="pedTtl">Pedido</div><button class="det-close" id="pedClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="pedBody"></div></div></div>
 <div class="det-ov" id="vdMultiOv" style="z-index:250"><div class="det-panel" style="width:min(460px,94vw)"><div class="det-hd"><div class="det-ttl">Buscar varios artículos</div><button class="det-close" id="vdMultiClose" aria-label="Cerrar">✕</button></div>
@@ -3932,7 +3944,7 @@ function pvcMagic() {           // artículo → lo que pidió Magic, lo que se 
 }
 
 /* Las filas de Pedido vs Corte de una temporada, sin dibujarlas. También las usa "Qué le debemos",
-   que va siempre con Magic: ahí se ve lo de cada cliente. */
+   con o sin Magic según su propio botón. */
 function pvcFilasDe(t, ftMap, exMap, sinMagic = PVC_SIN_MAGIC) {
   const rawItems = buildByTemp()[t]?.items || [];
   // Una fila por ARTÍCULO (modelo + color), igual que el informe "Artículos para corte" del ERP.
@@ -6879,6 +6891,9 @@ async function secCyber() {
    su lugar. Las cuentas son las de Pedido vs Corte: lo que hay se compara con lo que se les debe a
    todos los clientes, no solo a él, y lo que ya está en una caja armada no se debe. */
 let DEB = null;
+/* "Sin Magic" (Manu, 23-10-2026: "colócale un filtro acá de con Magic y sin Magic"): no aparece Magic World y
+   lo que hay se compara solo con lo que se les debe a los demás, igual que en Pedido vs Corte y en Campaña. */
+let DEB_SIN_MAGIC = false;
 const DEB_ETAPA = { 'T.Externo': 'Taller externo', 'Sin movimiento': 'Programado' };
 const DEB_EST = {
   cortar:     ['No hay: falta cortar', 'er'],
@@ -6895,10 +6910,14 @@ const debDisp = (tallasOk, necesita = {}) => tallasOk.length ? `<div class="db-t
   return `<span class="db-t db-t2${k ? ' ' + k : ''}"><i>${t}</i><b>${v == null ? '?' : fmt(v)}</b></span>`;
 }).join('')}</div>` : '';
 
-function debDatos(peds, ft, ftMap) {
-  // Cada artículo, en todas las temporadas con pedidos y con Magic
+function debDatos(peds, ft, ftMap, sinMagic = false) {
+  // Cada artículo, en todas las temporadas con pedidos; con "Sin Magic", sin lo que se le debe a Magic
   const arts = {};
-  for (const t of Object.keys(buildByTemp())) for (const f of pvcFilasDe(t, ftMap, null, false)) arts[f.art] = f;
+  for (const t of Object.keys(buildByTemp())) for (const f of pvcFilasDe(t, ftMap, null, sinMagic)) arts[f.art] = f;
+  // Por talla, lo que se le debe a Magic, para descontarlo de lo que se debe a todos
+  const stMagic = {};
+  if (sinMagic) for (const p of (CACHE['pedidos.json'] || [])) if (esMagic(p)) for (const l of (p.lineas || []))
+    for (const [t, n] of Object.entries(l.st || {})) { const m = stMagic[l.art] = stMagic[l.art] || {}; m[t] = (m[t] || 0) + n; }
 
   /* Lo que está en producción, por etapa: el ERP dice cuántas prendas de cada orden de corte siguen
      en cada etapa. Si eso no cuadra con el saldo de la orden, la orden entera va a su etapa más
@@ -6940,7 +6959,7 @@ function debDatos(peds, ft, ftMap) {
     const libre = STOCK_TALLA[art] || {}, cajaT = cajaArtT[art] || {}, out = {};
     for (let i = 0; i < 9; i++) {
       const t = String(36 + 2 * i);
-      out[t] = { debe: (f.ts[i] || 0) - (cajaT[t] || 0), caja: cajaT[t] || 0, libre: libre[t] || 0, prod: (f.tc || [])[i] || 0 };
+      out[t] = { debe: (f.ts[i] || 0) - ((stMagic[art] || {})[t] || 0) - (cajaT[t] || 0), caja: cajaT[t] || 0, libre: libre[t] || 0, prod: (f.tc || [])[i] || 0 };
     }
     return out;
   };
@@ -7156,13 +7175,125 @@ function debArticulo(c, art) {
     </div>`;
 }
 
+/* Lo que hay detrás de cada tarjeta (Manu, 23-10-2026: "cuando presiono en las tarjetas debería mostrarme
+   información con eso"). Listo para despachar va por cliente, que es como se despacha: lo que tiene en su caja y
+   lo que hay en bodega para armársela. Viene en producción y Falta cortar van por artículo, con sus tallas, dónde
+   está la producción, cuánto hay que cortar y a quiénes se les debe. Tocar un cliente abre lo que se le debe. */
+function debTarjeta(k) {
+  const D = DEB, cod = a => `${a.slice(2, 6)}-${a.slice(6, 8)}`, idx = new Map(D.clientes.map((c, i) => [c, i]));
+  const kpi = (v, l, sub, color = '') => `<div class="pc-kpi"><b${color ? ` style="color:${color}"` : ''}>${v}</b><span>${l}</span>${sub ? `<i>${sub}</i>` : ''}</div>`;
+  const chipT = (t, n, cls = '') => `<span class="db-t db-t2${cls ? ' ' + cls : ''}"><i>${t}</i><b>${fmt(n)}</b></span>`;
+  const segs = (ops, on) => `<div class="segs db-segs">${ops.filter(([f, , n]) => !f || n).map(([f, t, n]) => `<button class="seg${f === on ? ' on' : ''}" data-f="${f}">${t} <span class="db-n">${fmt(n)}</span></button>`).join('')}</div>`;
+  const dias = n => `${fmt(n)} día${n === 1 ? '' : 's'}`;
+  const bloq = c => c.bloq.size ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Pedido bloqueado</span>' : '';
+  const dv = v => String(v ?? '').replace(/"/g, '&quot;');
+
+  if (k === 'listo' || k === 'caja') {
+    const filas = D.clientes.map(c => {
+      let caja = 0, bod = 0; const cajas = new Set(), arts = [];
+      for (const it of Object.values(c.items)) {
+        const b = it.est === 'bodega' ? it.debe : 0;
+        if (!it.enCaja && !b) continue;
+        caja += it.enCaja; bod += b;
+        it.cajas.forEach(n => cajas.add(String(n).replace(/^0+/, '')));
+        arts.push({ art: it.art, n: it.enCaja + b, caja: it.enCaja > 0 });
+      }
+      return { c, caja, bod, cajas: [...cajas], arts: arts.sort((a, b) => b.n - a.n) };
+    }).filter(x => x.caja + x.bod > 0).sort((a, b) => b.c.dias - a.c.dias);
+    const tot = filas.reduce((a, x) => a + x.caja + x.bod, 0), totC = filas.reduce((a, x) => a + x.caja, 0);
+    const nCajas = new Set(filas.flatMap(x => x.cajas)).size;
+    const rows = filas.map(x => `<tr data-kcli="${idx.get(x.c)}" data-kf="bodega" data-f=" ${x.caja ? 'caja' : ''} ${x.bod ? 'bod' : ''} " title="Toca para ver qué le debemos, talla por talla">
+        <td class="pl-wrap" data-v="${dv(x.c.nombre)}"><b>${x.c.nombre}</b>${bloq(x.c)}<span class="pl-sub">${x.c.ciudad || '—'} · le debemos ${fmt(x.c.debe + x.c.enCaja)} en total</span>
+          <span class="pl-sub db-movil">${[x.caja ? `📦 ${fmt(x.caja)} en caja` : '', x.bod ? `${fmt(x.bod)} en bodega` : '', dias(x.c.dias)].filter(Boolean).join(' · ')}</span>
+          <div class="db-tallas">${x.arts.slice(0, 6).map(a => `<span class="db-t${a.caja ? ' ok' : ''}">${a.caja ? '📦 ' : ''}${cod(a.art)} <b>${fmt(a.n)}</b></span>`).join('')}${x.arts.length > 6 ? `<span class="db-t">y ${x.arts.length - 6} más</span>` : ''}</div></td>
+        <td class="r td-num pl-sec" data-v="${x.caja}" style="color:var(--ok);font-weight:700">${x.caja ? fmt(x.caja) : '—'}${x.cajas.length ? `<span class="pl-sub">caja ${x.cajas.join(', ')}</span>` : ''}</td>
+        <td class="r td-num pl-sec" data-v="${x.bod}">${x.bod ? fmt(x.bod) : '—'}</td>
+        <td class="r td-num" data-v="${x.caja + x.bod}" style="font-weight:800">${fmt(x.caja + x.bod)}</td>
+        <td class="r td-num td-dim pl-sec" data-v="${x.c.dias}">${dias(x.c.dias)}</td></tr>`).join('');
+    return `<div class="pc">
+        <div class="pc-kpis k3">${kpi(fmt(tot), 'Listo para despachar', `a ${fmt(filas.length)} clientes`, 'var(--ok)')}${kpi(fmt(totC), '📦 En caja', `en ${fmt(nCajas)} caja${nCajas === 1 ? '' : 's'}, ya armado`)}${kpi(fmt(tot - totC), 'En bodega', 'hay stock para armarle la caja')}</div>
+        ${segs([['', 'Todos', filas.length], ['caja', '📦 Con caja armada', filas.filter(x => x.caja).length], ['bod', 'Con stock para armar', filas.filter(x => x.bod).length]], k === 'caja' ? 'caja' : '')}</div>
+      <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
+        <thead><tr><th data-ord="t">Cliente</th><th class="r pl-sec" data-ord="n">📦 En caja</th><th class="r pl-sec" data-ord="n">En bodega</th><th class="r" data-ord="n">Listo</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" class="td-dim" style="text-align:center;padding:22px">No hay nada listo para despachar</td></tr>'}</tbody></table>
+      <div class="tbl-foot">En caja: ya está armado y espera despacho. En bodega: hay stock libre en San Gerardo para todos los que lo esperan, falta armar la caja. Los cuadritos son sus artículos listos (📦 los que están en caja). Toca un cliente para verlo talla por talla.</div></div>`;
+  }
+
+  // Viene en producción y Falta cortar: por artículo, sumando lo que se les debe a los clientes
+  const estados = k === 'prod' ? ['produccion'] : ['parcial', 'cortar'];
+  const porArt = new Map();
+  for (const c of D.clientes) for (const it of Object.values(c.items)) {
+    if (!estados.includes(it.est) || it.debe <= 0) continue;
+    const a = porArt.get(it.art) || { art: it.art, est: it.est, debe: 0, clis: [], dias: 0, st: {} };
+    a.debe += it.debe; a.clis.push({ c, n: it.debe }); a.dias = Math.max(a.dias, it.dias);
+    for (const [t, n0] of Object.entries(it.st)) { const n = n0 - (it.cajaT[t] || 0); if (n > 0) a.st[t] = (a.st[t] || 0) + n; }
+    porArt.set(it.art, a);
+  }
+  const arts = [...porArt.values()].map(a => {
+    const f = D.arts[a.art], tt = D.tallaArt(a.art);
+    const tallas = Object.entries(a.st).sort((x, y) => +x[0] - +y[0]).map(([t, n]) => {
+      const x = tt && tt[t], need = x ? Math.max(x.debe, n) : n;
+      return { t, n, k: !x ? '' : x.libre >= need ? 'ok' : x.libre + x.prod >= need ? 'ac' : 'er' };
+    });
+    // Lo que hay que cortar, talla por talla para todos los que lo esperan (como Pedido vs Corte)
+    const cortT = tt ? Object.entries(tt).map(([t, x]) => [t, Math.max(0, x.debe - x.libre - x.prod)]).filter(([, n]) => n > 0).sort((x, y) => +x[0] - +y[0]) : [];
+    const cortar = tt ? cortT.reduce((s2, [, n]) => s2 + n, 0) : Math.max(0, f.sal - f.stk - f.pro);
+    return { ...a, f, tallas, cortT, cortar, clis: a.clis.sort((x, y) => y.n - x.n) };
+  }).sort((x, y) => y.dias - x.dias || y.debe - x.debe);
+  const tot = arts.reduce((s2, a) => s2 + a.debe, 0), nCli = new Set(arts.flatMap(a => a.clis.map(x => x.c))).size;
+  const etapas = art => Object.entries(D.etapas[art] || {}).sort((x, y) => (ETAPA_RANK[y[0]] ?? -2) - (ETAPA_RANK[x[0]] ?? -2));
+  const cliBlock = a => `<div class="db-kcs"><span class="db-tl">Lo esperan</span>${a.clis.map((x, i) => `<button type="button" class="db-kc" data-kcli="${idx.get(x.c)}" data-kf="${a.est}"${i >= 4 ? ' hidden' : ''} title="Ver qué le debemos a ${dv(x.c.nombre)}">${x.c.nombre} <b>${fmt(x.n)}</b></button>`).join('')}${a.clis.length > 4 ? `<button type="button" class="db-kc db-kc-mas" data-kmas>y ${a.clis.length - 4} más</button>` : ''}</div>`;
+  const artCell = (a, extra) => `<td class="pl-wrap" data-v="${a.art}"><div style="display:flex;align-items:flex-start">${artImg(a.art)}<div style="min-width:0"><span class="td-code">${cod(a.art)}</span>
+        <span class="pl-sub">${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${a.art.slice(2, 4)}</span>${extra}${cliBlock(a)}</div></div></td>`;
+  const debeCell = a => `<td class="pl-wrap" data-v="${a.debe}"><div class="db-debe"><b style="color:var(--wa)">${fmt(a.debe)}</b><span>${a.debe === 1 ? 'prenda' : 'prendas'}</span></div>
+        <span class="pl-sub db-movil">esperando ${dias(a.dias)}</span>
+        ${a.tallas.length ? `<div class="db-tallas">${a.tallas.map(x => chipT(x.t, x.n, x.k)).join('')}</div>` : ''}</td>`;
+  const diasCell = a => `<td class="r td-num td-dim pl-sec" data-v="${a.dias}">${dias(a.dias)}</td>`;
+  const vacio = txt => `<tr><td colspan="4" class="td-dim" style="text-align:center;padding:22px">${txt}</td></tr>`;
+
+  if (k === 'prod') {
+    const porEt = {};
+    for (const a of arts) for (const [e, u] of etapas(a.art)) porEt[e] = (porEt[e] || 0) + u;
+    const etTot = Object.entries(porEt).sort((x, y) => (ETAPA_RANK[y[0]] ?? -2) - (ETAPA_RANK[x[0]] ?? -2));
+    const rows = arts.map(a => {
+      const donde = (a.f.stk > 0 ? `<span class="db-t ok">Bodega ${fmt(a.f.stk)}</span>` : '') + etapas(a.art).map(([e, u]) => `<span class="db-t" style="color:${etapaClr(e)}">${DEB_ETAPA[e] || e} ${fmt(u)}</span>`).join('');
+      return `<tr>${artCell(a, '')}${debeCell(a)}<td class="pl-wrap" data-v="${a.f.pro}">${donde || '<span class="td-dim">—</span>'}</td>${diasCell(a)}</tr>`;
+    }).join('');
+    return `<div class="pc">
+        <div class="pc-kpis k3">${kpi(fmt(tot), 'Viene en producción', 'alcanza con lo que se está haciendo', 'var(--wa)')}${kpi(fmt(arts.length), 'Artículos', `de la T${TEMP_ACTIVA} en adelante`)}${kpi(fmt(nCli), 'Clientes', 'que esperan alguno de estos')}</div>
+        ${etTot.length ? `<div><div class="pc-h">Dónde está lo que se está haciendo de estos artículos</div><div class="pc-chips">${etTot.map(([e, u]) => `<span class="pc-chip" style="color:${etapaClr(e)}"><b style="color:inherit">${DEB_ETAPA[e] || e}</b>${fmt(u)}</span>`).join('')}</div></div>` : ''}</div>
+      <div class="tbl-scroll"><table data-ord-col="3" data-ord-dir="-1" data-ord-num="1">
+        <thead><tr><th data-ord="t">Artículo</th><th data-ord="n">Le debemos<span class="pl-sub">por talla</span></th><th data-ord="n">Dónde está</th><th class="r pl-sec" data-ord="n" title="Días desde el pedido más antiguo que lo espera">Más antiguo</th></tr></thead>
+        <tbody>${rows || vacio('No hay nada que dependa de producción')}</tbody></table>
+      <div class="tbl-foot">Lo que hay en bodega más lo que se está haciendo alcanza para todos los que lo esperan. Tallas en verde: hay en bodega; en azul: viene en producción; en rojo: en esa talla no alcanza. Toca un cliente para ver lo suyo.</div></div>`;
+  }
+
+  // Falta cortar
+  const sinP = arts.filter(a => a.est === 'cortar'), totCort = arts.reduce((s2, a) => s2 + a.cortar, 0);
+  const rows = arts.map(a => {
+    const et = etapas(a.art), hay = a.f.stk + a.f.pro;
+    const tag = a.est === 'cortar' ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">Sin nada en producción</span>'
+      : `<span class="pl-tag" style="background:var(--wa10);color:var(--wa)">No alcanza: hay ${fmt(hay)}</span><span class="pl-sub">${[a.f.stk ? `${fmt(a.f.stk)} en bodega` : '', ...et.map(([e, u]) => `${fmt(u)} en ${(DEB_ETAPA[e] || e).toLowerCase()}`)].filter(Boolean).join(' · ')}</span>`;
+    return `<tr data-f=" ${a.est} ">${artCell(a, tag)}${debeCell(a)}
+      <td class="pl-wrap" data-v="${a.cortar}"><div class="db-debe"><b style="color:var(--er)">${fmt(a.cortar)}</b><span>por cortar</span></div>
+        ${a.cortT.length ? `<div class="db-tallas">${a.cortT.map(([t, n]) => chipT(t, n, 'er')).join('')}</div>` : ''}</td>${diasCell(a)}</tr>`;
+  }).join('');
+  return `<div class="pc">
+      <div class="pc-kpis k3">${kpi(fmt(tot), 'Se deben', `de ${fmt(arts.length)} artículos que no alcanzan · a ${fmt(nCli)} clientes`, 'var(--er)')}${kpi(fmt(totCort), 'Hay que cortar', 'talla por talla, para cubrir a todos', 'var(--er)')}${kpi(fmt(sinP.reduce((s2, a) => s2 + a.debe, 0)), 'Sin nada en producción', `${fmt(sinP.length)} artículo${sinP.length === 1 ? '' : 's'} sin ningún corte`)}</div>
+      ${segs([['', 'Todos', arts.length], ['cortar', 'Sin nada en producción', sinP.length], ['parcial', 'No alcanza', arts.length - sinP.length]], '')}</div>
+    <div class="tbl-scroll"><table data-ord-col="3" data-ord-dir="-1" data-ord-num="1">
+      <thead><tr><th data-ord="t">Artículo</th><th data-ord="n">Le debemos<span class="pl-sub">por talla</span></th><th data-ord="n" title="Lo que falta en cada talla después de lo que hay en bodega y lo que se está haciendo, para todos los que lo esperan">Hay que cortar<span class="pl-sub">por talla</span></th><th class="r pl-sec" data-ord="n" title="Días desde el pedido más antiguo que lo espera">Más antiguo</th></tr></thead>
+      <tbody>${rows || vacio('No falta cortar nada')}</tbody></table>
+    <div class="tbl-foot">Se deben: lo que esperan los clientes desde la T${TEMP_ACTIVA}. Hay que cortar: lo que falta en cada talla después de lo que hay en bodega y lo que se está haciendo, para todos los que lo esperan, igual que en Pedido vs Corte. Toca un cliente para ver qué ofrecerle en su lugar.</div></div>`;
+}
+
 async function secDebemos() {
   const ICO = '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>';
   const [peds, ft, sb] = await Promise.all([load('pedidos.json'), load('full_table.json'), load('saldos_bodega.json')]);
   await load('cajas.json');
   if (!peds.length) return makePH(ICO, 'Qué le debemos', 'Sin datos disponibles');
   STOCK_MAP = buildStockMap(sb);
-  DEB = debDatos(peds, ft, buildFtMap(ft));
+  DEB = debDatos(DEB_SIN_MAGIC ? peds.filter(p => !esMagic(p)) : peds, ft, buildFtMap(ft), DEB_SIN_MAGIC);
   const dvDeb = v => String(v ?? '').replace(/"/g, '&quot;');
   const LISTA_F = [['', 'Todos'], ['bodega', 'Con algo en bodega sin despachar'], ['traba', 'Bloqueados o sin cupo'], ['deuda', 'Con deuda'], ['cortar', 'Con algo sin producción']];
   const nF = k => k ? DEB.clientes.filter(c => c.cats.has(k)).length : DEB.clientes.length;
@@ -7181,11 +7312,12 @@ async function secDebemos() {
   }
   const porDesp = S.listo + S.prod + S.falta, pS = v => porDesp ? Math.round(v / porDesp * 100) : 0;
   const despPct = DEB.tot.ped ? Math.round(DEB.tot.desp / DEB.tot.ped * 100) : 0;
-  const tarjeta = (val, lbl, sub, color, p) => `<div class="kpi db-k" style="border-top:3px solid ${color}">
+  const tarjeta = (val, lbl, sub, color, p, k) => `<div class="kpi db-k" data-dk="${k}" role="button" tabindex="0" title="Toca para ver el detalle" style="border-top:3px solid ${color}">
       <div style="min-width:0;width:100%"><div class="kpi-val" style="color:${color}">${val}${p != null ? `<span class="db-k-p">${p}%</span>` : ''}</div>
         <div class="kpi-lbl"><span class="db-sem" style="background:${color}"></span>${lbl}</div>
         <div class="kpi-delta d-nu">${sub}</div>
-        ${p != null ? `<div class="db-k-bar"><i style="width:${Math.min(100, p)}%;background:${color}"></i></div>` : ''}</div></div>`;
+        ${p != null ? `<div class="db-k-bar"><i style="width:${Math.min(100, p)}%;background:${color}"></i></div>` : ''}
+        <div class="db-k-ver">Ver detalle ›</div></div></div>`;
   /* El total en grande, como una suma: total = en caja + sin caja (Manu, 23-10-2026: "esos que están en caja también
      los debemos, entonces cuál sería el total de los que están en caja y los que no, un total entre ambos"). La barra
      lo reparte con los colores del semáforo y la leyenda dice qué es cada color. */
@@ -7196,9 +7328,9 @@ async function secDebemos() {
       <div class="db-eq">
         <div class="db-eq-tot"><div class="db-hero-lbl">Le debemos en total</div>
           <div class="db-hero-n">${fmt(porDesp)}<span>prendas</span></div>
-          <div class="db-hero-sub">a ${DEB.clientes.length === 1 ? '1 cliente' : `${fmt(DEB.clientes.length)} clientes`} · ${DEB.tot.ped ? `el ${100 - despPct}% de lo que pidieron desde la T${TEMP_ACTIVA}; ya se despachó el ${despPct}%` : `desde la T${TEMP_ACTIVA}`}</div></div>
+          <div class="db-hero-sub">a ${DEB.clientes.length === 1 ? '1 cliente' : `${fmt(DEB.clientes.length)} clientes`}${DEB_SIN_MAGIC ? ' sin Magic World' : ''} · ${DEB.tot.ped ? `el ${100 - despPct}% de lo que pidieron desde la T${TEMP_ACTIVA}; ya se despachó el ${despPct}%` : `desde la T${TEMP_ACTIVA}`}</div></div>
         <div class="db-eq-op">=</div>
-        <div><div class="db-hero-lbl">📦 En caja</div>
+        <div class="db-eq-k" data-dk="caja" role="button" tabindex="0" title="Toca para ver qué clientes tienen cajas armadas"><div class="db-hero-lbl">📦 En caja</div>
           <div class="db-hero-n2" style="color:var(--ok)">${fmt(S.caja)}<span>${pCaja}%</span></div>
           <div class="db-hero-sub">armado, listo para despachar</div></div>
         <div class="db-eq-op">+</div>
@@ -7212,9 +7344,9 @@ async function secDebemos() {
       <div class="db-hero-ley">${ley('var(--ok)', '📦 En caja', S.caja)}${ley('var(--ok)', 'En bodega', bodega, '.45')}${ley('var(--wa)', 'Viene en producción', S.prod)}${ley('var(--er)', 'Falta cortar', S.falta)}</div>
     </div>`;
   const tarjetas = `${total}<div class="kpi-grid db-kpis">
-      ${tarjeta(fmt(S.listo), 'Listo para despachar', `${fmt(S.caja)} en caja · ${fmt(bodega)} en bodega`, 'var(--ok)', pS(S.listo))}
-      ${tarjeta(fmt(S.prod), 'Viene en producción', 'alcanza con lo que se está haciendo', 'var(--wa)', pS(S.prod))}
-      ${tarjeta(fmt(S.falta), 'Falta cortar', `${fmt(S.sinProd)} sin nada en producción`, 'var(--er)', pS(S.falta))}
+      ${tarjeta(fmt(S.listo), 'Listo para despachar', `${fmt(S.caja)} en caja · ${fmt(bodega)} en bodega`, 'var(--ok)', pS(S.listo), 'listo')}
+      ${tarjeta(fmt(S.prod), 'Viene en producción', 'alcanza con lo que se está haciendo', 'var(--wa)', pS(S.prod), 'prod')}
+      ${tarjeta(fmt(S.falta), 'Falta cortar', `${fmt(S.sinProd)} sin nada en producción`, 'var(--er)', pS(S.falta), 'falta')}
     </div>`;
   /* En toda la sección "le debemos" es todo lo que falta despachar, contando lo que ya está en cajas, y "en caja" es la
      parte de eso que ya está armada: así la lista suma lo mismo que la tarjeta grande. */
@@ -7223,13 +7355,16 @@ async function secDebemos() {
   <div class="fbar">
     <div class="fbar-row"><div class="fgrp"><span class="flbl">Cliente</span>
       <input id="debSearch" class="finput fsearch" placeholder="Nombre del cliente…" autocomplete="off" style="width:300px;max-width:100%"></div>
-      <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="debSegs">${segsLista}</div></div></div>
+      <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="debSegs">${segsLista}</div></div>
+      <div class="fgrp"><span class="flbl">Magic</span><div class="segs" id="debMagicSegs">
+        <button class="seg${DEB_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta los pedidos de Magic World, la tienda propia">Con Magic</button>
+        <button class="seg${DEB_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin los pedidos de Magic World: queda lo que se les debe a los demás clientes">Sin Magic</button></div></div></div>
   </div>
   ${tarjetas}
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
       <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
-      <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes · el más antiguo arriba</span></div>
+      <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes${DEB_SIN_MAGIC ? ' sin Magic World' : ''} · el más antiguo arriba</span></div>
     <div class="tbl-scroll"><table data-ord-col="5" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Todo lo que falta despacharle, contando lo que ya está en cajas">Le debemos</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que ya está armado en cajas">En caja</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que todavía no está en una caja">Sin caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
       <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
@@ -8581,8 +8716,7 @@ function bindContent(secId) {
     const tablaDeb = document.getElementById('debBody')?.closest('table');
     if (tablaDeb) planOrdenable(tablaDeb);   // de mayor a menor en cada encabezado; parte por el más antiguo
     const filas = [...document.querySelectorAll('#debBody tr[data-deb]')];
-    const abrir = tr => {
-      const c = DEB && DEB.clientes[+tr.dataset.deb];
+    const abrirCli = (c, f) => {
       if (!c) return;
       document.getElementById('vkOvTtl').textContent = `${c.nombre} · qué le debemos`;
       document.getElementById('vkOvBody').innerHTML = `<div class="pl">${debDetalle(c)}</div>`;
@@ -8602,7 +8736,31 @@ function bindContent(secId) {
         document.getElementById('debOvBody').querySelectorAll('table').forEach(planOrdenable);
         document.getElementById('debOv').classList.add('open');
       }));
+      // Si viene de una tarjeta, se abre mostrando solo lo de esa tarjeta
+      if (f) document.querySelector(`#vkOvBody .db-segs .seg[data-f="${f}"]`)?.click();
     };
+    const abrir = tr => abrirCli(DEB && DEB.clientes[+tr.dataset.deb]);
+    // Tocar una tarjeta abre lo que hay detrás (por cliente lo listo; por artículo lo que viene y lo que falta cortar)
+    const TIT_K = { listo: 'Listo para despachar', caja: 'Listo para despachar · en caja', prod: 'Viene en producción', falta: 'Falta cortar' };
+    const abrirK = k => {
+      const body = document.getElementById('debKOvBody');
+      if (!body || !DEB) return;
+      document.getElementById('debKOvTtl').textContent = (TIT_K[k] || 'Detalle') + (DEB_SIN_MAGIC ? ' · sin Magic' : '');
+      body.innerHTML = `<div class="pl">${debTarjeta(k)}</div>`;
+      body.querySelectorAll('table').forEach(planOrdenable);
+      const segsK = [...body.querySelectorAll('.db-segs .seg')];
+      const filtrarK = f => body.querySelectorAll('tbody tr[data-f]').forEach(tr => { tr.style.display = !f || tr.dataset.f.includes(` ${f} `) ? '' : 'none'; });
+      segsK.forEach(b => b.addEventListener('click', () => { segsK.forEach(x => x.classList.toggle('on', x === b)); filtrarK(b.dataset.f); }));
+      filtrarK((segsK.find(b => b.classList.contains('on')) || {}).dataset?.f || '');
+      body.querySelectorAll('[data-kcli]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); abrirCli(DEB.clientes[+el.dataset.kcli], el.dataset.kf); }));
+      body.querySelectorAll('[data-kmas]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); el.parentElement.querySelectorAll('.db-kc[hidden]').forEach(x => { x.hidden = false; }); el.remove(); }));
+      body.scrollTop = 0;
+      document.getElementById('debKOv').classList.add('open');
+    };
+    document.querySelectorAll('.db-hero [data-dk], .db-kpis [data-dk]').forEach(el => {
+      el.addEventListener('click', () => abrirK(el.dataset.dk));
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirK(el.dataset.dk); } });
+    });
     let filtro = '';   // el botón de arriba: se combina con el nombre buscado
     const filtrar = () => {
       const q = rvSinTilde(inp.value.trim());
@@ -8620,7 +8778,14 @@ function bindContent(secId) {
     // Enter con un solo cliente a la vista: se abre directo
     inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
     filas.forEach(tr => tr.addEventListener('click', () => abrir(tr)));
-    for (const [ov, x] of [['vkOv', 'vkOvClose'], ['debOv', 'debOvClose']]) {
+    // Con o sin Magic World: se rearma todo, porque cambia lo que alcanza para los demás
+    document.querySelectorAll('#debMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
+      const sin = b.dataset.mg === 'sin';
+      if (sin === DEB_SIN_MAGIC) return;
+      DEB_SIN_MAGIC = sin;
+      go('debemos', 'Qué le debemos');
+    }));
+    for (const [ov, x] of [['debKOv', 'debKOvClose'], ['vkOv', 'vkOvClose'], ['debOv', 'debOvClose']]) {
       document.getElementById(x)?.addEventListener('click', () => document.getElementById(ov).classList.remove('open'));
       document.getElementById(ov)?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     }
