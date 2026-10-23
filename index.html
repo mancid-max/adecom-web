@@ -4260,13 +4260,12 @@ async function secPVC() {
       <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
       <div><div class="kpi-val" id="pvcKSal">${fmt(k.totalSal)}</div><div class="kpi-lbl">Saldo pendiente</div></div>
     </div>
+    <!-- Sin "Stock + En producción" ni "Diferencia" (Manu, 23-10-2026: "sácame la tarjeta de stock y diferencia"): la resta de abajo
+         dice lo mismo artículo por artículo, sin mezclar lo que sobra de unos con lo que falta de otros. En su lugar, lo que
+         está en bodega ("¿y podrías mostrar lo que está en bodega?"): cuánto sirve para lo que se debe y cuánto sobra. -->
     <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/><polyline points="6 3 12 9 18 3"/><line x1="12" y1="21" x2="12" y2="9"/></svg></div>
-      <div><div class="kpi-val" id="pvcKProg">${fmt(k.totalProg)}</div><div class="kpi-lbl">Stock + En producción</div><div class="kpi-delta d-nu" id="pvcKProgP" style="display:none"></div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico ${k.diff>=0?'c-ok':'c-er'}" id="pvcKDiffIco"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></div>
-      <div><div class="kpi-val" id="pvcKDiff" style="color:${k.diff>=0?'var(--ok)':'var(--er)'}">${k.diff>0?'+':''}${fmt(k.diff)}</div><div class="kpi-lbl">Diferencia (u)</div><div class="kpi-delta d-nu" id="pvcKDiffP" style="display:none"></div></div>
+      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></div>
+      <div><div class="kpi-val" id="pvcKStk">—</div><div class="kpi-lbl">En bodega</div><div class="kpi-delta d-nu" id="pvcKStkP" style="display:none"></div></div>
     </div>
   </div>
   <!-- Lo que debemos sin cubrir − lo programado = lo que falta programar (Manu, 23-10-2026: "Total = lo que debemos −
@@ -9905,7 +9904,7 @@ function bindContent(secId) {
       const etapa  = document.querySelector('#pvcEtapaSegs .seg.on')?.dataset.etapa  || 'all';
       const q      = (document.getElementById('pvcSearch')?.value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
-      let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0, sumDesp = 0, sumStk = 0, sumPro = 0, aCortar = 0, sobra = 0, aApurar = 0, sumProg = 0;
+      let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0, sumDesp = 0, sumStk = 0, sumPro = 0, aCortar = 0, sobra = 0, aApurar = 0, sumProg = 0, stkSirve = 0, stkSobra = 0;
       const vis = [];   // lo que se ve, para el gráfico
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado
@@ -9938,6 +9937,7 @@ function bindContent(secId) {
           sumStk  += stk;
           sumPro  += pro;
           // Lo que sobra de un color no cubre lo que falta de otro: a cortar se suma artículo por artículo
+          stkSirve += Math.min(Math.max(0, stk), Math.max(0, sal)); stkSobra += Math.max(0, stk - Math.max(0, sal));   // la bodega: para lo que se debe y lo que sobra
           const d = stk + pro - sal, pg = parseInt(row.dataset.prog || 0);
           sumProg += pg;
           /* lo que falta y ya está programado no se corta de nuevo: se apura */
@@ -9953,6 +9953,9 @@ function bindContent(secId) {
       const kdiffEl = document.getElementById('pvcKDiff');
       if (kpedEl)  kpedEl.textContent  = fmt(sumPed);
       if (kprogEl) kprogEl.textContent = fmt(sumCort);
+      const kstk = document.getElementById('pvcKStk'), kstkP = document.getElementById('pvcKStkP');
+      if (kstk) kstk.textContent = fmt(Math.max(0, sumStk));
+      if (kstkP) { kstkP.style.display = sumStk > 0 ? '' : 'none'; kstkP.textContent = `${fmt(stkSirve)} sirven para lo que se debe · ${fmt(stkSobra)} sobran para ofrecer`; }
       /* La diferencia junta lo que sobra de unos artículos con lo que falta de otros: se dice cada parte */
       const kdiffP = document.getElementById('pvcKDiffP');
       if (kdiffP) { kdiffP.style.display = sobra && aCortar + aApurar ? '' : 'none'; kdiffP.textContent = `sobran ${fmt(sobra)} en unos artículos y faltan ${fmt(aCortar + aApurar)} en otros`; }
