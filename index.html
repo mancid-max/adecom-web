@@ -217,6 +217,17 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .guia-caja{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--sf2);font-size:12.5px;line-height:1.45}
 .guia-caja.primero{background:var(--ac10)}
 .guia-lu{display:flex;gap:8px;align-items:flex-start;margin-top:6px;padding:8px 10px}
+/* Armar campaña: los bosquejos de la colección */
+.ca-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:4px 18px 16px}
+.ca-modelo{display:flex;flex-direction:column;gap:4px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:var(--sf);cursor:pointer;position:relative;font-size:12px}
+.ca-modelo.fuera{opacity:.45}
+.ca-modelo input{position:absolute;top:8px;right:8px}
+.ca-img{height:110px;display:flex;align-items:center;justify-content:center;background:var(--sf2);border-radius:8px;overflow:hidden}
+.ca-img img{max-height:110px;max-width:100%;object-fit:contain}
+.ca-mnom{font-size:12.5px}
+.ca-ref{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--tx3)}
+.ca-ref img{width:28px;height:28px;object-fit:cover;border-radius:4px}
+.ca-msg textarea{width:100%;resize:vertical;font:inherit;font-size:13px;line-height:1.45}
 .guia-lu .guia-nivel{margin-top:5px;flex-shrink:0}
 .guia-lu .seg{flex-shrink:0;border:1px solid var(--bd2);background:var(--sf)}
 .guia-acc{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
@@ -2630,6 +2641,7 @@ function pedidoTerm(p, prodMap, enCaja) {
   });
   return { arts, units };
 }
+let VD_SIN_MAGIC = false;   // Venta vs Despacho sin Magic World, la tienda propia (Manu, 26-10-2026)
 function vdGroups(peds, prodMap = {}, cajasAll = []) {
   const m = new Map();
   peds.filter(p => (p.u_temp?.[TEMP_SEL] || 0) > 0).forEach(p => {
@@ -3672,7 +3684,7 @@ async function secVentaDespacho() {
     const esc = s => String(s).replace(/"/g, '&quot;');
     const artQ = [...g.arts.entries()].map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}:${v.caja || 0}:${v.term || 0}`).join(',');   // artículo: pedido, despachado, pendiente, en caja, en terminación
     const ciudades = [...(g.ciudades || [])].filter(Boolean);
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-cajp="${g.cajasPrendas}" data-termu="${g.termUnits}" data-tipo="${g.tipo ? g.tipo : 9}" data-deuda="${deudaTot}" data-key="${esc(g.key)}" style="cursor:pointer">
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-mag="${esMagic(g) ? 1 : 0}" data-cajp="${g.cajasPrendas}" data-termu="${g.termUnits}" data-tipo="${g.tipo ? g.tipo : 9}" data-deuda="${deudaTot}" data-key="${esc(g.key)}" style="cursor:pointer">
       <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0">
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}${g.pedidos.length > 1 ? ` <span class="td-dim" style="font-size:10px;font-weight:400">· ${g.pedidos.length} pedidos</span>` : ''}</span>
         <span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
@@ -3739,6 +3751,9 @@ async function secVentaDespacho() {
     </div></div>
     <div class="fgrp vd-cli"><span class="flbl">Ciudad</span>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select></div>
+    <div class="fgrp vd-cli"><span class="flbl">Magic</span><div class="segs" id="vdMagicSegs">
+      <button class="seg${VD_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta a Magic World, la tienda propia">Con Magic</button>
+      <button class="seg${VD_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin Magic World: queda lo que piden los demás clientes">Sin Magic</button></div></div>
     </div>
   </div>
   <div class="kpi-grid db-kpis">
@@ -6496,7 +6511,7 @@ async function secReporte() {
    decidir, así que arriba va UN filtro (colección y comparables) que vale para las dos
    pestañas, y bajo las pestañas una línea que dice para qué sirve cada una. */
 let CAMP_TAB = 'plan';
-try { if (localStorage.getItem('adecom_campana_tab') === 'venta') CAMP_TAB = 'venta'; } catch (e) {}
+try { const _t = localStorage.getItem('adecom_campana_tab'); if (_t === 'venta' || _t === 'armar') CAMP_TAB = _t; } catch (e) {}
 /* Con o sin Magic World (la tienda propia) para toda Campaña, las dos pestañas y sus Excel (Manu,
    22-10-2026). Sin Magic, sus pedidos no cuentan en ninguna cifra: metas, ritmo, clientes, artículos.
    Lo cortado y el stock son de toda la empresa: esos no se pueden separar por cliente. Como en Pedido
@@ -6512,11 +6527,239 @@ function campElegir(temp, cmp) {
 
 const campDesc = () => {
   const T = PLAN_TEMP, sg = PLAN_CMP.map(t => 'T' + t).join(', ').replace(/, ([^,]*)$/, ' y $1');
-  const txt = CAMP_TAB === 'venta'
+  const txt = CAMP_TAB === 'armar'
+    ? `La campaña de la colección nueva, lista para corregir antes de mandar nada: a quién escribirle, qué ofrecer, el mensaje a nombre de Mohicano Jeans y cuándo. Nada sale de aquí: el envío se hace desde el CRM con tu OK.`
+    : CAMP_TAB === 'venta'
     ? `Para salir a vender: lo que más se vendió en ${sg} y lo que se pide de la T${T}, qué ofrecer hoy, cuánto lleva cada cliente de su meta y a quién llamar.`
     : `Para decidir qué producir: cuánto se debería vender de la T${T}, a qué ritmo va, qué cortar con confianza y qué empujar, según lo que pasó en ${sg}.`;
   return txt + (CAMP_SIN_MAGIC ? ' Sin contar los pedidos de Magic World.' : '');
 };
+
+/* ── ARMAR CAMPAÑA ──────────────────────────────────────────────────────────
+   Manu, 26-10-2026: "preparar la campaña de la 45 automáticamente, ver bosquejos al apretar Armar campaña, cambiar el
+   mensaje que le llegará a los clientes y las imágenes (aún no hay fotos de la 45), y los que compraron en las
+   temporadas equivalentes a estos meses el año pasado". A nombre de Mohicano Jeans. Todo se arma con los datos que ya
+   hay; lo que se corrige (quién entra, qué modelos, los mensajes) se guarda en este computador. Nada se envía desde
+   aquí: el envío se hace desde el CRM con el OK de Manu. */
+let CA = null;   // lo armado para la colección nueva, para pintar y para el Excel
+const caTx = s => ddTx(s);
+const caBota = b => { const s = String(b || '').toLowerCase(); return /wide|palazzo/.test(s) ? 'ancho' : /flare|boot/.test(s) ? 'flare' : /pitillo|tobillo|croop|bagui|skinny/.test(s) ? 'angosto' : 'recto'; };
+/* La silueta del bosquejo: un pantalón simple según la bota, para ver la colección aunque todavía no tenga fotos */
+function caSilueta(bota, color = '#1e3a8a') {
+  const forma = { angosto: 'M14 18h32l-3 78h-11l-2-52-2 52H17z', recto: 'M14 18h32l-1 78h-12l-3-50-3 50H15z', flare: 'M14 18h32l4 78h-16l-4-46-4 46H10z', ancho: 'M12 18h36l6 78h-20l-4-44-4 44H6z' }[caBota(bota)];
+  return `<svg viewBox="0 0 60 100" width="54" height="90" aria-hidden="true"><rect x="13" y="10" width="34" height="9" rx="2" fill="${color}" opacity=".85"/><path d="${forma}" fill="${color}"/><path d="M30 27v10" stroke="#fff" stroke-opacity=".5" stroke-width="2"/></svg>`;
+}
+function caEstado() {   // lo que se corrigió a mano, guardado en este computador
+  try { return JSON.parse(localStorage.getItem('adecom_campana_' + (CA ? CA.T : '')) || '{}'); } catch (e) { return {}; }
+}
+function caGuardar(patch) {
+  const e = { ...caEstado(), ...patch };
+  try { localStorage.setItem('adecom_campana_' + CA.T, JSON.stringify(e)); } catch (x) {}
+  return e;
+}
+const caNombre = n => { const s = String(n || '').trim(); const w = s.split(/\s+/)[0] || s; return w.length > 2 ? w[0] + w.slice(1).toLowerCase() : s; };
+const caListar = xs => xs.slice(0, -1).join(', ') + (xs.length > 1 ? ' y ' : '') + (xs[xs.length - 1] || '');
+/* Los datos: la colección nueva, lo que se vendía a esta fecha el año pasado, y los clientes por grupo */
+async function campArmarDatos(peds, pa) {
+  const docs = (await load('docs_venta.json')) || [];
+  const T = String(Math.max(...pa.filter(x => (x.total || 0) > 0 && esTempViva(x.temp)).map(x => +x.temp))), TA = TEMP_ACTIVA;   // la T83 mal codificada no cuenta
+  const modelos = pa.filter(x => x.temp === T && (x.total || 0) > 0).sort((a, b) => b.total - a.total)
+    .map(x => ({ base: x.base, bota: x.bota || '', tiro: x.tiro || '', total: x.total, stock: x.stock || 0, colores: (x.modelos || []).filter(m => (m.qty || 0) > 0).map(m => String(m.mod).padStart(2, '0')) }));
+  const botaDe = {}; for (const x of pa) botaDe[x.temp + x.base] = x.bota || '';
+  const fotos = typeof IMG_G === 'object' && IMG_G ? IMG_G : {};
+  const fotoDe = base => { const k = Object.keys(fotos).find(a => a.startsWith('01' + base)); return k ? `img/art/${k}.jpg` : ''; };
+  const refDe = bota => { const k = Object.keys(fotos).find(a => a.startsWith('01' + TA) && (botaDe[TA + a.slice(2, 6)] || '') === bota); return k ? { src: `img/art/${k}.jpg`, base: k.slice(2, 6) } : null; };
+  for (const m of modelos) { m.foto = fotoDe(m.base); m.ref = m.foto ? null : refDe(m.bota); }
+  // A esta fecha el año pasado: dos meses antes y uno después de la misma fecha
+  const hoy = today(), d = new Date(hoy + 'T12:00:00'); d.setFullYear(d.getFullYear() - 1);
+  const a1 = new Date(d); a1.setDate(a1.getDate() - 60); const a2 = new Date(d); a2.setDate(a2.getDate() + 30);
+  const desde = ymd(a1), hasta = ymd(a2), hace90 = (() => { const x = new Date(hoy + 'T12:00:00'); x.setDate(x.getDate() - 90); return ymd(x); })();
+  const enVentana = p => (p.fecha_iso || '') >= desde && (p.fecha_iso || '') <= hasta;
+  const uTemp = {}, botasAno = {};
+  for (const p of peds.filter(enVentana)) {
+    for (const [t, u] of Object.entries(p.u_temp || {})) uTemp[t] = (uTemp[t] || 0) + u;
+    for (const l of p.lineas || []) { const b = botaDe[String(l.temp) + String(l.art || '').slice(2, 6)] || ''; if (b) botasAno[b] = (botasAno[b] || 0) + (l.sol || 0); }
+  }
+  const tempAno = Object.entries(uTemp).sort((a, b) => b[1] - a[1])[0] || ['', 0];
+  const topBotasAno = Object.entries(botasAno).sort((a, b) => b[1] - a[1]).slice(0, 4).map(x => x[0]);
+  const botasNueva = Object.entries(modelos.reduce((m, x) => { if (x.bota) m[x.bota] = (m[x.bota] || 0) + x.total; return m; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+  const tiroTop = (() => { const m = {}; for (const x of modelos) if (x.tiro) m[x.tiro] = (m[x.tiro] || 0) + x.total; const e = Object.entries(m).sort((a, b) => b[1] - a[1])[0], tot = modelos.reduce((s, x) => s + x.total, 0); return e && tot && e[1] / tot >= 0.6 ? e[0].toLowerCase() : ''; })();
+  // Los clientes, con lo que compraron de la colección activa, de la nueva y a esta fecha el año pasado
+  const fichas = Object.fromEntries(ddClientes(peds, docs).map(c => [c.k, c]));
+  const cl = new Map();
+  for (const p of peds) {
+    const k = vdKey(p); let c = cl.get(k);
+    if (!c) cl.set(k, c = { k, nombre: p.nombre || p.rut || '—', rut: p.rut || '', ciudad: p.ciudad || '', vendedor: p.vendedor || '', ult: '', uA: 0, uN: 0, uAno: 0, botasA: {}, magic: esMagic(p) });
+    if ((p.fecha_iso || '') >= c.ult) { c.ult = p.fecha_iso || ''; if (p.ciudad) c.ciudad = p.ciudad; if (p.vendedor) c.vendedor = p.vendedor; }
+    c.uA += (p.u_temp || {})[TA] || 0; c.uN += (p.u_temp || {})[T] || 0;
+    if (enVentana(p)) c.uAno += p.unidades || 0;
+    for (const l of p.lineas || []) if (String(l.temp) === TA) { const b = botaDe[TA + String(l.art || '').slice(2, 6)] || ''; if (b) c.botasA[b] = (c.botasA[b] || 0) + (l.sol || 0); }
+  }
+  const estado = (() => { try { return JSON.parse(localStorage.getItem('adecom_campana_' + T) || '{}'); } catch (e) { return {}; } })();
+  const fuera = new Set(estado.fuera || []), dentro = new Set(estado.dentro || []);
+  const clientes = [...cl.values()].map(c => {
+    const f = fichas[c.k] || {};
+    c.contacto = f.contacto || ''; c.fono = f.fono || ''; c.bloq = !!f.bloq; c.venc = f.venc || 0; c.v90 = (f.v && f.v.v90) || 0;
+    c.grupo = c.uN > 0 ? 'ya' : c.uA > 0 ? 'activa' : (c.uAno > 0 && c.ult < hace90) ? 'ano' : '';
+    c.motivo = c.magic ? 'tienda propia' : c.bloq ? 'bloqueado: va a cobranza' : c.v90 > 0 ? `deuda vencida hace más de 90 días (${fmtM(c.v90)}): cobrar antes` : '';
+    c.incluido = dentro.has(c.k) ? true : fuera.has(c.k) ? false : !c.motivo;
+    c.botasTxt = Object.entries(c.botasA).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]).join(', ');
+    return c;
+  }).filter(c => c.grupo).sort((a, b) => (b.uA + b.uN + b.uAno) - (a.uA + a.uN + a.uAno));
+  const grupos = {
+    activa: { ttl: `Compraron la T${TA} y aún no piden la T${T}`, orden: 1 },
+    ano: { ttl: `Compraron a esta fecha el año pasado${tempAno[0] ? ` (T${tempAno[0]})` : ''} y no han vuelto en 3 meses`, orden: 2 },
+    ya: { ttl: `Ya pidieron la T${T}: para completar el pedido`, orden: 3 },
+  };
+  // Los mensajes: los que se escribieron se respetan; si no, la plantilla a nombre de Mohicano Jeans
+  const topModelos = modelos.slice(0, 3).map(m => `${m.base}${m.bota ? ' ' + m.bota : ''}`);
+  const plantillas = {
+    activa: `Hola {nombre}, te saluda Mohicano Jeans 👋. Ya está la colección T${T}${botasNueva.length ? ': ' + caListar(botasNueva.slice(0, 3)) : ''}${tiroTop ? ', casi todo ' + tiroTop : ''}. Los modelos que más se están pidiendo son ${caListar(topModelos)}. Como nos compraste la T${TA}, queremos que la veas primero: te mando el catálogo y te reservo tallas. ¿Te lo envío?`,
+    ano: `Hola {nombre}, te saluda Mohicano Jeans 👋. El año pasado por estas fechas nos compraste ${caListar(topBotasAno.slice(0, 3)) || 'con nosotros'}; esta temporada viene la T${T}${botasNueva.length ? ' con ' + caListar(botasNueva.slice(0, 3)) : ''}. Te mando el catálogo y te armo una propuesta como la de entonces. ¿Te parece?`,
+    ya: `Hola {nombre}, gracias por tu pedido de la T${T} 🙌. Para completarlo: ${caListar(topModelos)} se están pidiendo mucho y todavía tenemos tallas. Si quieres, te las reservo. Mohicano Jeans.`,
+  };
+  const msgs = { ...plantillas, ...(estado.msgs || {}) };
+  const modelosFuera = new Set(estado.modelosFuera || []);
+  // Cuándo: desde el próximo lunes, cuatro semanas; y cuánto pesan octubre y noviembre en el año pasado
+  const lunes = new Date(hoy + 'T12:00:00'); lunes.setDate(lunes.getDate() + ((8 - lunes.getDay()) % 7 || 7));
+  const sem = i => { const x = new Date(lunes); x.setDate(x.getDate() + 7 * i); return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}`; };
+  const anoPas = String(+hoy.slice(0, 4) - 1), uAnoTot = peds.filter(p => (p.fecha_iso || '').startsWith(anoPas)).reduce((s, p) => s + (p.unidades || 0), 0);
+  const uOctNov = peds.filter(p => (p.fecha_iso || '').startsWith(anoPas) && /-(10|11)-/.test(p.fecha_iso)).reduce((s, p) => s + (p.unidades || 0), 0);
+  return { T, TA, modelos, botasNueva, tempAno: tempAno[0], uTempAno: tempAno[1], topBotasAno, desde, hasta, clientes, grupos, msgs, plantillas, modelosFuera, sem, pctOctNov: uAnoTot ? Math.round(uOctNov / uAnoTot * 100) : 0, anoPas };
+}
+function caMensaje(c) {   // el mensaje de su grupo, con su nombre
+  return (CA.msgs[c.grupo] || '').replace(/\{nombre\}/g, caNombre(c.nombre)).replace(/\{vendedor\}/g, c.vendedor || '');
+}
+function campArmarHtml() {
+  const A = CA, dentro = A.clientes.filter(c => c.incluido), porG = g => A.clientes.filter(c => c.grupo === g), dentroG = g => porG(g).filter(c => c.incluido);
+  const gkeys = Object.keys(A.grupos).sort((a, b) => A.grupos[a].orden - A.grupos[b].orden);
+  const modelosDentro = A.modelos.filter(m => !A.modelosFuera.has(m.base));
+  const kpis = `<div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'cak', k: 'cli', lbl: 'Clientes a contactar', val: fmt(dentro.length), sub: `de ${fmt(A.clientes.length)} posibles · ${fmt(A.clientes.length - dentro.length)} fuera por bloqueo, deuda o a mano`, color: 'var(--ac)', ver: 'Ver la lista' })}
+    ${tarjetaKpi({ attr: 'cak', k: 'mod', lbl: `Modelos de la T${A.T} para mostrar`, val: fmt(modelosDentro.length), sub: `${fmt(A.modelos.reduce((s, m) => s + m.total, 0))} unidades ya pedidas · ${caListar(A.botasNueva.slice(0, 3))}`, color: '#047857', ver: 'Ver los bosquejos' })}
+    ${tarjetaKpi({ attr: 'cak', k: 'ano', lbl: 'A esta fecha el año pasado', val: A.tempAno ? 'T' + A.tempAno : '—', sub: `${fmt(A.uTempAno)} unidades entre ${A.desde.slice(8, 10)}/${A.desde.slice(5, 7)} y ${A.hasta.slice(8, 10)}/${A.hasta.slice(5, 7)} · ${fmt(porG('ano').length)} clientes de entonces sin volver`, color: 'var(--wa)', ver: 'Ver quiénes' })}
+    ${tarjetaKpi({ attr: 'cak', k: 'msg', lbl: 'Mensajes a nombre de Mohicano Jeans', val: '3', sub: 'uno por grupo, con el nombre de cada cliente', color: '#6d28d9', ver: 'Ver y corregir' })}
+  </div>`;
+  const filas = A.clientes.map(c => `<tr data-k="${caTx(c.k)}" data-g="${c.grupo}" style="${c.incluido ? '' : 'opacity:.55'}">
+      <td><input type="checkbox" class="ca-inc" data-k="${caTx(c.k)}" ${c.incluido ? 'checked' : ''} title="${c.incluido ? 'Sacar de la campaña' : 'Incluir igual'}"></td>
+      <td class="pl-wrap" data-v="${caTx(c.nombre)}"><b>${caTx(c.nombre)}</b>${c.motivo ? `<span class="pl-sub" style="color:var(--er)">${caTx(c.motivo)}</span>` : ''}<span class="pl-sub">${caTx([c.ciudad, c.vendedor].filter(Boolean).join(' · '))}</span></td>
+      <td data-v="${A.grupos[c.grupo].orden}">${caTx(A.grupos[c.grupo].ttl.split(':')[0].replace(/ y .*$/, ''))}</td>
+      <td class="pl-sec">${caTx(c.contacto || '—')}<span class="pl-sub">${caTx(c.fono || '')}</span></td>
+      <td class="r td-num" data-v="${c.uA}">${c.uA ? fmt(c.uA) : '—'}<span class="pl-sub">${caTx(c.botasTxt)}</span></td>
+      <td class="r td-num pl-sec" data-v="${c.uAno}">${c.uAno ? fmt(c.uAno) : '—'}</td>
+      <td class="td-dim" data-v="${c.ult}">${c.ult ? c.ult.split('-').reverse().join('/') : '—'}</td>
+      <td class="pl-sec" style="max-width:320px;white-space:normal;font-size:11.5px;color:var(--tx2)">${c.incluido ? caTx(caMensaje(c)) : '<span class="td-dim">fuera de la campaña</span>'}</td></tr>`).join('');
+  const tarjetasModelo = A.modelos.map(m => `<label class="ca-modelo${A.modelosFuera.has(m.base) ? ' fuera' : ''}">
+      <input type="checkbox" class="ca-mod" data-base="${m.base}" ${A.modelosFuera.has(m.base) ? '' : 'checked'}>
+      <div class="ca-img">${m.foto ? `<img src="${m.foto}" alt="" loading="lazy">` : caSilueta(m.bota)}</div>
+      <div class="ca-mnom"><b>${m.base}</b>${m.bota ? ' · ' + caTx(m.bota) : ''}${m.tiro ? ' · ' + caTx(m.tiro.toLowerCase()) : ''}</div>
+      <div class="td-dim" style="font-size:11px">${fmt(m.total)} pedidas${m.stock ? ` · ${fmt(m.stock)} en bodega` : ''}${m.colores.length ? ` · colores ${m.colores.join(', ')}` : ''}</div>
+      ${m.foto ? '<div class="td-dim" style="font-size:10.5px">foto de la colección</div>' : m.ref ? `<div class="ca-ref" title="Foto de referencia: modelo ${m.ref.base} de la T${A.TA}, misma bota"><img src="${m.ref.src}" alt="" loading="lazy"><span>referencia T${A.TA} · ${m.ref.base}</span></div>` : '<div class="td-dim" style="font-size:10.5px">bosquejo: sin foto todavía</div>'}
+    </label>`).join('');
+  const mensajes = gkeys.map(g => `<div class="ca-msg">
+      <div class="card-ttl" style="margin:0 0 4px;font-size:13px">${caTx(A.grupos[g].ttl)} <span class="td-dim" style="font-weight:400">· ${fmt(dentroG(g).length)} clientes</span></div>
+      <textarea class="finput ca-texto" data-g="${g}" rows="4" maxlength="700">${caTx(A.msgs[g])}</textarea>
+      <div class="guia-acc" style="margin-top:6px"><button class="seg ca-copiar" data-g="${g}" style="border:1px solid var(--bd2)">Copiar</button><button class="seg ca-mohi" data-g="${g}" style="border:1px solid var(--bd2)" ${typeof IA_OK !== 'undefined' && IA_OK ? '' : 'disabled title="Solo con el chat de Mohi activo"'}>✨ Pedirle otra versión a Mohi</button><button class="seg ca-plantilla" data-g="${g}" style="border:1px solid var(--bd2)">Volver a la plantilla</button><span class="td-dim" style="font-size:11px;align-self:center">{nombre} se cambia por el nombre de cada cliente</span></div>
+    </div>`).join('');
+  const calendario = [
+    [A.sem(0), `Los que ya pidieron la T${A.T} y los 10 más grandes de la T${A.TA}: aviso personal y catálogo.`],
+    [A.sem(1), `El resto de los que compraron la T${A.TA}.`],
+    [A.sem(2), `Los de esta fecha el año pasado (T${A.tempAno || '—'}) que no han vuelto.`],
+    [A.sem(3), 'Recordatorio a quien no respondió; a los que pidieron, confirmar tallas y fecha de despacho.'],
+  ];
+  return `<div class="pl" id="caTabla">
+  ${kpis}
+  <div class="tbl-card" id="caClientes">
+    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">1 · A quién: ${fmt(dentro.length)} clientes</div>
+      <div class="card-sub" style="margin:2px 0 0">Marcados los que entran. Los bloqueados y los con deuda vencida hace más de 90 días quedan fuera (primero cobranza); puedes incluirlos igual.</div></div>
+      ${btnExcel()}<div class="xl-der"><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
+    <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
+      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="pl-sec">Mensaje que le llegaría</th></tr></thead>
+      <tbody id="caBody">${filas}</tbody></table></div>
+    <div class="tbl-foot">Grupos: los que compraron la T${A.TA} y aún no piden la T${A.T}; los que compraron entre el ${A.desde.split('-').reverse().join('/')} y el ${A.hasta.split('-').reverse().join('/')} (lo equivalente a estas fechas el año pasado) y no han pedido en 3 meses; y los que ya pidieron la T${A.T}. Magic World no entra. El Excel baja la lista con el mensaje personalizado de cada uno.</div>
+  </div>
+  <div class="tbl-card" id="caModelos" style="margin-top:14px">
+    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">2 · Qué ofrecer: los bosquejos de la T${A.T}</div>
+      <div class="card-sub" style="margin:2px 0 0">Los modelos con pedidos, de más a menos pedido. Sin fotos todavía: la silueta es la bota y, cuando hay, una foto de referencia de la T${A.TA} con la misma bota. Cuando lleguen las fotos de la T${A.T} a la carpeta de fotos, entran solas. Desmarca los que no quieras mostrar.</div></div></div>
+    <div class="ca-grid">${tarjetasModelo}</div>
+  </div>
+  <div class="tbl-card" id="caMensajes" style="margin-top:14px">
+    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">3 · El mensaje, a nombre de Mohicano Jeans</div>
+      <div class="card-sub" style="margin:2px 0 0">Uno por grupo. Corrígelo aquí mismo: lo que escribas queda guardado en este computador y es lo que baja el Excel.</div></div></div>
+    <div style="padding:4px 18px 14px;display:grid;gap:14px">${mensajes}</div>
+  </div>
+  <div class="tbl-card" id="caCuando" style="margin-top:14px">
+    <div class="tbl-head"><div><div class="card-ttl" style="margin:0">4 · Cuándo</div>
+      <div class="card-sub" style="margin:2px 0 0">${A.pctOctNov ? `El ${A.pctOctNov}% de las unidades del ${A.anoPas} se pidieron en octubre y noviembre: la campaña va ahora.` : 'Cuatro semanas, de más a menos urgente.'}</div></div></div>
+    <div class="tbl-scroll"><table><thead><tr><th>Semana del</th><th>A quién</th></tr></thead><tbody>${calendario.map(([d, q]) => `<tr><td class="td-num">${d}</td><td style="white-space:normal">${q}</td></tr>`).join('')}</tbody></table></div>
+    <div class="tbl-foot">Nada se envía desde esta pantalla. Cuando el mensaje y la lista estén bien, el envío por WhatsApp se hace desde el CRM, con tu OK, como en la recuperación de inactivos de la T44.</div>
+  </div></div>`;
+}
+async function campArmarSec(peds, pa) {
+  CA = await campArmarDatos(campPeds(peds), pa);
+  if (!CA.modelos.length) return `<div class="tbl-card" style="padding:24px;color:var(--tx2)">Todavía no hay pedidos de una colección nueva para armar la campaña.</div>`;
+  return campArmarHtml();
+}
+function campArmarPintar() {   // se vuelve a pintar en el lugar, con lo corregido
+  const cont = document.getElementById('caTabla');
+  if (!cont || !CA) return;
+  const grupoOn = document.querySelector('#caGrupoSegs .seg.on')?.dataset.g || '';
+  cont.outerHTML = campArmarHtml();
+  campArmarBind();
+  if (grupoOn) document.querySelector(`#caGrupoSegs .seg[data-g="${grupoOn}"]`)?.click();
+}
+function campArmarBind() {
+  const cont = document.getElementById('caTabla');
+  if (!cont || !CA) return;
+  planOrdenable(document.getElementById('caBody').closest('table'));
+  const refrescar = () => {
+    const e = caEstado(), fuera = new Set(e.fuera || []), dentro = new Set(e.dentro || []);
+    for (const c of CA.clientes) c.incluido = dentro.has(c.k) ? true : fuera.has(c.k) ? false : !c.motivo;
+    campArmarPintar();
+  };
+  cont.querySelectorAll('.ca-inc').forEach(ch => ch.addEventListener('change', () => {
+    const e = caEstado(), fuera = new Set(e.fuera || []), dentro = new Set(e.dentro || []), c = CA.clientes.find(x => x.k === ch.dataset.k);
+    if (!c) return;
+    if (ch.checked) { fuera.delete(c.k); if (c.motivo) dentro.add(c.k); } else { dentro.delete(c.k); if (!c.motivo) fuera.add(c.k); }
+    caGuardar({ fuera: [...fuera], dentro: [...dentro] }); refrescar();
+  }));
+  cont.querySelectorAll('.ca-mod').forEach(ch => ch.addEventListener('change', () => {
+    if (ch.checked) CA.modelosFuera.delete(ch.dataset.base); else CA.modelosFuera.add(ch.dataset.base);
+    caGuardar({ modelosFuera: [...CA.modelosFuera] }); ch.closest('.ca-modelo').classList.toggle('fuera', !ch.checked);
+    const v = document.getElementById('cak-mod-val'); if (v) v.textContent = fmt(CA.modelos.length - CA.modelosFuera.size);
+  }));
+  cont.querySelectorAll('#caGrupoSegs .seg').forEach(b => b.addEventListener('click', () => {
+    cont.querySelectorAll('#caGrupoSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+    cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { tr.style.display = !b.dataset.g || tr.dataset.g === b.dataset.g ? '' : 'none'; });
+  }));
+  let deb = null;
+  cont.querySelectorAll('.ca-texto').forEach(t => t.addEventListener('input', () => {
+    CA.msgs[t.dataset.g] = t.value;
+    clearTimeout(deb); deb = setTimeout(() => { caGuardar({ msgs: CA.msgs }); cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { const c = CA.clientes.find(x => x.k === tr.dataset.k); if (c && c.incluido && c.grupo === t.dataset.g) tr.cells[7].textContent = caMensaje(c); }); }, 400);
+  }));
+  cont.querySelectorAll('.ca-copiar').forEach(b => b.addEventListener('click', () => navigator.clipboard.writeText(CA.msgs[b.dataset.g] || '').then(() => { b.textContent = 'Copiado ✓'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); }).catch(() => {})));
+  cont.querySelectorAll('.ca-plantilla').forEach(b => b.addEventListener('click', () => { CA.msgs[b.dataset.g] = CA.plantillas[b.dataset.g]; caGuardar({ msgs: CA.msgs }); campArmarPintar(); }));
+  // Otra versión escrita por Mohi: una llamada al asistente con lo que hay que decir; lo que vuelve se pone en el cuadro
+  cont.querySelectorAll('.ca-mohi').forEach(b => b.addEventListener('click', async () => {
+    const g = b.dataset.g, ta = cont.querySelector(`.ca-texto[data-g="${g}"]`);
+    b.disabled = true; b.textContent = 'Escribiendo…';
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+      const pedido = `Escribe el mensaje de WhatsApp de la campaña de la colección T${CA.T} para este grupo de clientes: ${CA.grupos[g].ttl}. A nombre de Mohicano Jeans, español de Chile, cercano y directo, máximo 450 caracteres, con {nombre} como marcador del nombre del cliente. Botas de la colección: ${caListar(CA.botasNueva.slice(0, 4))}. Modelos más pedidos: ${caListar(CA.modelos.slice(0, 3).map(m => m.base + (m.bota ? ' ' + m.bota : '')))}. ${g === 'ano' ? `El año pasado por estas fechas nos compraron ${caListar(CA.topBotasAno.slice(0, 3))}.` : ''} Esta es la versión actual, escribe una distinta y mejor: «${CA.msgs[g]}». Devuelve solo el mensaje, sin comillas ni explicaciones.`;
+      const r = await fetch(IA_URL, { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ pregunta: pedido, historial: [] }), signal: AbortSignal.timeout(90000) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || ('El asistente respondió ' + r.status));
+      ta.value = String(data.answer || '').trim().replace(/^["«]|["»]$/g, ''); ta.dispatchEvent(new Event('input'));
+    } catch (e) { alert('No pude pedirle otra versión a Mohi: ' + String(e.message || e)); }
+    finally { b.disabled = false; b.textContent = '✨ Pedirle otra versión a Mohi'; }
+  }));
+  cont.querySelectorAll('[data-cak]').forEach(card => {
+    const ir = () => document.getElementById({ cli: 'caClientes', mod: 'caModelos', ano: 'caClientes', msg: 'caMensajes' }[card.dataset.cak])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.addEventListener('click', () => { ir(); if (card.dataset.cak === 'ano') document.querySelector('#caGrupoSegs .seg[data-g="ano"]')?.click(); });
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+  });
+}
 
 async function secCampana() {
   const [peds, pa, ft, cortesHist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
@@ -6530,7 +6773,7 @@ async function secCampana() {
   campElegir(PLAN_TEMP, PLAN_CMP);
   const hist = Object.values(PLAN.temps).filter(T => T.total >= 3000 && T.t !== PLAN_TEMP).sort((a, b) => +b.t - +a.t);
   const etiqueta = t => t === TEMP_ACTIVA ? ' · activa' : (t === todas[0] && +t > +TEMP_ACTIVA ? ' · nueva' : '');
-  const cuerpo = CAMP_TAB === 'venta' ? await secReporte() : '<div id="planBody" class="pl"></div>';
+  const cuerpo = CAMP_TAB === 'venta' ? await secReporte() : CAMP_TAB === 'armar' ? await campArmarSec(peds, pa) : '<div id="planBody" class="pl"></div>';
   return `
   <div class="fbar">
     <div class="fbar-row">
@@ -6553,6 +6796,7 @@ async function secCampana() {
   <div class="camp-tabs segs" id="campTabs">
     <button class="seg${CAMP_TAB === 'plan' ? ' on' : ''}" data-tab="plan">Plan: qué producir</button>
     <button class="seg${CAMP_TAB === 'venta' ? ' on' : ''}" data-tab="venta">Venta: qué ofrecer y a quién</button>
+    <button class="seg${CAMP_TAB === 'armar' ? ' on' : ''}" data-tab="armar" data-admin-only>✨ Armar campaña</button>
   </div>
   <div class="camp-desc" id="campDesc">${campDesc()}</div>
   ${cuerpo}`;
@@ -9763,8 +10007,9 @@ function bindContent(secId) {
         if (allHit) nArt++;
         const textoOk = !texto || row.dataset.nombre.includes(texto) || (row.dataset.ciudades || row.dataset.ciudad || '').includes(texto);
         const qOk = !q || (esArt ? (allHit && textoOk) : textoOk);
-        const ok = avOk && tmOk && cjOk && qOk && ciuOk;
-        row.dataset.alc = qOk && ciuOk ? '1' : '';   // para las tarjetas, que no cambian con Avance, Producción ni Caja
+        const magOk = !VD_SIN_MAGIC || row.dataset.mag !== '1';
+        const ok = avOk && tmOk && cjOk && qOk && ciuOk && magOk;
+        row.dataset.alc = qOk && ciuOk && magOk ? '1' : '';   // para las tarjetas, que no cambian con Avance, Producción ni Caja
         row.style.display = ok ? '' : 'none';
         // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
         const hit = row.querySelector('.vd-arthit');
@@ -9955,6 +10200,11 @@ function bindContent(secId) {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyVDFilters();
     })));
+    document.querySelectorAll('#vdMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
+      VD_SIN_MAGIC = b.dataset.mg === 'sin';
+      document.querySelectorAll('#vdMagicSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      applyVDFilters();
+    }));
 
     // Sort
     let vdSortCol = null, vdSortDir = -1;
@@ -10880,6 +11130,7 @@ function bindContent(secId) {
   }
 
   // Campaña · Plan de colección
+  if (secId === 'campana' && document.getElementById('caTabla')) campArmarBind();   // Armar campaña
   if (secId === 'campana' && document.getElementById('planBody')) {
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
