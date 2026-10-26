@@ -6566,9 +6566,9 @@ async function campArmarDatos(peds, pa) {
   const modelos = pa.filter(x => x.temp === T && (x.total || 0) > 0).sort((a, b) => b.total - a.total)
     .map(x => ({ base: x.base, bota: x.bota || '', tiro: x.tiro || '', total: x.total, stock: x.stock || 0, colores: (x.modelos || []).filter(m => (m.qty || 0) > 0).map(m => String(m.mod).padStart(2, '0')) }));
   const botaDe = {}; for (const x of pa) botaDe[x.temp + x.base] = x.bota || '';
-  const fotos = typeof IMG_G === 'object' && IMG_G ? IMG_G : {};
-  const fotoDe = base => { const k = Object.keys(fotos).find(a => a.startsWith('01' + base)); return k ? `img/art/${k}.jpg` : ''; };
-  const refDe = bota => { const k = Object.keys(fotos).find(a => a.startsWith('01' + TA) && (botaDe[TA + a.slice(2, 6)] || '') === bota); return k ? { src: `img/art/${k}.jpg`, base: k.slice(2, 6) } : null; };
+  const artsFoto = Object.keys((await imgGal()) || {}).filter(k => k.length === 8);   // la galería: artículos con foto
+  const fotoDe = base => { const k = artsFoto.find(a => a.startsWith('01' + base)); return k ? `img/art/${k}.jpg` : ''; };
+  const refDe = bota => { const k = artsFoto.find(a => a.startsWith('01' + TA) && (botaDe[TA + a.slice(2, 6)] || '') === bota); return k ? { src: `img/art/${k}.jpg`, base: k.slice(2, 6) } : null; };
   for (const m of modelos) { m.foto = fotoDe(m.base); m.ref = m.foto ? null : refDe(m.bota); }
   // A esta fecha el año pasado: dos meses antes y uno después de la misma fecha
   const hoy = today(), d = new Date(hoy + 'T12:00:00'); d.setFullYear(d.getFullYear() - 1);
