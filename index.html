@@ -2338,27 +2338,25 @@ function pintarKen() {
     plata:  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     subida: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
   };
-  const tarjeta = (val, lbl, sub, col, ico) => `<div class="kpi" style="cursor:default">
-    <div class="kpi-ico ${col}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO[ico]}</svg></div>
-    <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
-      <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
-
   cuerpo.innerHTML = `
   ${viejo ? `<div class="td-dim" style="font-size:11px;margin-bottom:10px">Hoy todavía no hay venta registrada en la tienda: se muestra el último día con movimiento</div>` : ''}
-  <div class="kpi-grid">
-    ${tarjeta(fmt(docs.length), 'Documentos', notas ? fmt(notas) + ' nota' + (notas === 1 ? '' : 's') + ' de crédito' : '', 'c-ac', 'doc')}
-    ${tarjeta(fmt(prendas), 'Prendas', 'descontadas las devoluciones', 'c-ok', 'prenda')}
-    ${tarjeta(fmtM(ticket), 'Ticket promedio', fmt(ventas.length) + ' boletas y facturas', 'c-ac', 'ticket')}
-    ${tarjeta(fmtM(neto), 'Neto', otros > 0 ? fmtM(otros) + ' es despacho y otros cargos' : '', 'c-wa', 'plata')}
-    ${tarjeta(fmtM(bruto), 'Bruto (c/IVA)', '', '', 'subida')}
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'vkk', k: 'neto', lbl: 'Venta neta', val: fmtM(neto), color: '#047857', ver: 'Ver los documentos',
+      sub: `bruto con IVA ${fmtM(bruto)}${otros > 0 ? ' · ' + fmtM(otros) + ' es despacho y otros cargos' : ''}` })}
+    ${tarjetaKpi({ attr: 'vkk', k: 'prendas', lbl: 'Prendas vendidas', val: fmt(prendas), sub: 'descontadas las devoluciones', color: 'var(--ac)', ver: 'Ver lo más vendido' })}
+    ${tarjetaKpi({ attr: 'vkk', k: 'ticket', lbl: 'Ticket promedio', val: fmtM(ticket), sub: `${fmt(ventas.length)} boletas y facturas`, color: 'var(--ac)', ver: 'Ver los documentos' })}
+    ${tarjetaKpi({ attr: 'vkk', k: 'docs', lbl: 'Documentos', val: fmt(docs.length), sub: notas ? `${fmt(notas)} nota${notas === 1 ? '' : 's'} de crédito` : 'sin notas de crédito',
+      color: notas ? 'var(--wa)' : 'var(--tx2)', ver: 'Ver los documentos' })}
   </div>
+  ${grafCard('kenGraf', '¿Cómo va la venta de la tienda?', 'La venta neta de cada día del período elegido (de cada mes, si es más de dos meses). Toca una barra para ver sus documentos.', 240)}
 
-  <div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Lo más vendido</div>
+  <div class="tbl-card" id="kenTopCard" style="margin-top:14px">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Lo más vendido</div>
         <div class="card-sub" style="margin:2px 0 0">Unidades netas del tramo: una devolución resta</div></div>
-      <span class="td-dim" style="margin-left:auto">${fmt(rank.length)} artículos · ${fmt(totalU)} prendas</span>
-      <button class="seg" id="kenTopPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim">${fmt(rank.length)} artículos · ${fmt(totalU)} prendas</span>
+      <button class="seg" id="kenTopPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -2369,12 +2367,13 @@ function pintarKen() {
     </div>
   </div>
 
-  <div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">${ttl}</div>
+  <div class="tbl-card" id="kenDocCard" style="margin-top:14px">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">${ttl}</div>
         <div class="card-sub" style="margin:2px 0 0">Boletas, facturas y notas de crédito de la tienda</div></div>
-      <span class="td-dim" style="margin-left:auto">${fmt(docs.length)} documentos</span>
-      <button class="seg" id="kenDocPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim">${fmt(docs.length)} documentos</span>
+      <button class="seg" id="kenDocPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -2391,6 +2390,13 @@ function pintarKen() {
   }));
   imprimir('kenTopPrint', 'kenTopFoot', 'Lo más vendido en la tienda');
   imprimir('kenDocPrint', 'kenDocFoot', 'Venta de la tienda');
+  // Tocar una tarjeta lleva a su tabla; el gráfico, con lo que se ve
+  cuerpo.querySelectorAll('[data-vkk]').forEach(card => {
+    const ir = () => document.getElementById(card.dataset.vkk === 'prendas' ? 'kenTopCard' : 'kenDocCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.addEventListener('click', ir);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+  });
+  kenGrafico(docs);
 }
 
 async function secVentaKennedy() {
@@ -8468,6 +8474,28 @@ function dcMolde() {
   document.getElementById('dcGrafBox').style.height = `${xs.length * 26 + 40}px`;
   barras('dcGraf', xs.map(r => `${r.dataset.base}${r.dataset.bota ? ' · ' + dcCap(r.dataset.bota) : ''}`), [{ label: 'Unidades pedidas', data: xs.map(u), backgroundColor: color('--ac') }],
     i => dcAbrir(xs[i].dataset.base), { apiladas: false, leyenda: false, sufijo: ' unidades', extra: i => `${pct(u(xs[i]))}% de lo que se ve · toca para ver sus colores` });
+}
+
+/* Venta Kennedy: ¿cómo va la venta de la tienda? La venta neta de cada día del período (de cada mes, si son más de dos
+   meses); en rojo un día que cerró bajo cero por devoluciones. Tocar una barra filtra ese día o ese mes. */
+function kenGrafico(docs) {
+  const card = document.getElementById('kenGrafCard');
+  if (!card) return;
+  const dias = [...new Set(docs.map(d => d.fecha).filter(Boolean))];
+  const porMes = dias.length > 62, MESES_C = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const suma = {};
+  for (const d of docs) if (d.fecha) { const k = porMes ? d.fecha.slice(0, 7) : d.fecha; suma[k] = (suma[k] || 0) + (d.neto || 0); }
+  const ks = Object.keys(suma).sort();
+  card.style.display = ks.length > 1 ? '' : 'none';
+  if (ks.length < 2) return;
+  barras('kenGraf', ks.map(k => (porMes ? MESES_C[+k.slice(5, 7)] : `${k.slice(8, 10)}/${k.slice(5, 7)}`)),
+    [{ label: 'Venta neta', data: ks.map(k => suma[k]), backgroundColor: ks.map(k => (suma[k] < 0 ? color('--er') : color('--ac'))) }],
+    i => {
+      const el = document.getElementById(porMes ? 'kenMes' : 'kenDia');
+      if (el) { el.value = ks[i]; el.dispatchEvent(new Event('change')); }
+    },
+    { horizontal: false, apiladas: false, leyenda: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v),
+      extra: i => { const n = docs.filter(d => (d.fecha || '').startsWith(ks[i])).length; return `${fmt(n)} documento${n === 1 ? '' : 's'} · toca para verlos`; } });
 }
 
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
