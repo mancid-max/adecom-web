@@ -276,6 +276,8 @@ body.ia-open #iaBtn{display:none}
 .graf-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
 .graf-chip{display:inline-flex;align-items:center;gap:6px;background:var(--ac10);color:var(--ac);border-radius:14px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
 @media(max-width:900px){.graf-grid{grid-template-columns:1fr}}
+.corr-aviso{background:var(--er10);color:var(--er);border-radius:var(--rsm);padding:10px 14px;margin:0 0 12px;cursor:pointer;font-size:13px;line-height:1.45}
+.corr-aviso:hover{filter:brightness(.97)}
 .pvc-cli{cursor:pointer}
 .pvc-cli.abierta>td{background:var(--ac10)}
 .pvc-ts{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:4px 0}
@@ -1755,13 +1757,19 @@ async function secTabla() {
     ? `<td class="r td-num" style="font-weight:700">${fmt(pend)}</td>`
     : `<td class="r" style="color:var(--tx3)">${paso ? '✓' : '—'}</td>`;
 
+  /* El correlativo de una orden se escribe con 00 adelante (00961564). Las que quedaron con un solo 0 (09614509) se
+     ingresaron mal en el ERP y hay que corregirlas (Manu, 26-10-2026: "déjalo dentro de trazabilidad para poder
+     solucionarlos"). El 26-10 eran 35 de 1.183: 17 muestras, 12 sets y 6 de producción. */
+  const corrMal = r => /^0[1-9]\d{6}$/.test((r.corte || '').trim());
+  const nMal = new Set(rows.filter(corrMal).map(r => (r.corte || '').trim())).size;
+
   const rowsHtml = rows.map(r => {
     const bg = (r.bodega||0) > 0 ? 'style="background:var(--ok10)"'
                : (r.lavanderia||0) > 0 ? 'style="background:var(--wa10)"' : '';
-    const dataAttrs = `data-art="${(r.articulo||'').trim().toLowerCase()}" data-oc="${(r.corte||'').trim().toLowerCase()}" data-temp="${r.temporada||''}" data-tipo="${(r.tipo||'').toLowerCase()}" data-m="${(r.m||'').toLowerCase()}" data-etapa="${r.etapa}" data-fecha="${r.fecha_iso||''}" ${NUM_COLS.map(k=>`data-${k}="${r[k]||0}"`).join(' ')}`;
+    const dataAttrs = `data-mal="${corrMal(r) ? 1 : ''}" data-art="${(r.articulo||'').trim().toLowerCase()}" data-oc="${(r.corte||'').trim().toLowerCase()}" data-temp="${r.temporada||''}" data-tipo="${(r.tipo||'').toLowerCase()}" data-m="${(r.m||'').toLowerCase()}" data-etapa="${r.etapa}" data-fecha="${r.fecha_iso||''}" ${NUM_COLS.map(k=>`data-${k}="${r[k]||0}"`).join(' ')}`;
     return `<tr class="no-click" ${bg} ${dataAttrs}>
       <td class="td-code">${r.articulo}</td>
-      <td class="td-dim">${r.corte||'—'}</td>
+      <td class="td-dim">${corrMal(r) ? `<span style="color:var(--er);font-weight:700">${r.corte}</span> <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px" title="El correlativo correcto empieza con 00; este quedó con un solo 0">⚠ revisar</span>` : (r.corte||'—')}</td>
       <td class="td-dim">${r.fecha||'—'}</td>
       <td class="td-dim">${r.tipo||'—'}${r.m ? ' <span style="font-size:10px;font-weight:700;color:var(--ac)">'+r.m+'</span>' : ''}</td>
       <td><span class="badge ${r.etapa==='Bodega'?'b-bol':r.etapa==='Lavandería'?'b-nc':'b-otro'}" style="font-size:9px">${r.etapa}</span></td>
@@ -1819,7 +1827,12 @@ async function secTabla() {
       <input id="tblOcSearch"  class="finput fsearch" placeholder="OC…" style="width:110px">
     </div>
     </div>
+    ${nMal ? `<div class="fbar-row"><div class="fgrp"><span class="flbl">Revisar</span><div class="segs" id="tblRevSegs">
+      <button class="seg on" data-rv="">Todas</button>
+      <button class="seg" data-rv="mal" title="Órdenes con el correlativo mal ingresado: un solo 0 adelante en vez de 00">⚠ Correlativo mal (${nMal})</button>
+    </div></div></div>` : ''}
   </div>
+  ${nMal ? `<div class="corr-aviso" id="tblCorrAviso" role="button" tabindex="0" title="Ver solo esas órdenes">⚠ <b>${nMal} órdenes con el correlativo mal ingresado</b>: empiezan con un solo 0 (como 09614509) y el correcto empieza con 00 (como 00961564). Hay que corregirlas en el ERP. <b>Ver cuáles ›</b></div>` : ''}
   <div class="tbl-card">
     <div class="tbl-head">
       <div class="card-ttl" style="margin:0">Trazabilidad</div>
@@ -7926,7 +7939,7 @@ function bindContent(secId) {
       el,
       art: el.dataset.art || '', art8: (el.dataset.art || '').slice(0, 8),
       oc: el.dataset.oc || '', temp: el.dataset.temp || '', fecha: el.dataset.fecha || '',
-      tipo: el.dataset.tipo || '', m: el.dataset.m || '', etapa: el.dataset.etapa || '',
+      tipo: el.dataset.tipo || '', m: el.dataset.m || '', etapa: el.dataset.etapa || '', mal: el.dataset.mal === '1',
       nums: NUM.map(k => parseInt(el.dataset[k]) || 0),
     }));
     const totEls = NUM.map(k => document.getElementById(`tblTotal_${k}`));
@@ -7956,6 +7969,7 @@ function bindContent(secId) {
       const selMs = new Set([...document.querySelectorAll('#tblMSegs .seg.on')].map(b => b.dataset.m));
       const art   = (document.getElementById('tblArtSearch')?.value||'').trim().toLowerCase();
       const oc    = (document.getElementById('tblOcSearch')?.value||'').trim().toLowerCase();
+      const rv    = document.querySelector('#tblRevSegs .seg.on')?.dataset.rv || '';   // "mal": solo el correlativo mal ingresado
       const artNum = /^\d{4,}$/.test(art);
       const tots = new Array(NUM.length).fill(0);
       const pasan = [];
@@ -7968,7 +7982,8 @@ function bindContent(secId) {
           (etapa === 'todo' || (etapa === 'final' ? TBL_FINAL.has(f.etapa) : f.etapa === etapa)) &&
           (temp  === 'todo' || f.temp  === temp) &&
           (!art || (artNum ? (artMatch(f.art8, art) || f.art.startsWith(art)) : f.art.includes(art))) &&
-          (!oc  || f.oc.includes(oc));
+          (!oc  || f.oc.includes(oc)) &&
+          (!rv  || f.mal);
         if (show) { pasan.push(f); for (let i = 0; i < NUM.length; i++) tots[i] += f.nums[i]; }
       }
       pintarFilas(pasan);
@@ -7990,12 +8005,25 @@ function bindContent(secId) {
       const parts = [`Etapa: ${selTxt('tblEtapa')}`, `Temp: ${selTxt('tblTempSel')}`, `Tipo: ${tipo}${ms.length ? ' (' + ms.join(', ') + ')' : ''}`];
       if (art) parts.push(`Artículo: ${art}`);
       if (oc)  parts.push(`OC: ${oc}`);
+      if (document.querySelector('#tblRevSegs .seg.on')?.dataset.rv) parts.push('Solo correlativo mal ingresado');
       printTable({ table: document.getElementById('tablaBody')?.closest('table'), title: 'Trazabilidad', subtitle: parts.join(' · ') });
     });
     document.getElementById('tblEtapa')?.addEventListener('change', applyTablaFilters);
     document.getElementById('tblArtSearch')?.addEventListener('input', filtrarConPausa);
     document.getElementById('tblOcSearch')?.addEventListener('input', filtrarConPausa);
     document.getElementById('tblTempSel')?.addEventListener('change', applyTablaFilters);
+    // Revisar: solo las órdenes con el correlativo mal ingresado; el aviso de arriba lleva directo a ellas
+    document.querySelectorAll('#tblRevSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#tblRevSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      applyTablaFilters();
+    }));
+    const avisoCorr = document.getElementById('tblCorrAviso');
+    const verCorrMal = () => {
+      document.querySelector('#tblRevSegs .seg[data-rv="mal"]')?.click();
+      document.getElementById('tablaBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    avisoCorr?.addEventListener('click', verCorrMal);
+    avisoCorr?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); verCorrMal(); } });
     // Build M sub-filter pills (multi-select)
     const mVals = [...new Set(FILAS.map(f => f.m).filter(Boolean))].sort();
     const mSegs   = document.getElementById('tblMSegs');
