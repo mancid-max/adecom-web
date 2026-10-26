@@ -195,22 +195,20 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .td-num{font-variant-numeric:tabular-nums;font-weight:600}
 .td-dim{color:var(--tx2);font-size:12px}
 .td-code{font-family:ui-monospace,monospace;font-size:12px;color:var(--tx2)}
-/* Asistente */
-#iaBtn{position:fixed;right:20px;bottom:20px;z-index:190;width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;
-  background:var(--ok);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;transition:transform .12s}
-#iaBtn:hover{transform:scale(1.06)}
-#iaBtn.on{display:flex}
-#iaPanel{position:fixed;top:0;right:0;bottom:0;width:var(--iaw);z-index:120;background:var(--sf);border-left:1px solid var(--bd);
-  display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s ease;box-shadow:-4px 0 24px rgba(0,0,0,.10)}
-#iaPanel.open{transform:translateX(0)}
-#iaPanel .det-hd{flex-shrink:0}
-/* El chat flota ENCIMA del contenido: la página no se mueve ni se angosta */
-body.ia-open #iaBtn{display:none}
-/* Mohi, la guía: la burbuja sobre el botón del chat, y su botón redondo para abrirla */
-#guia{position:fixed;right:20px;bottom:84px;z-index:189;display:flex;flex-direction:column;align-items:flex-end;gap:8px;width:min(380px,calc(100vw - 32px));pointer-events:none}
+/* Mohi, la guía y el chat en una sola burbuja, abajo a la derecha */
+#guia{position:fixed;right:20px;bottom:20px;z-index:190;display:flex;flex-direction:column;align-items:flex-end;gap:8px;width:min(440px,calc(100vw - 32px));pointer-events:none}
 #guia>*{pointer-events:auto}
-body.ia-open #guia{display:none}
-.guia-burbuja{background:var(--sf);border:1px solid var(--bd);border-radius:14px;box-shadow:0 10px 30px rgba(16,24,40,.16);padding:12px 14px 11px;font-size:13px;line-height:1.5;color:var(--tx1);width:100%}
+#iaChat{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
+#iaChat:empty{display:none}
+#iaForm{display:flex;gap:6px;align-items:flex-end;margin-top:8px}
+#iaInput{flex:1;resize:none;font:inherit;font-size:13px;line-height:1.4;max-height:110px;padding:7px 10px}
+#iaSend{padding:7px 12px;border-radius:7px;border:0;background:var(--ac);color:#fff;font-weight:700;font-size:12.5px;cursor:pointer}
+#iaSend:disabled{opacity:.5;cursor:default}
+.guia-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.guia-chips:empty{display:none}
+.guia-chip{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:4px 10px;font-size:11.5px;cursor:pointer;color:var(--tx2);text-align:left}
+.guia-chip:hover{border-color:var(--ac);color:var(--ac)}
+.guia-burbuja{background:var(--sf);border:1px solid var(--bd);border-radius:14px;box-shadow:0 10px 30px rgba(16,24,40,.16);padding:12px 14px 11px;font-size:13px;line-height:1.5;color:var(--tx1);width:100%;max-height:calc(100vh - 110px);overflow:auto}
 .guia-burbuja.oculta{display:none}
 .guia-ttl{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3);margin-bottom:5px}
 .guia-x{border:0;background:none;cursor:pointer;color:var(--tx3);font-size:15px;line-height:1;padding:0 2px}
@@ -226,8 +224,6 @@ body.ia-open #guia{display:none}
 .guia-bot:hover{filter:brightness(1.08)}
 .guia-bot svg{width:28px;height:28px}
 @media(max-width:640px){#guia{right:12px;bottom:78px;width:calc(100vw - 24px)}}
-@media(max-width:820px){ #iaPanel{width:100vw} }
-#iaChat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
 .ia-msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .ia-yo{align-self:flex-end;background:var(--ok);color:#fff;border-bottom-right-radius:3px}
 .ia-bot{align-self:flex-start;background:var(--sf2);color:var(--tx1);border-bottom-left-radius:3px}
@@ -239,9 +235,6 @@ body.ia-open #guia{display:none}
 .ia-bot{max-width:96%}
 .ia-err{align-self:flex-start;background:var(--er10);color:var(--er);border-bottom-left-radius:3px}
 .ia-pensando{align-self:flex-start;color:var(--tx3);font-size:12px;font-style:italic}
-#iaForm{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd);align-items:flex-end}
-#iaInput{flex:1;resize:none;max-height:110px;min-height:38px;font-family:inherit;font-size:13px;line-height:1.4}
-#iaSend{background:var(--ok);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;font-size:13px}
 #iaSend:disabled{opacity:.5;cursor:default}
 .ia-sug{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:5px 11px;font-size:11.5px;cursor:pointer;color:var(--tx2);text-align:left}
 .ia-sug:hover{border-color:var(--ok);color:var(--ok)}
@@ -603,22 +596,16 @@ body.ia-open #guia{display:none}
     </div>
   </div></div></div>
 <div id="guia" aria-live="polite">
-  <div class="guia-burbuja oculta" id="guiaBurbuja"></div>
+  <div class="guia-burbuja oculta" id="guiaBurbuja">
+    <div id="guiaCuerpo"></div>
+    <div id="iaChat" class="guia-chat"></div>
+    <div id="guiaChips" class="guia-chips"></div>
+    <form id="iaForm" class="guia-form" style="display:none" autocomplete="off"><textarea id="iaInput" class="finput" rows="1" placeholder="Pregúntale a Mohi sobre lo que ves…" maxlength="1000"></textarea><button id="iaSend" type="submit">Enviar</button></form>
+  </div>
   <button class="guia-bot" id="guiaBtn" title="Mohi, la guía: qué es esta sección y qué mirar primero" aria-label="Abrir la guía">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><circle cx="9" cy="14" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M12 8V5"/><circle cx="12" cy="3.5" r="1.2"/><path d="M9.5 17.5h5"/></svg>
   </button>
 </div>
-<button id="iaBtn" title="Preguntar al asistente" aria-label="Preguntar al asistente">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-</button>
-<aside id="iaPanel" aria-label="Asistente">
-  <div class="det-hd"><div class="det-ttl">Asistente ADECOM</div>
-    <button class="det-close" id="iaReporte" title="Qué hacer primero hoy, para copiarlo y mandarlo" aria-label="Reporte del día" style="margin-right:6px;width:auto;padding:0 10px;font-size:12px;color:var(--ok);font-weight:700">📋 Reporte del día</button>
-    <button class="det-close" id="iaLimpiar" title="Empezar de nuevo" aria-label="Empezar de nuevo" style="margin-right:6px;width:auto;padding:0 10px;font-size:12px">Limpiar</button>
-    <button class="det-close" id="iaClose" aria-label="Cerrar">✕</button></div>
-  <div id="iaChat"></div>
-  <form id="iaForm"><textarea id="iaInput" class="finput" rows="1" placeholder="Pregunta lo que necesites…" maxlength="1000"></textarea><button id="iaSend" type="submit">Enviar</button></form>
-</aside>
 <div class="det-ov" id="cajaOv" style="z-index:260"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cajaTtl">Caja</div><button class="det-close" id="cajaClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cajaBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="debOv" style="z-index:270"><div class="det-panel" style="width:min(720px,96vw)"><div class="det-hd"><div class="det-ttl" id="debOvTtl">Artículo</div><button class="det-close" id="debOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="debOvBody"></div></div></div>
 <div class="det-ov" id="detOv">
@@ -8887,33 +8874,33 @@ menuPlegable();
    No gasta en el modelo: "Preguntar" abre el chat de siempre, a veces con la pregunta ya escrita. */
 const GUIA_TEXTOS = {
   resumen:        { que: 'El punto de partida: Lo urgente ordena lo que hay que mirar hoy, de lo más grave a lo menos; abajo van las tarjetas del día.' },
-  'bi-panel':     { que: 'La foto del año en una pantalla: venta facturada por fuente con su proyección, pedidos contra el año pasado, lo que falta despachar, margen y resultado.', primero: 'La lectura rápida de arriba y, si los pedidos van bajo el año pasado, el gráfico por vendedor.' },
-  'bi-alertas':   { que: 'Las alertas con su "qué hacer": listo para despachar, falta cortar, clientes trabados, cajas detenidas, órdenes lentas y stock viejo para liquidar.', primero: 'Las rojas. Cada bloque tiene "Ver detalle" para ir a la sección.' },
-  'bi-clientes':  { que: 'La cartera: clientes activos, nuevos y perdidos, cuánto concentran los grandes (Pareto) y la deuda por vendedor.', primero: 'Los que compraron el año pasado y no este: son los primeros a llamar.' },
-  'bi-kennedy':   { que: 'La tienda Kennedy en números: venta semanal, qué día se vende más, tallas, qué reponer y qué no se mueve.', primero: '"Reponer: se agota en menos de 3 semanas" y el stock sin venta en 90 días.' },
-  'bi-prod':      { que: 'La producción como proceso: cuánto se programa, corta y entrega cada mes, cuántos días toma cada etapa y qué órdenes llevan más tiempo.', primero: 'La etapa más lenta y las órdenes abiertas más antiguas.' },
-  'bi-er':        { que: 'La rentabilidad: de los ingresos al resultado, el peso de cada gasto, la venta mensual de equilibrio y qué pasa si sube el margen.', primero: 'La venta de equilibrio contra la venta real del mes: esa es la brecha.' },
-  'detalle-color': { que: 'Lo pedido por modelo y color en una temporada, con sus tallas. Toca un modelo para abrir sus colores.', primero: 'Los modelos más pedidos: son los que no pueden faltar en bodega.' },
-  top10:          { que: 'Los clientes que más piden en la temporada, cuánto se les despachó y cuánto falta. Puedes ver 10, 20, 50 o todos.', primero: 'Los de arriba con menos avance: son grandes y están esperando.' },
-  pvc:            { que: 'Pedido contra corte: qué artículos no alcanza a cubrir la bodega ni la producción y hay que cortar, y cuáles sobran para ofrecer.', primero: 'La tarjeta de lo que falta programar y el gráfico "¿Qué cortar primero?".' },
-  stock:          { que: 'El stock del ERP por artículo y talla, con su valor aproximado. Busca primero; los filtros acotan por temporada y estado.', primero: 'Los negativos: son errores que hay que corregir en el ERP.' },
-  kennedy:        { que: 'El stock de la tienda Kennedy desde Bsale, por artículo y talla, con su valor.', primero: 'Lo de colecciones antiguas: es plata parada en la tienda.' },
-  cajas:          { que: 'Las cajas ya armadas en bodega esperando despacho: de quién, hace cuántos días y por cuánto.', primero: 'Las de más de 30 días: facturar y despachar, o liberar el stock.' },
+  'bi-panel':     { preguntas: ['¿Cómo vamos este año contra el pasado?'], que: 'La foto del año en una pantalla: venta facturada por fuente con su proyección, pedidos contra el año pasado, lo que falta despachar, margen y resultado.', primero: 'La lectura rápida de arriba y, si los pedidos van bajo el año pasado, el gráfico por vendedor.' },
+  'bi-alertas':   { preguntas: ['¿Qué resuelvo primero de estas alertas?'], que: 'Las alertas con su "qué hacer": listo para despachar, falta cortar, clientes trabados, cajas detenidas, órdenes lentas y stock viejo para liquidar.', primero: 'Las rojas. Cada bloque tiene "Ver detalle" para ir a la sección.' },
+  'bi-clientes':  { preguntas: ['¿Qué clientes estamos perdiendo?'], que: 'La cartera: clientes activos, nuevos y perdidos, cuánto concentran los grandes (Pareto) y la deuda por vendedor.', primero: 'Los que compraron el año pasado y no este: son los primeros a llamar.' },
+  'bi-kennedy':   { preguntas: ['¿Qué debo reponer en la tienda?'], que: 'La tienda Kennedy en números: venta semanal, qué día se vende más, tallas, qué reponer y qué no se mueve.', primero: '"Reponer: se agota en menos de 3 semanas" y el stock sin venta en 90 días.' },
+  'bi-prod':      { preguntas: ['¿Dónde se atrasa la producción?'], que: 'La producción como proceso: cuánto se programa, corta y entrega cada mes, cuántos días toma cada etapa y qué órdenes llevan más tiempo.', primero: 'La etapa más lenta y las órdenes abiertas más antiguas.' },
+  'bi-er':        { preguntas: ['¿Cómo mejoro el resultado?'], que: 'La rentabilidad: de los ingresos al resultado, el peso de cada gasto, la venta mensual de equilibrio y qué pasa si sube el margen.', primero: 'La venta de equilibrio contra la venta real del mes: esa es la brecha.' },
+  'detalle-color': { preguntas: ['¿Qué modelos y colores se piden más?'], que: 'Lo pedido por modelo y color en una temporada, con sus tallas. Toca un modelo para abrir sus colores.', primero: 'Los modelos más pedidos: son los que no pueden faltar en bodega.' },
+  top10:          { preguntas: ['¿Qué clientes grandes están atrasados?'], que: 'Los clientes que más piden en la temporada, cuánto se les despachó y cuánto falta. Puedes ver 10, 20, 50 o todos.', primero: 'Los de arriba con menos avance: son grandes y están esperando.' },
+  pvc:            { preguntas: ['¿Qué corto primero esta semana?'], que: 'Pedido contra corte: qué artículos no alcanza a cubrir la bodega ni la producción y hay que cortar, y cuáles sobran para ofrecer.', primero: 'La tarjeta de lo que falta programar y el gráfico "¿Qué cortar primero?".' },
+  stock:          { preguntas: ['¿Qué artículos tengo de sobra para ofrecer?'], que: 'El stock del ERP por artículo y talla, con su valor aproximado. Busca primero; los filtros acotan por temporada y estado.', primero: 'Los negativos: son errores que hay que corregir en el ERP.' },
+  kennedy:        { preguntas: ['¿Qué debo reponer en la tienda?'], que: 'El stock de la tienda Kennedy desde Bsale, por artículo y talla, con su valor.', primero: 'Lo de colecciones antiguas: es plata parada en la tienda.' },
+  cajas:          { preguntas: ['¿Qué cajas despacho hoy?'], que: 'Las cajas ya armadas en bodega esperando despacho: de quién, hace cuántos días y por cuánto.', primero: 'Las de más de 30 días: facturar y despachar, o liberar el stock.' },
   fotos:          { que: 'Los modelos con stock que no tienen foto en la página, y dónde dejar las fotos para que entren solas.', primero: 'Los de "Fotografiar": sin foto no se venden por la web.' },
-  tabla:          { que: 'Trazabilidad de las órdenes de corte: en qué etapa va cada una (corte, costura, taller externo, limpiado, lavandería, terminación) y cuánto falta llegar a bodega.', primero: 'Las que no se mueven hace más días.' },
-  programado:     { que: 'Órdenes que tienen programa y nada cortado: lo que el taller todavía no empieza.', primero: 'Las de más de 30 días, en rojo: apurar el corte con el taller.' },
-  cuadrados:      { que: 'Los cortes que ya cuadraron (lo cortado calza con lo programado) y los que faltan por cuadrar.', primero: 'Los pendientes más antiguos.' },
+  tabla:          { preguntas: ['¿Dónde está trabada la producción?'], que: 'Trazabilidad de las órdenes de corte: en qué etapa va cada una (corte, costura, taller externo, limpiado, lavandería, terminación) y cuánto falta llegar a bodega.', primero: 'Las que no se mueven hace más días.' },
+  programado:     { preguntas: ['¿Qué órdenes apuro con el taller?'], que: 'Órdenes que tienen programa y nada cortado: lo que el taller todavía no empieza.', primero: 'Las de más de 30 días, en rojo: apurar el corte con el taller.' },
+  cuadrados:      { preguntas: ['¿Qué cortes faltan por cuadrar?'], que: 'Los cortes que ya cuadraron (lo cortado calza con lo programado) y los que faltan por cuadrar.', primero: 'Los pendientes más antiguos.' },
   metas:          { que: 'Las metas de producción del mes contra lo real.', primero: 'Las que van bajo el ritmo que necesitan para llegar a fin de mes.' },
-  'venta-kennedy': { que: 'La venta de la tienda Kennedy desde Bsale: por día, documentos, lo más vendido y el ticket promedio.', primero: 'Hoy contra los días anteriores, en el gráfico.' },
-  'reporte-venta': { que: 'La facturación del ERP (San Gerardo y otras bodegas): neto, bruto, prendas y clientes del período que elijas.', primero: 'El gráfico por día: si un día cayó, toca la barra para ver sus documentos.' },
-  'rep-pedidos':  { que: 'Los pedidos ingresados: cuántos, por cuánto, de qué clientes y qué falta despachar de ellos.', primero: 'Lo que falta despachar de los pedidos del período.' },
-  'venta-despacho': { que: 'Por cliente de la temporada: cuánto pidió, cuánto se le despachó y el saldo; y a quién despachar primero según lo que ya está en caja o en terminación.', primero: 'El gráfico "¿A quién despachar primero?": lo verde ya está en caja.' },
-  debemos:        { que: 'Para el vendedor: qué le debemos a cada cliente, por talla, y dónde está (bodega, producción, falta cortar).', primero: 'Los que esperan hace más de 90 días.' },
-  clientes:       { que: 'Clientes que compraban y dejaron de comprar: por qué (bloqueo, deuda) y a quién se le puede vender hoy.', primero: '"¿A quién llamar primero?": los que no tienen traba.' },
-  campana:        { que: 'Plan y Venta de la campaña: qué ofrecer y a quién, con lo que hay en bodega y lo que compró cada cliente antes.', primero: 'El plan de la temporada y los clientes sin pedido.', pregunta: 'Ayúdame a armar la campaña: qué artículos empujar con el stock que hay en bodega y a qué clientes ofrecérselos.' },
-  proyecciones:   { que: 'Cuánto cerraría el año en pedidos al ritmo actual, comparado a la misma fecha del año anterior: cuándo se vende, qué y a quién.', primero: 'El cierre estimado y los meses que vienen.' },
-  deudas:         { que: 'La cobranza: quién debe, cuánto está vencido y hace cuánto, quién está al día y quién bloqueado. Toca un cliente para ver sus facturas.', primero: 'Los de más de 90 días y el gráfico "¿A quién cobrar primero?".', pregunta: '¿A quién le cobro primero y qué le digo?' },
-  er:             { que: 'El estado de resultado del contador: ingresos, costo, margen, gastos y resultado del mes y acumulado.', primero: 'El resultado operacional acumulado y la línea que más pesa.' },
+  'venta-kennedy': { preguntas: ['¿Cómo va la venta de la tienda este mes?'], que: 'La venta de la tienda Kennedy desde Bsale: por día, documentos, lo más vendido y el ticket promedio.', primero: 'Hoy contra los días anteriores, en el gráfico.' },
+  'reporte-venta': { preguntas: ['¿Cómo va la venta contra el mes pasado?'], que: 'La facturación del ERP (San Gerardo y otras bodegas): neto, bruto, prendas y clientes del período que elijas.', primero: 'El gráfico por día: si un día cayó, toca la barra para ver sus documentos.' },
+  'rep-pedidos':  { preguntas: ['¿Qué falta despachar de estos pedidos?'], que: 'Los pedidos ingresados: cuántos, por cuánto, de qué clientes y qué falta despachar de ellos.', primero: 'Lo que falta despachar de los pedidos del período.' },
+  'venta-despacho': { preguntas: ['¿A quién despacho primero?'], que: 'Por cliente de la temporada: cuánto pidió, cuánto se le despachó y el saldo; y a quién despachar primero según lo que ya está en caja o en terminación.', primero: 'El gráfico "¿A quién despachar primero?": lo verde ya está en caja.' },
+  debemos:        { preguntas: ['¿Qué le puedo despachar hoy a este cliente?'], que: 'Para el vendedor: qué le debemos a cada cliente, por talla, y dónde está (bodega, producción, falta cortar).', primero: 'Los que esperan hace más de 90 días.' },
+  clientes:       { preguntas: ['¿A qué clientes inactivos llamo primero?'], que: 'Clientes que compraban y dejaron de comprar: por qué (bloqueo, deuda) y a quién se le puede vender hoy.', primero: '"¿A quién llamar primero?": los que no tienen traba.' },
+  campana:        { preguntas: ['Ayúdame a armar la campaña: qué artículos empujar con el stock que hay en bodega y a qué clientes ofrecérselos.', '¿Qué clientes no han comprado esta temporada?'], que: 'Plan y Venta de la campaña: qué ofrecer y a quién, con lo que hay en bodega y lo que compró cada cliente antes.', primero: 'El plan de la temporada y los clientes sin pedido.' },
+  proyecciones:   { preguntas: ['¿Cómo cerramos el año y qué falta vender?'], que: 'Cuánto cerraría el año en pedidos al ritmo actual, comparado a la misma fecha del año anterior: cuándo se vende, qué y a quién.', primero: 'El cierre estimado y los meses que vienen.' },
+  deudas:         { preguntas: ['¿A quién le cobro primero y qué le digo?', '¿Cuánto está vencido y cuánto al día?'], que: 'La cobranza: quién debe, cuánto está vencido y hace cuánto, quién está al día y quién bloqueado. Toca un cliente para ver sus facturas.', primero: 'Los de más de 90 días y el gráfico "¿A quién cobrar primero?".' },
+  er:             { preguntas: ['¿Cómo mejoro el resultado?'], que: 'El estado de resultado del contador: ingresos, costo, margen, gastos y resultado del mes y acumulado.', primero: 'El resultado operacional acumulado y la línea que más pesa.' },
 };
 const GUIA_QUE_HACER = {
   ven: 'Llamar primero a los de más de 90 días. Deudas los ordena por lo vencido y muestra las facturas de cada uno.',
@@ -8935,9 +8922,8 @@ function guiaTarjetas() {   // lo que dicen las tarjetas de la sección abierta 
   }).filter(Boolean);
 }
 function guiaHtml(secId, titulo) {
-  const hayChat = !!document.getElementById('iaBtn')?.classList.contains('on');
-  const preguntar = q => (hayChat ? `<button class="seg" data-g="preguntar" data-q="${guiaTx(q || '')}">Preguntar</button>` : '');
   const auto = `<button class="seg" data-g="auto" title="Si se abre sola al cambiar de sección">${guiaAuto() ? 'No abrir sola' : 'Abrir sola'}</button>`;
+  const limpiar = typeof IA_HIST !== 'undefined' && IA_HIST.length ? '<button class="seg" data-g="limpiar">Borrar conversación</button>' : '';
   if (secId === 'resumen' && Array.isArray(LU) && LU.length) {   // el recorrido de Lo urgente, uno por uno
     GUIA_PASO = Math.min(GUIA_PASO, LU.length - 1);
     const a = LU[GUIA_PASO], clr = a.nivel === 'rojo' ? 'var(--er)' : a.nivel === 'amarillo' ? 'var(--wa)' : 'var(--ok)';
@@ -8946,7 +8932,7 @@ function guiaHtml(secId, titulo) {
       <div class="guia-txt"><span class="guia-nivel" style="background:${clr}"></span><b>${guiaTx(a.titulo)}</b><div class="td-dim" style="font-size:12px;margin-top:2px">${guiaTx(a.detalle || '')}</div></div>
       ${a.nivel !== 'verde' && GUIA_QUE_HACER[a.k] ? `<div class="guia-caja primero"><b>Qué hacer:</b> ${guiaTx(GUIA_QUE_HACER[a.k])}</div>` : ''}
       <div class="guia-acc">${GUIA_PASO > 0 ? '<button class="seg" data-g="ant">‹ Anterior</button>' : ''}${a.sec ? '<button class="seg" data-g="ir">Ir ›</button>' : ''}
-        ${ultimo ? '<button class="seg ppal" data-g="fin">Eso es todo por hoy</button>' : '<button class="seg ppal" data-g="sig">Siguiente ›</button>'}${preguntar('¿Qué hago primero hoy?')}${auto}</div>`;
+        ${ultimo ? '<button class="seg ppal" data-g="fin">Eso es todo por hoy</button>' : '<button class="seg ppal" data-g="sig">Siguiente ›</button>'}${auto}${limpiar}</div>`;
   }
   const t = GUIA_TEXTOS[secId] || { que: `Aquí ves ${titulo}. Toca las tarjetas para filtrar la tabla y los encabezados para ordenarla.` };
   const ahora = guiaTarjetas();
@@ -8959,14 +8945,53 @@ function guiaHtml(secId, titulo) {
     <div class="guia-txt">${guiaTx(t.que)}</div>
     ${ahora.length ? `<div class="guia-caja"><b>Ahora:</b> ${ahora.join(' · ')}</div>` : ''}
     ${primero ? `<div class="guia-caja primero"><b>Mira primero:</b> ${guiaTx(primero)}</div>` : ''}
-    <div class="guia-acc">${secId !== 'resumen' ? '<button class="seg" data-g="urgente">Ver lo urgente</button>' : ''}${preguntar(t.pregunta)}${auto}</div>`;
+    <div class="guia-acc">${secId !== 'resumen' ? '<button class="seg" data-g="urgente">Ver lo urgente</button>' : ''}${auto}${limpiar}</div>`;
 }
+let IA_OK = false;   // el chat de Mohi es solo para el administrador (la función lo exige); el resto ve la guía
+function guiaChips(secId) {   // preguntas sugeridas para esta sección
+  const c = document.getElementById('guiaChips');
+  if (!c) return;
+  if (!IA_OK) { c.innerHTML = ''; return; }
+  const t = GUIA_TEXTOS[secId] || {};
+  const qs = [...(secId === 'resumen' ? ['¿Qué hago primero hoy?', 'Dame el reporte del día: qué hago primero y a quién le cobro.'] : []), ...(t.preguntas || []), '¿Qué significa lo que estoy viendo?'].slice(0, 4);
+  c.innerHTML = qs.map(q => `<button type="button" class="guia-chip" data-q="${guiaTx(q)}">${guiaTx(q)}</button>`).join('');
+}
+const guiaPinta = () => { const c = document.getElementById('guiaCuerpo'); if (c) c.innerHTML = guiaHtml(GUIA_SEC, GUIA_TTL); guiaChips(GUIA_SEC); };
+/* En qué pantalla está y qué tiene filtrado, para que Mohi responda sobre eso (Manu: "que le puedas preguntar en base a lo
+   que seleccionen"). Corto va delante de la pregunta; largo (con las primeras filas de la tabla) va aparte en el contexto. */
+function guiaPantalla(largo = false) {
+  const txt = el => (el ? (el.textContent || '').replace(/\s+/g, ' ').replace(/\s*[↕▲▼]$/, '').trim() : '');   // textContent: sin las mayúsculas del CSS
+  const filtros = [];
+  document.querySelectorAll('#content .fgrp').forEach(g => {
+    const l = txt(g.querySelector('.flbl')), on = [...g.querySelectorAll('.seg.on')].map(txt).filter(Boolean);
+    const sel = g.querySelector('select'), inp = g.querySelector('input');
+    const v = on.length ? on.join(' / ') : sel && sel.value ? txt(sel.selectedOptions[0]) : inp && inp.value ? `"${inp.value}"` : '';
+    if (l && v && !/^(todos?|todas)( \(?\d*\)?)?$/i.test(v)) filtros.push(`${l}: ${v}`);
+  });
+  const tarjetas = [...document.querySelectorAll('#content .kpi')].filter(k => k.offsetParent).slice(0, 6)
+    .map(k => `${txt(k.querySelector('.kpi-lbl'))} ${txt(k.querySelector('.kpi-val'))}`).filter(s => s.trim().length > 1);
+  const p = { seccion: GUIA_TTL || document.getElementById('hdTitle')?.textContent || '', filtros, tarjetas };
+  if (largo) {
+    const tb = [...document.querySelectorAll('#content table')].find(x => x.offsetParent && x.querySelector('tbody tr'));
+    if (tb) {
+      p.columnas = [...(tb.tHead?.rows[0]?.cells || [])].map(txt);
+      p.filas = [...tb.tBodies[0].rows].filter(r => r.offsetParent && r.style.display !== 'none').slice(0, 12).map(r => [...r.cells].map(c => txt(c).slice(0, 40)));
+    }
+    if (GUIA_SEC === 'resumen' && Array.isArray(LU)) p.lo_urgente = LU.map(x => `${x.nivel}: ${x.titulo}`);
+  }
+  return p;
+}
+const guiaPrefijo = () => {
+  const p = guiaPantalla();
+  const s = `[Estoy viendo ${p.seccion}${p.filtros.length ? ' · filtros: ' + p.filtros.join(', ') : ''}${p.tarjetas.length ? ' · ' + p.tarjetas.join('; ') : ''}] `;
+  return s.length > 600 ? s.slice(0, 597) + '…] ' : s;
+};
 function guiaMostrar(secId, titulo, forzar = false) {
   const b = document.getElementById('guiaBurbuja');
   if (!b) return;
   GUIA_SEC = secId; GUIA_TTL = titulo;   // el paso de Lo urgente se conserva: al volver de "Ir ›" sigue donde iba
   if (!forzar && !guiaAuto()) { b.classList.add('oculta'); return; }   // con "No abrir sola" se guarda, y el robot la abre
-  b.innerHTML = guiaHtml(secId, titulo);
+  guiaPinta();
   b.classList.remove('oculta');
 }
 document.getElementById('guia')?.addEventListener('click', e => {
@@ -8976,19 +9001,17 @@ document.getElementById('guia')?.addEventListener('click', e => {
     if (b.classList.contains('oculta')) guiaMostrar(GUIA_SEC, GUIA_TTL, true); else b.classList.add('oculta');
     return;
   }
+  const chip = e.target.closest('.guia-chip');   // una pregunta sugerida: se manda tal cual
+  if (chip) { const inp = document.getElementById('iaInput'); if (inp && !document.getElementById('iaSend')?.disabled) { inp.value = chip.dataset.q; iaPreguntar(); } return; }
   if (!btn) return;
   const g = btn.dataset.g, b = document.getElementById('guiaBurbuja');
   if (g === 'cerrar' || g === 'fin') { b.classList.add('oculta'); return; }
-  if (g === 'sig') { GUIA_PASO++; b.innerHTML = guiaHtml(GUIA_SEC, GUIA_TTL); return; }
-  if (g === 'ant') { GUIA_PASO = Math.max(0, GUIA_PASO - 1); b.innerHTML = guiaHtml(GUIA_SEC, GUIA_TTL); return; }
+  if (g === 'sig') { GUIA_PASO++; guiaPinta(); return; }
+  if (g === 'ant') { GUIA_PASO = Math.max(0, GUIA_PASO - 1); guiaPinta(); return; }
+  if (g === 'limpiar') { IA_HIST = []; const ch = document.getElementById('iaChat'); if (ch) ch.innerHTML = ''; guiaPinta(); return; }
   if (g === 'ir') { const a = LU[GUIA_PASO]; if (a && a.sec) irA(a.sec, a.ttl, a.tocar); return; }
   if (g === 'urgente') { go('resumen', 'Resumen General'); return; }
-  if (g === 'auto') { try { localStorage.setItem('adecom_guia', guiaAuto() ? 'no' : 'si'); } catch (e) {} b.innerHTML = guiaHtml(GUIA_SEC, GUIA_TTL); return; }
-  if (g === 'preguntar') {   // abre el chat, con la pregunta escrita para que la mande
-    document.getElementById('iaBtn')?.click();
-    const inp = document.getElementById('iaInput');
-    if (inp && btn.dataset.q) { inp.value = btn.dataset.q; inp.dispatchEvent(new Event('input')); setTimeout(() => inp.focus(), 300); }
-  }
+  if (g === 'auto') { try { localStorage.setItem('adecom_guia', guiaAuto() ? 'no' : 'si'); } catch (e) {} guiaPinta(); return; }
 });
 
 let IR_TOCAR = null;
@@ -12651,11 +12674,12 @@ async function iaPreguntar() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
-    const contexto = await iaContexto();
+    // Con la pregunta va la pantalla: corto delante (sección, filtros, tarjetas) y completo en el contexto (con las filas)
+    const contexto = { ...((await iaContexto()) || {}), pantalla: guiaPantalla(true) };
     const pedir = () => fetch(IA_URL, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pregunta: q, historial: IA_HIST.slice(-6), contexto }),
+      body: JSON.stringify({ pregunta: guiaPrefijo() + q, historial: IA_HIST.slice(-6), contexto }),
       signal: AbortSignal.timeout(90000),   // 90 s: más que eso es que algo se colgó
     });
     let r = await pedir();
@@ -12674,6 +12698,7 @@ async function iaPreguntar() {
     acc.appendChild(cp);
     document.getElementById('iaChat').appendChild(acc);
     IA_HIST.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
+    guiaPinta();   // aparece "Borrar conversación"
   } catch (e) {
     esperando.remove();
     const msg = String(e.message || e);
@@ -12686,36 +12711,16 @@ async function iaPreguntar() {
     input.focus();
   }
 }
-function iaIniciar() {
-  const btn = document.getElementById('iaBtn'), panel = document.getElementById('iaPanel');
-  if (!btn || !panel || btn.dataset.listo) return;
-  btn.dataset.listo = '1';
-  btn.classList.add('on');
-  const cerrar = () => { panel.classList.remove('open'); document.body.classList.remove('ia-open'); };
-  const abrir = () => {
-    if (!document.getElementById('iaChat').children.length) iaBienvenida();
-    panel.classList.add('open'); document.body.classList.add('ia-open');
-    setTimeout(() => document.getElementById('iaInput')?.focus(), 240);
-  };
-  btn.addEventListener('click', abrir);
-  document.getElementById('iaClose').addEventListener('click', cerrar);
-  document.getElementById('iaLimpiar').addEventListener('click', iaBienvenida);
-  document.getElementById('iaReporte')?.addEventListener('click', () => {
-    const inp = document.getElementById('iaInput');
-    if (!inp || document.getElementById('iaSend')?.disabled) return;
-    inp.value = 'Dame el reporte del día: qué hago primero y a quién le cobro.';
-    iaPreguntar();
-  });
-  document.getElementById('iaForm').addEventListener('submit', e => { e.preventDefault(); iaPreguntar(); });
-  const input = document.getElementById('iaInput');
+function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el administrador lo tiene
+  const form = document.getElementById('iaForm'), input = document.getElementById('iaInput');
+  if (!form || !input || form.dataset.listo) return;
+  form.dataset.listo = '1'; IA_OK = true; form.style.display = '';
+  form.addEventListener('submit', e => { e.preventDefault(); iaPreguntar(); });
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px'; });
   input.addEventListener('keydown', e => {   // Enter envía, Shift+Enter hace salto de línea
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); iaPreguntar(); }
   });
-  document.addEventListener('keydown', e => {
-    // Escape cierra el panel, salvo que haya una ventana emergente encima
-    if (e.key === 'Escape' && !document.querySelector('.det-ov.open')) cerrar();
-  });
+  if (GUIA_SEC) guiaChips(GUIA_SEC);   // si Mohi ya estaba hablando, que aparezcan las preguntas
 }
 
 /* Vista del menú (Manu, 22-10-2026): Ambos, San Gerardo o Kennedy. Kennedy deja solo la tienda, su stock y su
