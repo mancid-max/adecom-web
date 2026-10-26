@@ -8809,7 +8809,9 @@ const menuGrupos = () => {
 };
 function menuActualizar() {
   for (const g of menuGrupos()) {
-    const plegable = g.items.length > 1, activo = g.items.some(b => b.classList.contains('active'));
+    // Con la vista Kennedy a un grupo le queda una sola sección a la vista: entonces no se pliega, se muestra
+    const aLaVista = g.items.filter(b => !b.classList.contains('vista-oculta'));
+    const plegable = aLaVista.length > 1, activo = g.items.some(b => b.classList.contains('active'));
     const abierto = !plegable || activo || MENU_ABIERTO === g.nombre;
     g.el.classList.toggle('plegable', plegable);
     g.el.classList.toggle('abierto', abierto);
@@ -12071,6 +12073,7 @@ function aplicarVista(v, navegar = true) {
     else if (el.classList.contains('nav-item') && !el.classList.contains('vista-oculta')) alguna = true;
   }
   cerrarGrp();
+  menuActualizar();   // con otra vista cambia qué grupos se pliegan
   // Si la sección abierta quedó escondida, se abre la de inicio de esa vista (al entrar lo hace init)
   const activa = document.querySelector('.sb-nav .nav-item.active');
   if (navegar && activa && activa.classList.contains('vista-oculta')) go(...vistaInicio());
