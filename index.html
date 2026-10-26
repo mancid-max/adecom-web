@@ -319,6 +319,8 @@ body.ia-open #iaBtn{display:none}
 .pvc-eq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:8px 22px;align-items:start}
 @media(max-width:700px){.pvc-eq{grid-template-columns:1fr;gap:4px}.pvc-eq .db-eq-op{padding:0;font-size:22px}}
 .db-hero-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+.db-hero-din{font-size:16px;font-weight:800;color:#047857;margin-top:2px;font-variant-numeric:tabular-nums}
+.db-hero-din span{font-size:11px;font-weight:600;color:var(--tx3)}
 .db-hero-n{font-size:46px;font-weight:800;letter-spacing:-.04em;line-height:1.05;color:var(--tx1);font-variant-numeric:tabular-nums;margin-top:4px}
 .db-hero-n2{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:4px}
 .db-hero-n span,.db-hero-n2 span{font-size:14px;font-weight:600;letter-spacing:0;color:var(--tx2);margin-left:8px}
@@ -4467,7 +4469,7 @@ async function secPVC() {
     </div>
     <div class="kpi" style="cursor:default">
       <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-      <div><div class="kpi-val" id="pvcKSal">${fmt(k.totalSal)}</div><div class="kpi-lbl">Saldo pendiente</div></div>
+      <div><div class="kpi-val" id="pvcKSal">${fmt(k.totalSal)}</div><div class="kpi-lbl">Saldo pendiente</div><div class="kpi-delta d-nu" id="pvcKSalP" style="display:none"></div></div>
     </div>
     <!-- Sin "Stock + En producción" ni "Diferencia" (Manu, 23-10-2026: "sácame la tarjeta de stock y diferencia"): la resta de abajo
          dice lo mismo artículo por artículo, sin mezclar lo que sobra de unos con lo que falta de otros. En su lugar, lo que
@@ -4492,7 +4494,7 @@ async function secPVC() {
       <div class="db-eq-op">=</div>
       <div class="pvc-eq-t" data-eq="programar" role="button" tabindex="0" title="Ver en la tabla lo que falta cubrir por fuera de lo programado"><div class="db-hero-lbl">Total: falta programar</div>
         <div class="db-hero-n2" id="pvcEqRes" style="color:var(--tx1)">—</div>
-        <div class="db-hero-sub">hay que programar una orden nueva</div><div class="db-k-ver">Ver cuáles ›</div></div>
+        <div class="db-hero-sub" id="pvcEqResSub">hay que programar una orden nueva</div><div class="db-k-ver">Ver cuáles ›</div></div>
     </div>
   </div>
   ${grafCard('pvcGraf', '¿Qué cortar primero? Lo que más falta', 'Los 15 artículos con más falta de lo que se ve (cambia con la temporada, los filtros y la búsqueda): en morado lo que ya está programado, hay que apurar ese corte; en rojo lo que falta programar. Toca una barra para ver a quién se le debe.', 300)}
@@ -7235,6 +7237,7 @@ async function secProgramado() {
   const totProg = filas.reduce((a, x) => a + x.o.programa, 0);
   const conCli = filas.filter(x => x.sal > 0), sumSal = arts.reduce((a, k) => a + (PVC_FILAS[k] ? PVC_FILAS[k].sal : 0), 0);
   const n30 = filas.filter(x => x.o.dias > 30).length, vieja = filas[0];
+  const valProg = filas.reduce((a, x) => a + x.o.programa * (precioDe(x.art) || 0), 0);   // el $ aproximado de lo programado
   /* Las tarjetas se recalculan con la colección y la búsqueda (Manu, 23-10: "cuando presione el filtro por cole, que
      cambie el dato de las tarjetas"); con los botones "Ver" no, porque son esos mismos números */
   const kpi = (val, lbl, sub, color, k, ver, extra = '') => `<div class="kpi" data-pk="${k}" ${extra} role="button" tabindex="0" title="${ver}" id="pk-${k || 'n'}" style="border-top:3px solid ${color}"><div style="min-width:0">
@@ -7250,7 +7253,7 @@ async function secProgramado() {
       ${temps.length > 1 ? `<div class="fgrp"><span class="flbl">Temp</span><div class="segs" id="progTSegs"><button class="seg on" data-t="">Todas</button>${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}</div></div>` : ''}</div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${kpi(fmt(filas.length), 'Órdenes programadas sin cortar', `${fmt(totProg)} prendas programadas`, '#6d28d9', '', 'Ver todas')}
+    ${kpi(fmt(filas.length), 'Órdenes programadas sin cortar', `${fmt(totProg)} prendas programadas${valProg ? ' · ≈ ' + fmtM(valProg) : ''}`, '#6d28d9', '', 'Ver todas')}
     ${kpi(dias(vieja.o.dias), 'La más antigua', `OC ${vieja.o.oc} · ${cod(vieja.art)} · ${fmt(vieja.o.programa)} prendas, del ${vieja.o.fecha}`, diasClr(vieja.o.dias), 'vieja', 'Ver a quién se le debe', `data-art="${vieja.art}"`)}
     ${kpi(fmt(conCli.length), 'Con clientes esperando', `se les deben ${fmt(sumSal)} prendas de esos artículos`, 'var(--wa)', 'cli', 'Ver cuáles')}
     ${kpi(fmt(n30), 'Más de 30 días sin cortar', n30 ? 'son las primeras que hay que apurar' : 'ninguna', n30 ? 'var(--er)' : 'var(--ok)', 'd30', 'Ver cuáles')}
@@ -7886,12 +7889,16 @@ async function secDebemos() {
      los debemos, entonces cuál sería el total de los que están en caja y los que no, un total entre ambos"). La barra
      lo reparte con los colores del semáforo y la leyenda dice qué es cada color. */
   const bodega = S.listo - S.caja, sinCaja = porDesp - S.caja, clr = rvPctClr(despPct);
+  // El $ (Manu, 26-10-2026: "cuánto dinero sería aproximadamente"): el saldo de cada artículo (con lo que está en cajas) × su precio neto
+  const vCli = new Map(DEB.clientes.map(c => [c, Object.values(c.items).reduce((a, it) => a + (it.sal || 0) * (precioDe(it.art) || 0), 0)]));
+  const vTot = [...vCli.values()].reduce((a, v) => a + v, 0);
   const pCaja = pS(S.caja), pSin = porDesp ? 100 - pCaja : 0;
   const ley = (color, t, v, op) => `<span><i style="background:${color}${op ? ';opacity:' + op : ''}"></i>${t} <b>${fmt(v)}</b></span>`;
   const total = `<div class="db-hero" style="border-top:3px solid ${clr}">
       <div class="db-eq">
         <div class="db-eq-tot"><div class="db-hero-lbl">Le debemos en total</div>
           <div class="db-hero-n">${fmt(porDesp)}<span>prendas</span></div>
+          ${vTot ? `<div class="db-hero-din">≈ ${fmtM(vTot)} <span>a precio neto de pedido, sin IVA</span></div>` : ''}
           <div class="db-hero-sub">a ${DEB.clientes.length === 1 ? '1 cliente' : `${fmt(DEB.clientes.length)} clientes`}${DEB_SIN_MAGIC ? ' sin Magic World' : ''} · ${DEB.tot.ped ? `el ${100 - despPct}% de lo que pidieron desde la T${TEMP_ACTIVA}; ya se despachó el ${despPct}%` : `desde la T${TEMP_ACTIVA}`}</div></div>
         <div class="db-eq-op">=</div>
         <div class="db-eq-k" data-dk="caja" role="button" tabindex="0" title="Toca para ver qué clientes tienen cajas armadas"><div class="db-hero-lbl">📦 En caja</div>
@@ -7939,7 +7946,7 @@ async function secDebemos() {
       <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Todo lo que falta despacharle, contando lo que ya está en cajas">Le debemos</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que ya está armado en cajas">En caja</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que todavía no está en una caja">Sin caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
       <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-ed="${debEdades(c)}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
         <td class="pl-wrap" data-v="${dvDeb(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.ciudad || '—'} · ${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span>${c.bloq.size ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Bloqueado</span> ' : ''}${c.sinCupo ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">Sin cupo</span>' : ''}</td>
-        <td class="r td-num" data-v="${c.debe + c.enCaja}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${fmt(c.debe + c.enCaja)}${!c.debe ? '<span class="pl-sub" style="color:var(--ok)">todo en caja</span>' : c.enCaja ? `<span class="pl-sub db-movil">📦 ${fmt(c.enCaja)} en caja</span>` : ''}</td>
+        <td class="r td-num" data-v="${c.debe + c.enCaja}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${fmt(c.debe + c.enCaja)}${vCli.get(c) ? `<span class="pl-sub" style="color:var(--tx2)">≈ ${fmtM(vCli.get(c))}</span>` : ''}${!c.debe ? '<span class="pl-sub" style="color:var(--ok)">todo en caja</span>' : c.enCaja ? `<span class="pl-sub db-movil">📦 ${fmt(c.enCaja)} en caja</span>` : ''}</td>
         <td class="r td-num pl-sec" data-v="${c.enCaja}" style="color:var(--ok)">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
         <td class="r td-num pl-sec" data-v="${c.debe}">${c.debe ? fmt(c.debe) : '—'}</td>
         <td class="r td-num pl-sec" data-v="${Object.keys(c.items).length}">${fmt(Object.keys(c.items).length)}</td>
@@ -9817,7 +9824,8 @@ function bindContent(secId) {
       const d = tr => +tr.dataset.dias, vieja = rs.slice().sort((a, b) => d(b) - d(a) || +b.dataset.prog - +a.dataset.prog)[0];
       const conCli = rs.filter(tr => +tr.dataset.sal > 0), arts = new Map(conCli.map(tr => [tr.dataset.part, +tr.dataset.sal]));
       const n30 = rs.filter(tr => d(tr) > 30).length;
-      poner('pk-n-val', fmt(rs.length)); poner('pk-n-sub', `${fmt(rs.reduce((a, tr) => a + +tr.dataset.prog, 0))} prendas programadas`);
+      const vProg = rs.reduce((a, tr) => a + (+tr.dataset.prog) * (precioDe(tr.dataset.part) || 0), 0);
+      poner('pk-n-val', fmt(rs.length)); poner('pk-n-sub', `${fmt(rs.reduce((a, tr) => a + +tr.dataset.prog, 0))} prendas programadas${vProg ? ' · ≈ ' + fmtM(vProg) : ''}`);
       const cv = document.getElementById('pk-vieja');
       if (cv) {
         cv.dataset.art = vieja ? vieja.dataset.part : '';
@@ -10711,6 +10719,7 @@ function bindContent(secId) {
       const q      = (document.getElementById('pvcSearch')?.value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#pvcBody tr[data-expandable]');
       let visible = 0, sumPed = 0, sumSal = 0, sumCort = 0, sumDesp = 0, sumStk = 0, sumPro = 0, aCortar = 0, sobra = 0, aApurar = 0, sumProg = 0, stkSirve = 0, stkSobra = 0;
+      let vSal = 0, vCortar = 0;   // el $ aproximado: prendas × precio neto de pedido del artículo
       const vis = [];   // lo que se ve, para el gráfico
       rows.forEach(row => {
         const showEstado = estado === 'all' || row.dataset.estado === estado
@@ -10749,12 +10758,18 @@ function bindContent(secId) {
           sumProg += pg;
           /* lo que falta y ya está programado no se corta de nuevo: se apura */
           if (d < 0) { aApurar += Math.min(pg, -d); aCortar += Math.max(0, -d - pg); } else sobra += d;
+          const pr = precioDe(row.dataset.art) || 0;
+          vSal += Math.max(0, sal) * pr; if (d < 0) vCortar += Math.max(0, -d - pg) * pr;
         }
       });
       // Actualizar KPIs con los totales filtrados
       const diff = sumCort - sumSal;
       const ksalEl = document.getElementById('pvcKSal');
       if (ksalEl) ksalEl.textContent = fmt(sumSal);
+      const ksalP = document.getElementById('pvcKSalP');
+      if (ksalP) { ksalP.style.display = vSal ? '' : 'none'; ksalP.textContent = `≈ ${fmtM(vSal)} a precio neto de pedido`; }
+      const eqResSub = document.getElementById('pvcEqResSub');
+      if (eqResSub) eqResSub.textContent = vCortar ? `≈ ${fmtM(vCortar)} de venta en riesgo: hay que programar una orden nueva` : 'hay que programar una orden nueva';
       const kpedEl  = document.getElementById('pvcKPed');
       const kprogEl = document.getElementById('pvcKProg');
       const kdiffEl = document.getElementById('pvcKDiff');
