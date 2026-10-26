@@ -1658,26 +1658,16 @@ function secDetalleColor() {
   const dcBotas = [...new Set(temps.flatMap(t => (byTemp[t]?.items||[]).map(i => i.bota).filter(Boolean)))].sort();
   const dcTiros = [...new Set(temps.flatMap(t => (byTemp[t]?.items||[]).map(i => i.tiro).filter(Boolean)))].sort();
 
-  const tempCards = temps.map(t => {
-    const info = byTemp[t], tc = tcFor(t);
-    return `<div class="temp-card${t===iniT?' sel':''}" data-temp-card="${t}">
-      <div class="temp-badge-lg" style="background:${tc.bg};color:${tc.fg}">T${t}</div>
-      <div class="temp-total">${fmt(info.total)}</div>
-      <div class="temp-label">unidades</div>
-      <div class="temp-mods">${info.modelos} modelos</div>
-    </div>`;
-  }).join('');
 
   return `
-  <div class="temp-grid">${tempCards}</div>
   <div class="fbar">
     <div class="fbar-row">
-    <div class="fgrp"><span class="flbl">Temp</span>
-    <div class="segs" id="dcSegs" style="flex-wrap:wrap">
-      ${temps.map(t => `<button class="seg${t===iniT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
-    </div></div>
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="dcSearch" type="text" class="finput fsearch" placeholder="Modelo…" style="width:180px"></div>
+    <div class="fgrp"><span class="flbl">Temp · unidades pedidas</span>
+    <div class="segs" id="dcSegs" style="flex-wrap:wrap">
+      ${temps.map(t => `<button class="seg${t===iniT?' on':''}" data-t="${t}">T${t} <span class="db-n">${fmt(byTemp[t]?.total || 0)}</span></button>`).join('')}
+    </div></div>
     </div>
 
     <div class="fbar-row">
@@ -1696,6 +1686,13 @@ function secDetalleColor() {
       </div></div>
     </div>
   </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'dck', k: 'uds', lbl: `Unidades pedidas T${iniT}`, val: fmt(byTemp[iniT]?.total || 0), sub: `en ${fmt(byTemp[iniT]?.modelos || 0)} modelos`, color: 'var(--ac)', ver: 'Ver todos' })}
+    ${tarjetaKpi({ attr: 'dck', k: 'top', lbl: 'El modelo más pedido', val: '—', color: '#047857', ver: 'Ver sus colores' })}
+    ${tarjetaKpi({ attr: 'dck', k: 'bota', lbl: 'La bota más pedida', val: '—', color: '#6d28d9', ver: 'Ver solo esa bota' })}
+    ${tarjetaKpi({ attr: 'dck', k: 'tiro', lbl: 'El tiro más pedido', val: '—', color: 'var(--wa)', ver: 'Ver solo ese tiro' })}
+  </div>
+  ${grafCard('dcGraf', '¿Qué modelo se pide más?', 'Los 15 modelos más pedidos de lo que se ve. Toca una barra para ver sus colores.', 420)}
   <div class="tbl-card">
     <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>${btnExcel()}<div class="xl-der"></div></div>
     <div class="tbl-scroll">
@@ -1718,27 +1715,39 @@ async function secTop10() {
   if (tempsT10.length && !tempsT10.includes(TEMP_SEL)) TEMP_SEL = tempDefecto(tempsT10);
   const pedsT = peds.filter(p => (p.u_temp?.[TEMP_SEL] || 0) > 0)
     .map(p => ({ ...p, unidades: p.u_temp[TEMP_SEL], despacho: p.u_desp?.[TEMP_SEL] || 0, saldo: p.u_sal?.[TEMP_SEL] || 0 }));
-  pedsT.sort((a,b) => b.unidades - a.unidades);
-  const top10 = pedsT.slice(0, 10);
-  const maxU = top10[0]?.unidades || 1;
+  /* Por cliente, como dice el título: antes el ranking era por pedido y un cliente con dos pedidos grandes salía dos
+     veces (Manu, 26-10-2026, molde de las secciones) */
+  const porCli = new Map();
+  for (const p of pedsT) {
+    const k = vdKey(p), c = porCli.get(k) || { k, nombre: p.nombre || p.rut, ciudad: p.ciudad || '', unidades: 0, despacho: 0, saldo: 0, pedidos: 0 };
+    c.unidades += p.unidades; c.despacho += p.despacho; c.saldo += p.saldo; c.pedidos++;
+    porCli.set(k, c);
+  }
+  const clis = [...porCli.values()].sort((a, b) => b.unidades - a.unidades);
+  const top10 = clis.slice(0, 10), top = top10[0];
+  const totT = clis.reduce((a, c) => a + c.unidades, 0);
+  const u10 = top10.reduce((a, c) => a + c.unidades, 0), d10 = top10.reduce((a, c) => a + c.despacho, 0), s10 = top10.reduce((a, c) => a + c.saldo, 0);
+  const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-  const rows = top10.map((p, i) => `
-    <tr class="no-click">
-      <td class="td-dim">${i+1}</td>
-      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${p.nombre || p.rut}</td>
-      <td class="td-dim">${p.ciudad || '—'}</td>
-      <td class="r td-num">${fmt(p.unidades)}</td>
-      <td class="r td-num" style="color:var(--ok)">${fmt(p.despacho)}</td>
-      <td class="r td-dim">${fmt(p.saldo)}</td>
-      <td>
+  const rows = top10.map((c, i) => {
+    const av = c.unidades ? Math.min(100, Math.round(c.despacho / c.unidades * 100)) : 0;
+    return `
+    <tr data-u="${c.unidades}" data-d="${c.despacho}" data-s="${c.saldo}" data-nombre="${esc(c.nombre)}" title="Toca para ver sus pedidos en Venta vs Despacho">
+      <td class="td-dim" data-v="${i + 1}">${i + 1}</td>
+      <td class="pl-wrap" data-v="${esc(c.nombre)}" style="max-width:240px">${esc(c.nombre)}${c.pedidos > 1 ? `<span class="pl-sub">${c.pedidos} pedidos</span>` : ''}</td>
+      <td class="td-dim" data-v="${esc(c.ciudad)}">${esc(c.ciudad) || '—'}</td>
+      <td class="r td-num" data-v="${c.unidades}">${fmt(c.unidades)}</td>
+      <td class="r td-num" data-v="${c.despacho}" style="color:var(--ok)">${fmt(c.despacho)}</td>
+      <td class="r td-dim" data-v="${c.saldo}">${fmt(c.saldo)}</td>
+      <td data-v="${av}">
         <div style="display:flex;align-items:center;gap:6px;min-width:80px">
-          <div class="pbar" style="width:60px;flex-shrink:0">
-            <div class="pbar-fill" style="background:var(--ok);width:${p.unidades ? Math.min(100,(p.despacho/p.unidades*100)).toFixed(0) : 0}%"></div>
-          </div>
-          <span class="td-dim">${p.unidades ? (p.despacho/p.unidades*100).toFixed(0) : 0}%</span>
+          <div class="pbar" style="width:60px;flex-shrink:0"><div class="pbar-fill" style="background:var(--ok);width:${av}%"></div></div>
+          <span class="td-dim">${av}%</span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   return `
   <div class="fbar">
@@ -1747,16 +1756,22 @@ async function secTop10() {
       ${tempsT10.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
   </div>
-
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 't10k', k: 'u', lbl: 'Lo que pidieron los 10 primeros', val: fmt(u10), sub: `${pct(u10, totT)}% de lo pedido en la T${TEMP_SEL} · ${fmt(clis.length)} clientes en total`, color: 'var(--ac)', ver: 'Ordenar por lo pedido' })}
+    ${tarjetaKpi({ attr: 't10k', k: 'top', lbl: 'El cliente que más pidió', val: top ? fmt(top.unidades) : '—', sub: top ? `${esc(top.nombre)} · ${pct(top.unidades, totT)}% del total` : 'ninguno', color: '#047857', ver: 'Ver sus pedidos' })}
+    ${tarjetaKpi({ attr: 't10k', k: 'av', lbl: 'Despachado a los 10 primeros', val: `${pct(d10, u10)}%`, sub: `${fmt(d10)} de ${fmt(u10)} prendas`, color: 'var(--ok)', ver: 'Ver los más atrasados' })}
+    ${tarjetaKpi({ attr: 't10k', k: 'sal', lbl: 'Les falta despachar', val: fmt(s10), sub: 'prendas de los 10 primeros', color: 'var(--wa)', ver: 'Ordenar por lo que falta' })}
+  </div>
+  ${grafCard('t10Graf', '¿Quién pide más?', `Los 10 clientes que más pidieron en la T${TEMP_SEL}: en verde lo despachado y en amarillo lo que falta. Toca una barra para ver sus pedidos en Venta vs Despacho.`, 330)}
   <div class="tbl-card">
-    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T${TEMP_SEL}</div></div>${btnExcel()}<div class="xl-der"></div></div>
+    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T${TEMP_SEL}</div></div>${btnExcel()}<div class="xl-der"><span class="td-dim">${fmt(clis.length)} clientes con pedidos</span></div></div>
     <div class="tbl-scroll">
-      <table>
-        <thead><tr><th>#</th><th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Saldo</th><th>Avance</th></tr></thead>
-        <tbody>${rows}</tbody>
+      <table data-ord-col="3" data-ord-dir="-1" data-ord-num="1">
+        <thead><tr><th>#</th><th data-ord="t">Cliente</th><th data-ord="t">Ciudad</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n">Despachado</th><th class="r" data-ord="n">Saldo</th><th data-ord="n">Avance</th></tr></thead>
+        <tbody id="t10Body">${rows}</tbody>
       </table>
-      <div class="tbl-foot">${pedsT.length} clientes con pedidos T${TEMP_SEL}</div>
     </div>
+    <div class="tbl-foot">Pedido, despachado y saldo de la T${TEMP_SEL}, sumando todos los pedidos de cada cliente. Avance = despachado ÷ pedido. Toca un cliente para ver sus pedidos en Venta vs Despacho y un encabezado para ordenar.</div>
   </div>`;
 }
 
@@ -8416,6 +8431,45 @@ function cuaGrafico(pend) {
   { apiladas: false, leyenda: false, sufijo: ' días', extra: i => `faltan ${fmt(xs[i].falta || 0)} de ${fmt(xs[i].cort || 0)} prendas cortadas` });
 }
 
+/* Detalle Pedido Color: las tarjetas y ¿qué modelo se pide más?, con los modelos que se ven (temporada, bota, tiro y
+   búsqueda). Las unidades se leen de la columna de la tabla, que es lo que se ve. */
+const dcCap = s => (s ? s[0].toUpperCase() + s.slice(1) : '');
+function dcAbrir(base) {   // abre los colores de un modelo y lo deja a la vista
+  const row = [...document.querySelectorAll('#dcBody tr[data-expandable]')].find(r => r.dataset.base === base);
+  if (!row) return;
+  const sig = row.nextElementSibling, abierta = sig && sig.classList.contains('variant-row') && sig.style.display !== 'none';
+  if (!abierta) row.click();
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function dcMolde() {
+  const rows = [...document.querySelectorAll('#dcBody tr[data-expandable]')].filter(r => r.style.display !== 'none');
+  const u = r => parseInt((r.cells[3]?.textContent || '0').replace(/\D/g, '')) || 0;
+  const t = document.querySelector('#dcSegs .seg.on')?.dataset.t || '';
+  const poner = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const tot = rows.reduce((a, r) => a + u(r), 0), pct = v => (tot ? Math.round(v / tot * 100) : 0);
+  const top = rows.reduce((m, r) => (!m || u(r) > u(m) ? r : m), null);
+  const mayor = k => { const m = {}; for (const r of rows) { const v = r.dataset[k]; if (v) m[v] = (m[v] || 0) + u(r); } return Object.entries(m).sort((a, b) => b[1] - a[1])[0]; };
+  const bota = mayor('bota'), tiro = mayor('tiro');
+  poner('dck-uds-val', fmt(tot)); poner('dck-uds-lbl', `Unidades pedidas T${t}`); poner('dck-uds-sub', `en ${fmt(rows.length)} modelo${rows.length === 1 ? '' : 's'}`);
+  const ct = document.getElementById('dck-top');
+  if (ct) ct.dataset.base = top ? top.dataset.base : '';
+  poner('dck-top-val', top ? fmt(u(top)) : '—');
+  poner('dck-top-sub', top ? `modelo ${top.dataset.base}${top.dataset.bota ? ' · ' + dcCap(top.dataset.bota) : ''} · ${pct(u(top))}% de lo pedido` : 'ninguno');
+  const cb = document.getElementById('dck-bota'), cti = document.getElementById('dck-tiro');
+  if (cb) cb.dataset.b = bota ? bota[0] : '';
+  if (cti) cti.dataset.ti = tiro ? tiro[0] : '';
+  poner('dck-bota-val', bota ? `${pct(bota[1])}%` : '—'); poner('dck-bota-sub', bota ? `${dcCap(bota[0])} · ${fmt(bota[1])} unidades` : 'sin bota registrada');
+  poner('dck-tiro-val', tiro ? `${pct(tiro[1])}%` : '—'); poner('dck-tiro-sub', tiro ? `${dcCap(tiro[0])} · ${fmt(tiro[1])} unidades` : 'sin tiro registrado');
+  const card = document.getElementById('dcGrafCard');
+  if (!card) return;
+  const xs = rows.slice().sort((a, b) => u(b) - u(a)).slice(0, 15);
+  card.style.display = xs.length ? '' : 'none';
+  if (!xs.length) return;
+  document.getElementById('dcGrafBox').style.height = `${xs.length * 26 + 40}px`;
+  barras('dcGraf', xs.map(r => `${r.dataset.base}${r.dataset.bota ? ' · ' + dcCap(r.dataset.bota) : ''}`), [{ label: 'Unidades pedidas', data: xs.map(u), backgroundColor: color('--ac') }],
+    i => dcAbrir(xs[i].dataset.base), { apiladas: false, leyenda: false, sufijo: ' unidades', extra: i => `${pct(u(xs[i]))}% de lo que se ve · toca para ver sus colores` });
+}
+
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
    tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
 function ddGrafico(rows) {
@@ -8588,6 +8642,7 @@ function bindContent(secId) {
         foot.textContent = q ? `${vis} resultado${vis!==1?'s':''} para "${q}"`
                              : `${vis} modelos en T${t}${filtro ? ' · ' + filtro : ''} · ${fmt(uds)} unidades`;
       }
+      dcMolde();
     }
     ['dcBotaSegs', 'dcTiroSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
@@ -8621,8 +8676,27 @@ function bindContent(secId) {
         if (btn) btn.click();
       });
     });
+    // Tocar una tarjeta: el total quita los filtros, el modelo abre sus colores, la bota y el tiro filtran
+    document.querySelectorAll('[data-dck]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.dck;
+        if (k === 'top') { dcAbrir(card.dataset.base); return; }
+        if (k === 'uds') {
+          const s = document.getElementById('dcSearch');
+          if (s) s.value = '';
+          document.querySelector('#dcBotaSegs .seg[data-b="all"]')?.click();
+          document.querySelector('#dcTiroSegs .seg[data-ti="all"]')?.click();
+        }
+        if (k === 'bota' && card.dataset.b) document.querySelector(`#dcBotaSegs .seg[data-b="${card.dataset.b}"]`)?.click();
+        if (k === 'tiro' && card.dataset.ti) document.querySelector(`#dcTiroSegs .seg[data-ti="${card.dataset.ti}"]`)?.click();
+        document.getElementById('dcBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
 
     bindExpandRows();
+    dcMolde();
   }
 
   // Tabla Completa section — client-side filters
@@ -9869,6 +9943,40 @@ function bindContent(secId) {
     TEMP_SEL = b.dataset.t;
     go('top10', 'Top 10 Pedidos');
   }));
+  // Top 10: tabla ordenable, tarjetas que la ordenan, el gráfico y cada cliente lleva a sus pedidos
+  if (secId === 'top10' && document.getElementById('t10Body')) {
+    const tabla = document.getElementById('t10Body').closest('table');
+    planOrdenable(tabla);
+    const filas = [...document.querySelectorAll('#t10Body tr[data-u]')];
+    const verPedidos = nombre => irA('venta-despacho', 'Venta vs Despacho', () => {
+      const s = document.getElementById('vdSearch');
+      if (s) { s.value = nombre.toLowerCase(); s.dispatchEvent(new Event('input')); }
+    });
+    filas.forEach(tr => tr.addEventListener('click', () => verPedidos(tr.dataset.nombre)));
+    const ordenarPor = (col, dir) => {   // como tocar el encabezado: la primera vez de mayor a menor
+      const th = tabla.tHead.rows[0].cells[col];
+      if (!th) return;
+      if (tabla.dataset.ordCol !== String(col)) th.click();
+      if (+tabla.dataset.ordDir !== dir) th.click();
+    };
+    document.querySelectorAll('[data-t10k]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.t10k;
+        if (k === 'top') { if (filas[0]) verPedidos(filas[0].dataset.nombre); return; }
+        if (k === 'u') ordenarPor(3, -1);
+        if (k === 'av') ordenarPor(6, 1);
+        if (k === 'sal') ordenarPor(5, -1);
+        tabla.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
+    const nom = tr => { const s = tr.dataset.nombre.toUpperCase(); return s.length > 26 ? s.slice(0, 25) + '…' : s; };
+    barras('t10Graf', filas.map(nom), [
+      { label: 'Despachado', data: filas.map(tr => +tr.dataset.d), backgroundColor: color('--ok') },
+      { label: 'Falta despachar', data: filas.map(tr => +tr.dataset.s), backgroundColor: color('--wa') },
+    ], i => verPedidos(filas[i].dataset.nombre), { extra: i => `pidió ${fmt(+filas[i].dataset.u)} · toca para ver sus pedidos` });
+  }
 
 
   // Venta Kennedy
