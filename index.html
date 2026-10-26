@@ -1751,7 +1751,7 @@ function secDetalleColor() {
     ${tarjetaKpi({ attr: 'dck', k: 'bota', lbl: 'La bota más pedida', val: '—', color: '#6d28d9', ver: 'Ver solo esa bota' })}
     ${tarjetaKpi({ attr: 'dck', k: 'tiro', lbl: 'El tiro más pedido', val: '—', color: 'var(--wa)', ver: 'Ver solo ese tiro' })}
   </div>
-  ${grafCard('dcGraf', '¿Qué modelo se pide más?', 'Los 15 modelos más pedidos de lo que se ve. Toca una barra para ver sus colores.', 420)}
+  ${grafCard('dcGraf', '¿Qué modelo se pide más y cuánto está cortado?', 'Los 15 modelos más pedidos de lo que se ve: en azul lo pedido, en verde lo cortado (todas sus órdenes de corte) y en rojo lo que falta por cubrir. Toca una barra para ver sus colores.', 760)}
   <div class="tbl-card">
     <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>${btnExcel()}<div class="xl-der"></div></div>
     <div class="tbl-scroll">
@@ -8395,7 +8395,22 @@ const cargarChart = () => CHART_JS || (CHART_JS = new Promise((ok, mal) => {
 }));
 function cerrarGraficos() { for (const k of Object.keys(GRAFICOS)) { try { GRAFICOS[k].destroy(); } catch (e) {} delete GRAFICOS[k]; } }
 /* Barras (horizontales por defecto, apiladas si hay varias series). alTocar(i) recibe el índice de la barra tocada. */
-function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = true, sufijo = ' prendas', leyenda = true, extra = null, formato = fmt, eje = fmt } = {}) {
+/* El número al final de cada barra (Manu, 26-10-2026: "el número al final de la barra para saber cuánto es"): se pide
+   con etiquetas: true en barras(); en las apiladas no se usa, porque se encimarían. */
+const GRAF_ETIQUETAS = { id: 'etiquetas', afterDatasetsDraw(chart, _a, opts) {
+  const { ctx } = chart, f = (opts && opts.formato) || fmt, horizontal = chart.options.indexAxis === 'y';
+  ctx.save(); ctx.font = `600 11px ${(window.Chart && Chart.defaults.font.family) || 'sans-serif'}`; ctx.fillStyle = color('--tx2'); ctx.textBaseline = 'middle';
+  chart.data.datasets.forEach((ds, di) => {
+    if (!chart.isDatasetVisible(di)) return;
+    chart.getDatasetMeta(di).data.forEach((bar, i) => {
+      const v = ds.data[i];
+      if (!v) return;
+      if (horizontal) { ctx.textAlign = 'left'; ctx.fillText(f(v), bar.x + 4, bar.y); } else { ctx.textAlign = 'center'; ctx.fillText(f(v), bar.x, bar.y - 8); }
+    });
+  });
+  ctx.restore();
+} };
+function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = true, sufijo = ' prendas', leyenda = true, extra = null, formato = fmt, eje = fmt, etiquetas = false } = {}) {
   return cargarChart().then(Chart => {
     const cv = document.getElementById(id);
     if (!cv) return null;
@@ -8411,10 +8426,13 @@ function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = t
     const g = new Chart(cv, {
       type: 'bar',
       data: { labels, datasets },
+      plugins: etiquetas ? [GRAF_ETIQUETAS] : [],
       options: {
         indexAxis: horizontal ? 'y' : 'x', responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+        layout: { padding: etiquetas ? (horizontal ? { right: 60 } : { top: 18 }) : 0 },   // sitio para el número al final
         scales: horizontal ? { x: ejeV, y: ejeC } : { x: ejeC, y: ejeV },
         plugins: {
+          etiquetas: etiquetas ? { formato } : false,
           legend: { display: leyenda, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
           tooltip: { callbacks: { label: c => `${c.dataset.label}: ${formato(c.raw)}${sufijo}`, footer: items => (g.$extra && items.length ? g.$extra(items[0].dataIndex) : '') } },
         },
@@ -8704,6 +8722,7 @@ function cuaGrafico(pend) {
 /* Detalle Pedido Color: las tarjetas y ¿qué modelo se pide más?, con los modelos que se ven (temporada, bota, tiro y
    búsqueda). Las unidades se leen de la columna de la tabla, que es lo que se ve. */
 const dcCap = s => (s ? s[0].toUpperCase() + s.slice(1) : '');
+let DC_FT = null;   // el mapa de cortes por artículo, armado una vez por carga de datos
 function dcAbrir(base) {   // abre los colores de un modelo y lo deja a la vista
   const row = [...document.querySelectorAll('#dcBody tr[data-expandable]')].find(r => r.dataset.base === base);
   if (!row) return;
@@ -8735,9 +8754,19 @@ function dcMolde() {
   const xs = rows.slice().sort((a, b) => u(b) - u(a)).slice(0, 15);
   card.style.display = xs.length ? '' : 'none';
   if (!xs.length) return;
-  document.getElementById('dcGrafBox').style.height = `${xs.length * 26 + 40}px`;
-  barras('dcGraf', xs.map(r => `${r.dataset.base}${r.dataset.bota ? ' · ' + dcCap(r.dataset.bota) : ''}`), [{ label: 'Unidades pedidas', data: xs.map(u), backgroundColor: color('--ac') }],
-    i => dcAbrir(xs[i].dataset.base), { apiladas: false, leyenda: false, sufijo: ' unidades', extra: i => `${pct(u(xs[i]))}% de lo que se ve · toca para ver sus colores` });
+  // Lo cortado de cada modelo (todas las órdenes de corte de todos sus colores) y lo que falta por cubrir (Manu, 26-10-2026)
+  const ftRows = CACHE['full_table.json'];
+  if (!ftRows) load('full_table.json').then(() => dcMolde());   // si todavía no está, se vuelve a pintar cuando llegue
+  const ft = ftRows ? (DC_FT && DC_FT.n === ftRows.length ? DC_FT.m : (DC_FT = { n: ftRows.length, m: buildFtMap(ftRows) }).m) : {};
+  const cortado = base => Object.keys(ft).filter(a => a.startsWith('01' + base)).reduce((s, a) => s + (ft[a].corte || 0), 0);
+  const ped = xs.map(u), cor = xs.map(r => cortado(r.dataset.base)), falta = ped.map((p, i) => Math.max(0, p - cor[i]));
+  document.getElementById('dcGrafBox').style.height = `${xs.length * 46 + 70}px`;
+  barras('dcGraf', xs.map(r => `${r.dataset.base}${r.dataset.bota ? ' · ' + dcCap(r.dataset.bota) : ''}`), [
+      { label: 'Pedido', data: ped, backgroundColor: color('--ac') },
+      { label: 'Cortado', data: cor, backgroundColor: '#047857' },
+      { label: 'Por cubrir', data: falta, backgroundColor: color('--er') },
+    ], i => dcAbrir(xs[i].dataset.base), { apiladas: false, leyenda: true, etiquetas: true, sufijo: ' unidades',
+      extra: i => `${pct(ped[i])}% de lo pedido que se ve · cortado el ${ped[i] ? Math.round(cor[i] / ped[i] * 100) : 0}% · toca para ver sus colores` });
 }
 
 /* Venta Kennedy: ¿cómo va la venta de la tienda? La venta neta de cada día del período (de cada mes, si son más de dos
