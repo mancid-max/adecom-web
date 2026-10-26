@@ -4544,13 +4544,17 @@ async function secER() {
     </div></div>
     <span class="td-dim" style="margin-left:auto;font-size:11px">Informe del ${d.archivo_fecha || '—'}</span>
   </div>
-  <div class="kpi-grid">
-    ${kpi('erKIng', '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 'c-ac', money(ing.mes), 'Ingresos', '')}
-    ${kpi('erKCos', '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>', 'c-wa', money(cos.mes), 'Costo de explotación', `${cos.pct_mes.toFixed(1)}% de ingresos`)}
-    ${kpi('erKMar', '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'c-ok', money(mar.mes), 'Margen', `${mar.pct_mes.toFixed(1)}% de ingresos`)}
-    ${kpi('erKGas', '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', 'c-er', money(gastosMes), 'Gastos admin. y ventas', '')}
-    ${kpi('erKUti', '<path d="m3 17 6-6 4 4 8-8"/><polyline points="21 7 21 13 15 13"/>', uti.mes < 0 ? 'c-er' : 'c-ok', money(uti.mes), 'Resultado del ejercicio', `Operacional ${money(ope.mes)}`)}
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'erk', k: 'ing', lbl: 'Ingresos', val: `<span id="erKIng">${money(ing.mes)}</span>`, color: 'var(--ac)', ver: 'Ver sus cuentas',
+      sub: `costo <span id="erKCos">${money(cos.mes)}</span> · <span id="erKCosSub">${ing.mes ? (cos.mes / ing.mes * 100).toFixed(1) + '% de ingresos' : '—'}</span>` })}
+    ${tarjetaKpi({ attr: 'erk', k: 'mar', lbl: 'Margen', val: `<span id="erKMar">${money(mar.mes)}</span>`, color: 'var(--ok)', ver: 'Ver el costo',
+      sub: `<span id="erKMarSub">${mar.pct_mes.toFixed(1)}% de ingresos</span>` })}
+    ${tarjetaKpi({ attr: 'erk', k: 'gas', lbl: 'Gastos de administración y ventas', val: `<span id="erKGas">${money(gastosMes)}</span>`, color: 'var(--wa)', ver: 'Ver sus cuentas',
+      sub: `<span id="erKGasSub">admin. ${money(gad.mes)} · ventas ${money(gve.mes)}</span>` })}
+    ${tarjetaKpi({ attr: 'erk', k: 'uti', lbl: 'Resultado del ejercicio', val: `<span id="erKUti" style="color:${uti.mes < 0 ? 'var(--er)' : 'var(--ok)'}">${money(uti.mes)}</span>`,
+      color: uti.mes < 0 ? 'var(--er)' : 'var(--ok)', ver: 'Ver la línea', sub: `<span id="erKUtiSub">Operacional ${money(ope.mes)}</span>` })}
   </div>
+  ${grafCard('erGraf', '¿Dónde se va la plata?', 'Los ingresos, lo que se los lleva (costo y gastos) y lo que queda, en el período elegido. Toca una barra para ver sus cuentas.', 260)}
   <div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px">
       <div class="xl-izq"><div class="card-ttl" style="margin:0" id="erTtl">${d.titulo || 'Estado de Resultado'}</div></div>
@@ -8336,6 +8340,25 @@ function pdGrafico(ps) {
       extra: i => { const n = ps.filter(p => (p.fecha_iso || '').startsWith(ks[i])).length; return `${fmt(n)} pedido${n === 1 ? '' : 's'} · toca para verlos`; } });
 }
 
+/* Estado de Resultado: ¿dónde se va la plata? Los ingresos, lo que se los lleva (costo y gastos, en amarillo) y lo que
+   queda (en verde, o en rojo si es pérdida), en el período elegido. Tocar una barra abre sus cuentas en la tabla. */
+function erGrafico(col) {
+  const card = document.getElementById('erGrafCard');
+  if (!card) return;
+  const filas = [...document.querySelectorAll('#erBody .er-row')], lin = k => filas.find(x => x.dataset.linea === k);
+  const v = k => parseInt(lin(k)?.dataset[col]) || 0;
+  const xs = [['01', 'Ingresos'], ['02', 'Costo de explotación'], ['04', 'Gastos de administración'], ['05', 'Gastos de ventas'],
+    ['09', 'Resultado operacional'], ['15', 'Resultado no operacional'], ['20', 'Resultado del ejercicio']].filter(([k]) => lin(k));
+  card.style.display = xs.length > 1 ? '' : 'none';
+  if (xs.length < 2) return;
+  const gasto = k => ['02', '04', '05'].includes(k);
+  barras('erGraf', xs.map(x => x[1]), [{ label: col === 'mes' ? 'Del mes' : 'Acumulado', data: xs.map(([k]) => Math.abs(v(k))),
+    backgroundColor: xs.map(([k]) => (gasto(k) ? color('--wa') : k === '01' ? color('--ac') : v(k) < 0 ? color('--er') : color('--ok'))) }],
+  i => lin(xs[i][0])?.click(),
+  { apiladas: false, leyenda: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v),
+    extra: i => { const k = xs[i][0], ing = Math.abs(v('01')); return `${!gasto(k) && v(k) < 0 ? 'pérdida · ' : ''}${ing && k !== '01' ? (Math.abs(v(k)) / ing * 100).toFixed(1) + '% de los ingresos · ' : ''}toca para ver sus cuentas`; } });
+}
+
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
    tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
 function ddGrafico(rows) {
@@ -10209,6 +10232,10 @@ function bindContent(secId) {
       set('erKCosSub', ings ? `${(cos / ings * 100).toFixed(1)}% de ingresos` : '—');
       set('erKMarSub', ings ? `${(mar / ings * 100).toFixed(1)}% de ingresos` : '—');
       set('erKUtiSub', `Operacional ${money(ope)}`);
+      set('erKGasSub', `admin. ${money(g('04'))} · ventas ${money(g('05'))}`);
+      const cu = document.getElementById('erk-uti');
+      if (cu) cu.style.borderTopColor = uti < 0 ? 'var(--er)' : 'var(--ok)';
+      erGrafico(col);
       const uEl = document.getElementById('erKUti');
       if (uEl) uEl.style.color = uti < 0 ? 'var(--er)' : 'var(--ok)';
       set('erColVal', document.querySelector('#erSegs .seg.on')?.textContent.trim() || 'Mes');
@@ -10230,6 +10257,23 @@ function bindContent(secId) {
                    title: document.getElementById('erTtl')?.textContent || 'Estado de Resultado',
                    subtitle: document.querySelector('#erSegs .seg.on')?.textContent.trim() || '',
                    landscape: false });
+    });
+    // Tocar una tarjeta: abre su línea (o líneas) con sus cuentas y la deja a la vista
+    const LINEAS_ER = { ing: ['01'], mar: ['02'], gas: ['04', '05'], uti: ['20'] };
+    document.querySelectorAll('[data-erk]').forEach(card => {
+      const ir = () => {
+        let primera = null;
+        for (const k of LINEAS_ER[card.dataset.erk] || []) {
+          const row = lin(k);
+          if (!row) continue;
+          primera = primera || row;
+          const sig = row.nextElementSibling, abierta = sig && sig.classList.contains('er-cta') && sig.style.display !== 'none';
+          if (!abierta && !row.classList.contains('no-click')) row.click();
+        }
+        primera?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
     });
     applyEr();
   }
