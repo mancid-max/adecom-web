@@ -5508,9 +5508,11 @@ function pintarPlan() {
     + `<tr class="pl-total"><td class="pl-sec"></td><td>Total</td><td class="r td-num">${fmt(promedio)}</td><td>${rvAvCelda(P.total, planPct(P.total, promedio))}</td>
       <td class="r td-num pl-sec">${P.total >= promedio ? '<span style="color:var(--ok)">✓</span>' : fmt(promedio - P.total)}</td></tr>`;
 
-  const tarjeta = (val, lbl, sub, det) => `<div class="kpi" data-pldet="${det}">
-    <div style="min-width:0"><div class="kpi-val" style="font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
-      <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}</div></div>`;
+  // La tarjeta del molde: línea de color arriba y «Ver el detalle ›»; cada una abre lo que forma su número (data-pldet)
+  const COLOR_PL = { unidades: 'var(--ac)', meses: '#6d28d9', esperar: 'var(--ok)', clientes: 'var(--ac)', pedido: '#047857' };
+  const tarjeta = (val, lbl, sub, det) => `<div class="kpi" data-pldet="${det}" role="button" tabindex="0" title="Ver el detalle" style="border-top:3px solid ${COLOR_PL[det] || 'var(--ac)'}">
+    <div style="min-width:0"><div class="kpi-val" style="color:${COLOR_PL[det] || 'var(--ac)'};font-size:${String(val).length > 7 ? '20px' : '26px'}">${val}</div>
+      <div class="kpi-lbl">${lbl}</div>${sub ? `<div class="kpi-delta d-nu">${sub}</div>` : ''}<div class="db-k-ver">Ver el detalle ›</div></div></div>`;
 
   // ── Lo que abre cada tarjeta: el número desarmado en lo que lo forma ──
   const pctDim = (a, b) => `<span class="pl-sub">${planPct(a, b)}%</span>`;   // debajo del número: en el teléfono no cabe al lado
@@ -5681,7 +5683,7 @@ function pintarPlan() {
   };
 
   cuerpo.innerHTML = `
-  <div class="kpi-grid">
+  <div class="kpi-grid db-kpis">
     ${tarjeta(fmt(promedio), 'Unidades por colección', `promedio de ${sg}`, 'unidades')}
     ${tarjeta(Math.round((shareProm[0] + shareProm[1]) * 100) + '%', `Se vende en ${nomMes(0)} y ${nomMes(1)}`, `${Math.round(shareProm[0] * 100)}% en ${nomMes(0)}`, 'meses')}
     ${tarjeta(fmt(proy[0] + proy[1]), `A esperar en ${nomMes(0)} y ${nomMes(1)}`, `si la T${PLAN_TEMP} se parece a ${sg}`, 'esperar')}
