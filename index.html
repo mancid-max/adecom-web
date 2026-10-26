@@ -160,6 +160,8 @@ html,body{overflow-x:hidden;max-width:100%}
 .lu-resumen{display:flex;flex-wrap:wrap;gap:6px}
 .lu-cuenta{border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap}
 .lu-lista{display:flex;flex-direction:column}
+.lu-destino{animation:luDestino 2.4s ease-out}
+@keyframes luDestino{0%{box-shadow:0 0 0 3px var(--ac)}70%{box-shadow:0 0 0 3px var(--ac)}100%{box-shadow:0 0 0 0 transparent}}
 .lu-fila{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;width:100%;text-align:left;padding:11px 20px;border-top:1px solid var(--bd);background:var(--sf);font:inherit;color:inherit}
 button.lu-fila{cursor:pointer}
 button.lu-fila:hover{background:var(--ac10)}
@@ -8787,7 +8789,7 @@ function debGraficos(visibles, paraEdad, edadSel, abrir, tocarEdad) {
 
 /* Ir a una sección con un filtro puesto: tocar = el selector de un botón suyo, o una función */
 let IR_TOCAR = null;
-function irA(sec, ttl, tocar) { IR_TOCAR = tocar ? { sec, tocar } : null; go(sec, ttl); }
+function irA(sec, ttl, tocar) { IR_TOCAR = sec ? { sec, tocar: tocar || null } : null; go(sec, ttl); }
 
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
@@ -8818,7 +8820,19 @@ async function go(secId, title) {
   if (IR_TOCAR && IR_TOCAR.sec === secId) {   // llegó desde "Lo urgente": se pone el filtro de esa fila
     const t = IR_TOCAR.tocar;
     IR_TOCAR = null;
-    try { if (typeof t === 'function') t(); else document.querySelector(t)?.click(); } catch (e) { console.error('Lo urgente: filtro', e); }
+    try { if (typeof t === 'function') t(); else if (t) document.querySelector(t)?.click(); } catch (e) { console.error('Lo urgente: filtro', e); }
+    /* …y se baja a la tabla, que es lo que vienen a ver (Manu, 26-10-2026: "que me lleve a la tabla para ver qué datos
+       son"). La tabla se marca un momento para que se note dónde quedó. */
+    let intentos = 0;
+    const bajar = () => {   // algunas secciones pintan la tabla un poco después del filtro: se espera hasta 3 s
+      const tabla = [...document.querySelectorAll('#content table')].map(t => t.closest('.tbl-card, .card') || t.parentElement)
+        .find(el => el && el.offsetParent && el.querySelector('tbody tr'));
+      if (!tabla) { if (++intentos < 12) setTimeout(bajar, 250); return; }
+      tabla.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      tabla.classList.add('lu-destino');
+      setTimeout(() => tabla.classList.remove('lu-destino'), 2400);
+    };
+    setTimeout(bajar, 400);
   }
 }
 
