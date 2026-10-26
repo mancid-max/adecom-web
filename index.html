@@ -216,6 +216,9 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .guia-txt b{font-weight:700}
 .guia-caja{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--sf2);font-size:12.5px;line-height:1.45}
 .guia-caja.primero{background:var(--ac10)}
+.guia-lu{display:flex;gap:8px;align-items:flex-start;margin-top:6px;padding:8px 10px}
+.guia-lu .guia-nivel{margin-top:5px;flex-shrink:0}
+.guia-lu .seg{flex-shrink:0;border:1px solid var(--bd2);background:var(--sf)}
 .guia-acc{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .guia-acc .seg{border:1px solid var(--bd2);background:var(--sf)}
 .guia-acc .seg.ppal{background:var(--ac);color:#fff;border-color:var(--ac)}
@@ -8972,15 +8975,17 @@ function guiaTarjetas() {   // lo que dicen las tarjetas de la sección abierta 
 function guiaHtml(secId, titulo) {
   const auto = '';
   const limpiar = typeof IA_HIST !== 'undefined' && IA_HIST.length ? '<button class="seg" data-g="limpiar">Borrar conversación</button>' : '';
-  if (secId === 'resumen' && Array.isArray(LU) && LU.length) {   // el recorrido de Lo urgente, uno por uno
-    GUIA_PASO = Math.min(GUIA_PASO, LU.length - 1);
-    const a = LU[GUIA_PASO], clr = a.nivel === 'rojo' ? 'var(--er)' : a.nivel === 'amarillo' ? 'var(--wa)' : 'var(--ok)';
-    const ultimo = GUIA_PASO >= LU.length - 1;
-    return `<div class="guia-ttl"><span>Mohi · Lo urgente, ${GUIA_PASO + 1} de ${LU.length}</span><button class="guia-x" data-g="cerrar" aria-label="Cerrar">✕</button></div>
-      <div class="guia-txt"><span class="guia-nivel" style="background:${clr}"></span><b>${guiaTx(a.titulo)}</b><div class="td-dim" style="font-size:12px;margin-top:2px">${guiaTx(a.detalle || '')}</div></div>
-      ${a.nivel !== 'verde' && GUIA_QUE_HACER[a.k] ? `<div class="guia-caja primero"><b>Qué hacer:</b> ${guiaTx(GUIA_QUE_HACER[a.k])}</div>` : ''}
-      <div class="guia-acc">${GUIA_PASO > 0 ? '<button class="seg" data-g="ant">‹ Anterior</button>' : ''}${a.sec ? '<button class="seg" data-g="ir">Ir ›</button>' : ''}
-        ${ultimo ? '<button class="seg ppal" data-g="fin">Eso es todo por hoy</button>' : '<button class="seg ppal" data-g="sig">Siguiente ›</button>'}${auto}${limpiar}</div>`;
+  if (secId === 'resumen' && Array.isArray(LU) && LU.length) {   // todo lo urgente de una vez (Manu, 26-10: "siguiente es muy tedioso")
+    const clr = a => (a.nivel === 'rojo' ? 'var(--er)' : a.nivel === 'amarillo' ? 'var(--wa)' : 'var(--ok)');
+    const rojas = LU.filter(a => a.nivel === 'rojo'), amar = LU.filter(a => a.nivel === 'amarillo'), verdes = LU.filter(a => a.nivel === 'verde');
+    const fila = a => `<div class="guia-caja guia-lu"><span class="guia-nivel" style="background:${clr(a)}"></span><div style="flex:1;min-width:0"><b>${guiaTx(a.titulo)}</b>
+        ${GUIA_QUE_HACER[a.k] ? `<div class="td-dim" style="font-size:12px;margin-top:2px">${guiaTx(GUIA_QUE_HACER[a.k])}</div>` : ''}</div>
+        ${a.sec ? `<button class="seg" data-g="irlu" data-i="${LU.indexOf(a)}" title="${guiaTx(a.detalle || '')}">Ir ›</button>` : ''}</div>`;
+    return `<div class="guia-ttl"><span>Mohi · Lo urgente de hoy</span><button class="guia-x" data-g="cerrar" aria-label="Cerrar">✕</button></div>
+      <div class="guia-txt">${rojas.length ? `<b style="color:var(--er)">${rojas.length} en rojo</b>: hay que actuar hoy.` : 'Nada en rojo hoy.'}${amar.length ? ` <span class="td-dim">${amar.length} en amarillo, para mirar.</span>` : ''}</div>
+      ${rojas.map(fila).join('')}${amar.map(fila).join('')}
+      ${verdes.length ? `<div class="td-dim" style="font-size:12px;margin-top:8px">Al día: ${verdes.map(a => guiaTx(a.titulo)).join(' · ')}</div>` : ''}
+      <div class="guia-acc">${limpiar}</div>`;
   }
   const t = GUIA_TEXTOS[secId] || { que: `Aquí ves ${titulo}. Toca las tarjetas para filtrar la tabla y los encabezados para ordenarla.` };
   const ahora = guiaTarjetas();
