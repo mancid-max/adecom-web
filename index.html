@@ -2889,17 +2889,20 @@ async function secCuadrados() {
   if (!CUA.length) return makePH('<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', 'Cortes Cuadrados', 'Sin órdenes de corte');
 
   // Las tarjetas se rellenan en pintarCua: aqui solo va el molde, con su id
+  // La tarjeta del molde (el ícono queda fuera): número, qué es, el detalle y «Ver … ›»; abre su detalle (data-qdet)
+  const VER_CUA = { tramo: 'Ver cuáles', dias: 'Ver cuánto tardan', etapas: 'Ver dónde se quedaron', sinentregar: 'Ver cuáles' };
   const ico = (c, path, id, det, ttl) => `
-    <div class="kpi" data-qdet="${det}" title="${ttl}">
-      <div class="kpi-ico c-${c}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg></div>
-      <div style="min-width:0">
-        <div class="kpi-val" id="${id}v">—</div>
+    <div class="kpi" data-qdet="${det}" role="button" tabindex="0" title="${ttl}" style="border-top:3px solid var(--${c})"><div style="min-width:0">
+        <div class="kpi-val" id="${id}v" style="color:var(--${c})">—</div>
         <div class="kpi-lbl" id="${id}l"></div>
         <div class="kpi-delta d-nu" id="${id}s"></div>
+        <div class="db-k-ver">${VER_CUA[det] || 'Ver'} ›</div>
       </div></div>`;
 
   return `
   <div class="fbar">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="cuaSearch" class="finput fsearch" placeholder="OC o artículo…" style="width:190px"></div>
     <div class="fgrp"><span class="flbl">Cuándo cuadró</span>
     <div class="segs" id="cuaPerSegs">
       <button class="seg" data-p="hoy">Hoy</button>
@@ -2907,8 +2910,6 @@ async function secCuadrados() {
       <button class="seg" data-p="30">Últimos 30 días</button>
       <button class="seg" data-p="todo">Todo</button>
     </div></div>
-    <div class="fgrp"><span class="flbl">Buscar</span>
-    <input id="cuaSearch" class="finput fsearch" placeholder="OC o artículo…" style="width:190px"></div>
   </div>
 
   <div class="kpi-grid">
@@ -2921,6 +2922,7 @@ async function secCuadrados() {
     ${ico('er', '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
           'cuaK4', 'sinentregar', 'Ver las órdenes que no han entregado ni una prenda')}
   </div>
+  ${grafCard('cuaGraf', '¿Qué orden apurar?', 'Las 15 órdenes por cuadrar más antiguas: en rojo las que no han entregado ni una prenda y en amarillo las que van a medias. Toca una barra para ver dónde se quedaron.', 420)}
 
   <div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px">
@@ -8398,6 +8400,22 @@ function trzMolde(alc, etapa, final) {
     { horizontal: false, apiladas: false, leyenda: false, extra: () => 'toca para ver esas órdenes' });
 }
 
+/* Cortes Cuadrados: ¿qué orden apurar? Las 15 por cuadrar más antiguas: en rojo las que no han entregado ni una prenda,
+   en amarillo las que van a medias. Tocar una barra abre dónde se quedaron. */
+function cuaGrafico(pend) {
+  const card = document.getElementById('cuaGrafCard');
+  if (!card) return;
+  const xs = pend.slice().sort((a, b) => (b.dias || 0) - (a.dias || 0)).slice(0, 15);
+  card.style.display = xs.length ? '' : 'none';
+  if (!xs.length) return;
+  document.getElementById('cuaGrafBox').style.height = `${xs.length * 26 + 40}px`;
+  const cod = a => (String(a || '').startsWith('01') ? `${a.slice(2, 6)}-${a.slice(6, 8)}` : String(a || ''));
+  barras('cuaGraf', xs.map(r => `OC ${r.oc} · ${cod(r.art)}`), [{ label: 'Días desde el corte', data: xs.map(r => r.dias || 0),
+    backgroundColor: xs.map(r => (r.estado === 'sinentregar' ? color('--er') : color('--wa'))) }],
+  i => document.querySelector(`#cuaPendBody tr[data-oc="${xs[i].oc}"]`)?.click(),
+  { apiladas: false, leyenda: false, sufijo: ' días', extra: i => `faltan ${fmt(xs[i].falta || 0)} de ${fmt(xs[i].cort || 0)} prendas cortadas` });
+}
+
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
    tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
 function ddGrafico(rows) {
@@ -9706,6 +9724,7 @@ function bindContent(secId) {
       set('cuaK4v', fmt(sinNada2.length));
       set('cuaK4l', 'Sin entregar ni una');
       set('cuaK4s', sinNada2.length ? `${fmt(su(sinNada2, 'cort'))} prendas · la más vieja lleva ${fmt(vieja)} días` : 'todas entregaron algo');
+      cuaGrafico(pend);
     }
     document.querySelectorAll('#cuaPerSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#cuaPerSegs .seg').forEach(x => x.classList.remove('on'));
