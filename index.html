@@ -641,6 +641,10 @@ body.ia-open #iaBtn{display:none}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       Cajas en Bodega
     </button>
+    <button class="nav-item" data-sec="fotos" data-ttl="Fotos pendientes" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Fotos pendientes
+    </button>
 
     <div class="sb-grp">Producción</div>
     <button class="nav-item" data-sec="tabla" data-ttl="Trazabilidad">
@@ -1403,7 +1407,7 @@ function luAlertas() {
   }
 
   // 6. Cobranza: bloqueados con pedidos detenidos y cupos agotados (como en Deudas)
-  const cls = ddClientes(peds), bl = cls.filter(c => c.bloq), det = bl.filter(c => c.nDet > 0), sinCupo = cls.filter(c => c.est === 'rojo' && !c.bloq);
+  const cls = ddClientes(peds, CACHE['docs_venta.json'] || []), bl = cls.filter(c => c.bloq), det = bl.filter(c => c.nDet > 0), sinCupo = cls.filter(c => c.est === 'rojo' && !c.bloq);
   const debeBl = bl.reduce((a, c) => a + Math.max(0, c.deuda), 0), vDet = det.reduce((a, c) => a + c.vDet, 0);
   A.push({ k: 'cob', nivel: det.length ? 'rojo' : (bl.some(c => c.deuda > 0) || sinCupo.length) ? 'amarillo' : 'verde', area: 'Cobranza', n: bl.length, valor: det.length ? vDet : debeBl,
     titulo: det.length ? `${pl(det.length, 'cliente bloqueado tiene', 'clientes bloqueados tienen')} pedidos detenidos`
@@ -1411,6 +1415,14 @@ function luAlertas() {
     detalle: [det.length ? `${fmtM(vDet)} en pedidos de los últimos ${DD_DIAS_PED} días que no se despachan` : '', bl.length ? `${pl(bl.length, 'bloqueado', 'bloqueados')} deben ${fmtM(debeBl)}` : '',
       sinCupo.length ? `${pl(sinCupo.length, 'cliente', 'clientes')} más sin cupo` : ''].filter(Boolean).join(' · ') || 'nadie con la ficha bloqueada',
     sec: 'deudas', ttl: 'Deudas', tocar: bl.length ? '#ddSegs .seg[data-f="bloq"]' : null });
+
+  // 6b. Deuda vencida, estimada por factura y plazo de pago (como en Deudas); sin Magic, que es la tienda propia
+  const deu = cls.filter(c => c.deuda > 0 && !c.magic), venc = deu.reduce((a, c) => a + c.venc, 0), v90 = deu.reduce((a, c) => a + c.v.v90, 0);
+  const cv = deu.filter(c => c.venc > 0).length, c90 = deu.filter(c => c.v.v90 > 0).length;
+  A.push({ k: 'ven', nivel: v90 ? 'rojo' : venc ? 'amarillo' : 'verde', area: 'Cobranza', n: cv, valor: venc,
+    titulo: v90 ? `${pl(c90, 'cliente tiene', 'clientes tienen')} deuda vencida hace más de 90 días` : venc ? `${pl(cv, 'cliente tiene', 'clientes tienen')} deuda vencida` : 'Nadie tiene deuda vencida',
+    detalle: venc ? `${fmtM(venc)} vencido en ${pl(cv, 'cliente', 'clientes')}${v90 ? ` · ${fmtM(v90)} con más de 90 días` : ''} · sin Magic · estimado por factura y plazo de pago` : 'todo lo que nos deben está dentro de su plazo de pago',
+    sec: 'deudas', ttl: 'Deudas', tocar: v90 ? '#ddSegs .seg[data-f="v90"]' : venc ? '#ddSegs .seg[data-f="venc"]' : null });
 
   // 7. Stock negativo en el ERP (como en Stock Bodega): se corrige, no se vende
   const SUCS = ['00', '01', '02', '04', '05', '08', '10', '12', '33'];
@@ -4077,6 +4089,98 @@ async function secKennedy() {
     </div>
     <div class="tbl-foot">Kennedy = lo que tiene la tienda · ADECOM = lo que figura en el ERP, sumando todas sus bodegas · Dif. = Kennedy − ADECOM · Valor aprox. = Kennedy × el precio mayorista neto medio del artículo, sin IVA (no es el costo). Toca un artículo para ver sus tallas y un encabezado para ordenar.</div>
   </div>`;
+}
+
+/* ── FOTOS PENDIENTES ────────────────────────────────────────────
+   Manu, 26-10-2026: "para saber a qué tomarle fotos" (Marta, que diseña las imágenes, dijo que no tenían foto). Los
+   modelos con stock que no se ven con foto en la página mayorista y qué les falta. Lo arma el ThinkPad en cada carga
+   (PAGINA WEB, scripts/fotos-desde-drive.js: cruza el stock de la planilla de la 44 y del ERP con la página y el Drive
+   "colecciones") y lo deja en bi/fotos_pendientes.json. Despacho inmediato = filas verdes de la planilla de la 44. */
+const FO_FALTA = {
+  fotografiar: ['Fotografiar', '--er', '--er10', 'No hay fotos en ningún lado: hay que fotografiarlo'],
+  editar:      ['Editar', '--wa', '--wa10', 'Hay tomas en el Drive pero ninguna en editar/: falta elegirlas y editarlas'],
+  disenar:     ['Diseñar', '--ac', '--ac10', 'Tiene fotos; falta su página diseñada del catálogo (la tarjeta de la 44)'],
+  subir:       ['Subir a la página', '--ok', '--ok10', 'Tiene fotos en editar/: entra sola a la página en la próxima carga'],
+};
+const FO_CURVA = ['36', '38', '40', '42', '44', '46'];
+const foTallas = t => {
+  const ks = Object.keys(t || {}).filter(k => +t[k] > 0);
+  if (!ks.length) return '—';
+  return FO_CURVA.every(x => +t[x] > 0) ? 'Curva completa (36 a 46)' : `Tiene ${ks.join(', ')}`;
+};
+async function secFotos() {
+  const d = await load('fotos_pendientes.json');
+  const ICO = '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>';
+  const hay = d && !Array.isArray(d);
+  const filas = (hay && d.modelos) || [];
+  if (!filas.length) return makePH(ICO, 'Fotos pendientes', hay && d.generado ? 'Todos los modelos con stock tienen foto en la página.' : 'Todavía no hay datos: los arma el ThinkPad en cada carga, 4 veces al día.');
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const temps = [...new Set(filas.map(f => f.cole))].sort((a, b) => +b - +a);
+  const de = k => filas.filter(f => (k === 'inm' ? f.estado === 'Disponible' : f.falta === k));
+  const uds = xs => xs.reduce((t, f) => t + (f.unidades || 0), 0);
+  const tarjeta = (k, lbl, col, val, sub) => tarjetaKpi({ attr: 'fo', k, val, lbl, sub, color: `var(${col})`, ver: 'Ver cuáles' });
+  const filasHtml = filas.map(f => {
+    const tc = tcFor(f.cole), x = FO_FALTA[f.falta] || FO_FALTA.fotografiar;
+    const modelo = [f.nombre, f.corte, f.tiro && `tiro ${f.tiro}`].filter(Boolean).join(' · ');
+    const hoy = f.drive ? [f.drive.carpeta, f.drive.editar && `${f.drive.editar} en editar`, f.drive.crudas && `${f.drive.crudas} sin editar`].filter(Boolean).join(' · ') : '';
+    const estado = f.estado === 'Disponible' ? '<span style="color:var(--ok);font-weight:600">Despacho inmediato</span>'
+      : f.estado === 'En producción' ? '<span style="color:var(--wa)">En producción</span>' : '<span class="td-dim">Con stock</span>';
+    return `<tr class="fo-row" data-temp="${esc(f.cole)}" data-falta="${esc(f.falta)}" data-inm="${f.estado === 'Disponible' ? 1 : 0}" data-u="${f.unidades || 0}" data-q="${esc(`${f.codigo} ${modelo}`.toLowerCase())}">
+      <td class="td-code">${esc(f.codigo)}</td>
+      <td><span class="badge ${tc.cls}">T${esc(f.cole)}</span></td>
+      <td class="pl-wrap" style="max-width:240px">${esc(modelo) || '—'}</td>
+      <td>${estado}</td>
+      <td class="r td-num">${f.unidades ? fmt(f.unidades) : '—'}</td>
+      <td class="td-dim pl-wrap" style="max-width:170px">${esc(foTallas(f.tallas))}</td>
+      <td><span class="pl-tag" style="background:var(${x[2]});color:var(${x[1]})" title="${esc(x[3])}">${x[0]}</span></td>
+      <td class="td-dim pl-wrap" style="max-width:260px">${esc(f.subir_en)}${hoy ? `<span class="pl-sub">hoy: ${esc(hoy)}</span>` : ''}</td>
+    </tr>`;
+  }).join('');
+  const al = d.generado ? new Date(d.generado).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  return `
+  <div class="fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="foSearch" class="finput fsearch" placeholder="Código o modelo…" style="width:210px"></div>
+    <div class="fgrp"><span class="flbl">Ver</span>
+    <div class="segs" id="foVerSegs">
+      <button class="seg on" data-f="all">Todo <span class="db-n">${fmt(filas.length)}</span></button>
+      <button class="seg" data-f="inm" title="La 44 con despacho inmediato: filas verdes de la planilla de inventario">Despacho inmediato <span class="db-n">${fmt(de('inm').length)}</span></button>
+      ${Object.entries(FO_FALTA).map(([k, x]) => `<button class="seg" data-f="${k}" title="${esc(x[3])}">${x[0]} <span class="db-n">${fmt(de(k).length)}</span></button>`).join('')}
+    </div></div>
+    </div>
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Temp</span>
+    <div class="segs" id="foTempSegs">
+      <button class="seg on" data-t="all">Todas</button>
+      ${temps.map(t => `<button class="seg" data-t="${esc(t)}">T${esc(t)}</button>`).join('')}
+    </div></div>
+    </div>
+  </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjeta('inm', 'Despacho inmediato sin foto', '--ok', fmt(de('inm').length), `${fmt(uds(de('inm')))} prendas de la 44 en bodega`)}
+    ${tarjeta('fotografiar', 'Por fotografiar', '--er', fmt(de('fotografiar').length), `${fmt(uds(de('fotografiar')))} prendas con stock`)}
+    ${tarjeta('editar', 'Fotos por editar', '--wa', fmt(de('editar').length), `tomas en el Drive sin editar/ · ${fmt(uds(de('editar')))} prendas`)}
+    ${tarjeta('disenar', 'Por diseñar', '--ac', fmt(de('disenar').length), 'con fotos, sin su página del catálogo')}
+  </div>
+  ${grafCard('foGraf', '¿De qué temporada son las prendas sin foto?', 'Prendas con stock que no se ven con foto en la página, según lo que les falta. Toca una barra para ver solo esa temporada.', 200)}
+  <div class="pl"><div class="tbl-card">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Modelos con stock sin foto en la página: qué falta y dónde dejar las fotos</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="foCount">${fmt(filas.length)} modelos</span>
+      <span class="td-dim" style="font-size:11px">Al ${al}</span></div>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th data-ord="t">Código</th><th data-ord="n">Temp</th><th>Modelo</th><th>Estado</th><th class="r" data-ord="n">Prendas</th><th>Tallas</th><th data-ord="t">Qué falta</th><th>Dónde dejar las fotos (Drive)</th></tr></thead>
+        <tbody id="foBody">${filasHtml}
+        <tr id="foNada" style="display:none"><td colspan="8" class="td-dim" style="text-align:center;padding:22px">Ningún modelo coincide con la búsqueda</td></tr></tbody>
+      </table>
+      <div class="tbl-foot" id="foFoot">${fmt(filas.length)} modelos · ${fmt(uds(filas))} prendas</div>
+    </div>
+    <div class="tbl-foot">Las fotos definitivas van en el Drive “colecciones”, en la carpeta editar/ del modelo con el código completo (por ejemplo 44/4421-04/editar): desde ahí entran solas a la página y a Sofía. Despacho inmediato = filas verdes de la planilla de la 44. ${esc(d.fuente || '')}</div>
+  </div></div>`;
 }
 
 /* ── PLACEHOLDERS ────────────────────────────────────────────── */
@@ -7321,22 +7425,58 @@ async function secProgramado() {
    deuda en cuenta corriente, cheques por cobrar y disponible = cupo − deuda − cheques (calza en los 161 clientes
    con cupo, 26-10). El bloqueo lo pone el ERP en la ficha y detiene todos sus pedidos: los 29 clientes con la
    ficha bloqueada eran justo los 29 con pedidos bloqueados.
-   - La deuda es la de la cuenta corriente, vencida y por vencer: para separar lo vencido falta el saldo de cada
-     documento con su vencimiento (se le pidió a Adecom para el agente de cobranza).
+   - La deuda es la de la cuenta corriente, vencida y por vencer. Lo vencido se estima repartiéndola en las facturas
+     del año con el plazo de cada forma de pago (ver ddVencido); será exacto cuando Adecom mande el saldo por documento.
    - Solo aparecen los clientes con pedidos desde 2024; de un RUT con varias fichas, la de mayor cupo.
    - Pedidos pendientes: solo los de los últimos 180 días. Los más viejos son saldos que ya no se van a despachar
      (26-10: 107 de los 145 pedidos bloqueados con saldo tenían más de un año). */
-let DD_SIN_MAGIC = false;
+let DD_GRUPO = 'todos';       // todos · grandes · otros: como separa Gislaine su informe de vencimientos
 let DD = {};                  // clave del cliente → sus datos, para la ficha y las tarjetas
 const DD_DIAS_PED = 180;
 const DD_CUPO_ALERTA = 0.8;   // desde el 80% del cupo usado va en amarillo; sin disponible, en rojo
+/* Los "grandes" los separa Gislaine en su informe; no salen de los datos (ni por cupo ni por compras: Forcael, con
+   cupo de $47 M, va entre "los otros"). Lista provisoria del 26-10-2026: los que no estaban en su hoja de los otros,
+   más Magic, la tienda propia. Manu la confirma. */
+const DD_GRANDES = ['MAGIC WORLD', 'MULTICENTRO', 'DIMARSA', 'Q & M', 'DIANCU', 'GERMANI', 'DOLLY'];
+const DD_TRAMOS = [['xv', 'Por vencer', 'var(--ok)'], ['v1', 'Vencida 1–29 días', 'var(--wa)'], ['v30', '30–59 días', '#ea580c'], ['v60', '60–89 días', '#dc2626'], ['v90', '90 días o más', '#7f1d1d']];
+const ddTramo = k => DD_TRAMOS.find(t => t[0] === k);
+const ddPlazo = fp => { const m = /(\d+)\s*D[IÍ]AS/i.exec(fp || ''); return m ? +m[1] : 0; };   // "08 -PAGO 30 DIAS" → 30; contado, tarjeta y transferencia → 0
 const ddPago = s => {
   const t = String(s || '').replace(/^\s*\d+\s*-\s*/, '').trim().toLowerCase()
     .replace(/\bdias\b/g, 'días').replace(/\btransf\b/g, 'transferencia');
   return t ? t[0].toUpperCase() + t.slice(1) : '';
 };
 const ddTx = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-function ddClientes(peds) {
+/* Al día o vencida. El ERP solo entrega la deuda total de la cuenta corriente, así que se reparte en las facturas más
+   nuevas del cliente: lo más viejo se paga primero. Cada factura vence en su fecha más el plazo de su forma de pago
+   (30, 60 o 90 días; contado y transferencia, el mismo día) y los tramos son los del informe de Gislaine, donde el día
+   30 de atraso ya es "más de 30". Se comprobó con 24 clientes de su hoja del 26-10-2026: si está al día o no calza en
+   los 24, la deuda total en 21 y los tramos al peso en 16; las diferencias son notas de crédito y pagos sin aplicar.
+   Lo que no alcanzan a cubrir las facturas del año se da por vencido hace más de 90 días. Cuando Adecom mande el saldo
+   por documento, esto pasa a ser exacto. */
+function ddVencido(deuda, facs, hoy) {
+  const t = { xv: 0, v1: 0, v30: 0, v60: 0, v90: 0, atraso: 0, docs: [] };
+  let resto = deuda;
+  if (resto <= 0) return t;
+  for (const d of facs) {   // de la más nueva a la más vieja
+    if (resto <= 0) break;
+    const monto = d.bruto || 0;   // con IVA: el "total" de docs_venta es el neto
+    if (monto <= 0) continue;
+    const plazo = ddPlazo(d.fpago), toma = Math.min(resto, monto), vence = new Date(d.fecha_iso + 'T12:00:00');
+    vence.setDate(vence.getDate() + plazo);
+    const dias = Math.round((hoy - vence) / 864e5), k = dias <= 0 ? 'xv' : dias < 30 ? 'v1' : dias < 60 ? 'v30' : dias < 90 ? 'v60' : 'v90';
+    t[k] += toma; resto -= toma;
+    if (dias > t.atraso) t.atraso = dias;
+    t.docs.push({ n: String(d.dcto || '').replace(/^0+/, ''), fecha: d.fecha_iso, vence: ymd(vence), plazo, dias, monto, toma, k });
+  }
+  if (resto > 0) { t.v90 += resto; t.atraso = Math.max(t.atraso, 90); t.docs.push({ n: '', fecha: '', vence: '', plazo: 0, dias: 90, monto: resto, toma: resto, k: 'v90', viejo: true }); }
+  return t;
+}
+function ddClientes(peds, docs = []) {
+  const hoy = new Date(today() + 'T12:00:00');
+  const facs = new Map();   // facturas y notas de débito de cada RUT, de la más nueva a la más vieja
+  for (const d of docs) if (d.fecha_iso && /^(F\/Elec|FACT|Ndeb)$/.test(d.tipo || '')) { const r = vRut(d); if (r) { if (!facs.has(r)) facs.set(r, []); facs.get(r).push(d); } }
+  for (const xs of facs.values()) xs.sort((a, b) => b.fecha_iso.localeCompare(a.fecha_iso) || String(b.dcto).localeCompare(String(a.dcto)));
   const m = new Map();
   for (const p of peds) {
     if (!p.cli) continue;
@@ -7359,90 +7499,107 @@ function ddClientes(peds) {
     const usa = Math.max(0, deuda) + cheques, uso = cupo > 0 ? usa / cupo : 0;
     const est = !usa ? 'verde' : (!cupo || disp <= 0) ? 'rojo' : uso >= DD_CUPO_ALERTA ? 'amarillo' : 'verde';
     const det = c.peds.filter(p => p.bloqueo);
+    const v = ddVencido(deuda, (vRut(c) && facs.get(vRut(c))) || [], hoy), venc = v.v1 + v.v30 + v.v60 + v.v90;
+    const grande = c.magic || DD_GRANDES.some(g => String(f.razon || '').toUpperCase().includes(g));
     return { ...c, nombre: f.razon || c.rut || '—', deuda, cheques, cupo, disp, usa, uso, est,
       bloq: f.bloqueo_ficha === 'S' || c.bloqPed, pago: ddPago(f.fpago),
       contacto: String(f.contacto || '').trim(), fono: String(f.fono || '').trim(),
       nP: c.peds.length, uP: c.peds.reduce((a, p) => a + (p.saldo || 0), 0), vP: c.peds.reduce((a, p) => a + (p.valor_sal || 0), 0),
-      nDet: det.length, vDet: det.reduce((a, p) => a + (p.valor_sal || 0), 0) };
+      nDet: det.length, vDet: det.reduce((a, p) => a + (p.valor_sal || 0), 0),
+      v, venc, alDia: deuda > 0 && venc <= 0, grande };
   });
 }
-const ddFlags = c => ` ${c.deuda > 0 ? 'deuda ' : ''}${c.bloq ? 'bloq ' : ''}${c.est !== 'verde' ? 'cupo ' : ''}${c.cheques > 0 ? 'cheq ' : ''}`;
+const ddFlags = c => ` ${c.deuda > 0 ? 'deuda ' : ''}${c.alDia ? 'aldia ' : ''}${c.venc > 0 ? 'venc ' : ''}${c.v.v90 > 0 ? 'v90 ' : ''}${c.bloq ? 'bloq ' : ''}${c.est !== 'verde' ? 'cupo ' : ''}${c.cheques > 0 ? 'cheq ' : ''}`;
+const ddEnGrupo = (c, g = DD_GRUPO) => g === 'todos' || (g === 'grandes') === c.grande;
 /* Lo que dicen las cuatro tarjetas para los clientes que se ven: [valor, texto de abajo] */
 function ddResumen(cs) {
   const deu = cs.filter(c => c.deuda > 0), tot = deu.reduce((a, c) => a + c.deuda, 0), cheq = cs.reduce((a, c) => a + c.cheques, 0);
-  const top = deu.reduce((m, c) => (!m || c.deuda > m.deuda ? c : m), null);
+  const suma = k => deu.reduce((a, c) => a + c.v[k], 0), venc = deu.reduce((a, c) => a + c.venc, 0), v90 = suma('v90'), xv = suma('xv');
+  const cv = deu.filter(c => c.venc > 0), c90 = deu.filter(c => c.v.v90 > 0), al = deu.filter(c => c.alDia);
   const bl = cs.filter(c => c.bloq), det = bl.reduce((a, c) => a + c.nDet, 0);
-  const cu = cs.filter(c => c.est !== 'verde'), sin = cu.filter(c => c.est === 'rojo').length;
   const s = (n, uno, varios) => `${fmt(n)} ${n === 1 ? uno : varios}`;
+  const pct = v => (tot ? Math.round(v / tot * 100) : 0);
   return {
-    deuda: [fmtM(tot), `${s(deu.length, 'cliente', 'clientes')}${cheq ? ` · y ${fmtM(cheq)} en cheques por cobrar` : ''}`],
-    top: [top ? fmtM(top.deuda) : '—', top ? `${top.nombre} · ${Math.round(top.deuda / tot * 100)}% de lo que nos deben` : 'nadie debe', top ? top.k : ''],
+    venc: [fmtM(venc), venc ? `${pct(venc)}% de los ${fmtM(tot)} que nos deben · ${s(cv.length, 'cliente', 'clientes')}` : tot ? `nadie tiene deuda vencida · nos deben ${fmtM(tot)}` : 'nadie debe'],
+    v90: [fmtM(v90), v90 ? `${s(c90.length, 'cliente', 'clientes')} · lo más difícil de cobrar` : 'nadie pasa de los 90 días'],
+    aldia: [fmtM(xv), `${xv ? 'dentro del plazo de pago · ' : ''}${s(al.length, 'cliente al día del todo', 'clientes al día del todo')}${cheq ? ` · ${fmtM(cheq)} en cheques` : ''}`],
     bloq: [fmt(bl.length), bl.length ? `deben ${fmtM(bl.reduce((a, c) => a + Math.max(0, c.deuda), 0))}${det ? ` · ${s(det, 'pedido detenido', 'pedidos detenidos')}` : ''}` : 'ninguno'],
-    cupo: [fmt(cu.length), cu.length ? [sin ? `${fmt(sin)} sin disponible` : '', cu.length - sin ? `${fmt(cu.length - sin)} sobre el 80% del cupo` : ''].filter(Boolean).join(' · ') : 'ninguno'],
   };
 }
 
 async function secDeudas() {
   const ICO = '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
-  const cls = ddClientes((await load('pedidos.json')) || []);
+  const [peds, docs] = await Promise.all([load('pedidos.json'), load('docs_venta.json')]);
+  const cls = ddClientes(peds || [], docs || []);
   if (!cls.length) return makePH(ICO, 'Deudas', 'Sin datos de crédito de los clientes');
-  cls.sort((a, b) => b.deuda - a.deuda || b.cheques - a.cheques || a.nombre.localeCompare(b.nombre, 'es'));
+  cls.sort((a, b) => b.venc - a.venc || b.deuda - a.deuda || b.cheques - a.cheques || a.nombre.localeCompare(b.nombre, 'es'));
   DD = Object.fromEntries(cls.map(c => [c.k, c]));
-  const ini = ddResumen(DD_SIN_MAGIC ? cls.filter(c => !c.magic) : cls);
+  const ini = ddResumen(cls.filter(c => ddEnGrupo(c)));
   const n = k => cls.filter(c => ddFlags(c).includes(` ${k} `)).length;
-  const segs = [['deuda', 'Con deuda'], ['bloq', 'Bloqueados'], ['cupo', 'Cupo casi agotado'], ['cheq', 'Con cheques'], ['', 'Todos']]
-    .map(([k, t]) => `<button class="seg${k === 'deuda' ? ' on' : ''}" data-f="${k}">${t} <span class="db-n">${k ? n(k) : cls.length}</span></button>`).join('');
-  // Las tarjetas se recalculan con la búsqueda y con o sin Magic; con los botones "Ver" no, porque son esos mismos números
-  const kpi = (k, lbl, color, ver, [val, sub], extra = '') => `<div class="kpi" data-dk="${k}" ${extra} role="button" tabindex="0" title="${ver}" id="dk-${k}" style="border-top:3px solid ${color}"><div style="min-width:0">
+  const segs = [['venc', 'Con deuda vencida'], ['v90', 'Más de 90 días'], ['aldia', 'Al día'], ['deuda', 'Con deuda'], ['bloq', 'Bloqueados'], ['cupo', 'Cupo casi agotado'], ['cheq', 'Con cheques'], ['', 'Todos']]
+    .map(([k, t]) => `<button class="seg${k === 'venc' ? ' on' : ''}" data-f="${k}">${t} <span class="db-n">${k ? n(k) : cls.length}</span></button>`).join('');
+  const nG = g => cls.filter(c => c.deuda > 0 && ddEnGrupo(c, g)).length;
+  const grandes = DD_GRANDES.map(g => g[0] + g.slice(1).toLowerCase()).join(', ');
+  const grupos = [['todos', 'Todos', 'Todos los clientes con ficha'], ['grandes', 'Grandes', `Como los separa cobranza: ${grandes}. La lista es provisoria`], ['otros', 'Otros', 'Los demás clientes']]
+    .map(([g, t, tt]) => `<button class="seg${DD_GRUPO === g ? ' on' : ''}" data-g="${g}" title="${tt}">${t} <span class="db-n">${nG(g)}</span></button>`).join('');
+  const vends = [...new Set(cls.map(c => c.vendedor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const vendNom = s => s.toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase());
+  const selVend = `<select id="ddVend" class="finput"><option value="">Todos los vendedores</option>${vends.map(v => `<option value="${ddTx(v)}">${ddTx(vendNom(v))} (${cls.filter(c => c.vendedor === v && c.deuda > 0).length})</option>`).join('')}</select>`;
+  // Las tarjetas se recalculan con la búsqueda, el grupo y el vendedor; con los botones "Ver" no, porque son esos mismos números
+  const kpi = (k, lbl, color, ver, [val, sub]) => `<div class="kpi" data-dk="${k}" role="button" tabindex="0" title="${ver}" id="dk-${k}" style="border-top:3px solid ${color}"><div style="min-width:0">
       <div class="kpi-val" id="dk-${k}-val" style="color:${color}">${val}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-delta d-nu" id="dk-${k}-sub">${ddTx(sub)}</div><div class="db-k-ver">${ver} ›</div></div></div>`;
-  const barra = c => {
-    if (!c.usa) return '<span class="td-dim">—</span>';
-    if (!c.cupo) return `<b style="color:var(--er);font-size:12px">Sin cupo</b><span class="pl-sub">y debe ${fmtM(c.usa)}</span>`;
-    const pct = Math.round(c.uso * 100), clr = c.est === 'rojo' ? 'var(--er)' : c.est === 'amarillo' ? 'var(--wa)' : 'var(--ok)';
-    return `<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:44px;height:6px;border-radius:4px;background:var(--sf2);overflow:hidden">`
-      + `<i style="display:block;height:100%;width:${Math.min(100, pct)}%;background:${clr}"></i></div><b class="td-num" style="color:${clr};font-size:12px">${pct > 999 ? '+999' : pct}%</b></div>`
-      + `<span class="pl-sub">${c.disp > 0 ? `quedan ${fmtM(c.disp)}` : 'sin disponible'}</span>`;
-  };
-  const deuda = c => c.deuda > 0 ? `<b>${fmtCLP(c.deuda)}</b>`
-    : c.deuda < 0 ? `<span style="color:var(--ok)" title="Saldo a favor del cliente">${fmtCLP(-c.deuda)} a favor</span>` : '<span class="td-dim">—</span>';
-  const bloqueado = '<span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒 Bloqueado</span>';
+  const monto = (v, clr, negrita) => (v > 0 ? `<span style="color:${clr}${negrita ? ';font-weight:800' : ''}">${fmtCLP(v)}</span>` : '<span class="td-dim">—</span>');
+  const chip = (txt, clr, bg) => `<span class="badge" style="background:${bg};color:${clr};font-size:9px;padding:1px 5px">${txt}</span>`;
+  const estado = c => (c.deuda <= 0 ? '' : c.alDia ? chip('Al día', 'var(--ok)', 'var(--ok10)')
+    : chip(`Vencida hace ${c.v.docs.some(d => d.viejo) ? 'más de 90' : fmt(c.v.atraso)} días`, 'var(--er)', 'var(--er10)'));
+  const bloqueado = chip('🔒 Bloqueado', 'var(--er)', 'var(--er10)');
+  const cupoTxt = c => [c.cupo ? `cupo ${fmtM(c.cupo)} · usa el ${Math.min(999, Math.round(c.uso * 100))}%${c.usa && c.disp <= 0 ? ' · sin disponible' : ''}` : c.usa ? 'sin cupo' : '',
+    c.cheques ? `cheques ${fmtM(c.cheques)}` : ''].filter(Boolean).join(' · ');
   return `
   <div class="fbar">
     <div class="fbar-row"><div class="fgrp"><span class="flbl">Buscar</span>
       <input id="ddSearch" class="finput fsearch" placeholder="Cliente, RUT, ciudad o vendedor…" autocomplete="off" style="width:280px;max-width:100%"></div>
-      <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="ddSegs">${segs}</div></div>
-      <div class="fgrp"><span class="flbl">Magic</span><div class="segs" id="ddMagicSegs">
-        <button class="seg${DD_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta la deuda de Magic World, la tienda propia">Con Magic</button>
-        <button class="seg${DD_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin Magic World: queda lo que deben los demás clientes">Sin Magic</button></div></div></div>
+      <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="ddSegs" style="flex-wrap:wrap">${segs}</div></div></div>
+    <div class="fbar-row"><div class="fgrp"><span class="flbl">Clientes</span><div class="segs" id="ddGrupoSegs">${grupos}</div></div>
+      <div class="fgrp"><span class="flbl">Vendedor</span>${selVend}</div></div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${kpi('deuda', 'Nos deben', 'var(--ac)', 'Ver quiénes', ini.deuda)}
-    ${kpi('top', 'El que más debe', '#6d28d9', 'Ver su ficha', ini.top, `data-cli="${ini.top[2]}"`)}
-    ${kpi('bloq', 'Clientes bloqueados', 'var(--er)', 'Ver cuáles', ini.bloq)}
-    ${kpi('cupo', 'Con el cupo casi agotado', 'var(--wa)', 'Ver cuáles', ini.cupo)}
+    ${kpi('venc', 'Deuda vencida', 'var(--er)', 'Ver quiénes', ini.venc)}
+    ${kpi('v90', 'Vencida hace más de 90 días', '#7f1d1d', 'Ver quiénes', ini.v90)}
+    ${kpi('aldia', 'Por vencer: al día', 'var(--ok)', 'Ver quiénes', ini.aldia)}
+    ${kpi('bloq', 'Clientes bloqueados', 'var(--wa)', 'Ver cuáles', ini.bloq)}
   </div>
-  ${grafCard('ddGraf', '¿A quién cobrar primero?', 'Los 15 que más deben de lo que se ve: en rojo los bloqueados y en amarillo los que tienen el cupo casi agotado. Pasa el mouse para ver sus cheques y su cupo; toca una barra para ver su ficha.', 420)}
+  ${grafCard('ddGraf', '¿A quién cobrar primero?', 'Los 15 con más deuda vencida de lo que se ve, partida por lo que lleva vencida: de amarillo (menos de 30 días) a rojo oscuro (90 o más). Pasa el mouse para ver lo que tienen por vencer; toca una barra para ver su ficha.', 420)}
   <div class="pl"><div class="tbl-card">
-    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Deuda por cliente</div>
-      <div class="card-sub" style="margin:2px 0 0">El que más debe arriba. Toca un cliente para ver su ficha, su cupo y sus pedidos pendientes.</div></div>
+    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Vencimientos por cliente</div>
+      <div class="card-sub" style="margin:2px 0 0">El que más tiene vencido arriba. Toca un cliente para ver sus facturas, su cupo y sus pedidos pendientes; un encabezado, para ordenar.</div></div>
       ${btnExcel()}
       <div class="xl-der"><span class="td-dim" id="ddCuenta">${fmt(cls.length)} clientes</span></div></div>
-    <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
-      <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Deuda en cuenta corriente, vencida y por vencer">Deuda</th>
-        <th class="r pl-sec" data-ord="n" title="Cheques recibidos que todavía no se cobran">Cheques</th><th class="r pl-sec" data-ord="n" title="Crédito que le da el ERP">Cupo</th>
-        <th data-ord="n" title="Deuda + cheques, contra su cupo">Uso del cupo</th><th class="r" data-ord="n" title="Pedidos con saldo de los últimos ${DD_DIAS_PED} días">Pedidos pendientes</th></tr></thead>
-      <tbody id="ddBody">${cls.map(c => `<tr data-k="${ddTx(c.k)}" data-q="${ddTx(rvSinTilde([c.nombre, c.rut, c.ciudad, c.vendedor, c.contacto].join(' ')))}" data-f="${ddFlags(c)}" data-mag="${c.magic ? 1 : 0}" style="cursor:pointer">
-        <td class="pl-wrap" data-v="${ddTx(c.nombre)}"><b>${ddTx(c.nombre)}</b>${c.bloq ? ' ' + bloqueado : ''}${fichasBadge(c.cli)}
+    <div class="tbl-scroll"><table data-ord-col="6" data-ord-dir="-1" data-ord-num="1">
+      <thead><tr><th data-ord="t">Cliente</th>
+        <th class="r" data-ord="n" title="Dentro del plazo de pago: todavía no se cobra">Por vencer</th>
+        <th class="r" data-ord="n" title="Vencida hace 1 a 29 días">Vencida</th>
+        <th class="r" data-ord="n" title="Vencida hace 30 a 59 días">Más de 30</th>
+        <th class="r" data-ord="n" title="Vencida hace 60 a 89 días">Más de 60</th>
+        <th class="r" data-ord="n" title="Vencida hace 90 días o más">Más de 90</th>
+        <th class="r" data-ord="n" title="Todo lo vencido">Vencido</th>
+        <th class="r" data-ord="n" title="Deuda en cuenta corriente: vencida y por vencer">Total</th>
+        <th class="r pl-sec" data-ord="n" title="Pedidos con saldo de los últimos ${DD_DIAS_PED} días">Pendientes</th></tr></thead>
+      <tbody id="ddBody">${cls.map(c => `<tr data-k="${ddTx(c.k)}" data-q="${ddTx(rvSinTilde([c.nombre, c.rut, c.ciudad, c.vendedor, c.contacto].join(' ')))}" data-f="${ddFlags(c)}" data-g="${c.grande ? 1 : 0}" data-vend="${ddTx(c.vendedor)}" style="cursor:pointer">
+        <td class="pl-wrap" data-v="${ddTx(c.nombre)}"><b>${ddTx(c.nombre)}</b> ${estado(c)}${c.bloq ? ' ' + bloqueado : ''}${fichasBadge(c.cli)}
           <span class="pl-sub">${ddTx([c.ciudad, c.vendedor, c.pago].filter(Boolean).join(' · '))}</span>
-          <span class="pl-sub db-movil">${c.cupo ? `cupo ${fmtM(c.cupo)}` : 'sin cupo'}${c.cheques ? ` · cheques ${fmtM(c.cheques)}` : ''}</span></td>
-        <td class="r td-num" data-v="${c.deuda}">${deuda(c)}</td>
-        <td class="r td-num pl-sec" data-v="${c.cheques}">${c.cheques ? fmtCLP(c.cheques) : '<span class="td-dim">—</span>'}</td>
-        <td class="r td-num pl-sec" data-v="${c.cupo}">${c.cupo ? fmtCLP(c.cupo) : '<span class="td-dim">—</span>'}</td>
-        <td data-v="${c.cupo ? c.uso.toFixed(4) : c.usa ? 99 : 0}" style="min-width:110px">${barra(c)}</td>
-        <td class="r td-num" data-v="${c.vP}">${c.nP ? `${fmtCLP(c.vP)}<span class="pl-sub">${c.nP} pedido${c.nP === 1 ? '' : 's'} · ${fmt(c.uP)} prendas</span>${c.nDet ? '<span class="pl-sub" style="color:var(--er)">🔒 detenidos</span>' : ''}` : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
-        <tr id="ddNada" style="display:none"><td colspan="6" class="td-dim" style="text-align:center;padding:22px">Ningún cliente coincide</td></tr></tbody>
+          ${cupoTxt(c) ? `<span class="pl-sub">${cupoTxt(c)}</span>` : ''}</td>
+        <td class="r td-num" data-v="${c.v.xv}">${monto(c.v.xv, 'var(--ok)')}</td>
+        <td class="r td-num" data-v="${c.v.v1}">${monto(c.v.v1, 'var(--wa)')}</td>
+        <td class="r td-num" data-v="${c.v.v30}">${monto(c.v.v30, '#ea580c')}</td>
+        <td class="r td-num" data-v="${c.v.v60}">${monto(c.v.v60, '#dc2626')}</td>
+        <td class="r td-num" data-v="${c.v.v90}">${monto(c.v.v90, '#7f1d1d', true)}</td>
+        <td class="r td-num" data-v="${c.venc}">${monto(c.venc, 'var(--er)', true)}</td>
+        <td class="r td-num" data-v="${c.deuda}">${c.deuda > 0 ? `<b>${fmtCLP(c.deuda)}</b>` : c.deuda < 0 ? `<span style="color:var(--ok)" title="Saldo a favor del cliente">${fmtCLP(-c.deuda)} a favor</span>` : '<span class="td-dim">—</span>'}</td>
+        <td class="r td-num pl-sec" data-v="${c.vP}">${c.nP ? `${fmtCLP(c.vP)}<span class="pl-sub">${c.nP} pedido${c.nP === 1 ? '' : 's'} · ${fmt(c.uP)} prendas</span>${c.nDet ? '<span class="pl-sub" style="color:var(--er)">🔒 detenidos</span>' : ''}` : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
+        <tr id="ddNada" style="display:none"><td colspan="9" class="td-dim" style="text-align:center;padding:22px">Ningún cliente coincide</td></tr></tbody>
     </table></div>
-    <div class="tbl-foot">La deuda es la de la cuenta corriente de cada cliente, vencida y por vencer: para separar lo vencido falta el detalle de cada factura con su vencimiento. Disponible = cupo − deuda − cheques. Uso del cupo: verde hasta el 80%, amarillo desde el 80% y rojo sin disponible. El bloqueo lo pone el ERP en la ficha del cliente y detiene sus pedidos. Pedidos pendientes: los de los últimos ${DD_DIAS_PED} días con saldo. Si un RUT tiene varias fichas, se muestra la de mayor cupo.</div>
+    <div class="tbl-foot">Al día o vencida es un estimado: el ERP solo entrega la deuda total, así que se reparte en las facturas más nuevas de cada cliente (lo más viejo se paga primero) y cada una vence en su fecha más el plazo de su forma de pago, 30, 60 o 90 días. Se comprobó con el informe de cobranza del 26-10-2026; las diferencias son notas de crédito o pagos sin aplicar. Grandes y otros, como los separa cobranza (la lista de grandes es provisoria). Disponible = cupo − deuda − cheques. El bloqueo lo pone el ERP en la ficha del cliente y detiene sus pedidos. Pendientes: pedidos de los últimos ${DD_DIAS_PED} días con saldo. Si un RUT tiene varias fichas, se muestra la de mayor cupo.</div>
   </div></div>`;
 }
 
@@ -7453,6 +7610,8 @@ function ddFicha(c) {
   const aviso = (txt, clr, bg) => `<div style="margin:0 16px 12px;padding:9px 12px;border-radius:8px;background:${bg};color:${clr};font-size:12.5px;font-weight:600">${txt}</div>`;
   const pl = (n, uno, varios) => `${fmt(n)} ${n === 1 ? uno : varios}`;
   const avisos = [
+    c.venc > 0 ? aviso(`Deuda vencida: ${fmtCLP(c.venc)}${c.v.v90 ? `, de la que ${fmtCLP(c.v.v90)} lleva 90 días o más` : ''}. La factura más atrasada venció hace ${c.v.docs.some(d => d.viejo) ? 'más de 90' : fmt(c.v.atraso)} días.`, 'var(--er)', 'var(--er10)')
+      : c.alDia ? aviso(`Al día: debe ${fmtCLP(c.deuda)}, pero todo está dentro de su plazo de pago${c.pago ? ` (${c.pago.toLowerCase()})` : ''}.`, 'var(--ok)', 'var(--ok10)') : '',
     c.bloq ? aviso(`🔒 Bloqueado en el ERP: no se le despacha.${c.nDet ? ` Tiene ${pl(c.nDet, 'pedido detenido', 'pedidos detenidos')} de los últimos ${DD_DIAS_PED} días, por ${fmtCLP(c.vDet)}.` : ''}`, 'var(--er)', 'var(--er10)') : '',
     !c.bloq && c.est === 'rojo' ? aviso(c.cupo ? 'Sin disponible: ya usó todo su cupo.' : `No tiene cupo y debe ${fmtCLP(c.usa)}.`, 'var(--er)', 'var(--er10)') : '',
     c.est === 'amarillo' ? aviso(`Cupo casi agotado: usa el ${Math.round(c.uso * 100)}% y le quedan ${fmtCLP(c.disp)}.`, 'var(--wa)', 'var(--wa10)') : '',
@@ -7469,17 +7628,26 @@ function ddFicha(c) {
       + `<td class="r td-num">${fmtCLP(p.valor_sal || 0)}</td><td>${p.bloqueo ? '<span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒 Detenido</span>' : ''}</td></tr>`).join(''),
     `${pl(peds.length, 'pedido', 'pedidos')} con saldo de los últimos ${DD_DIAS_PED} días · ${fmt(c.uP)} prendas · ${fmtCLP(c.vP)}`)
     : `<div class="td-dim" style="padding:4px 16px 16px">No tiene pedidos pendientes de los últimos ${DD_DIAS_PED} días.</div>`;
+  const ds = c.v.docs, fecha = s => (s ? s.split('-').reverse().join('/') : '—');
+  const facturas = ds.length ? `<div class="card-ttl" style="padding:10px 16px 6px;margin:0">Dónde está la deuda</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 8px">${DD_TRAMOS.filter(([k]) => c.v[k] > 0).map(([k, t, clr]) => `<span class="badge" style="background:var(--sf2);color:${clr};font-size:11px;padding:3px 8px">${t}: <b>${fmtCLP(c.v[k])}</b></span>`).join('')}</div>`
+    + vTabla('<th>Factura</th><th>Emitida</th><th>Vence</th><th class="r">Días</th><th class="r">Monto</th><th class="r">De la deuda</th>',
+      ds.map(d => `<tr><td class="td-code">${d.viejo ? '<span class="td-dim">Anterior a las facturas del año</span>' : d.n}</td><td>${fecha(d.fecha)}</td><td>${fecha(d.vence)}</td>`
+        + `<td class="r td-num" style="color:${ddTramo(d.k)[2]}">${d.viejo ? 'más de 90 de atraso' : d.dias <= 0 ? `faltan ${fmt(-d.dias)}` : `${fmt(d.dias)} de atraso`}</td><td class="r td-num">${fmtCLP(d.monto)}</td><td class="r td-num"><b>${fmtCLP(d.toma)}</b></td></tr>`).join(''),
+      `${pl(ds.filter(d => !d.viejo).length, 'factura del año cubre', 'facturas del año cubren')} la deuda · plazo de pago: ${c.pago || 'sin dato'}`) : '';
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:14px 16px">
       ${dato('Deuda', c.deuda < 0 ? `${fmtCLP(-c.deuda)} a favor` : fmtCLP(c.deuda), c.deuda < 0 ? 'var(--ok)' : '')}
+      ${dato('Vencida', c.venc > 0 ? fmtCLP(c.venc) : c.deuda > 0 ? 'Nada: al día' : '—', c.venc > 0 ? 'var(--er)' : c.deuda > 0 ? 'var(--ok)' : '')}
       ${dato('Cheques por cobrar', fmtCLP(c.cheques))}
       ${dato('Cupo', c.cupo ? fmtCLP(c.cupo) : (c.cli.credito || 0) === 1 ? 'Sin cupo (el ERP lo dejó en $1)' : 'Sin cupo')}
       ${dato('Disponible', fmtCLP(c.disp), c.usa && c.disp <= 0 ? 'var(--er)' : '')}</div>
     ${avisos}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 16px;padding:0 16px 12px;font-size:12.5px">${ficha}</div>
     ${otras}
+    ${facturas}
     <div class="card-ttl" style="padding:4px 16px 6px;margin:0">Pedidos pendientes</div>
     ${tabla}
-    <div class="td-dim" style="font-size:11px;padding:10px 16px 14px">La deuda es la de su cuenta corriente, vencida y por vencer.</div>`;
+    <div class="td-dim" style="font-size:11px;padding:10px 16px 14px">Al día o vencida es un estimado: el ERP solo entrega la deuda total, así que se reparte en las facturas más nuevas (lo más viejo se paga primero) y cada una vence en su fecha más el plazo de su forma de pago. Cuando Adecom mande el saldo por documento, será exacto.</div>`;
 }
 
 /* ── QUÉ LE DEBEMOS ──────────────────────────────────────────────────
@@ -7997,6 +8165,7 @@ const SECS = {
   'stock':          () => secStock(),
   'kennedy':        () => secKennedy(),
   'cajas':          () => secCajas(),
+  'fotos':          () => secFotos(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
   'metas':          () => secMetas(),
@@ -8549,23 +8718,30 @@ function pyGrafico() {
     { horizontal: false, apiladas: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v) });
 }
 
-/* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
-   tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
+/* Deudas: ¿a quién cobrar primero? Los 15 con más deuda vencida de lo que se ve, cada barra partida por lo que lleva
+   vencida (de amarillo a rojo oscuro). Si nadie de lo que se ve tiene deuda vencida, lo que deben por vencer. Tocar
+   una barra abre la ficha del cliente. */
 function ddGrafico(rows) {
   const card = document.getElementById('ddGrafCard');
   if (!card) return;
-  const cs = rows.map(tr => DD[tr.dataset.k]).filter(c => c && c.deuda > 0).sort((a, b) => b.deuda - a.deuda).slice(0, 15);
+  const todos = rows.map(tr => DD[tr.dataset.k]).filter(c => c && c.deuda > 0), hayVenc = todos.some(c => c.venc > 0);
+  const cs = todos.sort((a, b) => (hayVenc ? b.venc - a.venc || b.deuda - a.deuda : b.deuda - a.deuda)).slice(0, 15);
   card.style.display = cs.length ? '' : 'none';
   if (!cs.length) return;
-  document.getElementById('ddGrafBox').style.height = `${cs.length * 26 + 40}px`;
-  const clr = c => c.bloq ? color('--er') : c.est !== 'verde' ? color('--wa') : color('--ac');
-  barras('ddGraf', cs.map(c => c.nombre.length > 26 ? c.nombre.slice(0, 25) + '…' : c.nombre),
-    [{ label: 'Deuda', data: cs.map(c => c.deuda), backgroundColor: cs.map(clr) }],
+  const sub = card.querySelector('.card-sub');
+  if (sub) sub.textContent = hayVenc
+    ? 'Los 15 con más deuda vencida de lo que se ve, partida por lo que lleva vencida: de amarillo (menos de 30 días) a rojo oscuro (90 o más). Pasa el mouse para ver lo que tienen por vencer; toca una barra para ver su ficha.'
+    : 'Nadie de lo que se ve tiene deuda vencida: se muestra lo que deben, todo dentro de su plazo de pago. Toca una barra para ver su ficha.';
+  document.getElementById('ddGrafBox').style.height = `${cs.length * 26 + (hayVenc ? 64 : 40)}px`;
+  const ds = hayVenc
+    ? DD_TRAMOS.slice(1).map(([k, t, clr]) => ({ label: t, data: cs.map(c => c.v[k]), backgroundColor: k === 'v1' ? color('--wa') : clr }))
+    : [{ label: 'Por vencer', data: cs.map(c => c.deuda), backgroundColor: color('--ok') }];
+  barras('ddGraf', cs.map(c => (c.nombre.length > 26 ? c.nombre.slice(0, 25) + '…' : c.nombre)), ds,
     i => rows.find(tr => tr.dataset.k === cs[i].k)?.click(),
-    { apiladas: false, sufijo: '', leyenda: false, formato: fmtCLP, eje: v => (v >= 1e6 ? `$${fmt(Math.round(v / 1e6))} M` : fmtM(v)),
+    { apiladas: true, sufijo: '', leyenda: hayVenc, formato: fmtCLP, eje: v => (v >= 1e6 ? `$${fmt(Math.round(v / 1e6))} M` : fmtM(v)),
       extra: i => { const c = cs[i];
-        return [c.bloq ? '🔒 Bloqueado' : '', c.cheques ? `cheques por cobrar ${fmtCLP(c.cheques)}` : '',
-          c.cupo ? `cupo ${fmtM(c.cupo)} · usa el ${Math.min(999, Math.round(c.uso * 100))}%` : 'sin cupo'].filter(Boolean).join(' · '); } });
+        return [c.v.xv ? `por vencer ${fmtCLP(c.v.xv)}` : '', c.bloq ? '🔒 Bloqueado' : '', c.cheques ? `cheques ${fmtCLP(c.cheques)}` : '',
+          c.cupo ? `cupo ${fmtM(c.cupo)} · usa el ${Math.min(999, Math.round(c.uso * 100))}%` : 'sin cupo', c.vendedor ? c.vendedor.toLowerCase() : ''].filter(Boolean).join(' · '); } });
 }
 
 /* Qué le debemos: ¿a quién despachar o llamar primero? y ¿desde cuándo les debemos? */
@@ -10083,24 +10259,24 @@ function bindContent(secId) {
   }
 
   // Programado sin cortar: buscar, filtrar, ordenar por los encabezados y tocar una orden para ver a quién se le debe
-  // Deudas: buscador, filtros y tarjetas; las tarjetas cambian con la búsqueda y con o sin Magic
+  // Deudas: buscador, filtros y tarjetas; las tarjetas cambian con la búsqueda, el grupo (grandes u otros) y el vendedor
   if (secId === 'deudas') {
     const tabla = document.getElementById('ddBody')?.closest('table');
     if (tabla) planOrdenable(tabla);
     const filas = [...document.querySelectorAll('#ddBody tr[data-k]')];
-    let fVer = document.querySelector('#ddSegs .seg.on')?.dataset.f ?? 'deuda';
+    let fVer = document.querySelector('#ddSegs .seg.on')?.dataset.f ?? 'venc';
     const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     const tarjetas = rs => {
       const r = ddResumen(rs.map(tr => DD[tr.dataset.k]));
-      for (const k of ['deuda', 'top', 'bloq', 'cupo']) { poner(`dk-${k}-val`, r[k][0]); poner(`dk-${k}-sub`, r[k][1]); }
-      const ct = document.getElementById('dk-top');
-      if (ct) ct.dataset.cli = r.top[2];
+      for (const k of ['venc', 'v90', 'aldia', 'bloq']) { poner(`dk-${k}-val`, r[k][0]); poner(`dk-${k}-sub`, r[k][1]); }
       document.querySelectorAll('#ddSegs .seg').forEach(b => { const k = b.dataset.f, el = b.querySelector('.db-n');
         if (el) el.textContent = k ? rs.filter(tr => tr.dataset.f.includes(` ${k} `)).length : rs.length; });
     };
     const filtrar = () => {
       const q = rvSinTilde((document.getElementById('ddSearch')?.value || '').trim().toLowerCase());
-      const enAlcance = filas.filter(tr => (!DD_SIN_MAGIC || tr.dataset.mag !== '1') && (!q || tr.dataset.q.includes(q)));
+      const vend = document.getElementById('ddVend')?.value || '';
+      const enAlcance = filas.filter(tr => (DD_GRUPO === 'todos' || tr.dataset.g === (DD_GRUPO === 'grandes' ? '1' : '0'))
+        && (!vend || tr.dataset.vend === vend) && (!q || tr.dataset.q.includes(q)));
       const visibles = new Set(enAlcance.filter(tr => !fVer || tr.dataset.f.includes(` ${fVer} `)));
       filas.forEach(tr => { tr.style.display = visibles.has(tr) ? '' : 'none'; });
       document.getElementById('ddNada').style.display = visibles.size ? 'none' : '';
@@ -10125,17 +10301,16 @@ function bindContent(secId) {
       document.querySelectorAll('#ddSegs .seg').forEach(x => x.classList.toggle('on', x === b));
       filtrar();
     }));
-    document.querySelectorAll('#ddMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
-      DD_SIN_MAGIC = b.dataset.mg === 'sin';
-      document.querySelectorAll('#ddMagicSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('#ddGrupoSegs .seg').forEach(b => b.addEventListener('click', () => {
+      DD_GRUPO = b.dataset.g;
+      document.querySelectorAll('#ddGrupoSegs .seg').forEach(x => x.classList.toggle('on', x === b));
       filtrar();
     }));
-    // Tocar una tarjeta: "El que más debe" abre su ficha; las otras filtran la lista y llevan a ella
+    document.getElementById('ddVend')?.addEventListener('change', filtrar);
+    // Tocar una tarjeta pone su filtro en la lista y lleva a ella
     document.querySelectorAll('[data-dk]').forEach(card => {
       const ir = () => {
-        const k = card.dataset.dk;
-        if (k === 'top') { abrir(filas.find(tr => tr.dataset.k === card.dataset.cli)); return; }
-        document.querySelector(`#ddSegs .seg[data-f="${k}"]`)?.click();
+        document.querySelector(`#ddSegs .seg[data-f="${card.dataset.dk}"]`)?.click();
         document.getElementById('ddBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
       card.addEventListener('click', ir);
@@ -10472,6 +10647,69 @@ function bindContent(secId) {
       const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
     }));
     applyKn();
+  }
+
+  // Fotos pendientes
+  if (secId === 'fotos' && document.getElementById('foBody')) {
+    const filasFo = [...document.querySelectorAll('#foBody tr.fo-row')];
+    const tablaFo = document.getElementById('foBody').closest('table');
+    /* Al abrir: primero lo que tiene despacho inmediato (lo urgente), después lo demás por prendas. Tocar un encabezado
+       ordena solo por esa columna. */
+    const ordFo = { col: -1, dir: -1 };
+    const ORD_FALTA = { fotografiar: 0, editar: 1, disenar: 2, subir: 3 };
+    const ordenarFo = ordenConHijas(tablaFo, filasFo, 'fo-hija', ordFo, (row, col) =>
+      ({ [-1]: (row.dataset.inm === '1' ? 2e6 : row.dataset.temp === '44' ? 1e6 : 0) + (+row.dataset.u || 0),
+         0: row.cells[0].textContent, 1: +row.dataset.temp, 6: ORD_FALTA[row.dataset.falta] ?? 9 })[col] ?? (+row.dataset.u || 0));
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    const CLAVES = Object.keys(FO_FALTA);
+    function applyFo() {
+      const t = document.querySelector('#foTempSegs .seg.on')?.dataset.t || 'all';
+      const f = document.querySelector('#foVerSegs .seg.on')?.dataset.f || 'all';
+      const q = (document.getElementById('foSearch')?.value || '').trim().toLowerCase();
+      // Las tarjetas y las cuentas de "Ver" van con la temporada y la búsqueda; el gráfico, solo con la búsqueda
+      const n = { all: 0, inm: 0 }, u = { all: 0, inm: 0 }, porTemp = {};
+      CLAVES.forEach(k => { n[k] = 0; u[k] = 0; });
+      let vis = 0, udsVis = 0;
+      for (const row of filasFo) {
+        const cant = +row.dataset.u || 0, fa = row.dataset.falta, inm = row.dataset.inm === '1';
+        const okQ = !q || (row.dataset.q || '').includes(q);
+        const okT = t === 'all' || row.dataset.temp === t;
+        if (okQ) { const p = porTemp[row.dataset.temp] = porTemp[row.dataset.temp] || {}; p[fa] = (p[fa] || 0) + cant; }
+        if (okQ && okT) { n.all++; u.all += cant; n[fa]++; u[fa] += cant; if (inm) { n.inm++; u.inm += cant; } }
+        const ok = okQ && okT && (f === 'all' || (f === 'inm' ? inm : fa === f));
+        row.style.display = ok ? '' : 'none';
+        if (ok) { vis++; udsVis += cant; }
+      }
+      const nada = document.getElementById('foNada'); if (nada) nada.style.display = vis ? 'none' : '';
+      set('foCount', `${fmt(vis)} modelo${vis === 1 ? '' : 's'}`);
+      set('foFoot', `${fmt(vis)} modelos · ${fmt(udsVis)} prendas`);
+      set('fo-inm-val', fmt(n.inm)); set('fo-inm-sub', `${fmt(u.inm)} prendas de la 44 en bodega`);
+      set('fo-fotografiar-val', fmt(n.fotografiar)); set('fo-fotografiar-sub', `${fmt(u.fotografiar)} prendas con stock`);
+      set('fo-editar-val', fmt(n.editar)); set('fo-editar-sub', `tomas en el Drive sin editar/ · ${fmt(u.editar)} prendas`);
+      set('fo-disenar-val', fmt(n.disenar));
+      document.querySelectorAll('#foVerSegs .seg').forEach(b => { const el = b.querySelector('.db-n'); if (el) el.textContent = fmt(n[b.dataset.f] || 0); });
+      ordenarFo();
+      const ts = Object.keys(porTemp).sort((a, b) => +b - +a);
+      barras('foGraf', ts.map(x => 'T' + x), CLAVES.map(k => ({ label: FO_FALTA[k][0], data: ts.map(x => porTemp[x][k] || 0),
+        backgroundColor: ts.map(x => t === 'all' || t === x ? color(FO_FALTA[k][1]) : rgba(color(FO_FALTA[k][1]), .25)) })),
+        i => document.querySelector(`#foTempSegs .seg[data-t="${ts[i]}"]`)?.click());
+    }
+    ['foTempSegs', 'foVerSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      applyFo();
+    })));
+    document.getElementById('foSearch')?.addEventListener('input', applyFo);
+    // Tocar una tarjeta: filtra con los mismos botones de "Ver" y lleva a la tabla
+    document.querySelectorAll('[data-fo]').forEach(card => {
+      const ir = () => {
+        document.querySelector(`#foVerSegs .seg[data-f="${card.dataset.fo}"]`)?.click();
+        tablaFo.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
+    applyFo();
   }
 
   // Estado de Resultado
