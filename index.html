@@ -623,6 +623,14 @@ body.ia-open #iaBtn{display:none}
       Resumen
     </button>
 
+<div class="sb-grp" data-admin-only>Inteligencia BI</div>
+    <button class="nav-item" data-sec="bi-panel" data-ttl="Panel ejecutivo" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Panel ejecutivo</button>
+    <button class="nav-item" data-sec="bi-alertas" data-ttl="Alertas y decisiones" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alertas y decisiones</button>
+    <button class="nav-item" data-sec="bi-clientes" data-ttl="Clientes y cartera" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Clientes y cartera</button>
+    <button class="nav-item" data-sec="bi-kennedy" data-ttl="Tienda Kennedy BI" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6"/></svg>Tienda Kennedy</button>
+    <button class="nav-item" data-sec="bi-prod" data-ttl="Producción BI" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg>Producción</button>
+    <button class="nav-item" data-sec="bi-er" data-ttl="Rentabilidad" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/></svg>Rentabilidad</button>
+
     <div class="sb-grp" data-admin-only>Pedidos</div>
     <button class="nav-item" data-sec="detalle-color" data-ttl="Detalle Pedido Color" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -8180,6 +8188,12 @@ const SECS = {
   'resumen':        () => secResumen(),
   'detalle-color':  () => Promise.resolve(secDetalleColor()),
   'top10':          () => secTop10(),
+  'bi-panel':       () => biPanel(),
+  'bi-alertas':     () => biAlertas(),
+  'bi-clientes':    () => biClientes(),
+  'bi-kennedy':     () => biKennedy(),
+  'bi-prod':        () => biProd(),
+  'bi-er':          () => biEr(),
   'pvc':            () => secPVC(),
   'stock':          () => secStock(),
   'kennedy':        () => secKennedy(),
@@ -11860,6 +11874,507 @@ async function init(role) {
   // Bodega parte en Stock Bodega; admin en el Resumen
   await (esBodega ? go('stock', 'Stock Bodega') : go(...vistaInicio()));
 }
+
+/* ── INTELIGENCIA BI ─────────────────────────────────────────────────────────
+   Las 6 secciones que trajo Manu en su carpeta integracion-bi (26-10-2026: "agregar solo la parte de BI"), metidas
+   dentro de la página: Panel ejecutivo, Alertas y decisiones, Clientes y cartera, Tienda Kennedy, Producción y
+   Rentabilidad. Se adaptaron al tablero: tarjetas del molde (tarjetaKpi), colores de las variables del tema, Excel en
+   las tablas, sin el arranque forzado al Panel y los clientes trabados calculados como en Deudas y Lo urgente. Usan las
+   mismas funciones y datos de la página (load, go, fmt, cargarChart, GRAFICOS, debDatos, ddClientes, buildStockMap,
+   buildFtMap, artImg, TEMP_ACTIVA, BOD_SG). La proyección del Panel es de la venta facturada al ritmo de los últimos 3
+   meses; la de los pedidos del año sigue siendo la de Proyecciones. */
+(function () {
+  const MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  let C = {}, nK = 0;   // la paleta sale del tema de la página, se lee al abrir cada sección
+  const paleta = () => { nK = 0; C = { ac: color('--ac'), ac2: rgba(color('--ac'), 0.45), cy: '#0891b2', cy2: '#a5e3f0', ok: color('--ok'), ok2: rgba(color('--ok'), 0.45),
+    wa: color('--wa'), wa2: rgba(color('--wa'), 0.45), er: color('--er'), gr: color('--tx3'), gr2: rgba(color('--tx3'), 0.35) }; };
+  const COLOR_VAR = { ac: 'var(--ac)', ok: 'var(--ok)', wa: 'var(--wa)', er: 'var(--er)', cy: '#0891b2', gr: 'var(--tx3)' };
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const sum = (a, f) => a.reduce((s, x) => s + (+f(x) || 0), 0);
+  const fP = n => (isFinite(n) ? n : 0).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + '%';
+  const grp = (a, f) => { const m = {}; a.forEach(x => { const k = f(x); (m[k] = m[k] || []).push(x); }); return m; };
+  const arr = d => Array.isArray(d) ? d : [];
+  const ncK = d => /CR[EÉ]DITO/i.test(d.tipo || '');
+  const netoK = d => ncK(d) ? -Math.abs(d.neto || 0) : (d.neto || 0);
+  const prK = d => ncK(d) ? -Math.abs(d.prendas || 0) : (d.prendas || 0);
+  const mm = i => String(i + 1).padStart(2, '0');
+  const fM = n => { n = +n || 0; const a = Math.abs(n), s = n < 0 ? '-' : ''; if (a >= 1e6) return s + '$' + (a / 1e6).toLocaleString('es-CL', { maximumFractionDigits: a >= 1e8 ? 0 : 1 }) + ' M'; if (a >= 1e3) return s + '$' + Math.round(a / 1e3).toLocaleString('es-CL') + ' k'; return s + '$' + Math.round(a).toLocaleString('es-CL'); };
+  const isoAdd = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return ymd(x); };
+  const dmy = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+  const cod = art => `${String(art).slice(2, 6)}-${String(art).slice(6, 8)}`;
+
+  const ICO = {
+    money:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    store:'<path d="M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6"/>',
+    cart:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+    truck:'<path d="M1 3h15v13H1zM16 8h4l3 3v5h-7"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+    pie:'<path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/>',
+    down:'<path d="M23 18l-9.5-9.5-5 5L1 6"/><path d="M17 18h6v-6"/>',
+    up:'<path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/>',
+    bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>',
+    target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    scissors:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>',
+    box:'<path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
+    tag:'<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/>',
+  };
+  const svg = (k, s) => `<svg width="${s||20}" height="${s||20}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO[k]}</svg>`;
+  // La tarjeta del molde: línea de color arriba, el número, qué es, el detalle y «Ver … ›». Toca y lleva a su sección o baja a la tabla
+  const kpi = o => {
+    const delta = o.d != null && isFinite(o.d) ? `${o.d >= 0 ? '▲' : '▼'} ${o.pts ? Math.abs(o.d).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' pts' : fP(Math.abs(o.d))} ${o.dl || ''}`.trim() : '';
+    const sub = [delta, o.s || ''].filter(Boolean).join(' · ');
+    return tarjetaKpi({ attr: 'bik', k: 'k' + (nK++), val: o.v, lbl: o.l, sub: sub || '&nbsp;', color: COLOR_VAR[o.c] || 'var(--ac)',
+      ver: o.go ? 'Ver ' + titulo(o.go) : 'Ver abajo', extra: o.go ? `data-bi-go="${o.go}"` : 'data-bi-tabla="1"' });
+  };
+  const gcard = (id, t, s, h, right) => `<div class="graf-card" style="margin:0">
+      <div class="graf-head" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+        <div><div class="card-ttl" style="margin:0">${t}</div><div class="card-sub" style="margin:2px 0 0">${s}</div></div>${right || ''}</div>
+      <div class="graf-box" style="height:${h}px"><canvas id="${id}"></canvas></div></div>`;
+  const chip = (t, c) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:var(--${c}10);color:var(--${c});white-space:nowrap">${t}</span>`;
+  const grid = (min, html) => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,${min}px),1fr));gap:14px;align-items:start">${html}</div>`;
+  const note = t => `<div class="td-dim" style="line-height:1.5">${t}</div>`;
+  const tabla = (titulo, sub, cols, rows, go) => `<div class="tbl-card">
+      <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">${titulo}</div>${sub ? `<div class="card-sub" style="margin:2px 0 0">${sub}</div>` : ''}</div>
+      ${btnExcel()}
+      <div class="xl-der">${go ? `<button class="seg" data-bi-go="${go}" style="border:1px solid var(--bd2)">Ver detalle →</button>` : ''}</div></div>
+      ${rows.length ? `<div class="tbl-scroll"><table><thead><tr>${cols.map((c, j) => `<th style="text-align:${j ? 'right' : 'left'}">${c}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r => `<tr>${r.map((v, j) => `<td style="text-align:${j ? 'right' : 'left'}">${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+      : `<div class="td-dim" style="padding:14px 20px">Sin casos por ahora.</div>`}</div>`;
+
+  function chart(id, cfg) {
+    return cargarChart().then(Chart => {
+      const cv = document.getElementById(id); if (!cv) return null;
+      if (GRAFICOS[id]) { try { GRAFICOS[id].destroy(); } catch (e) {} }
+      cfg.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }, cfg.options || {});
+      const g = new Chart(cv, cfg); GRAFICOS[id] = g; return g;
+    }).catch(() => null);
+  }
+  const ejeM = { grid: { color: color('--bd') }, ticks: { callback: v => fM(v) }, beginAtZero: true };
+  const ejeU = { grid: { color: color('--bd') }, ticks: { callback: v => fmt(v) }, beginAtZero: true };
+  const ejeP = { grid: { color: color('--bd') }, ticks: { callback: v => v + '%' }, beginAtZero: true };
+  const ttM = { callbacks: { label: c => `${c.dataset.label}: ${fM(c.raw)}` } };
+  const ttU = { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}` } };
+  const noX = { grid: { display: false }, ticks: { font: { size: 11 } } };
+  const titulo = sec => (document.querySelector(`.nav-item[data-sec="${sec}"]`) || {}).dataset?.ttl || sec;
+  const bindGo = () => {
+    document.querySelectorAll('[data-bi-go]').forEach(el => el.addEventListener('click', () => go(el.dataset.biGo, titulo(el.dataset.biGo))));
+    document.querySelectorAll('[data-bi-tabla]').forEach(el => el.addEventListener('click', () => document.querySelector('#content .tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+  };
+  const after = f => setTimeout(() => { try { f(); bindGo(); } catch (e) { console.error('BI', e); } }, 0);
+
+  /* Lo que se le debe a los clientes, con el mismo cálculo de "Qué le debemos": desde la temporada activa,
+     sin lo que ya está en cajas, y cada artículo con su estado (bodega, producción, parcial o cortar). */
+  async function debBase() {
+    const [peds, ft, sb] = await Promise.all([load('pedidos.json'), load('full_table.json'), load('saldos_bodega.json')]);
+    await Promise.all([load('cajas.json'), load('pedidos_art.json')]);
+    STOCK_MAP = buildStockMap(sb);
+    const D = debDatos(peds, ft, buildFtMap(ft), false);
+    const pu = {}; peds.forEach(p => { pu[p.pedido] = p.unidades ? (p.valor || 0) / p.unidades : 0; });
+    const S = { listo: 0, prod: 0, falta: 0, sinProd: 0, caja: 0, vListo: 0, vProd: 0, vFalta: 0 };
+    for (const c of D.clientes) {
+      c.valor = 0;
+      for (const it of Object.values(c.items)) {
+        const v = sum(it.peds, x => Math.max(0, x.sal - x.caja) * (pu[x.pedido] || 0)), vc = sum(it.peds, x => x.caja * (pu[x.pedido] || 0));
+        it.valor = v; it.valorCaja = vc; c.valor += v + vc;
+        S.caja += it.enCaja; S.listo += it.enCaja; S.vListo += vc;
+        if (it.est === 'bodega') { S.listo += it.debe; S.vListo += v; }
+        if (it.est === 'produccion') { S.prod += it.debe; S.vProd += v; }
+        if (it.est === 'parcial' || it.est === 'cortar') { S.falta += it.debe; S.vFalta += v; }
+        if (it.est === 'cortar') S.sinProd += it.debe;
+      }
+    }
+    return { peds, ft, sb, D, S, pu };
+  }
+
+  /* ───────── PANEL EJECUTIVO ───────── */
+  async function biPanel() {
+    paleta();
+    const [dv, vbr, pe, pa, er] = await Promise.all([load('docs_venta.json'), load('ventas_bsale.json'), load('pedidos.json'), load('pedidos_art.json'), load('estado_resultado.json')]);
+    const { S, D } = await debBase();
+    const vb = arr(vbr && vbr.docs);
+    const hoy = today(), Y = hoy.slice(0, 4), PY = String(+Y - 1), md = hoy.slice(5), curM = +hoy.slice(5, 7) - 1, day = +hoy.slice(8, 10);
+    const dim = new Date(+Y, curM + 1, 0).getDate();
+    const sgY = arr(dv).filter(d => (d.bod || '') === BOD_SG && (d.fecha_iso || '').startsWith(Y));
+    const otY = arr(dv).filter(d => (d.bod || '') !== BOD_SG && (d.fecha_iso || '').startsWith(Y));
+    const kY = vb.filter(d => String(d.fecha).startsWith(Y));
+    const byM = (a, f, val) => MES.map((_, i) => sum(a.filter(d => String(f(d)).slice(5, 7) === mm(i)), val));
+    const sgM = byM(sgY, d => d.fecha_iso, d => d.neto), otM = byM(otY, d => d.fecha_iso, d => d.neto), kM = byM(kY, d => d.fecha, netoK);
+    const totM = MES.map((_, i) => sgM[i] + otM[i] + kM[i]);
+    const lastFull = [curM - 1, curM - 2, curM - 3].filter(i => i >= 0);
+    const avg3 = a => lastFull.length ? sum(lastFull, i => a[i]) / lastFull.length : 0;
+    const projSeries = a => MES.map((_, i) => i < curM ? 0 : i === curM ? Math.max(0, a[i] * dim / Math.max(1, day) - a[i]) : avg3(a));
+    const pSG = projSeries(sgM), pOT = projSeries(otM), pK = projSeries(kM);
+    const ytd = sum(totM, v => v), proj = ytd + sum(pSG, v => v) + sum(pOT, v => v) + sum(pK, v => v);
+    const P = arr(pe);
+    const pedY = P.filter(p => (p.fecha_iso || '').startsWith(Y)), pedP = P.filter(p => (p.fecha_iso || '').startsWith(PY) && p.fecha_iso.slice(5) <= md);
+    const vPY = sum(pedY, p => p.valor), vPP = sum(pedP, p => p.valor);
+    const erS = (er && er.secciones) || [], L = n => erS.find(s => s.linea === n) || {};
+    const years = [...new Set(P.map(p => (p.fecha_iso || '').slice(0, 4)))].filter(Boolean).sort().slice(-3);
+    const temps = [...new Set(arr(pa).map(p => p.temp))].filter(t => +t >= +TEMP_ACTIVA - 4 && +t <= +TEMP_ACTIVA + 1).sort();
+    const topCli = Object.entries(grp(sgY, d => d.razon || d.rut)).map(([k, l]) => [k, sum(l, d => d.neto)]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const conc = sum(topCli, x => x[1]) / Math.max(1, sum(sgY, d => d.neto)) * 100;
+    const porDesp = S.listo + S.prod + S.falta, vDesp = S.vListo + S.vProd + S.vFalta;
+    const vend = Object.entries(grp(pedY.concat(pedP), p => p.vendedor || '—')).map(([k, l]) => ({ k, a: sum(l.filter(p => p.fecha_iso.startsWith(Y)), p => p.valor), b: sum(l.filter(p => p.fecha_iso.startsWith(PY)), p => p.valor) }))
+      .filter(x => x.a || x.b).sort((x, y) => (y.a + y.b) - (x.a + x.b)).slice(0, 8);
+
+    after(() => {
+      chart('biVenta', { type: 'bar', data: { labels: MES, datasets: [
+        { label: 'San Gerardo (ERP 04)', data: sgM, backgroundColor: C.ac, stack: 'r' },
+        { label: 'Otras bodegas ERP', data: otM, backgroundColor: C.gr, stack: 'r' },
+        { label: 'Tienda Kennedy (Bsale)', data: kM, backgroundColor: C.cy, stack: 'r' },
+        { label: 'Proyección', data: MES.map((_, i) => pSG[i] + pOT[i] + pK[i]), backgroundColor: 'rgba(79,70,229,.14)', borderColor: C.ac, borderWidth: 1, borderDash: [4, 3], stack: 'r' }] },
+        options: { scales: { x: { stacked: true, grid: { display: false } }, y: { ...ejeM, stacked: true } }, plugins: { tooltip: { ...ttM, footer: it => 'Total mes: ' + fM(sum(it, c => c.raw)) } } } });
+      const cols = [C.gr2, C.gr, C.ac];
+      chart('biPed', { type: 'line', data: { labels: MES, datasets: years.map((y, k) => ({ label: y,
+        data: MES.map((_, i) => (y === Y && i > curM) ? null : sum(P.filter(p => (p.fecha_iso || '').startsWith(y + '-' + mm(i))), p => p.valor)),
+        borderColor: cols[k + 3 - years.length], backgroundColor: y === Y ? 'rgba(79,70,229,.08)' : 'transparent', fill: y === Y, borderWidth: y === Y ? 3 : 2, tension: .3, pointRadius: 3 })) },
+        options: { scales: { x: { grid: { display: false } }, y: ejeM }, plugins: { tooltip: ttM } } });
+      chart('biSem', { type: 'doughnut', data: { labels: ['Listo para despachar', 'Viene en producción', 'Falta cortar'], datasets: [{ data: [S.listo, S.prod, S.falta], backgroundColor: [C.ok, C.wa, C.er], borderWidth: 0 }] },
+        options: { cutout: '64%', interaction: { mode: 'nearest' }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} prendas · ${fP(porDesp ? c.raw / porDesp * 100 : 0)}` } } }, onClick: () => go('debemos', titulo('debemos')) } });
+      const T = t => arr(pa).filter(p => p.temp === t);
+      chart('biTemp', { type: 'bar', data: { labels: temps.map(t => 'T' + t), datasets: [
+        { label: 'Despachado', data: temps.map(t => sum(T(t), p => p.desp)), backgroundColor: C.ok, stack: 'p' },
+        { label: 'Saldo por despachar', data: temps.map(t => sum(T(t), p => p.saldo)), backgroundColor: C.wa, stack: 'p' },
+        { label: 'Stock en bodega', data: temps.map(t => sum(T(t), p => Math.max(0, p.stock || 0))), backgroundColor: C.cy, stack: 's' }] },
+        options: { scales: { x: { stacked: true, grid: { display: false } }, y: { ...ejeU, stacked: true } }, plugins: { tooltip: ttU }, onClick: () => go('pvc', titulo('pvc')) } });
+      chart('biVend', { type: 'bar', data: { labels: vend.map(x => x.k.slice(0, 18)), datasets: [
+        { label: PY + ' a la fecha', data: vend.map(x => x.b), backgroundColor: C.gr2, borderRadius: 4 },
+        { label: Y, data: vend.map(x => x.a), backgroundColor: C.ac, borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeM }, plugins: { tooltip: { ...ttM, footer: it => { const x = vend[it[0].dataIndex]; return x.b ? 'Variación: ' + (x.a >= x.b ? '+' : '') + fP((x.a / x.b - 1) * 100) : ''; } } } } });
+      chart('biCli', { type: 'bar', data: { labels: topCli.map(x => String(x[0]).slice(0, 26)), datasets: [{ label: 'Venta neta', data: topCli.map(x => x[1]), backgroundColor: topCli.map((_, i) => i < 3 ? C.ac : C.ac2), borderRadius: 4 }] },
+        options: { indexAxis: 'y', scales: { x: ejeM, y: { grid: { display: false }, ticks: { font: { size: 11 } } } }, plugins: { legend: { display: false }, tooltip: ttM } } });
+    });
+
+    const tActiva = arr(pa).filter(p => p.temp === TEMP_ACTIVA), tTot = sum(tActiva, p => p.total), tDesp = sum(tActiva, p => p.desp);
+    const despPct = D.tot.ped ? D.tot.desp / D.tot.ped * 100 : 0;
+    return `
+      <div class="card" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:16px 20px">
+        <div style="flex:1;min-width:240px"><div class="card-ttl">Lectura rápida · ${hoy.split('-').reverse().join('/')}</div>
+        <div class="card-sub" style="margin:4px 0 0;line-height:1.55">Los pedidos de ${Y} van ${vPP ? (vPY >= vPP ? 'un ' + fP((vPY / vPP - 1) * 100) + ' sobre' : 'un ' + fP((1 - vPY / vPP) * 100) + ' bajo') : 'sin comparación con'} el mismo período de ${PY}.
+        Al ritmo actual la venta facturada del año cerraría en <b>${fM(proj)}</b> (los pedidos del año los estima Proyecciones). La T${TEMP_ACTIVA} lleva ${fP(tTot ? tDesp / tTot * 100 : 0)} despachado y hay <b>${fmt(S.listo)} prendas</b> (${fM(S.vListo)}) listas para despachar hoy.
+        ${L('09').acum < 0 ? `El resultado operacional acumulado a ${esc((er.periodo || '').toLowerCase())} es negativo (${fM(L('09').acum)}).` : ''}</div></div>
+        <button class="seg" data-bi-go="bi-alertas" style="padding:8px 14px;border:1px solid var(--bd2)">Ver alertas y decisiones</button>
+      </div>
+      <div class="kpi-grid">
+        ${kpi({ i: 'money', c: 'ok', v: fM(sum(sgY, d => d.neto)), l: `Venta San Gerardo ${Y}`, s: `${fmt(sgY.length)} documentos`, go: 'reporte-venta' })}
+        ${kpi({ i: 'store', c: 'ac', v: fM(sum(kY, netoK)), l: `Venta Kennedy ${Y}`, s: `${fmt(sum(kY, prK))} prendas`, go: 'bi-kennedy' })}
+        ${kpi({ i: 'cart', c: 'ac', v: fM(vPY), l: `Pedidos ${Y}`, d: vPP ? (vPY / vPP - 1) * 100 : null, dl: 'vs ' + PY, go: 'rep-pedidos' })}
+        ${kpi({ i: 'truck', c: 'wa', v: fM(vDesp), l: `Por despachar desde T${TEMP_ACTIVA}`, s: `${fmt(porDesp)} prendas · ${fP(despPct)} ya despachado`, go: 'debemos' })}
+        ${kpi({ i: 'pie', c: (L('03').pct_acum || 0) >= 35 ? 'ok' : 'wa', v: fP(L('03').pct_acum), l: 'Margen bruto acumulado', s: esc(er && er.periodo), go: 'bi-er' })}
+        ${kpi({ i: L('09').acum < 0 ? 'down' : 'up', c: L('09').acum < 0 ? 'er' : 'ok', v: fM(L('09').acum || 0), l: 'Resultado operacional acum.', s: fP(L('09').pct_acum) + ' de los ingresos', go: 'bi-er' })}
+      </div>
+      ${gcard('biVenta', `Venta facturada neta por mes ${Y} y proyección de cierre`, `Real por fuente. ${MES[curM]} se completa a su ritmo diario y los meses siguientes al promedio de los últimos 3 meses.`, 300,
+        `<div style="display:flex;gap:8px;flex-wrap:wrap">${chip('Acumulado ' + fM(ytd), 'ac')}${chip('Cierre proyectado ' + fM(proj), 'ok')}</div>`)}
+      ${grid(400, gcard('biSem', `Lo que se debe a clientes · ${fmt(porDesp)} prendas`, `Desde la T${TEMP_ACTIVA}, sin lo ya despachado. Toca para abrir Qué le debemos.`, 260,
+          `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">${chip('Listo ' + fM(S.vListo), 'ok')}${chip('Producción ' + fM(S.vProd), 'wa')}${chip('Falta cortar ' + fM(S.vFalta), 'er')}</div>`)
+        + gcard('biTemp', 'Temporadas: despacho, saldo y stock', 'Prendas pedidas (despachadas + saldo) contra stock disponible. Toca para abrir Pedido vs Corte.', 260))}
+      ${grid(400, gcard('biPed', `Pedidos ingresados por mes · ${years.join(' / ')}`, 'Valor de los pedidos de clientes, año contra año.', 260)
+        + gcard('biVend', `Pedidos por vendedor · ${Y} vs ${PY}`, `${PY} hasta el ${dmy(hoy)}, para comparar el mismo período.`, 260))}
+      ${gcard('biCli', `Top 10 clientes San Gerardo ${Y}`, `Concentran el ${fP(conc)} de la venta mayorista del año.`, 320)}
+      ${note('La venta se separa por fuente: ERP por bodega y la tienda Kennedy desde Bsale. Las notas de crédito restan.')}`;
+  }
+
+  /* ───────── ALERTAS Y DECISIONES ───────── */
+  async function biAlertas() {
+    paleta();
+    const { D, S } = await debBase();
+    const [cj, sb_, tz] = await Promise.all([load('cajas.json'), load('saldos_bodega.json'), load('traza_oc.json')]);
+    const T = +TEMP_ACTIVA;
+    const faltan = Object.values(D.arts).filter(f => +String(f.art).slice(2, 4) >= T && f.diff < 0).map(f => {
+      const falta = -f.diff, apurar = Math.min(f.prog || 0, falta); return { ...f, falta, apurar, cortar: falta - apurar }; }).sort((a, b) => b.falta - a.falta);
+    const cortar = sum(faltan, f => f.cortar), apurar = sum(faltan, f => f.apurar);
+    const [pedsAll, dvAll] = await Promise.all([load('pedidos.json'), load('docs_venta.json')]);
+    const trab = ddClientes(arr(pedsAll), arr(dvAll)).filter(c => (c.bloq || c.est === 'rojo') && c.nP > 0).sort((a, b) => b.vP - a.vP);
+    const listos = D.clientes.map(c => ({ c, u: sum(Object.values(c.items), it => it.enCaja + (it.est === 'bodega' ? it.debe : 0)),
+      v: sum(Object.values(c.items), it => (it.valorCaja || 0) + (it.est === 'bodega' ? it.valor : 0)), traba: !!(c.bloq.size || c.sinCupo) })).filter(x => x.u > 0 && !x.traba).sort((a, b) => b.u - a.u);
+    const cajas = arr(cj && cj.cajas).filter(c => c.estado === 'bodega' && c.dias > 30).sort((a, b) => b.dias - a.dias);
+    const viejo = arr(sb_).filter(s => +s.temp <= T - 3 && s.saldo > 0);
+    const viejoT = Object.entries(grp(viejo, s => s.temp)).map(([t, l]) => ({ temp: t, arts: l.length, u: sum(l, s => s.saldo) })).sort((a, b) => b.u - a.u);
+    const neg = arr(sb_).filter(s => s.neg > 0).sort((a, b) => b.neg - a.neg);
+    const atr = arr(tz).filter(o => o.saldo > 0 && /PRODUC/i.test(o.tipo) && o.totDias > 45).sort((a, b) => b.totDias - a.totDias);
+
+    const A = [
+      { sev: 'Oportunidad', c: 'ok', t: 'Listo para despachar hoy', go: 'debemos', n: fmt(sum(listos, x => x.u)) + ' prendas', k: `${listos.length} clientes sin traba comercial`,
+        q: 'Está en cajas o con stock en San Gerardo y el cliente no tiene bloqueo ni cupo agotado. Armar y facturar, partiendo por los que más esperan.',
+        cols: ['Cliente', 'Ciudad', 'Prendas listas', 'Valor', 'Días esperando'], rows: listos.slice(0, 8).map(x => [esc(x.c.nombre), esc(x.c.ciudad), fmt(x.u), fM(x.v), fmt(x.c.dias)]) },
+      { sev: 'Alta', c: 'er', t: 'Falta cortar o apurar el corte', go: 'pvc', n: fmt(cortar + apurar) + ' prendas', k: `${fmt(cortar)} sin programar · ${fmt(apurar)} ya programadas`,
+        q: 'Lo que se debe y no alcanza con bodega ni producción. Si ya tiene orden programada, apurarla; si no, programar el corte.',
+        cols: ['Artículo', 'Saldo', 'Bodega', 'En producción', 'Apurar', 'Cortar'], rows: faltan.slice(0, 8).map(f => [`<div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${cod(f.art)}</span>${f.bota ? `<div class="td-dim" style="font-size:11px">${esc(f.bota)}</div>` : ''}</div></div>`, fmt(f.sal), fmt(f.stk), fmt(f.pro), f.apurar ? `<b style="color:#6d28d9">${fmt(f.apurar)}</b>` : '—', f.cortar ? `<b style="color:var(--er)">${fmt(f.cortar)}</b>` : '—']) },
+      { sev: 'Alta', c: 'er', t: 'Clientes con pedido bloqueado o sin cupo', go: 'deudas', n: fM(sum(trab, c => c.vP)), k: `${trab.length} clientes · ${fmt(sum(trab, c => c.uP))} prendas`,
+        q: 'No se puede despachar hasta desbloquear el pedido en el ERP o gestionar el cobro. La deuda sola no frena el despacho.',
+        cols: ['Cliente', 'Motivo', 'Prendas', 'Valor', 'Deuda', 'Vencida'], rows: trab.slice(0, 8).map(c => [esc(c.nombre), [c.bloq ? chip('Bloqueado', 'er') : '', c.est === 'rojo' ? chip('Sin cupo', 'wa') : ''].join(' '), fmt(c.uP), fM(c.vP), fM(c.deuda), c.venc > 0 ? `<b style="color:var(--er)">${fM(c.venc)}</b>` : '—']) },
+      { sev: 'Media', c: 'wa', t: 'Cajas armadas esperando más de 30 días', go: 'cajas', n: fM(sum(cajas, c => c.valor)), k: `${cajas.length} cajas · ${fmt(sum(cajas, c => c.prendas))} prendas`,
+        q: 'Mercadería lista que no se ha facturado. Confirmar con el cliente y facturar, o liberar el stock.',
+        cols: ['Caja', 'Cliente', 'Ciudad', 'Días', 'Prendas', 'Valor'], rows: cajas.slice(0, 8).map(c => [String(c.caja).replace(/^0+/, ''), esc(c.cliente), esc(c.ciudad), `<b style="color:var(--wa)">${c.dias}</b>`, fmt(c.prendas), fM(c.valor)]) },
+      { sev: 'Media', c: 'wa', t: 'Órdenes de producción con más de 45 días', go: 'tabla', n: fmt(sum(atr, o => o.saldo)) + ' prendas', k: `${atr.length} OC con saldo en proceso`,
+        q: 'Revisar con el taller en qué etapa están y si siguen siendo prioritarias.',
+        cols: ['OC', 'Artículo', 'Programado', 'Entregado', 'Saldo', 'Días'], rows: atr.slice(0, 8).map(o => [String(o.oc).replace(/^0+/, ''), cod(o.articulo), fmt(o.prog), fmt(o.ent), fmt(o.saldo), `<b style="color:var(--wa)">${o.totDias}</b>`]) },
+      { sev: 'Oportunidad', c: 'ac', t: `Stock de temporadas T${T - 3} y anteriores`, go: 'campana', n: fmt(sum(viejo, s => s.saldo)) + ' prendas', k: `${viejo.length} artículos en bodega`,
+        q: 'Ofrecerlo en campaña o liquidación para liberar bodega y caja.',
+        cols: ['Temporada', 'Artículos', 'Prendas'], rows: viejoT.map(x => ['T' + x.temp, fmt(x.arts), fmt(x.u)]) },
+      { sev: 'Control', c: 'gr', t: 'Artículos con stock negativo', go: 'stock', n: fmt(neg.length) + ' artículos', k: `${fmt(sum(neg, s => s.neg))} prendas en negativo`,
+        q: 'Diferencias de inventario: revisar despachos sin ingreso o ajustes pendientes.',
+        cols: ['Artículo', 'Temp.', 'Negativo'], rows: neg.slice(0, 8).map(s => [cod(s.art), 'T' + s.temp, fmt(s.neg)]) },
+    ];
+    after(() => {
+      const L = ['Listo para despachar', 'Falta cortar', 'Apurar corte', 'Cliente trabado', 'Producción > 45 días', `T${T - 3} y anteriores`, 'Cajas > 30 días'];
+      const V = [sum(listos, x => x.u), cortar, apurar, sum(trab, c => c.uP), sum(atr, o => o.saldo), sum(viejo, s => s.saldo), sum(cajas, c => c.prendas)];
+      const G = ['debemos', 'pvc', 'pvc', 'deudas', 'tabla', 'campana', 'cajas'];
+      chart('biAl', { type: 'bar', data: { labels: L, datasets: [{ label: 'Prendas', data: V, backgroundColor: [C.ok, C.er, '#6d28d9', C.er, C.wa, C.ac, C.wa], borderRadius: 4 }] },
+        options: { indexAxis: 'y', scales: { x: ejeU, y: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: ttU },
+          onClick: (e, el) => { if (el.length) go(G[el[0].index], titulo(G[el[0].index])); } } });
+    });
+    const sevCol = { er: 'var(--er)', wa: 'var(--wa)', ac: 'var(--ac)', ok: 'var(--ok)', gr: 'var(--tx3)' };
+    return `
+      <div class="kpi-grid">
+        ${kpi({ i: 'truck', c: 'ok', v: fmt(sum(listos, x => x.u)), l: 'Prendas listas para despachar', s: fM(sum(listos, x => x.v)) + ' en bodega', go: 'debemos' })}
+        ${kpi({ i: 'scissors', c: 'er', v: fmt(cortar + apurar), l: 'Prendas que faltan producir', s: `${fmt(apurar)} ya programadas`, go: 'pvc' })}
+        ${kpi({ i: 'lock', c: 'er', v: fM(sum(trab, c => c.vP)), l: 'Detenido por bloqueo o cupo', s: `${trab.length} clientes · pedidos de los últimos 180 días`, go: 'deudas' })}
+        ${kpi({ i: 'box', c: 'wa', v: fM(sum(cajas, c => c.valor)), l: 'Cajas detenidas > 30 días', s: `${cajas.length} cajas`, go: 'cajas' })}
+        ${kpi({ i: 'tag', c: 'ac', v: fmt(sum(viejo, s => s.saldo)), l: 'Prendas para liquidar', s: `T${T - 3} y anteriores`, go: 'campana' })}
+      </div>
+      ${gcard('biAl', 'Prendas por tipo de alerta', `Calculado igual que Qué le debemos y Pedido vs Corte: desde la T${TEMP_ACTIVA} y sin lo que ya está en cajas. Toca una barra para abrir la sección.`, 250)}
+      ${A.map(a => `<div class="tbl-card">
+        <div class="tbl-head" style="align-items:flex-start;border-left:4px solid ${sevCol[a.c]}">
+          <div style="flex:1;min-width:240px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${chip(a.sev, a.c === 'gr' ? 'ac' : a.c)}<span class="card-ttl">${a.t}</span></div>
+            <div class="card-sub" style="margin:6px 0 0;line-height:1.5"><b style="color:var(--tx1)">Qué hacer:</b> ${a.q}</div>
+          </div>
+          <div style="text-align:right"><div class="kpi-val" style="font-size:22px">${a.n}</div><div class="td-dim">${a.k}</div></div>
+          <button class="seg" data-bi-go="${a.go}" style="border:1px solid var(--bd2);padding:7px 12px;align-self:center">Ver detalle →</button>
+        </div>
+        ${a.rows.length ? `<div class="tbl-scroll"><table><thead><tr>${a.cols.map((c, j) => `<th style="text-align:${j ? 'right' : 'left'}">${c}</th>`).join('')}</tr></thead>
+          <tbody>${a.rows.map(r => `<tr>${r.map((v, j) => `<td style="text-align:${j ? 'right' : 'left'}">${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+          : `<div class="td-dim" style="padding:14px 20px">Sin casos por ahora.</div>`}
+      </div>`).join('')}`;
+  }
+
+  /* ───────── CLIENTES Y CARTERA ───────── */
+  async function biClientes() {
+    paleta();
+    const P = arr(await load('pedidos.json')).filter(p => p.fecha_iso);
+    const hoy = today(), Y = hoy.slice(0, 4), PY = String(+Y - 1), md = hoy.slice(5), hace365 = isoAdd(hoy, -365);
+    const K = p => vdKey(p);
+    const cl = {};
+    for (const p of P) { const k = K(p); const c = cl[k] = cl[k] || { k, nombre: p.nombre || p.rut, ciudad: p.ciudad || '', vend: p.vendedor || '', first: p.fecha_iso, last: p.fecha_iso, years: new Set(), v12: 0, vY: 0, vPY: 0, n: 0, cli: null };
+      c.first = p.fecha_iso < c.first ? p.fecha_iso : c.first; if (p.fecha_iso > c.last) { c.last = p.fecha_iso; c.vend = p.vendedor || c.vend; }
+      c.years.add(p.fecha_iso.slice(0, 4)); c.n++; if (p.fecha_iso >= hace365) c.v12 += p.valor || 0;
+      if (p.fecha_iso.startsWith(Y)) c.vY += p.valor || 0; if (p.fecha_iso.startsWith(PY) && p.fecha_iso.slice(5) <= md) c.vPY += p.valor || 0;
+      if (p.cli && (!c.cli || (p.cli.credito || 0) > (c.cli.credito || 0))) c.cli = p.cli; }
+    const L = Object.values(cl);
+    const years = [...new Set(P.map(p => p.fecha_iso.slice(0, 4)))].sort();
+    const porAno = years.map(y => { const act = L.filter(c => c.years.has(y)); const nuevos = act.filter(c => c.first.startsWith(y)); return { y, act: act.length, nuevos: nuevos.length, rec: act.length - nuevos.length }; });
+    const act12 = L.filter(c => c.v12 > 0).sort((a, b) => b.v12 - a.v12), tot12 = sum(act12, c => c.v12);
+    let acc = 0, n80 = 0; const curva = act12.map((c, i) => { acc += c.v12; if (!n80 && acc >= tot12 * .8) n80 = i + 1; return acc / tot12 * 100; });
+    const pts = [0, ...[...Array(20)].map((_, i) => Math.ceil(act12.length * (i + 1) / 20))];
+    const pedY = P.filter(p => p.fecha_iso.startsWith(Y)), pedPY = P.filter(p => p.fecha_iso.startsWith(PY) && p.fecha_iso.slice(5) <= md);
+    const tkY = pedY.length ? sum(pedY, p => p.valor) / pedY.length : 0, tkPY = pedPY.length ? sum(pedPY, p => p.valor) / pedPY.length : 0;
+    const nuevosY = L.filter(c => c.first.startsWith(Y));
+    const perdidos = L.filter(c => c.vPY > 0 && c.vY === 0).sort((a, b) => b.vPY - a.vPY);
+    const conCli = L.filter(c => c.cli && c.v12 > 0);
+    const deuda = c => (c.cli.deuda || 0) + (c.cli.cheques || 0);
+    const sinCupo = conCli.filter(c => ((c.cli.credito || 0) <= 1 ? (c.cli.deuda || 0) > 0 : (c.cli.disponible || 0) <= 0));   // cupo de $1 = cortado, como en Deudas
+    const deudaV = Object.entries(grp(conCli, c => c.vend || '—')).map(([k, l]) => ({ k, d: sum(l, deuda), cr: sum(l, c => c.cli.credito || 0) })).filter(x => x.d > 0).sort((a, b) => b.d - a.d).slice(0, 8);
+    const uso = conCli.filter(c => (c.cli.credito || 0) > 0).map(c => ({ c, u: deuda(c) / c.cli.credito * 100 })).sort((a, b) => b.u - a.u);
+    after(() => {
+      chart('biCA', { type: 'bar', data: { labels: porAno.map(x => x.y), datasets: [
+        { label: 'Recurrentes', data: porAno.map(x => x.rec), backgroundColor: C.ac, stack: 'c', borderRadius: 4 },
+        { label: 'Nuevos', data: porAno.map(x => x.nuevos), backgroundColor: C.cy, stack: 'c', borderRadius: 4 }] },
+        options: { scales: { x: { stacked: true, grid: { display: false } }, y: { ...ejeU, stacked: true } }, plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)} clientes` } } } } });
+      chart('biPar', { type: 'line', data: { labels: pts.map(n => fP(act12.length ? n / act12.length * 100 : 0)), datasets: [
+        { label: '% acumulado del valor', data: pts.map(n => n ? curva[n - 1] : 0), borderColor: C.ac, backgroundColor: 'rgba(79,70,229,.08)', fill: true, tension: .3, pointRadius: 2 },
+        { label: '80%', data: pts.map(() => 80), borderColor: C.gr, borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5 }] },
+        options: { scales: { x: { grid: { display: false }, title: { display: true, text: '% de clientes (de mayor a menor)' }, ticks: { maxTicksLimit: 6 } }, y: { ...ejeP, max: 100 } },
+          plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fP(c.raw)}` } } } } });
+      chart('biDeu', { type: 'bar', data: { labels: deudaV.map(x => x.k.slice(0, 18)), datasets: [
+        { label: 'Deuda + cheques', data: deudaV.map(x => x.d), backgroundColor: C.wa, borderRadius: 4 },
+        { label: 'Crédito otorgado', data: deudaV.map(x => x.cr), backgroundColor: C.gr2, borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeM }, plugins: { tooltip: ttM } } });
+    });
+    return `
+      <div class="kpi-grid">
+        ${kpi({ i: 'users', c: 'ac', v: fmt(act12.length), l: 'Clientes activos 12 meses', s: `${fmt(L.length)} con pedidos desde ${years[0]}` })}
+        ${kpi({ i: 'up', c: 'ok', v: fmt(nuevosY.length), l: `Clientes nuevos ${Y}`, s: fM(sum(nuevosY, c => c.vY)) + ' en pedidos' })}
+        ${kpi({ i: 'cart', c: 'ac', v: fM(tkY), l: `Pedido promedio ${Y}`, d: tkPY ? (tkY / tkPY - 1) * 100 : null, dl: 'vs ' + PY })}
+        ${kpi({ i: 'down', c: 'er', v: fmt(perdidos.length), l: `Compraron en ${PY} y no en ${Y}`, s: fM(sum(perdidos, c => c.vPY)) + ' a esta fecha', go: 'clientes' })}
+        ${kpi({ i: 'lock', c: 'wa', v: fM(sum(conCli, deuda)), l: 'Deuda y cheques de clientes activos', s: `${sinCupo.length} sin cupo disponible · lo vencido está en Deudas`, go: 'deudas' })}
+      </div>
+      ${grid(400, gcard('biCA', 'Clientes por año: nuevos y recurrentes', 'Un cliente es nuevo el año de su primer pedido.', 260)
+        + gcard('biPar', 'Concentración de la venta (Pareto)', `El ${fP(act12.length ? n80 / act12.length * 100 : 0)} de los clientes (${fmt(n80)}) hace el 80% del valor de los últimos 12 meses.`, 260))}
+      ${gcard('biDeu', 'Deuda y crédito por vendedor', 'Clientes activos en los últimos 12 meses, según su ficha en el ERP.', 260)}
+      ${grid(440, tabla(`Clientes que dejaron de comprar en ${Y}`, `Pedidos en ${PY} hasta el ${dmy(hoy)} y ninguno este año.`, ['Cliente', 'Ciudad', 'Vendedor', PY + ' a la fecha', 'Último pedido'],
+          perdidos.slice(0, 10).map(c => [esc(c.nombre), esc(c.ciudad), esc(c.vend), fM(c.vPY), dmy(c.last) + '/' + c.last.slice(0, 4)]), 'clientes')
+        + tabla('Mayor uso del crédito', 'Deuda + cheques sobre el crédito otorgado.', ['Cliente', 'Crédito', 'Deuda', 'Uso'],
+          uso.slice(0, 10).map(x => [esc(x.c.nombre), fM(x.c.cli.credito), fM(deuda(x.c)), `<b style="color:var(--${x.u >= 100 ? 'er' : x.u >= 80 ? 'wa' : 'tx1'})">${fP(x.u)}</b>`]), 'deudas'))}`;
+  }
+
+  /* ───────── TIENDA KENNEDY ───────── */
+  async function biKennedy() {
+    paleta();
+    const [vbr, st] = await Promise.all([load('ventas_bsale.json'), load('stock_bsale.json')]);
+    const docs = arr(vbr && vbr.docs).filter(d => d.fecha);
+    const hasta = (vbr && vbr.meta && vbr.meta.hasta) || docs.map(d => d.fecha).sort().pop() || today();
+    const r30 = docs.filter(d => d.fecha > isoAdd(hasta, -30)), p30 = docs.filter(d => d.fecha <= isoAdd(hasta, -30) && d.fecha > isoAdd(hasta, -60));
+    const ventas30 = r30.filter(d => !ncK(d) && /BOLETA|FACTURA/i.test(d.tipo));
+    const v30 = sum(r30, netoK), vp30 = sum(p30, netoK), bruto30 = sum(ventas30, d => d.neto), nc30 = -sum(r30.filter(ncK), d => -Math.abs(d.neto || 0));
+    const tk = ventas30.length ? bruto30 / ventas30.length : 0, ppb = ventas30.length ? sum(ventas30, d => d.prendas) / ventas30.length : 0;
+    const lunes = iso => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return ymd(x); };
+    const semanas = [...new Set(docs.map(d => lunes(d.fecha)))].sort().slice(-26);
+    const porSem = semanas.map(s => sum(docs.filter(d => lunes(d.fecha) === s), netoK));
+    const mov = porSem.map((_, i) => i < 3 ? null : sum(porSem.slice(i - 3, i + 1), v => v) / 4);
+    const d90 = docs.filter(d => d.fecha > isoAdd(hasta, -90));
+    const nDias = DIAS.map((_, w) => new Set(d90.filter(d => new Date(d.fecha + 'T12:00:00').getDay() === w).map(d => d.fecha)).size || 1);
+    const porDia = DIAS.map((_, w) => sum(d90.filter(d => new Date(d.fecha + 'T12:00:00').getDay() === w), netoK) / nDias[w]);
+    const lin = d90.flatMap(d => (d.lineas || []).map(l => ({ ...l, nc: ncK(d) })));
+    const art = Object.entries(grp(lin, l => l.art)).map(([a, l]) => ({ art: a, u: sum(l, x => x.cant), v: sum(l, x => x.neto) })).filter(x => x.u > 0).sort((a, b) => b.u - a.u);
+    const tallas = Object.entries(grp(lin.filter(l => /^\d+$/.test(l.talla || '')), l => l.talla)).map(([t, l]) => ({ t, u: sum(l, x => x.cant) })).sort((a, b) => +a.t - +b.t);
+    const stock = {}; arr(st && st.por_art).forEach(s => { stock[s.art] = s.disp != null ? s.disp : s.cant; });
+    const lin30 = r30.flatMap(d => d.lineas || []);
+    const u30 = {}; lin30.forEach(l => { u30[l.art] = (u30[l.art] || 0) + (l.cant || 0); });
+    const repo = Object.entries(u30).filter(([, u]) => u >= 3).map(([a, u]) => ({ art: a, u, st: stock[a] || 0, cob: (stock[a] || 0) / (u / 30) })).filter(x => x.cob < 21).sort((a, b) => a.cob - b.cob);
+    const quieto = arr(st && st.por_art).filter(s => (s.disp || s.cant || 0) >= 5 && !(u30[s.art] > 0) && !art.find(x => x.art === s.art)).sort((a, b) => (b.disp || b.cant) - (a.disp || a.cant));
+    after(() => {
+      chart('biKs', { type: 'line', data: { labels: semanas.map(s => dmy(s)), datasets: [
+        { label: 'Venta neta semanal', data: porSem, borderColor: C.cy, backgroundColor: 'rgba(8,145,178,.1)', fill: true, tension: .3, pointRadius: 2 },
+        { label: 'Promedio 4 semanas', data: mov, borderColor: C.ac, borderDash: [5, 4], pointRadius: 0, borderWidth: 2 }] },
+        options: { scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 9 } }, y: ejeM }, plugins: { tooltip: ttM } } });
+      chart('biKd', { type: 'bar', data: { labels: DIAS, datasets: [{ label: 'Venta promedio por día', data: porDia, backgroundColor: porDia.map(v => v === Math.max(...porDia) ? C.cy : C.cy2), borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeM }, plugins: { legend: { display: false }, tooltip: ttM } } });
+      chart('biKt', { type: 'bar', data: { labels: tallas.map(x => x.t), datasets: [{ label: 'Prendas', data: tallas.map(x => x.u), backgroundColor: C.ac, borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeU }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `Talla ${c.label}: ${fmt(c.raw)} prendas · ${fP(c.raw / Math.max(1, sum(tallas, x => x.u)) * 100)}` } } } } });
+    });
+    const thumb = a => `<div style="display:flex;align-items:center">${artImg(a)}<span class="td-code">${cod(a)}</span></div>`;
+    return `
+      <div class="kpi-grid">
+        ${kpi({ i: 'store', c: 'ac', v: fM(v30), l: 'Venta neta 30 días', d: vp30 ? (v30 / vp30 - 1) * 100 : null, dl: 'vs 30 días previos', go: 'venta-kennedy' })}
+        ${kpi({ i: 'cart', c: 'ac', v: fM(tk), l: 'Ticket promedio', s: `${fmt(ventas30.length)} boletas y facturas` })}
+        ${kpi({ i: 'tag', c: 'ok', v: ppb.toLocaleString('es-CL', { maximumFractionDigits: 2 }), l: 'Prendas por boleta', s: fmt(sum(ventas30, d => d.prendas)) + ' prendas en 30 días' })}
+        ${kpi({ i: 'down', c: nc30 / Math.max(1, bruto30) > .1 ? 'er' : 'wa', v: fP(bruto30 ? nc30 / bruto30 * 100 : 0), l: 'Devoluciones sobre la venta', s: fM(nc30) + ' en notas de crédito' })}
+        ${kpi({ i: 'box', c: repo.length ? 'er' : 'ok', v: fmt(repo.length), l: 'Artículos por reponer', s: 'menos de 3 semanas de stock', go: 'kennedy' })}
+      </div>
+      ${gcard('biKs', 'Venta neta semanal · últimas 26 semanas', `Bsale, tienda Kennedy. Datos hasta el ${dmy(hasta)}.`, 260)}
+      ${grid(380, gcard('biKd', 'Qué día se vende más', 'Venta neta promedio por día de la semana, últimos 90 días.', 230)
+        + gcard('biKt', 'Tallas más vendidas', 'Prendas netas por talla, últimos 90 días.', 230))}
+      ${grid(440, tabla('Reponer: se agota en menos de 3 semanas', 'Stock disponible en Kennedy contra la venta de los últimos 30 días.', ['Artículo', 'Vendidas 30 d', 'Stock', 'Semanas de stock'],
+          repo.slice(0, 12).map(x => [thumb(x.art), fmt(x.u), fmt(x.st), `<b style="color:var(--${x.cob < 7 ? 'er' : 'wa'})">${(x.cob / 7).toLocaleString('es-CL', { maximumFractionDigits: 1 })}</b>`]), 'kennedy')
+        + tabla('Más vendidos · 90 días', 'Prendas netas y venta por artículo.', ['Artículo', 'Prendas', 'Venta neta', 'Stock'],
+          art.slice(0, 12).map(x => [thumb(x.art), fmt(x.u), fM(x.v), fmt(stock[x.art] || 0)]), 'venta-kennedy'))}
+      ${tabla('Stock sin venta en 90 días', 'Artículos con 5 o más prendas disponibles en Kennedy que no se han vendido. Candidatos a devolver a San Gerardo o a promoción.', ['Artículo', 'Disponible'],
+          quieto.slice(0, 10).map(s => [thumb(s.art), fmt(s.disp || s.cant)]), 'kennedy')}`;
+  }
+
+  /* ───────── PRODUCCIÓN ───────── */
+  async function biProd() {
+    paleta();
+    const [tz, ft] = await Promise.all([load('traza_oc.json'), load('full_table.json')]);
+    const O = arr(tz).map(o => ({ ...o, iso: o.fecha && o.fecha.length === 10 ? o.fecha.slice(6) + '-' + o.fecha.slice(3, 5) + '-' + o.fecha.slice(0, 2) : '' })).filter(o => o.iso);
+    const prod = O.filter(o => /PRODUC/i.test(o.tipo));
+    const hoy = today();
+    const meses = [...Array(12)].map((_, i) => { const d = new Date(hoy + 'T12:00:00'); d.setDate(1); d.setMonth(d.getMonth() - 11 + i); return ymd(d).slice(0, 7); });
+    const pm = k => meses.map(m => sum(prod.filter(o => o.iso.startsWith(m)), o => o[k]));
+    const abiertas = prod.filter(o => o.saldo > 0);
+    const etapas = ['Corte', 'Taller', 'Taller Ext', 'Limpiado', 'Lavander', 'Terminacion'], etN = ['Corte', 'Costura', 'T. Externo', 'Limpiado', 'Lavandería', 'Terminación'];
+    const lead = etapas.map((n, i) => { const v = prod.map(o => (o.stages || [])[i]).filter(s => s && s.dias > 0).map(s => s.dias); return v.length ? sum(v, x => x) / v.length : 0; });
+    const lento = lead.indexOf(Math.max(...lead));
+    const wipK = ['p_corte', 'p_taller', 'p_texterno', 'p_limpiado', 'p_lavanderia', 'p_terminacion'];
+    const wip = wipK.map(k => sum(arr(ft), r => Math.max(0, r[k] || 0)));
+    const tramos = [[0, 15], [16, 30], [31, 45], [46, 60], [61, 90], [91, 99999]];
+    const age = tramos.map(([a, b]) => abiertas.filter(o => o.totDias >= a && o.totDias <= b));
+    const cerr = prod.filter(o => o.saldo <= 0 && o.cort > 0 && o.totDias > 0);
+    const ciclo = cerr.length ? sum(cerr, o => o.totDias) / cerr.length : 0;
+    const rend = prod.filter(o => o.prog >= 10 && o.cort > 0), rProg = sum(rend, o => o.prog), rCort = sum(rend, o => o.cort);
+    const m3 = meses.slice(-3), mE = sum(prod.filter(o => m3.some(m => o.iso.startsWith(m))), o => o.ent) / 3;
+    after(() => {
+      chart('biPm', { type: 'bar', data: { labels: meses.map(m => MES[+m.slice(5) - 1] + ' ' + m.slice(2, 4)), datasets: [
+        { label: 'Programado', data: pm('prog'), backgroundColor: C.gr2, borderRadius: 4 },
+        { label: 'Cortado', data: pm('cort'), backgroundColor: C.ac, borderRadius: 4 },
+        { label: 'Entregado a bodega', data: pm('ent'), backgroundColor: C.ok, borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeU }, plugins: { tooltip: ttU } } });
+      chart('biPl', { type: 'bar', data: { labels: etN, datasets: [{ label: 'Días promedio', data: lead, backgroundColor: lead.map((_, i) => i === lento ? C.er : C.ac2), borderRadius: 4 }] },
+        options: { indexAxis: 'y', scales: { x: { grid: { color: color('--bd') }, beginAtZero: true }, y: { grid: { display: false } } }, plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => `${c.label}: ${c.raw.toLocaleString('es-CL', { maximumFractionDigits: 1 })} días` } } } } });
+      chart('biPw', { type: 'bar', data: { labels: etN, datasets: [{ label: 'Prendas en la etapa', data: wip, backgroundColor: C.wa, borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeU }, plugins: { legend: { display: false }, tooltip: ttU }, onClick: () => go('tabla', titulo('tabla')) } });
+      chart('biPa', { type: 'bar', data: { labels: ['0–15 d', '16–30 d', '31–45 d', '46–60 d', '61–90 d', '+90 d'], datasets: [{ label: 'Prendas en proceso', data: age.map(l => sum(l, o => o.saldo)), backgroundColor: [C.ok, C.ok2, C.wa2, C.wa, C.er, C.er], borderRadius: 4 }] },
+        options: { scales: { x: noX, y: ejeU }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${fmt(c.raw)} prendas · ${age[c.dataIndex].length} OC` } } } } });
+    });
+    return `
+      <div class="kpi-grid">
+        ${kpi({ i: 'scissors', c: 'ac', v: fmt(abiertas.length), l: 'Órdenes de producción abiertas', s: fmt(sum(abiertas, o => o.saldo)) + ' prendas en proceso', go: 'tabla' })}
+        ${kpi({ i: 'clock', c: ciclo > 45 ? 'wa' : 'ok', v: ciclo.toLocaleString('es-CL', { maximumFractionDigits: 0 }) + ' días', l: 'Ciclo promedio de una orden', s: `${fmt(cerr.length)} órdenes cerradas` })}
+        ${kpi({ i: 'down', c: 'er', v: etN[lento], l: 'Etapa más lenta', s: lead[lento].toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' días promedio' })}
+        ${kpi({ i: 'target', c: rCort / Math.max(1, rProg) >= .95 ? 'ok' : 'wa', v: fP(rProg ? rCort / rProg * 100 : 0), l: 'Cortado sobre lo programado', s: 'órdenes de 10 prendas o más' })}
+        ${kpi({ i: 'truck', c: 'ok', v: fmt(mE), l: 'Entrega mensual a bodega', s: 'promedio últimos 3 meses' })}
+      </div>
+      ${gcard('biPm', 'Programado, cortado y entregado por mes', 'Órdenes de producción normal según su fecha, últimos 12 meses.', 280)}
+      ${grid(380, gcard('biPl', 'Días promedio por etapa', `En rojo la etapa más lenta. ${fmt(prod.length)} órdenes de producción.`, 240)
+        + gcard('biPw', 'Prendas en cada etapa hoy', 'Lo que sigue en proceso, según la tabla completa. Toca para abrir Trazabilidad.', 240))}
+      ${gcard('biPa', 'Antigüedad de lo que está en proceso', 'Prendas con saldo según los días que lleva abierta su orden.', 240)}
+      ${tabla('Órdenes abiertas más antiguas', 'Producción normal con saldo, de la más antigua a la más nueva.', ['OC', 'Artículo', 'Fecha', 'Programado', 'Cortado', 'Entregado', 'Saldo', 'Días'],
+          abiertas.slice().sort((a, b) => b.totDias - a.totDias).slice(0, 12).map(o => [String(o.oc).replace(/^0+/, ''), `<div style="display:flex;align-items:center">${artImg(o.articulo)}<span class="td-code">${cod(o.articulo)}</span></div>`, o.fecha, fmt(o.prog), fmt(o.cort), fmt(o.ent), `<b>${fmt(o.saldo)}</b>`, `<b style="color:var(--${o.totDias > 60 ? 'er' : o.totDias > 30 ? 'wa' : 'tx1'})">${o.totDias}</b>`]), 'tabla')}`;
+  }
+
+  /* ───────── RENTABILIDAD ───────── */
+  async function biEr() {
+    paleta();
+    const er = await load('estado_resultado.json');
+    const S = (er && er.secciones) || [];
+    if (!S.length) return `<div class="card">No hay estado de resultados cargado.</div>`;
+    const L = n => S.find(s => s.linea === n) || { mes: 0, acum: 0, pct_mes: 0, pct_acum: 0 };
+    const meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+    const nM = Math.max(1, meses.findIndex(m => String(er.periodo || '').toUpperCase().includes(m)) + 1);
+    const ing = L('01').acum, mg = L('03').acum, mgP = ing ? mg / ing : 0;
+    const gOp = L('04').acum + L('05').acum + L('06').acum + L('07').acum;
+    const eq = mgP > 0 ? gOp / mgP : 0, eqM = eq / nM;
+    const resOp = L('09').acum;
+    const sens = [1, 3, 5].map(p => ({ p, r: resOp + ing * p / 100 }));
+    const steps = [['Ingresos', '01', 1], ['Costo', '02', -1], ['Margen', '03', 0], ['Administración', '04', -1], ['Ventas', '05', -1], ['Patentes', '06', -1], ['Depreciación', '07', -1], ['Res. operacional', '09', 0], ['No operacional', '15', 1], ['Resultado', '20', 0]];
+    let run = 0; const wf = steps.map(([lbl, ln, sg]) => { const v = L(ln).acum;
+      if (sg === 0) { run = v; return { lbl, a: 0, b: v, tot: true }; }
+      const a = run; run = run + sg * v; return { lbl, a, b: run, tot: false }; });
+    after(() => {
+      chart('biWf', { type: 'bar', data: { labels: wf.map(w => w.lbl), datasets: [{ label: 'Acumulado', data: wf.map(w => [w.a, w.b]),
+        backgroundColor: wf.map(w => w.tot ? (w.b < 0 ? C.er : C.ac) : (w.b < w.a ? 'rgba(220,38,38,.55)' : 'rgba(21,128,61,.6)')), borderRadius: 4 }] },
+        options: { interaction: { mode: 'nearest', intersect: true }, scales: { x: noX, y: { ...ejeM, beginAtZero: false } },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => { const w = wf[c.dataIndex]; return w.tot ? fM(w.b) : (w.b - w.a >= 0 ? '+' : '−') + fM(Math.abs(w.b - w.a)); } } } } } });
+      const ln = [['Costo', '02'], ['Administración', '04'], ['Ventas', '05'], ['Depreciación', '07']];
+      chart('biPct', { type: 'bar', data: { labels: ln.map(x => x[0]), datasets: [
+        { label: 'Mes ' + String(er.periodo || '').toLowerCase(), data: ln.map(x => L(x[1]).pct_mes), backgroundColor: C.ac, borderRadius: 4 },
+        { label: 'Acumulado', data: ln.map(x => L(x[1]).pct_acum), backgroundColor: C.gr2, borderRadius: 4 }] },
+        options: { indexAxis: 'y', scales: { x: ejeP, y: { grid: { display: false } } },
+          plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fP(c.raw)} de los ingresos` } } } } });
+    });
+    return `
+      <div class="kpi-grid">
+        ${kpi({ i: 'money', c: 'ac', v: fM(ing), l: 'Ingresos acumulados', s: `${nM} meses · ${fM(ing / nM)} al mes` })}
+        ${kpi({ i: 'pie', c: mgP >= .35 ? 'ok' : 'wa', v: fP(mgP * 100), l: 'Margen bruto acumulado', s: `${String(er.periodo || '').toLowerCase()}: ${fP(L('03').pct_mes)}`, d: L('03').pct_mes - L('03').pct_acum, pts: true, dl: 'mes vs acumulado' })}
+        ${kpi({ i: 'down', c: 'wa', v: fM(gOp), l: 'Gastos operacionales acum.', s: fP(ing ? gOp / ing * 100 : 0) + ' de los ingresos' })}
+        ${kpi({ i: resOp < 0 ? 'down' : 'up', c: resOp < 0 ? 'er' : 'ok', v: fM(resOp), l: 'Resultado operacional acum.', s: fP(L('09').pct_acum) })}
+        ${kpi({ i: 'target', c: 'ac', v: fM(eqM), l: 'Venta mensual de equilibrio', s: `hoy ${fM(ing / nM)} al mes · brecha ${fM(Math.max(0, eqM - ing / nM))}` })}
+      </div>
+      ${gcard('biWf', `Cascada del resultado acumulado · ${esc(er.periodo)}`, 'De los ingresos al resultado del ejercicio. Verde suma, rojo resta.', 300)}
+      ${grid(400, gcard('biPct', 'Peso de cada gasto sobre los ingresos', `Mes de ${String(er.periodo || '').toLowerCase()} contra el acumulado del año.`, 230)
+        + `<div class="card"><div class="card-ttl">Qué pasa si sube el margen</div><div class="card-sub">Resultado operacional acumulado con el mismo nivel de ventas y gastos.</div>
+           <table><thead><tr><th style="text-align:left">Margen bruto</th><th style="text-align:right">Resultado operacional</th></tr></thead><tbody>
+           <tr><td>Actual · ${fP(mgP * 100)}</td><td style="text-align:right;color:var(--${resOp < 0 ? 'er' : 'ok'})"><b>${fM(resOp)}</b></td></tr>
+           ${sens.map(s => `<tr><td>+${s.p} pts · ${fP(mgP * 100 + s.p)}</td><td style="text-align:right;color:var(--${s.r < 0 ? 'er' : 'ok'})"><b>${fM(s.r)}</b></td></tr>`).join('')}
+           </tbody></table>
+           <div class="td-dim" style="margin-top:10px;line-height:1.5">Para llegar a resultado operacional cero con los gastos actuales se necesitan ${fM(eq)} de ingresos acumulados (${fM(eqM)} al mes).</div></div>`)}
+      <div class="tbl-card"><div class="tbl-head"><div class="card-ttl">Estado de resultados</div><span class="td-dim">${esc(er.titulo)} · archivo del ${esc(er.archivo_fecha)}</span></div>
+        <div class="tbl-scroll"><table><thead><tr><th style="text-align:left">Línea</th><th style="text-align:right">Mes</th><th style="text-align:right">% mes</th><th style="text-align:right">Acumulado</th><th style="text-align:right">% acum.</th></tr></thead>
+        <tbody>${S.map(s => `<tr style="${s.resultado ? 'font-weight:700;background:var(--sf2)' : ''}"><td>${esc(s.nombre)}</td><td style="text-align:right">${fM(s.mes)}</td><td style="text-align:right">${fP(s.pct_mes)}</td><td style="text-align:right;color:${s.acum < 0 ? 'var(--er)' : 'inherit'}">${fM(s.acum)}</td><td style="text-align:right">${fP(s.pct_acum)}</td></tr>`).join('')}</tbody></table></div></div>
+      ${L('07').mes === L('07').acum && L('07').mes ? note(`Las depreciaciones del mes (${fM(L('07').mes)}) son iguales al acumulado: se registraron completas en ${String(er.periodo || '').toLowerCase()}, por eso el resultado de ese mes se ve más bajo.`) : ''}`;
+  }
+
+  Object.assign(window, { biPanel, biAlertas, biClientes, biKennedy, biProd, biEr });
+})();
+
 </script>
 
 <!-- LOGIN OVERLAY -->
@@ -12069,7 +12584,7 @@ function iaIniciar() {
    venta, y abre en Venta Kennedy: el Resumen es de San Gerardo (despachos, su venta, producción) y Manu lo vio
    ahí con los datos de San Gerardo. San Gerardo esconde lo de Kennedy; Ambos muestra todo. Se recuerda en este
    computador y es solo para el administrador. Cambia el menú, no los datos de cada sección. */
-const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy']);
+const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy']);
 const leerVista = () => { try { const v = localStorage.getItem('adecom_vista'); return ['ambos', 'sg', 'k'].includes(v) ? v : 'ambos'; } catch (e) { return 'ambos'; } };
 const vistaInicio = () => leerVista() === 'k' ? ['venta-kennedy', 'Venta Kennedy'] : ['resumen', 'Resumen General'];
 function aplicarVista(v, navegar = true) {
