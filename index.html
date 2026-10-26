@@ -2456,27 +2456,21 @@ function secReporteVenta() {
     <input type="date" id="ventaFecha" class="finput" style="width:148px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx1);font-size:13px" value="${initDate||''}"></div>
   </div>
 
-  <div class="kpi-grid">
-    <div class="kpi" data-vdet="tipos" id="vkDocs" title="Ver el detalle por tipo de documento">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-      <div><div class="kpi-val" id="vkDocsVal">${todayDocs.length}</div><div class="kpi-lbl">Documentos</div></div>
-    </div>
-    <div class="kpi" data-vdet="dias" id="vkPrendas" title="Ver el detalle día a día">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div><div class="kpi-val" id="vkPrendasVal">${fmt(prendas)}</div><div class="kpi-lbl">Prendas</div></div>
-    </div>
-    <div class="kpi" data-vdet="clientes" title="Ver el detalle por cliente">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
-      <div><div class="kpi-val" id="vkCliVal">${vClientes(todayDocs)}</div><div class="kpi-lbl">Clientes</div></div>
-    </div>
-    <div class="kpi" data-vdet="dias" title="Ver el detalle día a día">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-      <div><div class="kpi-val" id="vkNetoVal" style="font-size:${Math.abs(neto)>=1e6?'20px':'26px'}">${fmtM(neto)}</div><div class="kpi-lbl">Neto</div></div>
-    </div>
-    <div class="kpi" data-vdet="tipos" title="Ver el detalle por tipo de documento">
-      <div class="kpi-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
-      <div><div class="kpi-val" id="vkBrutoVal" style="font-size:${Math.abs(bruto)>=1e6?'20px':'26px'}">${fmtM(bruto)}</div><div class="kpi-lbl">Bruto (c/IVA)</div></div>
-    </div>
+  <div class="kpi-grid db-kpis">
+    <div class="kpi" data-vdet="dias" role="button" tabindex="0" title="Ver el detalle día a día" style="border-top:3px solid #047857"><div style="min-width:0">
+      <div class="kpi-val" id="vkNetoVal" style="color:#047857;font-size:${Math.abs(neto) >= 1e6 ? '22px' : '26px'}">${fmtM(neto)}</div><div class="kpi-lbl">Venta neta</div>
+      <div class="kpi-delta d-nu">bruto con IVA <span id="vkBrutoVal">${fmtM(bruto)}</span></div><div class="db-k-ver">Ver día a día ›</div></div></div>
+    <div class="kpi" data-vdet="dias" id="vkPrendas" role="button" tabindex="0" title="Ver el detalle día a día" style="border-top:3px solid var(--ac)"><div style="min-width:0">
+      <div class="kpi-val" id="vkPrendasVal" style="color:var(--ac)">${fmt(prendas)}</div><div class="kpi-lbl">Prendas vendidas</div>
+      <div class="kpi-delta d-nu">en el período</div><div class="db-k-ver">Ver día a día ›</div></div></div>
+    <div class="kpi" data-vdet="clientes" role="button" tabindex="0" title="Ver el detalle por cliente" style="border-top:3px solid var(--ac)"><div style="min-width:0">
+      <div class="kpi-val" id="vkCliVal" style="color:var(--ac)">${vClientes(todayDocs)}</div><div class="kpi-lbl">Clientes</div>
+      <div class="kpi-delta d-nu">que compraron en el período</div><div class="db-k-ver">Ver quiénes ›</div></div></div>
+    <div class="kpi" data-vdet="tipos" id="vkDocs" role="button" tabindex="0" title="Ver el detalle por tipo de documento" style="border-top:3px solid var(--tx2)"><div style="min-width:0">
+      <div class="kpi-val" id="vkDocsVal">${todayDocs.length}</div><div class="kpi-lbl">Documentos</div>
+      <div class="kpi-delta d-nu">del período</div><div class="db-k-ver">Ver por tipo ›</div></div></div>
+  </div>
+  ${grafCard('rvGraf', '¿Cómo va la venta?', 'La venta neta de cada día del período elegido (de cada mes, si es más de dos meses). Toca una barra para ver sus documentos.', 240)}
   </div>
 
   <div class="tbl-card">
@@ -6761,11 +6755,9 @@ async function secRepPedidos() {
   PED_FILTRADO = hoyPs;
   const MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  const tarjeta = (det, ico, cls, id, val, lbl, titulo) => `
-    <div class="kpi" data-pdet="${det}" title="${titulo}">
-      <div class="kpi-ico ${cls}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ico}</svg></div>
-      <div style="min-width:0"><div class="kpi-val" id="${id}">${val}</div><div class="kpi-lbl">${lbl}</div></div>
-    </div>`;
+  // La tarjeta del molde: el número, qué es, el detalle y «Ver … ›»; cada una abre su detalle (data-pdet)
+  const tarjeta = (det, id, val, lbl, sub, color, ver) => `<div class="kpi" data-pdet="${det}" role="button" tabindex="0" title="${ver}" style="border-top:3px solid ${color}"><div style="min-width:0">
+      <div class="kpi-val" id="${id}" style="color:${color}">${val}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-delta d-nu">${sub}</div><div class="db-k-ver">${ver} ›</div></div></div>`;
 
   return `
   <div class="fbar">
@@ -6786,13 +6778,13 @@ async function secRepPedidos() {
     <span class="td-dim" style="font-size:11px;margin-left:auto;max-width:300px">Lo que se <b>pidió</b>, no lo que se facturó. Un pedido se factura después, así que no calza con Reporte Venta.</span>
   </div>
 
-  <div class="kpi-grid">
-    ${tarjeta('vendedores', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', 'c-ac', 'pkNum', hoyPs.length, 'Pedidos', 'Ver el detalle por vendedor')}
-    ${tarjeta('dias', '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>', 'c-ok', 'pkUds', fmt(pSum(hoyPs, 'unidades')), 'Prendas', 'Ver el detalle día a día')}
-    ${tarjeta('clientes', '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>', 'c-ac', 'pkCli', pClientes(hoyPs), 'Clientes', 'Ver el detalle por cliente')}
-    ${tarjeta('dias', '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 'c-wa', 'pkVal', fmtM(pSum(hoyPs, 'valor')), 'Valor pedido', 'Ver el detalle día a día')}
-    ${tarjeta('pendiente', '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'c-er', 'pkSal', fmtM(pSum(hoyPs, 'valor_sal')), 'Por despachar', 'Ver qué pedidos tienen saldo')}
+  <div class="kpi-grid db-kpis">
+    ${tarjeta('vendedores', 'pkVal', fmtM(pSum(hoyPs, 'valor')), 'Valor pedido', `pedidos: <span id="pkNum">${hoyPs.length}</span>`, '#047857', 'Ver por vendedor')}
+    ${tarjeta('dias', 'pkUds', fmt(pSum(hoyPs, 'unidades')), 'Prendas pedidas', 'en el período', 'var(--ac)', 'Ver día a día')}
+    ${tarjeta('clientes', 'pkCli', pClientes(hoyPs), 'Clientes', 'que pidieron en el período', 'var(--ac)', 'Ver quiénes')}
+    ${tarjeta('pendiente', 'pkSal', fmtM(pSum(hoyPs, 'valor_sal')), 'Por despachar', 'de estos pedidos', 'var(--wa)', 'Ver qué falta')}
   </div>
+  ${grafCard('pdGraf', '¿Cómo van los pedidos?', 'El valor pedido de cada día del período elegido (de cada mes, si es más de dos meses). Toca una barra para ver sus pedidos.', 240)}
 
   <div id="rpComp">${pComparativo(hoyPs, rangoIni)}</div>
 
@@ -8298,6 +8290,50 @@ function clGrafico(rows) {
   barras('clGraf', xs.map(nom), [{ label: 'Unidades que compraba', data: xs.map(r => +r.dataset.u || 0), backgroundColor: xs.map(clr) }],
     i => xs[i].click(), { apiladas: false, leyenda: false, sufijo: ' unidades',
       extra: i => { const r = xs[i]; return [r.dataset.ciudadtxt, r.dataset.motivo === 'bloqueado' ? '🔒 bloqueado' : '', +r.dataset.deuda ? `debe ${fmtM(+r.dataset.deuda)}` : ''].filter(Boolean).join(' · '); } });
+}
+
+/* Reporte Venta: ¿cómo va la venta? La venta neta de cada día del período elegido (de cada mes, si son más de dos
+   meses); en rojo un día que cerró bajo cero por notas de crédito. Tocar una barra filtra ese día o ese mes. */
+function rvGrafico(docs) {
+  const card = document.getElementById('rvGrafCard');
+  if (!card) return;
+  const dias = [...new Set(docs.map(d => d.fecha_iso).filter(Boolean))];
+  const porMes = dias.length > 62, MESES_C = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const suma = {};
+  for (const d of docs) if (d.fecha_iso) { const k = porMes ? d.fecha_iso.slice(0, 7) : d.fecha_iso; suma[k] = (suma[k] || 0) + (d.neto || 0); }
+  const ks = Object.keys(suma).sort();
+  card.style.display = ks.length > 1 ? '' : 'none';
+  if (ks.length < 2) return;
+  const etiqueta = k => (porMes ? MESES_C[+k.slice(5, 7)] : `${k.slice(8, 10)}/${k.slice(5, 7)}`);
+  barras('rvGraf', ks.map(etiqueta), [{ label: 'Venta neta', data: ks.map(k => suma[k]), backgroundColor: ks.map(k => (suma[k] < 0 ? color('--er') : color('--ac'))) }],
+    i => {
+      const el = document.getElementById(porMes ? 'ventaMes' : 'ventaFecha');
+      if (el) { el.value = ks[i]; el.dispatchEvent(new Event('change')); }
+    },
+    { horizontal: false, apiladas: false, leyenda: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v),
+      extra: i => { const n = docs.filter(d => (d.fecha_iso || '').startsWith(ks[i])).length; return `${fmt(n)} documento${n === 1 ? '' : 's'} · toca para verlos`; } });
+}
+
+/* Reporte Pedidos: ¿cómo van los pedidos? El valor pedido de cada día del período elegido (de cada mes, si son más de
+   dos meses). Tocar una barra filtra ese día o ese mes. */
+function pdGrafico(ps) {
+  const card = document.getElementById('pdGrafCard');
+  if (!card) return;
+  const dias = [...new Set(ps.map(p => p.fecha_iso).filter(Boolean))];
+  const porMes = dias.length > 62, MESES_C = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const suma = {};
+  for (const p of ps) if (p.fecha_iso) { const k = porMes ? p.fecha_iso.slice(0, 7) : p.fecha_iso; suma[k] = (suma[k] || 0) + (p.valor || 0); }
+  const ks = Object.keys(suma).sort();
+  card.style.display = ks.length > 1 ? '' : 'none';
+  if (ks.length < 2) return;
+  const etiqueta = k => (porMes ? MESES_C[+k.slice(5, 7)] : `${k.slice(8, 10)}/${k.slice(5, 7)}`);
+  barras('pdGraf', ks.map(etiqueta), [{ label: 'Valor pedido', data: ks.map(k => suma[k]), backgroundColor: color('--ac') }],
+    i => {
+      const el = document.getElementById(porMes ? 'pedMes' : 'pedFecha');
+      if (el) { el.value = ks[i]; el.dispatchEvent(new Event('change')); }
+    },
+    { horizontal: false, apiladas: false, leyenda: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v),
+      extra: i => { const n = ps.filter(p => (p.fecha_iso || '').startsWith(ks[i])).length; return `${fmt(n)} pedido${n === 1 ? '' : 's'} · toca para verlos`; } });
 }
 
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
@@ -10432,6 +10468,7 @@ function bindContent(secId) {
         e.style.fontSize = Math.abs(v) >= 1e6 ? '20px' : '26px';
       }
       set('pTblTtl', label);
+      pdGrafico(ps);
       const TOPE = 200;   // la tabla lista los mas recientes; las tarjetas suman todo el periodo
       const orden = ps.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
       document.getElementById('rpBody').innerHTML = buildPedTabla(orden.slice(0, TOPE));
@@ -10962,11 +10999,11 @@ function bindContent(secId) {
       document.getElementById('vkCliVal').textContent = vClientes(filtered);
       VENTA_FILTRADO = filtered;   // lo que abre cualquier tarjeta
       // El tamano tiene que seguir al monto: si no, un total en millones se sale de la tarjeta
-      for (const [id, v] of [['vkNetoVal', neto], ['vkBrutoVal', bruto]]) {
-        const e = document.getElementById(id);
-        e.textContent = fmtM(v);
-        e.style.fontSize = Math.abs(v) >= 1e6 ? '20px' : '26px';
-      }
+      const eNeto = document.getElementById('vkNetoVal');
+      if (eNeto) { eNeto.textContent = fmtM(neto); eNeto.style.fontSize = Math.abs(neto) >= 1e6 ? '22px' : '26px'; }
+      const eBruto = document.getElementById('vkBrutoVal');
+      if (eBruto) eBruto.textContent = fmtM(bruto);
+      rvGrafico(filtered);
       document.getElementById('vTblTtl').textContent = label;
       const TOPE = 200;   // la tabla muestra los TOPE más recientes; los totales de arriba son de todo el período
       const orden = filtered.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
