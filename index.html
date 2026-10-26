@@ -7495,7 +7495,8 @@ const DD_CUPO_ALERTA = 0.8;   // desde el 80% del cupo usado va en amarillo; sin
    cupo de $47 M, va entre "los otros"). Lista provisoria del 26-10-2026: los que no estaban en su hoja de los otros,
    más Magic, la tienda propia. Manu la confirma. */
 const DD_GRANDES = ['MAGIC WORLD', 'MULTICENTRO', 'DIMARSA', 'Q & M', 'DIANCU', 'GERMANI', 'DOLLY'];
-const DD_TRAMOS = [['xv', 'Por vencer', 'var(--ok)'], ['v1', 'Vencida 1–29 días', 'var(--wa)'], ['v30', '30–59 días', '#ea580c'], ['v60', '60–89 días', '#dc2626'], ['v90', '90 días o más', '#7f1d1d']];
+// Cuatro colores bien distintos (Manu, 26-10-2026: "se parecen mucho"): amarillo, naranjo, rojo y morado para lo más viejo
+const DD_TRAMOS = [['xv', 'Por vencer', 'var(--ok)'], ['v1', 'Vencida 1–29 días', '#eab308'], ['v30', '30–59 días', '#f97316'], ['v60', '60–89 días', '#dc2626'], ['v90', '90 días o más', '#7c3aed']];
 const ddTramo = k => DD_TRAMOS.find(t => t[0] === k);
 const ddPlazo = fp => { const m = /(\d+)\s*D[IÍ]AS/i.exec(fp || ''); return m ? +m[1] : 0; };   // "08 -PAGO 30 DIAS" → 30; contado, tarjeta y transferencia → 0
 const ddPago = s => {
@@ -7625,11 +7626,11 @@ async function secDeudas() {
   </div>
   <div class="kpi-grid db-kpis">
     ${kpi('venc', 'Deuda vencida', 'var(--er)', 'Ver quiénes', ini.venc)}
-    ${kpi('v90', 'Vencida hace más de 90 días', '#7f1d1d', 'Ver quiénes', ini.v90)}
+    ${kpi('v90', 'Vencida hace más de 90 días', '#7c3aed', 'Ver quiénes', ini.v90)}
     ${kpi('aldia', 'Por vencer: al día', 'var(--ok)', 'Ver quiénes', ini.aldia)}
     ${kpi('bloq', 'Clientes bloqueados', 'var(--wa)', 'Ver cuáles', ini.bloq)}
   </div>
-  ${grafCard('ddGraf', '¿A quién cobrar primero?', 'Los 15 con más deuda vencida de lo que se ve, partida por lo que lleva vencida: de amarillo (menos de 30 días) a rojo oscuro (90 o más). Pasa el mouse para ver lo que tienen por vencer; toca una barra para ver su ficha.', 420)}
+  ${grafCard('ddGraf', '¿A quién cobrar primero?', 'Los 15 con más deuda vencida de lo que se ve, partida por lo que lleva vencida: amarillo menos de 30 días, naranjo 30 a 59, rojo 60 a 89 y morado 90 o más. El candado es un cliente bloqueado. Pasa el mouse para ver lo que tienen por vencer; toca una barra para ver su ficha.', 420)}
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Vencimientos por cliente</div>
       <div class="card-sub" style="margin:2px 0 0">El que más tiene vencido arriba. Toca un cliente para ver sus facturas, su cupo y sus pedidos pendientes; un encabezado, para ordenar.</div></div>
@@ -7650,10 +7651,10 @@ async function secDeudas() {
           <span class="pl-sub">${ddTx([c.ciudad, c.vendedor, c.pago].filter(Boolean).join(' · '))}</span>
           ${cupoTxt(c) ? `<span class="pl-sub">${cupoTxt(c)}</span>` : ''}</td>
         <td class="r td-num" data-v="${c.v.xv}">${monto(c.v.xv, 'var(--ok)')}</td>
-        <td class="r td-num" data-v="${c.v.v1}">${monto(c.v.v1, 'var(--wa)')}</td>
-        <td class="r td-num" data-v="${c.v.v30}">${monto(c.v.v30, '#ea580c')}</td>
-        <td class="r td-num" data-v="${c.v.v60}">${monto(c.v.v60, '#dc2626')}</td>
-        <td class="r td-num" data-v="${c.v.v90}">${monto(c.v.v90, '#7f1d1d', true)}</td>
+        <td class="r td-num" data-v="${c.v.v1}">${monto(c.v.v1, ddTramo('v1')[2])}</td>
+        <td class="r td-num" data-v="${c.v.v30}">${monto(c.v.v30, ddTramo('v30')[2])}</td>
+        <td class="r td-num" data-v="${c.v.v60}">${monto(c.v.v60, ddTramo('v60')[2])}</td>
+        <td class="r td-num" data-v="${c.v.v90}">${monto(c.v.v90, ddTramo('v90')[2], true)}</td>
         <td class="r td-num" data-v="${c.venc}">${monto(c.venc, 'var(--er)', true)}</td>
         <td class="r td-num" data-v="${c.deuda}">${c.deuda > 0 ? `<b>${fmtCLP(c.deuda)}</b>` : c.deuda < 0 ? `<span style="color:var(--ok)" title="Saldo a favor del cliente">${fmtCLP(-c.deuda)} a favor</span>` : '<span class="td-dim">—</span>'}</td>
         <td class="r td-num pl-sec" data-v="${c.vP}">${c.nP ? `${fmtCLP(c.vP)}<span class="pl-sub">${c.nP} pedido${c.nP === 1 ? '' : 's'} · ${fmt(c.uP)} prendas</span>${c.nDet ? '<span class="pl-sub" style="color:var(--er)">🔒 detenidos</span>' : ''}` : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
@@ -8825,13 +8826,13 @@ function ddGrafico(rows) {
   if (!cs.length) return;
   const sub = card.querySelector('.card-sub');
   if (sub) sub.textContent = hayVenc
-    ? 'Los 15 con más deuda vencida de lo que se ve, partida por lo que lleva vencida: de amarillo (menos de 30 días) a rojo oscuro (90 o más). Pasa el mouse para ver lo que tienen por vencer; toca una barra para ver su ficha.'
+    ? 'Los 15 con más deuda vencida de lo que se ve, partida por lo que lleva vencida: amarillo menos de 30 días, naranjo 30 a 59, rojo 60 a 89 y morado 90 o más. El candado es un cliente bloqueado. Pasa el mouse para ver lo que tienen por vencer; toca una barra para ver su ficha.'
     : 'Nadie de lo que se ve tiene deuda vencida: se muestra lo que deben, todo dentro de su plazo de pago. Toca una barra para ver su ficha.';
   document.getElementById('ddGrafBox').style.height = `${cs.length * 26 + (hayVenc ? 64 : 40)}px`;
   const ds = hayVenc
-    ? DD_TRAMOS.slice(1).map(([k, t, clr]) => ({ label: t, data: cs.map(c => c.v[k]), backgroundColor: k === 'v1' ? color('--wa') : clr }))
+    ? DD_TRAMOS.slice(1).map(([k, t, clr]) => ({ label: t, data: cs.map(c => c.v[k]), backgroundColor: clr }))
     : [{ label: 'Por vencer', data: cs.map(c => c.deuda), backgroundColor: color('--ok') }];
-  barras('ddGraf', cs.map(c => (c.nombre.length > 26 ? c.nombre.slice(0, 25) + '…' : c.nombre)), ds,
+  barras('ddGraf', cs.map(c => (c.bloq ? '🔒 ' : '') + (c.nombre.length > 26 ? c.nombre.slice(0, 25) + '…' : c.nombre)), ds,   // el candado: bloqueado
     i => rows.find(tr => tr.dataset.k === cs[i].k)?.click(),
     { apiladas: true, sufijo: '', leyenda: hayVenc, formato: fmtCLP, eje: v => (v >= 1e6 ? `$${fmt(Math.round(v / 1e6))} M` : fmtM(v)),
       extra: i => { const c = cs[i];
