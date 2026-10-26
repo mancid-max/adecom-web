@@ -4740,37 +4740,37 @@ function proyRender(ano, crec) {
   // ── Tarjetas ──
   const vAno = pct(r.valor, prev && prev.valor);
   const kpis = `
-  <div class="kpi-grid">
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+  <div class="kpi-grid db-kpis">
+    <div class="kpi" data-pyk="ped" role="button" tabindex="0" title="Ver cuándo se vende" style="border-top:3px solid var(--ac)">
       <div style="min-width:0">
         <div class="kpi-val" style="font-size:20px">${pyM(r.valor)}</div>
         <div class="kpi-lbl">Pedido en ${ano}${cie.estimado ? ' hasta hoy' : ''}</div>
         <div class="kpi-delta ${cls(vAno)}" title="${prev ? `${ant}${mismaFecha ? ' al ' + cie.corte.split('-').reverse().join('/') : ''}: ${pyM(prev.valor)} y ${fmt(prev.unidades)} unidades` : 'No hay año anterior para comparar'}">${fmt(r.unidades)} unidades${prev ? ' · ' + sg(vAno) + ' vs ' + ant + (cie.estimado ? ' a la fecha' : '') : ''}</div>
+        <div class="db-k-ver">Ver cuándo se vende ›</div>
       </div>
     </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+    <div class="kpi" data-pyk="cie" role="button" tabindex="0" title="Ver mes a mes" style="border-top:3px solid var(--wa)">
       <div style="min-width:0">
         <div class="kpi-val" style="font-size:20px">${pyM(cie.valor)}</div>
         <div class="kpi-lbl">${cie.estimado ? 'Cierre estimado de ' + ano : 'Cerró ' + ano}</div>
         <div class="kpi-delta d-nu" title="${cie.estimado ? `A esta altura del año, los años cerrados llevaban en promedio el ${(cie.cuota*100).toFixed(0)}% de lo suyo. Como no llevaban lo mismo, se muestra el rango que sale con cada uno.` : 'El año ya cerró: no hay nada que estimar'}">${cie.estimado ? 'entre ' + pyM(cie.min) + ' y ' + pyM(cie.max) : 'año cerrado'}</div>
+        <div class="db-k-ver">Ver mes a mes ›</div>
       </div>
     </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+    <div class="kpi" data-pyk="meta" role="button" tabindex="0" title="Ver qué vender" style="border-top:3px solid var(--ok)">
       <div style="min-width:0">
         <div class="kpi-val" style="font-size:20px">${pyM(meta)}</div>
         <div class="kpi-lbl">Meta ${sig}</div>
         <div class="kpi-delta ${crec ? 'd-up' : 'd-nu'}">${crec ? '+' + crec + '% sobre el cierre' : 'igualar el cierre'}</div>
+        <div class="db-k-ver">Ver qué vender ›</div>
       </div>
     </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+    <div class="kpi" data-pyk="falta" role="button" tabindex="0" title="Ver a quién venderle" style="border-top:3px solid var(--er)">
       <div style="min-width:0">
         <div class="kpi-val" style="font-size:20px">${pyM(falta)}</div>
         <div class="kpi-lbl">Hay que sumar en ${sig}</div>
         <div class="kpi-delta d-nu" title="A ${fmtCLP(Math.round(pmed))} por prenda, que es el precio medio de ${ano}">${fmt(udsFalta)} prendas más · ${fmt(udsMeta)} en total</div>
+        <div class="db-k-ver">Ver a quién venderle ›</div>
       </div>
     </div>
   </div>`;
@@ -4849,11 +4849,13 @@ function proyRender(ano, crec) {
 
   const colAnt = ant + (cie.estimado ? ' a la fecha' : '');
   return `${kpis}
-  <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Cuándo vender</div>
+  ${grafCard('pyGraf', '¿Cuándo se vende?', `Lo pedido cada mes de ${ano} (en azul)${hayAnt ? ` contra ${ant} completo (en gris)` : ''}. Toca un mes para ver la tabla.`, 260)}
+  <div class="tbl-card" id="pyMesCard">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Cuándo vender</div>
         <div class="card-sub" style="margin:2px 0 0">Los meses de ${ano} contra ${hayAnt ? ant + ' completo' : 'nada'}, y cuánto tendría que traer cada mes de ${sig}</div></div>
-      <button class="seg" id="pyPrintMes" style="margin-left:auto;border:1px solid var(--bd2)">🖨 Imprimir</button>
+      ${btnExcel()}
+      <div class="xl-der"><button class="seg" id="pyPrintMes" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -4864,11 +4866,12 @@ function proyRender(ano, crec) {
     </div>
   </div>
 
-  <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Qué vender</div>
+  <div class="tbl-card" id="pyBotaCard">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Qué vender</div>
         <div class="card-sub" style="margin:2px 0 0">Por forma del pantalón, lo único que se repite entre colecciones: el modelo cambia todos los años</div></div>
-      <button class="seg" id="pyPrintBota" style="margin-left:auto;border:1px solid var(--bd2)">🖨 Imprimir</button>
+      ${btnExcel()}
+      <div class="xl-der"><button class="seg" id="pyPrintBota" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -4879,7 +4882,7 @@ function proyRender(ano, crec) {
     </div>
   </div>
 
-  <div class="tbl-card">
+  <div class="tbl-card" id="pyCliCard">
     <div class="tbl-head xl-head" style="gap:8px">
       <div class="xl-izq"><div class="card-ttl" style="margin:0">A quién venderle</div>
         <div class="card-sub" style="margin:2px 0 0">${prev ? `Contra ${ant}${mismaFecha ? ' a la misma fecha' : ''}: ${seFueron.length} clientes no volvieron y ${cayeron.length} bajaron, ${pyM(perdido)} menos entre todos${cubre ? ` — ${cubre}, y son clientes que ya compraban` : ''}` : 'Sin año anterior para comparar'}</div></div>
@@ -6425,6 +6428,13 @@ async function secProy() {
 /* Los controles de la tabla de clientes se vuelven a colgar en cada repintado,
    porque al cambiar el año o la meta se rehace todo el cuerpo de la seccion. */
 function bindProy() {
+  // Tocar una tarjeta lleva a su tabla; el gráfico se vuelve a dibujar con el año elegido
+  document.querySelectorAll('[data-pyk]').forEach(card => {
+    const ir = () => document.getElementById({ ped: 'pyMesCard', cie: 'pyMesCard', meta: 'pyBotaCard', falta: 'pyCliCard' }[card.dataset.pyk])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.addEventListener('click', ir);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+  });
+  pyGrafico();
   const filas = () => [...document.querySelectorAll('#pyCliBody tr[data-est]')];
   const visibles = () => filas().filter(r => r.style.display !== 'none');
   const ano = () => document.querySelector('#pyAnoSegs .seg.on')?.dataset.a || '';
@@ -8496,6 +8506,21 @@ function kenGrafico(docs) {
     },
     { horizontal: false, apiladas: false, leyenda: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v),
       extra: i => { const n = docs.filter(d => (d.fecha || '').startsWith(ks[i])).length; return `${fmt(n)} documento${n === 1 ? '' : 's'} · toca para verlos`; } });
+}
+
+/* Proyecciones: ¿cuándo se vende? Lo pedido cada mes del año elegido contra el año anterior completo (la referencia de
+   lo que traen los meses que faltan). Tocar un mes lleva a la tabla de meses. */
+function pyGrafico() {
+  const card = document.getElementById('pyGrafCard');
+  if (!card || !PROY) return;
+  const ano = document.querySelector('#pyAnoSegs .seg.on')?.dataset.a || '', r = PROY.total[ano];
+  if (!r) { card.style.display = 'none'; return; }
+  const ant = PROY.total[String(+ano - 1)], mm = i => String(i + 1).padStart(2, '0');
+  const ds = [{ label: ano, data: PY_MESES.map((_, i) => r.mes[mm(i)] || 0), backgroundColor: color('--ac') }];
+  if (ant) ds.unshift({ label: String(+ano - 1), data: PY_MESES.map((_, i) => ant.mes[mm(i)] || 0), backgroundColor: rgba(color('--tx3'), 0.45) });
+  card.style.display = '';
+  barras('pyGraf', PY_MESES, ds, () => document.getElementById('pyMesCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    { horizontal: false, apiladas: false, sufijo: '', formato: fmtCLP, eje: v => fmtM(v) });
 }
 
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
