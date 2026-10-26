@@ -8986,6 +8986,34 @@ const guiaPrefijo = () => {
   const s = `[Estoy viendo ${p.seccion}${p.filtros.length ? ' · filtros: ' + p.filtros.join(', ') : ''}${p.tarjetas.length ? ' · ' + p.tarjetas.join('; ') : ''}] `;
   return s.length > 600 ? s.slice(0, 597) + '…] ' : s;
 };
+/* Lo urgente de la sección, dentro de la burbuja: las alertas que apuntan a esta sección y, aparte, las de su área */
+const GUIA_AREAS = { tabla: ['Producción'], programado: ['Producción'], cuadrados: ['Producción'], metas: ['Producción'], pvc: ['Producción'], 'bi-prod': ['Producción'],
+  'detalle-color': ['Producción', 'Despacho'], 'venta-despacho': ['Despacho', 'Bodega'], debemos: ['Despacho', 'Bodega'], cajas: ['Bodega', 'Despacho'], top10: ['Despacho'],
+  'rep-pedidos': ['Despacho'], 'reporte-venta': ['Despacho'], proyecciones: ['Despacho'], deudas: ['Cobranza'], clientes: ['Cobranza', 'Despacho'], 'bi-clientes': ['Cobranza'],
+  stock: ['Stock', 'Bodega'], kennedy: ['Stock'], 'bi-kennedy': ['Stock'], 'venta-kennedy': ['Stock'], fotos: ['Stock'], campana: ['Stock', 'Cobranza'],
+  er: ['Datos'], 'bi-er': ['Datos'], 'bi-panel': ['Producción', 'Despacho', 'Cobranza'], 'bi-alertas': ['Producción', 'Despacho', 'Cobranza', 'Bodega', 'Stock'] };
+async function guiaUrgente() {
+  const c = document.getElementById('guiaCuerpo');
+  if (!c) return;
+  c.innerHTML = `<div class="guia-ttl"><span>Mohi · Lo urgente</span></div><div class="td-dim">Revisando…</div>`;
+  try {
+    if (!Array.isArray(LU) || !LU.length) {   // sin pasar por Resumen todavía: se calcula aquí
+      await Promise.all(['pedidos.json', 'full_table.json', 'saldos_bodega.json', 'cajas.json', 'meta.json', 'docs_venta.json'].map(x => load(x)));
+      LU = luAlertas();
+    }
+  } catch (e) { console.error('Mohi: lo urgente', e); }
+  const lu = Array.isArray(LU) ? LU : [], areas = GUIA_AREAS[GUIA_SEC] || [];
+  const mias = lu.filter(a => a.sec === GUIA_SEC), cerca = lu.filter(a => a.sec !== GUIA_SEC && areas.includes(a.area) && a.nivel !== 'verde');
+  const clr = a => (a.nivel === 'rojo' ? 'var(--er)' : a.nivel === 'amarillo' ? 'var(--wa)' : 'var(--ok)');
+  const fila = a => `<div class="guia-caja" style="margin-top:6px"><span class="guia-nivel" style="background:${clr(a)}"></span><b>${guiaTx(a.titulo)}</b>
+      <div class="td-dim" style="font-size:12px">${guiaTx(a.detalle || '')}</div>
+      ${a.nivel !== 'verde' && GUIA_QUE_HACER[a.k] ? `<div style="margin-top:4px"><b>Qué hacer:</b> ${guiaTx(GUIA_QUE_HACER[a.k])}</div>` : ''}
+      ${a.sec && a.nivel !== 'verde' ? `<div class="guia-acc" style="margin-top:6px"><button class="seg" data-g="irlu" data-i="${lu.indexOf(a)}">${a.sec === GUIA_SEC ? 'Filtrar aquí ›' : 'Ir a ' + guiaTx(a.ttl || a.sec) + ' ›'}</button></div>` : ''}</div>`;
+  c.innerHTML = `<div class="guia-ttl"><span>Mohi · Lo urgente de ${guiaTx(GUIA_TTL)}</span><button class="guia-x" data-g="cerrar" aria-label="Cerrar">✕</button></div>
+    ${mias.length ? mias.map(fila).join('') : `<div class="guia-txt">En ${guiaTx(GUIA_TTL)} no hay nada en rojo ni amarillo hoy.</div>`}
+    ${cerca.length ? `<div class="guia-txt" style="margin-top:10px;font-size:12px;color:var(--tx2)">Cerca de aquí:</div>${cerca.map(fila).join('')}` : ''}
+    <div class="guia-acc"><button class="seg" data-g="volver">‹ Volver a la guía</button><button class="seg" data-g="resumen">Todo lo urgente, en Resumen</button></div>`;
+}
 function guiaMostrar(secId, titulo, forzar = false) {
   const b = document.getElementById('guiaBurbuja');
   if (!b) return;
@@ -9010,7 +9038,10 @@ document.getElementById('guia')?.addEventListener('click', e => {
   if (g === 'ant') { GUIA_PASO = Math.max(0, GUIA_PASO - 1); guiaPinta(); return; }
   if (g === 'limpiar') { IA_HIST = []; const ch = document.getElementById('iaChat'); if (ch) ch.innerHTML = ''; guiaPinta(); return; }
   if (g === 'ir') { const a = LU[GUIA_PASO]; if (a && a.sec) irA(a.sec, a.ttl, a.tocar); return; }
-  if (g === 'urgente') { go('resumen', 'Resumen General'); return; }
+  if (g === 'urgente') { guiaUrgente(); return; }
+  if (g === 'volver') { guiaPinta(); return; }
+  if (g === 'resumen') { go('resumen', 'Resumen General'); return; }
+  if (g === 'irlu') { const a = Array.isArray(LU) ? LU[+btn.dataset.i] : null; if (a && a.sec) irA(a.sec, a.ttl, a.tocar); return; }
   if (g === 'auto') { try { localStorage.setItem('adecom_guia', guiaAuto() ? 'no' : 'si'); } catch (e) {} guiaPinta(); return; }
 });
 
