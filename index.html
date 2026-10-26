@@ -579,6 +579,7 @@ body.ia-open #iaBtn{display:none}
 </button>
 <aside id="iaPanel" aria-label="Asistente">
   <div class="det-hd"><div class="det-ttl">Asistente ADECOM</div>
+    <button class="det-close" id="iaReporte" title="Qué hacer primero hoy, para copiarlo y mandarlo" aria-label="Reporte del día" style="margin-right:6px;width:auto;padding:0 10px;font-size:12px;color:var(--ok);font-weight:700">📋 Reporte del día</button>
     <button class="det-close" id="iaLimpiar" title="Empezar de nuevo" aria-label="Empezar de nuevo" style="margin-right:6px;width:auto;padding:0 10px;font-size:12px">Limpiar</button>
     <button class="det-close" id="iaClose" aria-label="Cerrar">✕</button></div>
   <div id="iaChat"></div>
@@ -11807,12 +11808,42 @@ const IA_URL = SUPA_URL + '/functions/v1/asistente';
 let IA_HIST = [];
 
 const IA_SUGERENCIAS = [
-  '¿Cómo va la temporada 44?',
+  '¿Qué hago primero hoy?',
+  '¿A quién le cobro primero?',
   '¿Qué artículos falta cortar?',
-  '¿Cuánto vendí hoy?',
   '¿Qué cajas llevan más tiempo esperando?',
-  '¿Qué clientes no han comprado la 44?',
+  '¿Cuánto vendí hoy?',
 ];
+
+/* El panorama de hoy para el agente (Manu, 26-10-2026: "un agente que nos diga qué debemos ver primero"): Lo urgente
+   y la cobranza tal como los muestra el dashboard, para que decida con los mismos números que ve la gente. Va con cada
+   pregunta; el modelo lo lee solo si lo necesita (herramienta panorama_de_hoy). Se rehace cada 5 minutos. */
+let IA_CTX = null;
+async function iaContexto() {
+  if (IA_CTX && Date.now() - IA_CTX.at < 5 * 60e3) return IA_CTX.data;
+  try {
+    await Promise.all(['pedidos.json', 'full_table.json', 'saldos_bodega.json', 'cajas.json', 'meta.json', 'docs_venta.json'].map(f => load(f)));
+    const alertas = luAlertas().map(a => ({ nivel: a.nivel, area: a.area, que: a.titulo, detalle: a.detalle }));
+    const cls = ddClientes(CACHE['pedidos.json'] || [], CACHE['docs_venta.json'] || []), deu = cls.filter(c => c.deuda > 0);
+    const S = (xs, f) => Math.round(xs.reduce((a, c) => a + f(c), 0));
+    const cliente = c => ({ cliente: c.nombre, vendedor: c.vendedor || undefined, grande: c.grande || undefined, bloqueado: c.bloq || undefined,
+      forma_de_pago: c.pago || undefined, deuda: Math.round(c.deuda), vencido: Math.round(c.venc), mas_de_90_dias: Math.round(c.v.v90) || undefined,
+      por_vencer: Math.round(c.v.xv) || undefined, dias_de_atraso: c.v.atraso || undefined, contacto: c.contacto || undefined, telefono: c.fono || undefined });
+    const data = {
+      fecha: today(), datos_del_erp: (CACHE['meta.json'] || {}).erp_fecha || null, temporada_activa: 'T' + TEMP_ACTIVA,
+      lo_urgente: alertas,
+      cobranza: {
+        nos_deben: S(deu, c => c.deuda), vencido: S(deu, c => c.venc), mas_de_90_dias: S(deu, c => c.v.v90), por_vencer_al_dia: S(deu, c => c.v.xv),
+        clientes_con_deuda: deu.length, con_vencido: deu.filter(c => c.venc > 0).length, al_dia: deu.filter(c => c.alDia).length, bloqueados: cls.filter(c => c.bloq).length,
+        como_se_calcula: 'vencido estimado por factura y plazo de pago (30, 60 o 90 días); Magic World es la tienda propia',
+        cobrar_primero: deu.filter(c => c.venc > 0 && !c.magic).sort((a, b) => b.venc - a.venc).slice(0, 12).map(cliente),
+        magic: deu.filter(c => c.magic).map(cliente)[0] || null,
+      },
+    };
+    IA_CTX = { at: Date.now(), data };
+    return data;
+  } catch (e) { console.error('asistente: panorama', e); return null; }
+}
 
 function iaEscapar(t) {
   return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -11859,7 +11890,7 @@ function iaBienvenida() {
   if (!chat) return;
   chat.innerHTML = '';
   IA_HIST = [];
-  iaBurbuja('ia-bot', 'Hola. Pregúntame sobre pedidos, producción, stock, cajas o ventas.');
+  iaBurbuja('ia-bot', 'Hola. Pregúntame qué hacer primero, a quién cobrar, qué cortar, o por pedidos, stock, cajas y ventas. Si quieres enseñarme una regla, dime «recuerda que…».');
   const cont = document.createElement('div');
   cont.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-self:flex-start;max-width:88%';
   IA_SUGERENCIAS.forEach(q => {
@@ -11876,7 +11907,7 @@ async function iaPreguntar() {
   const q = (input.value || '').trim();
   if (!q || btn.disabled) return;
   input.value = ''; input.style.height = 'auto';
-  document.querySelectorAll('#iaChat .ia-sug').forEach(b => b.parentElement?.remove());
+  document.querySelectorAll('#iaChat .ia-sug:not(.ia-copiar)').forEach(b => b.parentElement?.remove());
   iaBurbuja('ia-yo', iaEscapar(q));
   btn.disabled = true;
   const esperando = iaBurbuja('ia-pensando', 'Revisando los datos…');
@@ -11884,10 +11915,11 @@ async function iaPreguntar() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    const contexto = await iaContexto();
     const pedir = () => fetch(IA_URL, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pregunta: q, historial: IA_HIST.slice(-6) }),
+      body: JSON.stringify({ pregunta: q, historial: IA_HIST.slice(-6), contexto }),
       signal: AbortSignal.timeout(90000),   // 90 s: más que eso es que algo se colgó
     });
     let r = await pedir();
@@ -11897,6 +11929,14 @@ async function iaPreguntar() {
     esperando.remove();
     if (!r.ok || data.error) throw new Error(data.error || ('El asistente respondió ' + r.status));
     iaBurbuja('ia-bot', iaFormato(data.answer));
+    // Copiar la respuesta tal cual, para pegarla en WhatsApp (el reporte del día)
+    const acc = document.createElement('div');
+    acc.style.cssText = 'align-self:flex-start;margin:-4px 0 2px';
+    const cp = document.createElement('button');
+    cp.type = 'button'; cp.className = 'ia-sug ia-copiar'; cp.textContent = 'Copiar';
+    cp.addEventListener('click', () => navigator.clipboard.writeText(data.answer).then(() => { cp.textContent = 'Copiado ✓'; setTimeout(() => { cp.textContent = 'Copiar'; }, 1500); }).catch(() => {}));
+    acc.appendChild(cp);
+    document.getElementById('iaChat').appendChild(acc);
     IA_HIST.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
   } catch (e) {
     esperando.remove();
@@ -11924,6 +11964,12 @@ function iaIniciar() {
   btn.addEventListener('click', abrir);
   document.getElementById('iaClose').addEventListener('click', cerrar);
   document.getElementById('iaLimpiar').addEventListener('click', iaBienvenida);
+  document.getElementById('iaReporte')?.addEventListener('click', () => {
+    const inp = document.getElementById('iaInput');
+    if (!inp || document.getElementById('iaSend')?.disabled) return;
+    inp.value = 'Dame el reporte del día: qué hago primero y a quién le cobro.';
+    iaPreguntar();
+  });
   document.getElementById('iaForm').addEventListener('submit', e => { e.preventDefault(); iaPreguntar(); });
   const input = document.getElementById('iaInput');
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px'; });
