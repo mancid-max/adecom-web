@@ -154,6 +154,23 @@ html,body{overflow-x:hidden;max-width:100%}
 .xl-head>.xl-der{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0}
 .xl-head>.xl-der>*{margin-left:0!important}
 .xl-head>.xl-der:empty{display:none}
+/* Lo urgente: el panel de arriba del Resumen, con un semáforo por fila */
+.lu-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin:0 0 14px}
+.lu-head{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:16px 20px 12px}
+.lu-resumen{display:flex;flex-wrap:wrap;gap:6px}
+.lu-cuenta{border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.lu-lista{display:flex;flex-direction:column}
+.lu-fila{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;width:100%;text-align:left;padding:11px 20px;border-top:1px solid var(--bd);background:var(--sf);font:inherit;color:inherit}
+button.lu-fila{cursor:pointer}
+button.lu-fila:hover{background:var(--ac10)}
+button.lu-fila:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.lu-luz{width:12px;height:12px;border-radius:50%}
+.lu-txt{display:flex;flex-direction:column;min-width:0}
+.lu-txt b{font-size:13.5px;font-weight:700}
+.lu-txt span{font-size:12px;color:var(--tx2);overflow-wrap:break-word}
+.lu-area{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3);white-space:nowrap}
+.lu-ver{font-size:11.5px;font-weight:600;color:var(--ac);white-space:nowrap;min-width:40px;text-align:right}
+@media(max-width:640px){.lu-fila{grid-template-columns:auto minmax(0,1fr) auto}.lu-area{display:none}}
 .seg.xl-btn{border:1px solid var(--bd2);white-space:nowrap}
 @media (max-width:640px){.tbl-head.xl-head{grid-template-columns:minmax(0,1fr) auto}.xl-head>.xl-der{grid-column:1/-1;justify-content:flex-start}}
 .tbl-scroll{overflow-x:auto}
@@ -1291,11 +1308,146 @@ function resDetClientes(cual) {
     + ' · toca un cliente para ver qué artículos mandarle');
 }
 
+/* ── LO URGENTE ───────────────────────────────────────────────────────
+   Arriba del Resumen (Manu, 26-10-2026: "semáforos, nivel crítico para ver antes que otros datos"): lo que hay que
+   mirar primero, de lo más grave a lo menos. Rojo: hay que actuar hoy; amarillo: atención; verde: al día. Dentro de un
+   mismo color va primero lo que pesa más plata. Cada fila sale de la misma cuenta que su sección y lleva a ella con el
+   filtro puesto (irA). Los límites están en la nota al pie del panel. */
+let LU = [];
+const LU_NIVEL = { rojo: 0, amarillo: 1, verde: 2 };
+const LU_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function luAlertas() {
+  const peds = CACHE['pedidos.json'] || [], ft = CACHE['full_table.json'] || [], sb = CACHE['saldos_bodega.json'] || [];
+  const cj = CACHE['cajas.json'], meta = CACHE['meta.json'], A = [];
+  const pl = (n, uno, varios) => `${fmt(n)} ${n === 1 ? uno : varios}`;
+  const plata = v => (v ? ` · ≈ ${fmtM(v)}` : '');
+
+  // 1. ¿Están al día los datos? Días hábiles desde que el ERP exportó (hoy cuenta desde las 9:00)
+  if (meta && meta.erp_iso) {
+    const erp = new Date(meta.erp_iso), ahora = new Date();
+    let habiles = 0;
+    for (const d = new Date(erp.getFullYear(), erp.getMonth(), erp.getDate() + 1); d <= ahora; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      if (d.toDateString() === ahora.toDateString() && ahora.getHours() < 9) continue;
+      habiles++;
+    }
+    const hasta = `${LU_DIAS[erp.getDay()]} ${meta.erp_date || ''} a las ${meta.erp_time || ''}`;
+    A.push({ k: 'erp', nivel: habiles >= 2 ? 'rojo' : habiles ? 'amarillo' : 'verde', area: 'Datos', valor: 1e15,
+      titulo: !habiles ? 'Los datos del ERP están al día' : habiles === 1 ? 'El ERP no exportó hoy' : `El ERP lleva ${habiles} días hábiles sin exportar`,
+      detalle: !habiles ? `llegan hasta el ${hasta}` : `lo que se ve llega hasta el ${hasta}: avísale a Adecom` });
+  }
+
+  // 2. Órdenes de corte programadas que no se cortan (como en Programado sin cortar)
+  const ftMap = buildFtMap(ft), ocs = [];
+  for (const [art, m] of Object.entries(ftMap)) for (const o of (m.progOcs || [])) ocs.push({ art, ...o });
+  if (ocs.length) {
+    const vieja = ocs.reduce((m, o) => (!m || o.dias > m.dias ? o : m), null);
+    const d30 = ocs.filter(o => o.dias > 30).length, d14 = ocs.filter(o => o.dias > 14).length;
+    const prendas = ocs.reduce((a, o) => a + (o.programa || 0), 0);
+    const valor = ocs.reduce((a, o) => { const p = precioDe(o.art); return a + (p ? (o.programa || 0) * p : 0); }, 0);
+    A.push({ k: 'prog', nivel: d30 ? 'rojo' : d14 ? 'amarillo' : 'verde', area: 'Producción', n: ocs.length, valor,
+      titulo: d30 ? `${pl(d30, 'orden programada lleva', 'órdenes programadas llevan')} más de 30 días sin cortar`
+        : d14 ? `${pl(d14, 'orden programada lleva', 'órdenes programadas llevan')} más de 14 días sin cortar` : 'Las órdenes programadas se están cortando a tiempo',
+      detalle: `la más antigua, OC ${vieja.oc} con ${pl(vieja.dias, 'día', 'días')} · ${fmt(prendas)} prendas en ${pl(ocs.length, 'orden', 'órdenes')}${plata(valor)}`,
+      sec: 'programado', ttl: 'Programado sin cortar', tocar: d30 ? '#progSegs .seg[data-f="d30"]' : null });
+  }
+
+  // 3. Lo que se le debe a los clientes, por antigüedad (como en Qué le debemos)
+  STOCK_MAP = buildStockMap(sb);
+  const deb = debDatos(peds, ft, ftMap, false);
+  const edad = DEB_EDADES.map(() => ({ u: 0, v: 0, cli: new Set() }));
+  for (const c of deb.clientes) for (const it of Object.values(c.items)) for (const p of it.peds) {
+    if (p.sal <= 0) continue;
+    const e = edad[debEdadDe(p.dias)], pr = precioDe(it.art);
+    e.u += p.sal; e.cli.add(c.nombre); if (pr) e.v += p.sal * pr;
+  }
+  const mas90 = { u: edad[3].u + edad[4].u, v: edad[3].v + edad[4].v, cli: new Set([...edad[3].cli, ...edad[4].cli]) };
+  const d61 = edad[2];
+  if (mas90.u || d61.u) {
+    const rojo = mas90.u > 0, x = rojo ? mas90 : d61;
+    A.push({ k: 'deb', nivel: rojo ? 'rojo' : 'amarillo', area: 'Despacho', n: x.cli.size, valor: x.v,
+      titulo: `Le debemos ${fmt(x.u)} prendas a ${pl(x.cli.size, 'cliente', 'clientes')} desde hace ${rojo ? 'más de 90 días' : '61 a 90 días'}`,
+      detalle: `de la T${TEMP_ACTIVA} en adelante${plata(x.v)}${rojo && d61.u ? ` · y ${fmt(d61.u)} más pedidas hace 61 a 90 días` : ''}`,
+      sec: 'debemos', ttl: 'Qué le debemos', tocar: () => window._debEdad?.(rojo ? (edad[4].u ? 4 : 3) : 2) });
+  } else A.push({ k: 'deb', nivel: 'verde', area: 'Despacho', titulo: 'Lo que se debe tiene menos de 60 días', detalle: `de la T${TEMP_ACTIVA} en adelante`, sec: 'debemos', ttl: 'Qué le debemos' });
+
+  // 4. Lo que se debe y nadie programó: ni bodega, ni producción, ni una orden (como el filtro de Pedido vs Corte)
+  const tempsFP = Object.keys(buildByTemp()).filter(t => esTempViva(t) && +t >= +TEMP_ACTIVA).sort();   // sin las mal digitadas (T83…)
+  let fp = 0, fpArts = 0, fpValor = 0;
+  for (const t of tempsFP) for (const f of pvcFilasDe(t, ftMap, null, false)) {
+    const falta = Math.max(0, f.sal - (f.stk + f.pro)), sinProg = Math.max(0, falta - (f.prog || 0));
+    if (!sinProg) continue;
+    fp += sinProg; fpArts++;
+    const p = precioDe(f.art);
+    if (p) fpValor += sinProg * p;
+  }
+  const tTxt = tempsFP.map(t => `T${t}`).join(' y ');
+  A.push({ k: 'fp', nivel: fp >= 1000 ? 'rojo' : fp ? 'amarillo' : 'verde', area: 'Producción', n: fpArts, valor: fpValor,
+    titulo: fp ? `Faltan ${fmt(fp)} prendas por programar${tTxt ? ` en la ${tTxt}` : ''}` : 'Lo que se debe está cubierto o programado',
+    detalle: fp ? `de ${pl(fpArts, 'artículo', 'artículos')} que no cubre la bodega, ni la producción, ni una orden${fpValor ? ` · ≈ ${fmtM(fpValor)} de venta en riesgo` : ''}` : 'con bodega, producción u órdenes programadas',
+    sec: 'pvc', ttl: 'Pedido vs Corte', tocar: fp ? '#pvcEstadoSegs .seg[data-estado="programar"]' : null });
+
+  // 5. Cajas armadas que no salen (como en Cajas en Bodega)
+  const cajas = ((!Array.isArray(cj) && cj?.cajas) || []).filter(c => (c.estado || '') === 'bodega');
+  if (cajas.length) {
+    const c30 = cajas.filter(c => (c.dias || 0) >= 30), c60 = cajas.filter(c => (c.dias || 0) >= 60);
+    const vieja = cajas.reduce((m, c) => Math.max(m, c.dias || 0), 0), xs = c30.length ? c30 : cajas;
+    const valor = xs.reduce((a, c) => a + (c.valor || 0), 0);
+    A.push({ k: 'cajas', nivel: c60.length ? 'rojo' : c30.length ? 'amarillo' : 'verde', area: 'Bodega', n: xs.length, valor: c30.length ? valor : 0,
+      titulo: c60.length ? `${pl(c60.length, 'caja armada lleva', 'cajas armadas llevan')} 60 días o más en bodega`
+        : c30.length ? `${pl(c30.length, 'caja armada lleva', 'cajas armadas llevan')} un mes o más en bodega` : 'Las cajas armadas salen a tiempo',
+      detalle: `${fmt(xs.reduce((a, c) => a + (c.prendas || 0), 0))} prendas · ${fmtM(valor)} · la más antigua, ${pl(vieja, 'día', 'días')}`,
+      sec: 'cajas', ttl: 'Cajas en Bodega', tocar: c30.length ? '[data-ck="viejas"]' : null });
+  }
+
+  // 6. Cobranza: bloqueados con pedidos detenidos y cupos agotados (como en Deudas)
+  const cls = ddClientes(peds), bl = cls.filter(c => c.bloq), det = bl.filter(c => c.nDet > 0), sinCupo = cls.filter(c => c.est === 'rojo' && !c.bloq);
+  const debeBl = bl.reduce((a, c) => a + Math.max(0, c.deuda), 0), vDet = det.reduce((a, c) => a + c.vDet, 0);
+  A.push({ k: 'cob', nivel: det.length ? 'rojo' : (bl.some(c => c.deuda > 0) || sinCupo.length) ? 'amarillo' : 'verde', area: 'Cobranza', n: bl.length, valor: det.length ? vDet : debeBl,
+    titulo: det.length ? `${pl(det.length, 'cliente bloqueado tiene', 'clientes bloqueados tienen')} pedidos detenidos`
+      : bl.length ? `${pl(bl.length, 'cliente bloqueado debe', 'clientes bloqueados deben')} ${fmtM(debeBl)}` : 'Ningún cliente bloqueado',
+    detalle: [det.length ? `${fmtM(vDet)} en pedidos de los últimos ${DD_DIAS_PED} días que no se despachan` : '', bl.length ? `${pl(bl.length, 'bloqueado', 'bloqueados')} deben ${fmtM(debeBl)}` : '',
+      sinCupo.length ? `${pl(sinCupo.length, 'cliente', 'clientes')} más sin cupo` : ''].filter(Boolean).join(' · ') || 'nadie con la ficha bloqueada',
+    sec: 'deudas', ttl: 'Deudas', tocar: bl.length ? '#ddSegs .seg[data-f="bloq"]' : null });
+
+  // 7. Stock negativo en el ERP (como en Stock Bodega): se corrige, no se vende
+  const SUCS = ['00', '01', '02', '04', '05', '08', '10', '12', '33'];
+  const neg = sb.filter(r => SUCS.some(s => ((r.suc || {})[s] || 0) < 0)).length;
+  A.push({ k: 'neg', nivel: neg ? 'amarillo' : 'verde', area: 'Stock', n: neg,
+    titulo: neg ? `${pl(neg, 'artículo tiene', 'artículos tienen')} stock negativo en el ERP` : 'Sin stock negativo',
+    detalle: neg ? 'hay que corregirlos para que el stock y su valor calcen' : 'el stock del ERP calza',
+    sec: 'stock', ttl: 'Stock Bodega', tocar: neg ? '#stNegSegs .seg[data-n="neg"]' : null });
+
+  return A.sort((a, b) => LU_NIVEL[a.nivel] - LU_NIVEL[b.nivel] || (b.valor || 0) - (a.valor || 0) || (b.n || 0) - (a.n || 0));
+}
+function luPanel(A) {
+  if (!A.length) return '';
+  const clr = { rojo: 'er', amarillo: 'wa', verde: 'ok' }, nombre = { rojo: 'Rojo', amarillo: 'Amarillo', verde: 'Verde' };
+  const cuenta = n => A.filter(a => a.nivel === n).length;
+  const resumen = [['rojo', 'en rojo'], ['amarillo', 'en amarillo'], ['verde', 'al día']].filter(([n]) => cuenta(n))
+    .map(([n, t]) => `<span class="lu-cuenta" style="background:var(--${clr[n]}10);color:var(--${clr[n]})">${cuenta(n)} ${t}</span>`).join('');
+  const fila = (a, i) => {
+    const tag = a.sec ? 'button' : 'div';
+    return `<${tag} class="lu-fila"${a.sec ? ` type="button" data-lu="${i}" title="Ir a ${a.ttl}"` : ''}>
+      <span class="lu-luz" style="background:var(--${clr[a.nivel]})" title="${nombre[a.nivel]}"></span>
+      <span class="lu-txt"><b>${a.titulo}</b><span>${a.detalle}</span></span>
+      <span class="lu-area">${a.area}</span><span class="lu-ver">${a.sec ? 'Ver ›' : ''}</span></${tag}>`;
+  };
+  return `<div class="lu-card">
+    <div class="lu-head"><div><div class="card-ttl">Lo urgente</div>
+      <div class="card-sub" style="margin:2px 0 0">Lo que hay que mirar primero, de lo más grave a lo menos. Toca una fila para ir a su sección con el filtro puesto.</div></div>
+      <div class="lu-resumen">${resumen}</div></div>
+    <div class="lu-lista">${A.map(fila).join('')}</div>
+    <div class="tbl-foot">Rojo: hay que actuar hoy · amarillo: atención · verde: al día. Órdenes sin cortar: rojo con más de 30 días, amarillo con más de 14 · lo que se debe: rojo con más de 90 días, amarillo de 61 a 90 · falta programar: rojo desde 1.000 prendas · cajas armadas: rojo con 60 días, amarillo con 30 · cobranza: rojo si un bloqueado tiene pedidos detenidos · datos del ERP: amarillo si no exportó hoy, rojo con 2 días hábiles. Los $ son aproximados: prendas × precio neto de pedido.</div>
+  </div>`;
+}
+
 async function secResumen() {
   // El Resumen necesita produccion y stock, ademas de los pedidos que ya estaban
   const [ft, sb, peds] = await Promise.all([
-    load('full_table.json'), load('saldos_bodega.json'), load('pedidos.json'),
+    load('full_table.json'), load('saldos_bodega.json'), load('pedidos.json'), load('cajas.json'),
   ]);
+  try { LU = luAlertas(); } catch (e) { console.error('Lo urgente', e); LU = []; }   // si falla, el Resumen sigue
   RES = resBase(ft, sb, peds);
   const vendidas30 = DOCS.filter(d => (d.bod || '') === BOD_SG && (d.fecha_iso || '') >= resHace(30));
   const uVend30 = vendidas30.reduce((a, d) => a + (d.prendas || 0), 0);
@@ -1348,7 +1500,7 @@ async function secResumen() {
                 + ` · ${fmt(vh.prendas)} prendas`
                 + (vhNeg ? ' · cerró en negativo: las devoluciones superan a las ventas' : '');
 
-  return `
+  return `${luPanel(LU)}
   <div class="res-cols">
 
     <div class="res-col">
@@ -8187,6 +8339,10 @@ function debGraficos(visibles, paraEdad, edadSel, abrir, tocarEdad) {
     i => tocarEdad(i), { horizontal: false, apiladas: false, leyenda: false, extra: () => 'Toca para ver solo esos clientes' });
 }
 
+/* Ir a una sección con un filtro puesto: tocar = el selector de un botón suyo, o una función */
+let IR_TOCAR = null;
+function irA(sec, ttl, tocar) { IR_TOCAR = tocar ? { sec, tocar } : null; go(sec, ttl); }
+
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
   const seq = ++_goSeq;
@@ -8213,6 +8369,11 @@ async function go(secId, title) {
   if (seq !== _goSeq) return;
   document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
   try { bindContent(secId); } catch (e) { console.error('Falló al activar la sección', secId, e); }
+  if (IR_TOCAR && IR_TOCAR.sec === secId) {   // llegó desde "Lo urgente": se pone el filtro de esa fila
+    const t = IR_TOCAR.tocar;
+    IR_TOCAR = null;
+    try { if (typeof t === 'function') t(); else document.querySelector(t)?.click(); } catch (e) { console.error('Lo urgente: filtro', e); }
+  }
 }
 
 /* ── BIND EVENTS ────────────────────────────────────────────── */
@@ -8239,6 +8400,12 @@ function bindContent(secId) {
        "Varios articulos" se corria solo. Un filtro que se mueve al tocarlo desorienta
        mas de lo que estorba la burbuja. */
   });
+
+  // Lo urgente: cada fila lleva a su sección con el filtro puesto
+  document.querySelectorAll('.lu-fila[data-lu]').forEach(b => b.addEventListener('click', () => {
+    const a = LU[+b.dataset.lu];
+    if (a && a.sec) irA(a.sec, a.ttl, a.tocar);
+  }));
 
   // [data-goto] → navegar
   document.querySelectorAll('[data-goto]').forEach(el => {
@@ -9779,6 +9946,7 @@ function bindContent(secId) {
       return n;
     };
     chip?.addEventListener('click', () => { edad = null; filtrar(); });
+    window._debEdad = i => { edad = i; filtrar(); };   // "Lo urgente" llega con una antigüedad elegida
     inp?.addEventListener('input', filtrar);
     document.querySelectorAll('#debSegs .seg').forEach(b => b.addEventListener('click', () => {
       filtro = b.dataset.f;
