@@ -8831,7 +8831,7 @@ function debGraficos(visibles, paraEdad, edadSel, abrir, tocarEdad) {
    título; el grupo de la sección abierta queda siempre desplegado y, aparte, el último que se tocó. Los grupos de una
    sola sección (Inicio, Cobranza, Finanzas) se ven siempre. La vista Ambos / San Gerardo / Kennedy sigue mandando qué
    secciones existen (vista-oculta); esto solo pliega. */
-let MENU_ABIERTO = null;   // el grupo que se desplegó a mano, además del de la sección activa
+let MENU_ABIERTOS = new Set(), MENU_ACTIVO = '';   // grupos desplegados; al cambiar de grupo activo se abre ese y se cierran los demás
 const menuGrupos = () => {
   const gs = [];
   for (const el of document.querySelectorAll('.sb-nav > *')) {
@@ -8841,14 +8841,17 @@ const menuGrupos = () => {
   return gs;
 };
 function menuActualizar() {
-  for (const g of menuGrupos()) {
+  const gs = menuGrupos(), activo = gs.find(g => g.items.some(b => b.classList.contains('active')));
+  // Al llegar a un grupo nuevo se despliega ese y se pliegan los demás; después cada título abre y cierra libremente,
+  // también el del grupo activo (Manu, 26-10-2026: "selecciono algo y no puedo plegarlo de nuevo")
+  if (activo && activo.nombre !== MENU_ACTIVO) { MENU_ACTIVO = activo.nombre; MENU_ABIERTOS = new Set([activo.nombre]); }
+  for (const g of gs) {
     // Con la vista Kennedy a un grupo le queda una sola sección a la vista: entonces no se pliega, se muestra
     const aLaVista = g.items.filter(b => !b.classList.contains('vista-oculta'));
-    const plegable = aLaVista.length > 1, activo = g.items.some(b => b.classList.contains('active'));
-    const abierto = !plegable || activo || MENU_ABIERTO === g.nombre;
+    const plegable = aLaVista.length > 1, abierto = !plegable || MENU_ABIERTOS.has(g.nombre);
     g.el.classList.toggle('plegable', plegable);
     g.el.classList.toggle('abierto', abierto);
-    g.el.classList.toggle('activo', activo);
+    g.el.classList.toggle('activo', g === activo);
     g.items.forEach(b => b.classList.toggle('menu-cerrado', !abierto));
   }
 }
@@ -8859,7 +8862,7 @@ function menuPlegable() {
     g.el.innerHTML = `<span>${g.nombre}</span><span class="sb-flecha" aria-hidden="true">▸</span>`;
     g.el.setAttribute('role', 'button'); g.el.tabIndex = 0;
     g.el.title = `Mostrar u ocultar las secciones de ${g.nombre}`;
-    const toca = () => { MENU_ABIERTO = MENU_ABIERTO === g.nombre ? null : g.nombre; menuActualizar(); };
+    const toca = () => { if (MENU_ABIERTOS.has(g.nombre)) MENU_ABIERTOS.delete(g.nombre); else MENU_ABIERTOS.add(g.nombre); menuActualizar(); };
     g.el.addEventListener('click', toca);
     g.el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toca(); } });
   }
