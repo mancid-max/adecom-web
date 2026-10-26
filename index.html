@@ -1727,6 +1727,7 @@ function secDetalleColor() {
 }
 
 /* ── TOP 10 PEDIDOS ─────────────────────────────────────────── */
+let T10_N = 10;   // cuántos clientes muestra el Top: 10, 20, 50 o 'todos' (Manu, 26-10-2026: "¿no se pueden mostrar más clientes?")
 async function secTop10() {
   const peds = await load('pedidos.json');
   if (!peds.length) return '<div class="ph"><h3>Sin datos</h3><p>No hay información para mostrar</p></div>';
@@ -1745,7 +1746,8 @@ async function secTop10() {
     porCli.set(k, c);
   }
   const clis = [...porCli.values()].sort((a, b) => b.unidades - a.unidades);
-  const top10 = clis.slice(0, 10), top = top10[0];
+  const N = T10_N === 'todos' ? clis.length : Math.min(T10_N, clis.length), top10 = clis.slice(0, N), top = top10[0];
+  const quien = N >= clis.length ? 'todos los clientes' : `los ${N} primeros`;
   const totT = clis.reduce((a, c) => a + c.unidades, 0);
   const u10 = top10.reduce((a, c) => a + c.unidades, 0), d10 = top10.reduce((a, c) => a + c.despacho, 0), s10 = top10.reduce((a, c) => a + c.saldo, 0);
   const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
@@ -1776,16 +1778,20 @@ async function secTop10() {
     <div class="segs" id="t10TempSegs">
       ${tempsT10.map(t => `<button class="seg${t === TEMP_SEL ? ' on' : ''}" data-t="${t}">T${t}</button>`).join('')}
     </div></div>
+    <div class="fgrp"><span class="flbl">Ver</span>
+    <div class="segs" id="t10NSegs">
+      ${[[10, '10'], [20, '20'], [50, '50'], ['todos', `Todos (${clis.length})`]].map(([n, t]) => `<button class="seg${String(T10_N) === String(n) ? ' on' : ''}" data-n="${n}">${t}</button>`).join('')}
+    </div></div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${tarjetaKpi({ attr: 't10k', k: 'u', lbl: 'Lo que pidieron los 10 primeros', val: fmt(u10), sub: `${pct(u10, totT)}% de lo pedido en la T${TEMP_SEL} · ${fmt(clis.length)} clientes en total`, color: 'var(--ac)', ver: 'Ordenar por lo pedido' })}
+    ${tarjetaKpi({ attr: 't10k', k: 'u', lbl: `Lo que pidieron ${quien}`, val: fmt(u10), sub: `${pct(u10, totT)}% de lo pedido en la T${TEMP_SEL} · ${fmt(clis.length)} clientes en total`, color: 'var(--ac)', ver: 'Ordenar por lo pedido' })}
     ${tarjetaKpi({ attr: 't10k', k: 'top', lbl: 'El cliente que más pidió', val: top ? fmt(top.unidades) : '—', sub: top ? `${esc(top.nombre)} · ${pct(top.unidades, totT)}% del total` : 'ninguno', color: '#047857', ver: 'Ver sus pedidos' })}
-    ${tarjetaKpi({ attr: 't10k', k: 'av', lbl: 'Despachado a los 10 primeros', val: `${pct(d10, u10)}%`, sub: `${fmt(d10)} de ${fmt(u10)} prendas`, color: 'var(--ok)', ver: 'Ver los más atrasados' })}
-    ${tarjetaKpi({ attr: 't10k', k: 'sal', lbl: 'Les falta despachar', val: fmt(s10), sub: 'prendas de los 10 primeros', color: 'var(--wa)', ver: 'Ordenar por lo que falta' })}
+    ${tarjetaKpi({ attr: 't10k', k: 'av', lbl: `Despachado a ${quien}`, val: `${pct(d10, u10)}%`, sub: `${fmt(d10)} de ${fmt(u10)} prendas`, color: 'var(--ok)', ver: 'Ver los más atrasados' })}
+    ${tarjetaKpi({ attr: 't10k', k: 'sal', lbl: 'Les falta despachar', val: fmt(s10), sub: `prendas de ${quien}`, color: 'var(--wa)', ver: 'Ordenar por lo que falta' })}
   </div>
-  ${grafCard('t10Graf', '¿Quién pide más?', `Los 10 clientes que más pidieron en la T${TEMP_SEL}: en verde lo despachado y en amarillo lo que falta. Toca una barra para ver sus pedidos en Venta vs Despacho.`, 330)}
+  ${grafCard('t10Graf', '¿Quién pide más?', `Los ${Math.min(N, 25)} clientes que más pidieron en la T${TEMP_SEL}: en verde lo despachado y en amarillo lo que falta. Toca una barra para ver sus pedidos en Venta vs Despacho.`, Math.min(N, 25) * 24 + 70)}
   <div class="tbl-card">
-    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T${TEMP_SEL}</div></div>${btnExcel()}<div class="xl-der"><span class="td-dim">${fmt(clis.length)} clientes con pedidos</span></div></div>
+    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">${N >= clis.length ? 'Todos los clientes' : `Top ${N} clientes`} por unidades — T${TEMP_SEL}</div></div>${btnExcel()}<div class="xl-der"><span class="td-dim">${fmt(clis.length)} clientes con pedidos</span></div></div>
     <div class="tbl-scroll">
       <table data-ord-col="3" data-ord-dir="-1" data-ord-num="1">
         <thead><tr><th>#</th><th data-ord="t">Cliente</th><th data-ord="t">Ciudad</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n">Despachado</th><th class="r" data-ord="n">Saldo</th><th data-ord="n">Avance</th></tr></thead>
@@ -10268,6 +10274,12 @@ function bindContent(secId) {
     TEMP_SEL = b.dataset.t;
     go('top10', 'Top 10 Pedidos');
   }));
+  document.querySelectorAll('#t10NSegs .seg').forEach(b => b.addEventListener('click', () => {   // cuántos clientes ver
+    const n = b.dataset.n === 'todos' ? 'todos' : +b.dataset.n;
+    if (n === T10_N) return;
+    T10_N = n;
+    go('top10', 'Top 10 Pedidos');
+  }));
   // Top 10: tabla ordenable, tarjetas que la ordenan, el gráfico y cada cliente lleva a sus pedidos
   if (secId === 'top10' && document.getElementById('t10Body')) {
     const tabla = document.getElementById('t10Body').closest('table');
@@ -10297,10 +10309,11 @@ function bindContent(secId) {
       card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
     });
     const nom = tr => { const s = tr.dataset.nombre.toUpperCase(); return s.length > 26 ? s.slice(0, 25) + '…' : s; };
-    barras('t10Graf', filas.map(nom), [
-      { label: 'Despachado', data: filas.map(tr => +tr.dataset.d), backgroundColor: color('--ok') },
-      { label: 'Falta despachar', data: filas.map(tr => +tr.dataset.s), backgroundColor: color('--wa') },
-    ], i => verPedidos(filas[i].dataset.nombre), { extra: i => `pidió ${fmt(+filas[i].dataset.u)} · toca para ver sus pedidos` });
+    const enGraf = filas.slice(0, 25);   // con "Todos" la tabla puede traer 70 clientes: el gráfico muestra los 25 primeros
+    barras('t10Graf', enGraf.map(nom), [
+      { label: 'Despachado', data: enGraf.map(tr => +tr.dataset.d), backgroundColor: color('--ok') },
+      { label: 'Falta despachar', data: enGraf.map(tr => +tr.dataset.s), backgroundColor: color('--wa') },
+    ], i => verPedidos(enGraf[i].dataset.nombre), { extra: i => `pidió ${fmt(+enGraf[i].dataset.u)} · toca para ver sus pedidos` });
   }
 
 
