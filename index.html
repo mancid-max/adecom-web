@@ -148,6 +148,14 @@ html,body{overflow-x:hidden;max-width:100%}
 /* ── TABLE CARD ──────────────────────────────────────────────── */
 .tbl-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .tbl-head{display:flex;align-items:center;gap:12px;padding:16px 20px 14px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+/* Encabezado con el botón de Excel justo al centro, igual en todas las secciones: título a la izquierda, lo demás a la derecha */
+.tbl-head.xl-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}
+.xl-head>.xl-izq{min-width:0}
+.xl-head>.xl-der{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0}
+.xl-head>.xl-der>*{margin-left:0!important}
+.xl-head>.xl-der:empty{display:none}
+.seg.xl-btn{border:1px solid var(--bd2);white-space:nowrap}
+@media (max-width:640px){.tbl-head.xl-head{grid-template-columns:minmax(0,1fr) auto}.xl-head>.xl-der{grid-column:1/-1;justify-content:flex-start}}
 .tbl-scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{background:var(--sf2);color:var(--tx3);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:9px 16px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}
@@ -669,6 +677,12 @@ body.ia-open #iaBtn{display:none}
     <button class="nav-item" data-sec="proyecciones" data-ttl="Proyecciones" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/><circle cx="19" cy="7" r="1.6"/></svg>
       Proyecciones
+    </button>
+
+    <div class="sb-grp" data-admin-only>Cobranza</div>
+    <button class="nav-item" data-sec="deudas" data-ttl="Deudas" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Deudas
     </button>
 
     <div class="sb-grp" data-admin-only>Finanzas</div>
@@ -1529,7 +1543,7 @@ function secDetalleColor() {
     </div>
   </div>
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>
+    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Pedidos por Modelo y Color — toca una fila para expandir</div></div>${btnExcel()}<div class="xl-der"></div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Modelo Base</th><th>Tipo</th><th>Variantes</th><th class="r">Unidades</th><th class="r">▸</th></tr></thead>
@@ -1581,7 +1595,7 @@ async function secTop10() {
   </div>
 
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T${TEMP_SEL}</div></div>
+    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Top 10 Clientes por Unidades — T${TEMP_SEL}</div></div>${btnExcel()}<div class="xl-der"></div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>#</th><th>Cliente</th><th>Ciudad</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Saldo</th><th>Avance</th></tr></thead>
@@ -1594,10 +1608,10 @@ async function secTop10() {
 
 /* ── STOCK BODEGA ───────────────────────────────────────────── */
 async function secStock() {
-  const data = await load('saldos_bodega.json');
+  const [data] = await Promise.all([load('saldos_bodega.json'), window._bodegaMode ? null : load('pedidos.json')]);
   if (!data.length) return makePH(
     '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
-    'Stock Bodega', 'Ejecuta actualizar_datos.py para cargar datos');
+    'Stock Bodega', 'Sin datos de stock');
 
   const SUC_NAMES = {
     '00':'Bod. S.Filomena','01':'Stock Perú','02':'Loc. Perú','04':'San Gerardo',
@@ -1616,6 +1630,7 @@ async function secStock() {
   const temps  = allTemps.filter(t => parseInt(t) >= 40);
   const hasOld = allTemps.some(t => parseInt(t) < 40);   // colecciones anteriores: solo entran si tienen cajas
   const botas = [...new Set(data.map(r => r.bota).filter(Boolean))].sort();
+  const admin = !window._bodegaMode;   // el $ y los negativos no los ve bodega
 
   // KPIs iniciales (todas las sucursales, campo prendas = suc 01-33 ya calculado)
   const totalPrendas = data.reduce((s,r) => s + (r.prendas||0), 0);
@@ -1640,11 +1655,13 @@ async function secStock() {
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${fmt(q)}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${cq > 0 ? fmt(cq) : '—'}</td>
           <td class="r td-dim" style="font-size:11px;color:var(--tx2)">${ts != null ? fmt(ts) : '—'}</td>
+          ${admin ? '<td class="pl-sec"></td>' : ''}
         </tr>`;
       }).join('');
+      const pr = admin ? precioDe(r.art) : null;
       const clickCls = tallaEntries.length ? '' : ' no-click';
       const chevron  = tallaEntries.length ? `<span class="chv" style="font-size:10px;color:var(--tx3);float:right">▸</span>` : '';
-      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-neg="${r.neg||0}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" ${sucAttrs} ${cajAttrs}>
+      return `<tr class="st-row${clickCls}" data-temp="${r.temp}" data-neg="${r.neg||0}" data-prendas="${r.prendas||0}" data-total="${r.total||0}" data-cajall="${r.cajas_total||0}" data-bota="${(r.bota||'').toLowerCase()}" data-q="${r.art} ${r.modelo}" data-pr="${pr ? Math.round(pr) : ''}" ${sucAttrs} ${cajAttrs}>
         <td class="td-code">${artImg(r.art)}${r.art}</td>
         <td><span class="badge ${tc.cls}">T${r.temp}</span></td>
         <td class="td-dim">${r.modelo}</td>
@@ -1652,66 +1669,62 @@ async function secStock() {
         <td class="r td-num">${fmt(r.prendas||0)}</td>
         <td class="r td-dim">${r.cajas_total ? fmt(r.cajas_total) : '—'}</td>
         <td class="r td-num">${r.saldo != null ? fmt(r.saldo) : fmt(r.prendas||0)}</td>
+        ${admin ? `<td class="r td-num pl-sec">${pr && (r.prendas||0) > 0 ? fmtCLP(Math.round((r.prendas||0) * pr)) : '—'}</td>` : ''}
       </tr>${tallaRows}`;
     }).join('');
 
+  const tarjeta = (k, lbl, color, ver, val = '—', sub) => tarjetaKpi({ attr: 'sk', k, val, lbl, sub, color, ver });
   return `
   <div class="fbar">
     <div class="fbar-row">
-    <div class="fgrp"><span class="flbl">Sucursal</span>
-    <div class="segs" id="stSucSegs" style="flex-wrap:wrap;gap:4px">
-      <button class="seg on" data-suc="all">Todas</button>
-      ${sucList.map(s => `<button class="seg" data-suc="${s}">${SUC_NAMES[s]||s}</button>`).join('')}
-    </div></div>
-    <div class="fgrp"><span class="flbl">Temp</span>
-    <div class="segs" id="stTempSegs">
-      <button class="seg on" data-t="all">Todas</button>
-      ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
-      ${hasOld ? '<button class="seg" data-t="old" title="Colecciones anteriores a T40 que aún figuran con cajas">&lt; T40 con cajas</button>' : ''}
-    </div></div>
+      <div class="fgrp"><span class="flbl">Buscar</span>
+      <input id="stSearch" type="text" class="finput fsearch" placeholder="Artículo o modelo…" style="width:200px" /></div>
+      <div class="fgrp"><span class="flbl">Ver</span>
+      <div class="segs" id="stNegSegs">
+        <button class="seg on" data-n="pos">Con stock <span class="db-n">${fmt(artConStock)}</span></button>
+        <button class="seg" data-n="caj" title="Artículos con prendas ya embaladas para un cliente">En cajas <span class="db-n"></span></button>
+        ${admin ? '<button class="seg" data-n="neg" title="Artículos con stock negativo en el ERP: hay que corregirlos">⚠ Negativo <span class="db-n"></span></button>' : ''}
+      </div></div>
+      ${botas.length ? `<div class="fgrp"><span class="flbl">Tipo</span>
+      <select id="stBotaSel" style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;cursor:pointer;outline:none">
+        <option value="all">Todas</option>
+        ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
+      </select></div>` : ''}
     </div>
-
     <div class="fbar-row">
-    ${data.some(r => r.neg) ? `<div class="fgrp"><span class="flbl">Stock</span>
-    <div class="segs" id="stNegSegs">
-      <button class="seg on" data-n="pos">Con stock</button>
-      <button class="seg" data-n="neg" title="Artículos con stock negativo en el ERP: hay que corregirlos">⚠ Negativo</button>
-    </div></div>` : ''}
-    ${botas.length ? `<div class="fgrp"><span class="flbl">Tipo</span>
-    <select id="stBotaSel" style="padding:5px 12px;border:1px solid var(--bd);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font-size:13px;cursor:pointer;outline:none">
-      <option value="all">Todas</option>
-      ${botas.map(b => `<option value="${b.toLowerCase()}">${b}</option>`).join('')}
-    </select></div>` : ''}
-    <div class="fgrp"><span class="flbl">Buscar</span>
-    <input id="stSearch" type="text" class="finput fsearch" placeholder="Artículo o modelo…" style="width:200px" /></div>
+      <div class="fgrp"><span class="flbl">Temp</span>
+      <div class="segs" id="stTempSegs">
+        <button class="seg on" data-t="all">Todas</button>
+        ${temps.map(t => `<button class="seg" data-t="${t}">T${t}</button>`).join('')}
+        ${hasOld ? '<button class="seg" data-t="old" title="Colecciones anteriores a T40 que aún figuran con cajas">&lt; T40 con cajas</button>' : ''}
+      </div></div>
+      <div class="fgrp"><span class="flbl">Sucursal</span>
+      <div class="segs" id="stSucSegs" style="flex-wrap:wrap;gap:4px">
+        <button class="seg on" data-suc="all">Todas</button>
+        ${sucList.map(s => `<button class="seg" data-suc="${s}">${SUC_NAMES[s]||s}</button>`).join('')}
+      </div></div>
     </div>
   </div>
-  <div class="kpi-grid">
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-      <div><div class="kpi-val" id="stTotalUnid">${fmt(totalPrendas)}</div><div class="kpi-lbl" id="stUnidLbl">Prendas en Local</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-      <div><div class="kpi-val" id="stTotalArt">${artConStock}</div><div class="kpi-lbl">Artículos con Stock</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></div>
-      <div><div class="kpi-val" id="stPromedio">${Math.round(totalPrendas/Math.max(1,artConStock))}</div><div class="kpi-lbl">Promedio/Artículo</div></div>
-    </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjeta('pos', 'Prendas en todas las bodegas', 'var(--ac)', 'Ver todas', fmt(totalPrendas), `en ${fmt(artConStock)} artículos`)}
+    ${admin ? tarjeta('valor', 'Valen aproximadamente', '#047857', 'Ver las que más valen') : ''}
+    ${tarjeta('caj', 'Ya en cajas', 'var(--wa)', 'Ver cuáles')}
+    ${admin ? tarjeta('neg', 'Con stock negativo', 'var(--er)', 'Ver cuáles') : ''}
   </div>
+  ${grafCard('stGraf', '¿De qué colección es el stock?', 'Prendas de lo que se ve, por temporada: lo de colecciones pasadas es lo primero que conviene mover. Toca una barra para ver solo esa temporada.', 240)}
   <div class="tbl-card">
-    <div class="tbl-head">
-      <div class="card-ttl" style="margin:0" id="stTtl">Artículos en Bodega</div>
-      <button class="seg" id="stExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja a Excel lo que estás viendo, con el detalle por talla">⬇ Descargar Excel</button>
-      <span class="td-dim" style="margin-left:auto" id="stCount">${artConStock} artículos</span>
+    <div class="tbl-head xl-head">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0" id="stTtl">Artículos en Bodega</div></div>
+      ${btnExcel('stExcel', 'Baja a Excel lo que estás viendo, con el detalle por talla')}
+      <div class="xl-der"><span class="td-dim" id="stCount">${artConStock} artículos</span></div>
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Stock</th><th class="r">Cajas</th><th class="r">Saldo</th></tr></thead>
+        <thead><tr><th data-ord="t">Artículo</th><th data-ord="n">Temp</th><th>Modelo</th><th>Color</th><th class="r" data-ord="n">Stock</th><th class="r" data-ord="n">Cajas</th><th class="r" data-ord="n">Saldo</th>${admin ? '<th class="r pl-sec" data-ord="n" title="Stock × precio neto medio al que se pidió el artículo: sin IVA y no es el costo">Valor aprox.</th>' : ''}</tr></thead>
         <tbody id="stockBody">${rowsHtml}</tbody>
       </table>
     </div>
+    <div class="tbl-foot">Stock = prendas en la bodega · Cajas = las ya embaladas para un cliente · Saldo = lo libre (stock − cajas)${admin ? ' · Valor aprox. = stock × el precio neto medio al que se pidió cada artículo, sin IVA (no es el costo)' : ''}. Toca un artículo para ver sus tallas y un encabezado para ordenar.</div>
   </div>`;
 }
 
@@ -1834,10 +1847,11 @@ async function secTabla() {
   </div>
   ${nMal ? `<div class="corr-aviso" id="tblCorrAviso" role="button" tabindex="0" title="Ver solo esas órdenes">⚠ <b>${nMal} órdenes con el correlativo mal ingresado</b>: empiezan con un solo 0 (como 09614509) y el correcto empieza con 00 (como 00961564). Hay que corregirlas en el ERP. <b>Ver cuáles ›</b></div>` : ''}
   <div class="tbl-card">
-    <div class="tbl-head">
-      <div class="card-ttl" style="margin:0">Trazabilidad</div>
-      <span class="td-dim" style="margin-left:auto" id="tblCount">${rows.length} OC</span>
-      <button class="seg" id="tblPrint" title="Imprime las filas visibles con los filtros aplicados" style="margin-left:8px;border:1px solid var(--bd2)">🖨 Imprimir</button>
+    <div class="tbl-head xl-head">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Trazabilidad</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="tblCount">${rows.length} OC</span>
+      <button class="seg" id="tblPrint" title="Imprime las filas visibles con los filtros aplicados" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -2312,7 +2326,7 @@ function secReporteVenta() {
   </div>
 
   <div class="tbl-card">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0" id="vTblTtl">${initLabel}</div></div>
+    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0" id="vTblTtl">${initLabel}</div></div>${btnExcel()}<div class="xl-der"></div></div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Documento</th><th>Fecha</th><th>Cliente</th><th class="r">Prendas</th><th class="r">Neto</th></tr></thead>
@@ -2754,11 +2768,12 @@ async function secCuadrados() {
   </div>
 
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Por cuadrar</div>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Por cuadrar</div>
         <div class="card-sub" style="margin:2px 0 0">Se cortaron y bodega todavía no las recibe completas. Toca una fila para ver dónde se quedaron</div></div>
-      <span class="td-dim" style="margin-left:auto" id="cuaPendCount"></span>
-      <button class="seg" id="cuaPendPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+      ${btnExcel('', 'Baja a Excel las tablas de esta sección, una hoja por tabla, con lo que estás viendo', true)}
+      <div class="xl-der"><span class="td-dim" id="cuaPendCount"></span>
+      <button class="seg" id="cuaPendPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -3411,7 +3426,7 @@ async function secVentaDespacho() {
     const esc = s => String(s).replace(/"/g, '&quot;');
     const artQ = [...g.arts.entries()].map(([a, v]) => `${a}:${v.sol}:${v.desp}:${v.sal}:${v.caja || 0}:${v.term || 0}`).join(',');   // artículo: pedido, despachado, pendiente, en caja, en terminación
     const ciudades = [...(g.ciudades || [])].filter(Boolean);
-    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-tipo="${g.tipo ? g.tipo : 9}" data-deuda="${deudaTot}" data-key="${esc(g.key)}" style="cursor:pointer">
+    return `<tr data-nombre="${esc(nombre.toLowerCase())}" data-ciudad="${esc((g.ciudad||'').toLowerCase())}" data-ciudades="${esc(ciudades.join('|'))}" data-artq="${artQ}" data-avance="${avancePct}" data-ped="${ped44}" data-desp="${desp44}" data-sal="${sal44}" data-term="${g.termArts}" data-cajas="${g.cajasBod}" data-cajp="${g.cajasPrendas}" data-termu="${g.termUnits}" data-tipo="${g.tipo ? g.tipo : 9}" data-deuda="${deudaTot}" data-key="${esc(g.key)}" style="cursor:pointer">
       <td style="max-width:300px"><div style="display:flex;flex-direction:column;gap:3px;min-width:0">
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre||g.rut}${g.pedidos.length > 1 ? ` <span class="td-dim" style="font-size:10px;font-weight:400">· ${g.pedidos.length} pedidos</span>` : ''}</span>
         <span class="vd-arthit"></span>${flags ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${flags}</div>` : ''}</div></td>
@@ -3434,6 +3449,24 @@ async function secVentaDespacho() {
 
   return `
   <div class="fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
+    <button class="seg vd-cli" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button></div>
+    <div class="fgrp vd-cli"><span class="flbl">Avance</span>
+    <div class="segs" id="vdAvanceSegs">
+      <button class="seg on" data-av="todo">Todos</button>
+      <button class="seg" data-av="cero">Sin despacho</button>
+      <button class="seg" data-av="parcial">En proceso</button>
+      <button class="seg" data-av="completo">Completo</button>
+    </div></div>
+    <div class="fgrp"><span class="flbl">Ver por</span>
+    <div class="segs" id="vdVistaSegs">
+      <button class="seg on" data-vista="cliente">Cliente</button>
+      <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
+    </div></div>
+    </div>
+
     <div class="fbar-row fbar-temp">
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="vdTempSegs">
@@ -3442,13 +3475,6 @@ async function secVentaDespacho() {
     </div>
 
     <div class="fbar-row">
-    <div class="fgrp vd-cli"><span class="flbl">Avance</span>
-    <div class="segs" id="vdAvanceSegs">
-      <button class="seg on" data-av="todo">Todos</button>
-      <button class="seg" data-av="cero">Sin despacho</button>
-      <button class="seg" data-av="parcial">En proceso</button>
-      <button class="seg" data-av="completo">Completo</button>
-    </div></div>
     <div class="fgrp vd-cli"><span class="flbl">Producción</span>
     <div class="segs" id="vdTermSegs">
       <button class="seg on" data-tm="todo">Todos</button>
@@ -3465,39 +3491,22 @@ async function secVentaDespacho() {
       <button class="seg" data-c="corte" title="Solo los que no tienen nada: ni bodega, ni producción, ni orden emitida">Hay que cortar</button>
       <button class="seg" data-c="prog" title="Solo los que ya tienen orden de corte emitida y todavía sin cortar">Programados</button>
     </div></div>
-    </div>
-
-    <div class="fbar-row">
-    <div class="fgrp"><span class="flbl">Ver por</span>
-    <div class="segs" id="vdVistaSegs">
-      <button class="seg on" data-vista="cliente">Cliente</button>
-      <button class="seg" data-vista="articulo" title="A quién le debes cada artículo, y si hay que cortarlo">Artículo</button>
-    </div></div>
     <div class="fgrp vd-cli"><span class="flbl">Ciudad</span>
     <select id="vdCiudad" class="finput" style="width:175px"><option value="">Todas las ciudades</option></select></div>
-    <div class="fgrp"><span class="flbl">Buscar</span>
-    <input id="vdSearch" class="finput fsearch" placeholder="Cliente, ciudad o artículo…" style="width:210px">
-    <button class="seg vd-cli" id="vdMultiBtn" style="border:1px solid var(--bd2)" title="Buscar clientes que pidieron varios artículos a la vez">Varios artículos</button></div>
     </div>
   </div>
-  <div class="kpi-grid">
-    <div class="kpi sel" style="cursor:default">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-      <div><div class="kpi-val" id="vdKPed">${fmt(totalPed)}</div><div class="kpi-lbl">Pedido T${TEMP_SEL}</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-      <div><div class="kpi-val" id="vdKDesp">${fmt(totalDesp)}</div><div class="kpi-lbl">Despachado</div><div class="kpi-delta d-up" id="vdKPct">${pct}% avance</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-      <div><div class="kpi-val" id="vdKSal">${fmt(totalSal)}</div><div class="kpi-lbl">Saldo pendiente</div></div>
-    </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'vk', k: 'sal', lbl: `Saldo pendiente T${TEMP_SEL}`, val: fmt(totalSal), sub: `de ${fmt(totalPed)} pedidas · ${pct}% despachado`, color: 'var(--wa)', ver: 'Ver todos' })}
+    ${tarjetaKpi({ attr: 'vk', k: 'cero', lbl: 'Clientes sin ningún despacho', val: '—', color: 'var(--er)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'vk', k: 'caja', lbl: 'Clientes listos para salir', val: '—', color: 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'vk', k: 'term', lbl: 'Clientes con algo en terminación', val: '—', color: '#6d28d9', ver: 'Ver cuáles' })}
   </div>
+  <div class="vd-cli">${grafCard('vdGraf', '¿A quién despachar primero?', 'Los 15 clientes con más saldo de lo que se ve: en verde lo que ya está en caja, en morado lo que está en terminación y en amarillo el resto. Toca una barra para ver sus pedidos.', 420)}</div>
   <div class="tbl-card">
-    <div class="tbl-head">
-      <div class="card-ttl" style="margin:0">Clientes T${TEMP_SEL} — Mayor Saldo Pendiente · toca un cliente para ver sus pedidos</div>
-      <span class="td-dim" style="margin-left:auto" id="vdCount">${groups.length} clientes · ${pedsT.length} pedidos</span>
+    <div class="tbl-head xl-head">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Clientes T${TEMP_SEL} — Mayor Saldo Pendiente · toca un cliente para ver sus pedidos</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="vdCount">${groups.length} clientes · ${pedsT.length} pedidos</span></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -3514,6 +3523,7 @@ async function secVentaDespacho() {
         <tbody id="vdBody">${rowsHtml}</tbody>
       </table>
     </div>
+    <div class="tbl-foot">Pedido, despachado y saldo de la T${TEMP_SEL} · Avance = despachado ÷ pedido · 📦 = cajas armadas en bodega, listas para salir · 🏁 = artículos pendientes que están en Terminación · Cuenta = deuda y cupo de la ficha del cliente. Toca un cliente para ver sus pedidos y un encabezado para ordenar.</div>
   </div>
 
   <div class="tbl-card" id="vdArtCard" hidden>
@@ -3646,9 +3656,10 @@ async function secCajas() {
     </div>
   </div>
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Cajas armadas — toca una fila para ver el contenido</div>
-      <span class="td-dim" style="margin-left:auto" title="Fecha del último registro de cajas">Cajas al ${cmeta.archivo_fecha || '—'}</span>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Cajas armadas — toca una fila para ver el contenido</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" title="Fecha del último registro de cajas">Cajas al ${cmeta.archivo_fecha || '—'}</span></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -3773,12 +3784,12 @@ async function secClientes() {
     </div>
   </div>
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT} — toca un cliente para ver cuánto compró</div>
-      <span class="td-dim" style="margin-left:auto" id="clCount">${base.length} clientes</span>
-      <button class="seg" id="clExcel" style="border:1px solid var(--bd2)" title="Baja a Excel los clientes que estás viendo, con lo que compró cada uno por colección">⬇ Descargar Excel</button>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT} — toca un cliente para ver cuánto compró</div></div>
+      ${btnExcel('clExcel', 'Baja a Excel los clientes que estás viendo, con lo que compró cada uno por colección')}
+      <div class="xl-der"><span class="td-dim" id="clCount">${base.length} clientes</span>
       <button class="seg" id="clCopiar" style="border:1px solid var(--bd2)">📋 Copiar</button>
-      <button class="seg" id="clPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+      <button class="seg" id="clPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -3795,7 +3806,7 @@ async function secClientes() {
    El código de allá son los mismos 8 dígitos del artículo sin el prefijo "01",
    con la talla pegada al final, así que se puede comparar artículo por artículo. */
 async function secKennedy() {
-  const d = await load('stock_bsale.json');
+  const [d] = await Promise.all([load('stock_bsale.json'), load('pedidos.json')]);
   const ICO = '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21v-6h6v6"/>';
   const arts = (d && !Array.isArray(d) && d.por_art) || [];
   if (!arts.length) return makePH(ICO, 'Stock Kennedy', 'Sin datos de la tienda');
@@ -3827,10 +3838,11 @@ async function secKennedy() {
     const tallaRows = tallas.map(([t, q]) => `<tr class="no-click kn-talla" style="display:none;background:var(--sf2)">
         <td></td><td></td><td></td>
         <td class="td-dim" style="padding-left:26px;font-size:11px">└ Talla ${t === '00' ? 'única' : t}</td>
-        <td class="r td-dim" style="font-size:11px">${fmt(q)}</td><td></td><td></td>
+        <td class="r td-dim" style="font-size:11px">${fmt(q)}</td><td></td><td></td><td class="pl-sec"></td>
       </tr>`).join('');
     const dif = f.enAdecom === null ? null : f.cant - f.enAdecom;
-    return `<tr class="kn-row${tallas.length ? '' : ' no-click'}" data-temp="${f.temp}" data-cant="${f.cant}"
+    const pr = precioDe(f.art);
+    return `<tr class="kn-row${tallas.length ? '' : ' no-click'}" data-temp="${f.temp}" data-cant="${f.cant}" data-pr="${pr ? Math.round(pr) : ''}"
         data-ade="${f.enAdecom === null ? '' : f.enAdecom}" data-q="${f.art} ${f.modelo}"
         ${tallas.length ? 'style="cursor:pointer"' : ''}>
       <td class="td-code">${artImg(f.art)}${f.art}</td>
@@ -3840,11 +3852,24 @@ async function secKennedy() {
       <td class="r td-num">${fmt(f.cant)}</td>
       <td class="r td-num" style="color:${f.enAdecom === null ? 'var(--tx3)' : f.enAdecom < 0 ? 'var(--er)' : 'var(--tx2)'}">${f.enAdecom === null ? 'no está' : fmt(f.enAdecom)}</td>
       <td class="r td-dim">${dif === null ? '—' : (dif > 0 ? '+' : '') + fmt(dif)}</td>
+      <td class="r td-num pl-sec">${pr ? fmtCLP(Math.round(f.cant * pr)) : '—'}</td>
     </tr>${tallaRows}`;
   }).join('');
 
+  const tarjeta = (k, lbl, color, ver, val = '—', sub) => tarjetaKpi({ attr: 'kk', k, val, lbl, sub, color, ver });
+  const valorTot = filas.reduce((t, f) => { const p = precioDe(f.art); return t + (p ? f.cant * p : 0); }, 0);
   return `
   <div class="fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="knSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:210px"></div>
+    <div class="fgrp"><span class="flbl">Ver</span>
+    <div class="segs" id="knCmpSegs">
+      <button class="seg on" data-c="all">Todo <span class="db-n">${fmt(filas.length)}</span></button>
+      <button class="seg" data-c="solo" title="Está en la tienda y ADECOM no lo tiene, o lo tiene en cero o negativo">Solo en la tienda <span class="db-n">${fmt(soloAca.length)}</span></button>
+      <button class="seg" data-c="neg" title="La tienda tiene stock y ADECOM lo muestra en negativo">Explica un negativo <span class="db-n">${fmt(negAdecom.length)}</span></button>
+    </div></div>
+    </div>
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Temp</span>
     <div class="segs" id="knTempSegs">
@@ -3857,51 +3882,29 @@ async function secKennedy() {
       ${viejas.map(v => `<option value="${v.t}" title="${v.n} artículo${v.n === 1 ? '' : 's'}">T${v.t}</option>`).join('')}
     </select>` : ''}</div>
     </div>
-
-    <div class="fbar-row">
-    <div class="fgrp"><span class="flbl">Ver</span>
-    <div class="segs" id="knCmpSegs">
-      <button class="seg on" data-c="all">Todo</button>
-      <button class="seg" data-c="solo" title="Está en la tienda y ADECOM no lo tiene, o lo tiene en cero o negativo">Solo en la tienda</button>
-      <button class="seg" data-c="neg" title="La tienda tiene stock y ADECOM lo muestra en negativo">Explica un negativo</button>
-    </div></div>
-    <div class="fgrp"><span class="flbl">Buscar</span>
-    <input id="knSearch" class="finput fsearch" placeholder="Artículo o modelo…" style="width:210px"></div>
-    </div>
   </div>
-  <div class="kpi-grid">
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO}</svg></div>
-      <div><div class="kpi-val" id="knKU">${fmt(totU)}</div><div class="kpi-lbl">Prendas en Kennedy</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div><div class="kpi-val" id="knKA">${fmt(filas.length)}</div><div class="kpi-lbl">Artículos con stock</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-      <div><div class="kpi-val">${fmt(soloAca.length)}</div><div class="kpi-lbl">Solo en la tienda</div>
-        <div class="kpi-delta d-nu">${fmt(soloAca.reduce((t, f) => t + f.cant, 0))} prendas</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-      <div><div class="kpi-val">${fmt(negAdecom.length)}</div><div class="kpi-lbl">Explican un negativo de ADECOM</div>
-        <div class="kpi-delta d-nu">${fmt(negAdecom.reduce((t, f) => t + f.cant, 0))} prendas acá</div></div>
-    </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjeta('all', 'Prendas en Kennedy', 'var(--ac)', 'Ver todas', fmt(totU), `en ${fmt(filas.length)} artículos`)}
+    ${tarjeta('valor', 'Valen aproximadamente', '#047857', 'Ver las que más valen', valorTot ? '≈ ' + fmtM(valorTot) : '—', 'a precio mayorista neto, sin IVA')}
+    ${tarjeta('solo', 'Solo en la tienda', 'var(--wa)', 'Ver cuáles', fmt(soloAca.length), `${fmt(soloAca.reduce((t, f) => t + f.cant, 0))} prendas`)}
+    ${tarjeta('neg', 'Explican un negativo de ADECOM', 'var(--er)', 'Ver cuáles', fmt(negAdecom.length), `${fmt(negAdecom.reduce((t, f) => t + f.cant, 0))} prendas acá`)}
   </div>
+  ${grafCard('knGraf', '¿De qué colección es el stock de la tienda?', 'Prendas de lo que se ve, por temporada: lo de colecciones pasadas es lo primero que conviene liquidar. Toca una barra para ver solo esa temporada.', 240)}
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Stock de la tienda Kennedy — toca una fila para ver las tallas</div>
-      <span class="td-dim" style="margin-left:auto" id="knCount">${filas.length} artículos</span>
-      <span class="td-dim" style="font-size:11px">Al ${meta.fecha || '—'}</span>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Stock de la tienda Kennedy — toca una fila para ver las tallas</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="knCount">${filas.length} artículos</span>
+      <span class="td-dim" style="font-size:11px">Al ${meta.fecha || '—'}</span></div>
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr><th>Artículo</th><th>Temp</th><th>Modelo</th><th>Color</th><th class="r">Kennedy</th><th class="r" title="Lo que ADECOM tiene de ese artículo, sumando todas sus bodegas">ADECOM</th><th class="r" title="Kennedy menos lo del ERP">Dif.</th></tr></thead>
+        <thead><tr><th data-ord="t">Artículo</th><th data-ord="n">Temp</th><th>Modelo</th><th>Color</th><th class="r" data-ord="n">Kennedy</th><th class="r" data-ord="n" title="Lo que ADECOM tiene de ese artículo, sumando todas sus bodegas">ADECOM</th><th class="r" data-ord="n" title="Kennedy menos lo del ERP">Dif.</th><th class="r pl-sec" data-ord="n" title="Kennedy × el precio mayorista neto medio del artículo: sin IVA y no es el costo">Valor aprox.</th></tr></thead>
         <tbody id="knBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="knFoot">${filas.length} artículos · ${fmt(totU)} prendas</div>
     </div>
+    <div class="tbl-foot">Kennedy = lo que tiene la tienda · ADECOM = lo que figura en el ERP, sumando todas sus bodegas · Dif. = Kennedy − ADECOM · Valor aprox. = Kennedy × el precio mayorista neto medio del artículo, sin IVA (no es el costo). Toca un artículo para ver sus tallas y un encabezado para ordenar.</div>
   </div>`;
 }
 
@@ -4342,9 +4345,10 @@ async function secPVC() {
   </div>
   ${grafCard('pvcGraf', '¿Qué cortar primero? Lo que más falta', 'Los 15 artículos con más falta de lo que se ve (cambia con la temporada, los filtros y la búsqueda): en morado lo que ya está programado, hay que apurar ese corte; en rojo lo que falta programar. Toca una barra para ver a quién se le debe.', 300)}
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver a quién se le debe</div>
-      <input id="pvcSearch" class="finput fsearch" placeholder="Modelo, bota, OC o EX…" style="width:200px;margin-left:auto">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo; toca para ver a quién se le debe</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><input id="pvcSearch" class="finput fsearch" placeholder="Modelo, bota, OC o EX…" style="width:200px"></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -4407,9 +4411,10 @@ async function secER() {
     ${kpi('erKUti', '<path d="m3 17 6-6 4 4 8-8"/><polyline points="21 7 21 13 15 13"/>', uti.mes < 0 ? 'c-er' : 'c-ok', money(uti.mes), 'Resultado del ejercicio', `Operacional ${money(ope.mes)}`)}
   </div>
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0" id="erTtl">${d.titulo || 'Estado de Resultado'}</div>
-      <button class="seg" id="erPrint" style="margin-left:auto;border:1px solid var(--bd2)">🖨 Imprimir</button>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0" id="erTtl">${d.titulo || 'Estado de Resultado'}</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><button class="seg" id="erPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -4700,10 +4705,11 @@ function proyRender(ano, crec) {
   </div>
 
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">A quién venderle</div>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">A quién venderle</div>
         <div class="card-sub" style="margin:2px 0 0">${prev ? `Contra ${ant}${mismaFecha ? ' a la misma fecha' : ''}: ${seFueron.length} clientes no volvieron y ${cayeron.length} bajaron, ${pyM(perdido)} menos entre todos${cubre ? ` — ${cubre}, y son clientes que ya compraban` : ''}` : 'Sin año anterior para comparar'}</div></div>
-      <div class="segs" id="pyEstSegs">
+      ${btnExcel('pyExcel', 'Baja el plan de clientes que estás viendo')}
+      <div class="xl-der"><div class="segs" id="pyEstSegs">
         <button class="seg on" data-e="all">Todos</button>
         <button class="seg" data-e="cae">Cayeron</button>
         <button class="seg" data-e="se fue">Se fueron</button>
@@ -4711,7 +4717,7 @@ function proyRender(ano, crec) {
         <button class="seg" data-e="nuevo">Nuevos</button>
       </div>
       <input id="pyCliSearch" class="finput fsearch" placeholder="Cliente…" style="width:170px">
-      <button class="seg" id="pyExcel" style="border:1px solid var(--bd2)" title="Baja el plan de clientes que estás viendo">⬇ Excel</button>
+      </div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -5497,7 +5503,6 @@ function pintarPlan() {
   };
 
   cuerpo.innerHTML = `
-  <div style="display:flex;justify-content:flex-end;margin:0 0 10px"><button class="seg" id="planExcel" style="border:1px solid var(--bd2)" title="Baja todas las tablas del Plan a un Excel, una hoja por tema, con la estrategia del día y cuándo se vende: para trabajarlo o pasárselo a Claude o ChatGPT">⬇ Descargar Excel</button></div>
   <div class="kpi-grid">
     ${tarjeta(fmt(promedio), 'Unidades por colección', `promedio de ${sg}`, 'unidades')}
     ${tarjeta(Math.round((shareProm[0] + shareProm[1]) * 100) + '%', `Se vende en ${nomMes(0)} y ${nomMes(1)}`, `${Math.round(shareProm[0] * 100)}% en ${nomMes(0)}`, 'meses')}
@@ -5517,12 +5522,13 @@ function pintarPlan() {
   </div>
 
   <div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div><div class="card-ttl" style="margin:0">Qué cortar y qué no · lo que pasó en ${sgCorte || sg}</div>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Qué cortar y qué no · lo que pasó en ${sgCorte || sg}</div>
         <div class="card-sub" style="margin:2px 0 0">Cada modelo de las colecciones pasadas, el más vendido arriba: cuánto se cortó y cuánto se vendió. Si se cortaron 1.400 y se vendieron 1.400, se cortó bien</div></div>
-      <div class="segs" id="planLectSegs" style="margin-left:auto">${[['', 'Todos', pasados.length, ''], ['conf', 'Con confianza', cuenta(LECT.conf), 'var(--ok)'],
+      ${btnExcel('planExcel', 'Baja todas las tablas del Plan a un Excel, una hoja por tema, con la estrategia del día y cuándo se vende: para trabajarlo o pasárselo a Claude o ChatGPT')}
+      <div class="xl-der"><div class="segs" id="planLectSegs">${[['', 'Todos', pasados.length, ''], ['conf', 'Con confianza', cuenta(LECT.conf), 'var(--ok)'],
           ['cuid', 'Con cuidado', cuenta(LECT.cuid), 'var(--wa)'], ['rev', 'A revisar', cuenta(LECT.rev), 'var(--er)']]
-        .map(([k, txt, n, col]) => `<button class="seg${PLAN_LECT === k ? ' on' : ''}" data-f="${k}">${col ? `<i class="pl-dot" style="background:${col}"></i>` : ''}${txt} <span style="opacity:.7">${n}</span></button>`).join('')}</div>
+        .map(([k, txt, n, col]) => `<button class="seg${PLAN_LECT === k ? ' on' : ''}" data-f="${k}">${col ? `<i class="pl-dot" style="background:${col}"></i>` : ''}${txt} <span style="opacity:.7">${n}</span></button>`).join('')}</div></div>
     </div>
     <div class="tbl-scroll"><table>
       <thead><tr><th data-ord="t">Modelo · bota y tiro</th><th class="r" data-ord="n">Cortado</th><th class="r" data-ord="n">Vendido</th><th class="r" data-ord="n" title="De lo que se cortó, cuánto se vendió">Vendido / cortado</th><th class="pl-sec" data-ord="n" title="Ordena de la que más se vendió a la que menos">Lectura</th></tr></thead>
@@ -6082,9 +6088,9 @@ async function secReporte() {
   const avTot = R.avance.reduce((a, x) => ({ meta: a.meta + x.meta, lleva: a.lleva + x.lleva, falta: a.falta + x.falta }), { meta: 0, lleva: 0, falta: 0 });
   return `${aviso}
   <div class="tbl-card rv">
-    <div class="tbl-head" style="gap:8px"><div><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
+    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">1 · Lo que más se vendió</div>
       <div class="card-sub" style="margin:2px 0 0">Las botas en la T${TA}${R.sgC ? ` contra ${R.sgC}, los modelos que más se vendieron en esas temporadas` : ''} y lo más pedido de la T${TA}. Toca una foto para verla grande</div></div>
-      <button class="seg" id="repExcel" style="margin-left:auto;border:1px solid var(--bd2)" title="Baja el reporte completo en un Excel con 8 hojas, para analizarlo o pasárselo a una IA">⬇ Descargar Excel</button></div>
+      ${btnExcel('repExcel', 'Baja el reporte completo en un Excel con 8 hojas, para analizarlo o pasárselo a una IA')}<div class="xl-der"></div></div>
     <div class="rv-botas">${R.tendencia.map(x => `<div class="rv-bota">
       <b>${x.k}</b><div class="pl-bar" style="max-width:none;margin:0"><i style="width:${(x.act / maxB * 100).toFixed(1)}%"></i></div>
       <b class="r">${Math.round(x.act * 100)}%</b><span class="td-dim rv-antes">${x.antes == null ? '' : `antes ${Math.round(x.antes * 100)}%`}</span><span>${flecha(x)}</span></div>`).join('')}</div>
@@ -6644,9 +6650,10 @@ async function secRepPedidos() {
   <div id="rpComp">${pComparativo(hoyPs, rangoIni)}</div>
 
   <div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap">
-      <div class="card-ttl" style="margin:0" id="pTblTtl">${initLabel}</div>
-      <button class="seg" id="pedPrint" style="margin-left:auto;border:1px solid var(--bd2)">🖨 Imprimir</button>
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0" id="pTblTtl">${initLabel}</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><button class="seg" id="pedPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div>
     </div>
     <div class="tbl-scroll">
       <table>
@@ -7098,9 +7105,10 @@ async function secProgramado() {
   </div>
   ${grafCard('progGraf', '¿Qué orden apurar? Días sin cortar', 'Cada orden de lo que se ve, la más antigua arriba: en rojo más de 30 días, en amarillo más de 14. Pasa el mouse para ver cuánto se programó y cuánto se debe; tócala para ver a quién.', 300)}
   <div class="pl"><div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Órdenes de corte programadas que todavía no se cortan</div>
+    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Órdenes de corte programadas que todavía no se cortan</div>
       <div class="card-sub" style="margin:2px 0 0">La más antigua arriba. Toca una para ver a quién se le debe ese artículo, talla por talla. Son las órdenes de producción con programa y nada cortado de los últimos 180 días: las más viejas quedaron sin hacerse.</div></div>
-      <span class="td-dim" id="progCuenta" style="margin-left:auto">${fmt(filas.length)} órdenes</span></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="progCuenta">${fmt(filas.length)} órdenes</span></div></div>
     <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n" title="Días desde que se programó la orden">Programada</th><th class="r pl-sec" data-ord="n">Programado</th>
         <th data-ord="n">Se debe<span class="pl-sub">por talla</span></th><th class="r pl-sec" data-ord="n" title="Stock libre en San Gerardo + lo que ya está cortado">Hay</th>
@@ -7119,6 +7127,173 @@ async function secProgramado() {
     </table></div>
     <div class="tbl-foot">Días de la orden: en verde hasta 14, en amarillo hasta 30, en rojo más de 30. Lo programado no cuenta como "en producción" mientras no se corte. Se debe = saldo de Adecom − lo que ya está en cajas, como en Pedido vs Corte.</div>
   </div></div>`;
+}
+
+/* ── DEUDAS (Cobranza) ────────────────────────────────────────────────
+   Manu, 26-10-2026: "una sección nueva que se llame cobranza… deudas: que me muestre las deudas, el que tiene
+   más deuda, quién está bloqueado". Sale de la ficha de crédito que viene con los pedidos de cada cliente: cupo,
+   deuda en cuenta corriente, cheques por cobrar y disponible = cupo − deuda − cheques (calza en los 161 clientes
+   con cupo, 26-10). El bloqueo lo pone el ERP en la ficha y detiene todos sus pedidos: los 29 clientes con la
+   ficha bloqueada eran justo los 29 con pedidos bloqueados.
+   - La deuda es la de la cuenta corriente, vencida y por vencer: para separar lo vencido falta el saldo de cada
+     documento con su vencimiento (se le pidió a Adecom para el agente de cobranza).
+   - Solo aparecen los clientes con pedidos desde 2024; de un RUT con varias fichas, la de mayor cupo.
+   - Pedidos pendientes: solo los de los últimos 180 días. Los más viejos son saldos que ya no se van a despachar
+     (26-10: 107 de los 145 pedidos bloqueados con saldo tenían más de un año). */
+let DD_SIN_MAGIC = false;
+let DD = {};                  // clave del cliente → sus datos, para la ficha y las tarjetas
+const DD_DIAS_PED = 180;
+const DD_CUPO_ALERTA = 0.8;   // desde el 80% del cupo usado va en amarillo; sin disponible, en rojo
+const ddPago = s => {
+  const t = String(s || '').replace(/^\s*\d+\s*-\s*/, '').trim().toLowerCase()
+    .replace(/\bdias\b/g, 'días').replace(/\btransf\b/g, 'transferencia');
+  return t ? t[0].toUpperCase() + t.slice(1) : '';
+};
+const ddTx = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+function ddClientes(peds) {
+  const m = new Map();
+  for (const p of peds) {
+    if (!p.cli) continue;
+    const k = vdKey(p);
+    let c = m.get(k);
+    if (!c) m.set(k, c = { k, rut: p.rut || '', cli: p.cli, ciudad: '', vendedor: '', ult: '', magic: false, bloqPed: false, peds: [] });
+    if ((p.fecha_iso || '') >= c.ult) {   // la ficha, la ciudad y el vendedor del pedido más reciente
+      c.ult = p.fecha_iso || ''; c.cli = p.cli;
+      if (p.ciudad) c.ciudad = p.ciudad;
+      if (p.vendedor) c.vendedor = p.vendedor;
+    }
+    if (esMagic(p)) c.magic = true;
+    if (p.bloqueo) c.bloqPed = true;
+    if ((p.saldo || 0) > 0 && (p.dias || 0) <= DD_DIAS_PED) c.peds.push(p);
+  }
+  return [...m.values()].map(c => {
+    // A un cliente cortado el ERP le deja el cupo en $1 (26-10: los dos casos estaban bloqueados): es no tener cupo
+    const f = c.cli, deuda = f.deuda || 0, cheques = f.cheques || 0, cupo = (f.credito || 0) > 1 ? f.credito : 0;
+    const disp = f.disponible != null ? f.disponible : cupo - deuda - cheques;
+    const usa = Math.max(0, deuda) + cheques, uso = cupo > 0 ? usa / cupo : 0;
+    const est = !usa ? 'verde' : (!cupo || disp <= 0) ? 'rojo' : uso >= DD_CUPO_ALERTA ? 'amarillo' : 'verde';
+    const det = c.peds.filter(p => p.bloqueo);
+    return { ...c, nombre: f.razon || c.rut || '—', deuda, cheques, cupo, disp, usa, uso, est,
+      bloq: f.bloqueo_ficha === 'S' || c.bloqPed, pago: ddPago(f.fpago),
+      contacto: String(f.contacto || '').trim(), fono: String(f.fono || '').trim(),
+      nP: c.peds.length, uP: c.peds.reduce((a, p) => a + (p.saldo || 0), 0), vP: c.peds.reduce((a, p) => a + (p.valor_sal || 0), 0),
+      nDet: det.length, vDet: det.reduce((a, p) => a + (p.valor_sal || 0), 0) };
+  });
+}
+const ddFlags = c => ` ${c.deuda > 0 ? 'deuda ' : ''}${c.bloq ? 'bloq ' : ''}${c.est !== 'verde' ? 'cupo ' : ''}${c.cheques > 0 ? 'cheq ' : ''}`;
+/* Lo que dicen las cuatro tarjetas para los clientes que se ven: [valor, texto de abajo] */
+function ddResumen(cs) {
+  const deu = cs.filter(c => c.deuda > 0), tot = deu.reduce((a, c) => a + c.deuda, 0), cheq = cs.reduce((a, c) => a + c.cheques, 0);
+  const top = deu.reduce((m, c) => (!m || c.deuda > m.deuda ? c : m), null);
+  const bl = cs.filter(c => c.bloq), det = bl.reduce((a, c) => a + c.nDet, 0);
+  const cu = cs.filter(c => c.est !== 'verde'), sin = cu.filter(c => c.est === 'rojo').length;
+  const s = (n, uno, varios) => `${fmt(n)} ${n === 1 ? uno : varios}`;
+  return {
+    deuda: [fmtM(tot), `${s(deu.length, 'cliente', 'clientes')}${cheq ? ` · y ${fmtM(cheq)} en cheques por cobrar` : ''}`],
+    top: [top ? fmtM(top.deuda) : '—', top ? `${top.nombre} · ${Math.round(top.deuda / tot * 100)}% de lo que nos deben` : 'nadie debe', top ? top.k : ''],
+    bloq: [fmt(bl.length), bl.length ? `deben ${fmtM(bl.reduce((a, c) => a + Math.max(0, c.deuda), 0))}${det ? ` · ${s(det, 'pedido detenido', 'pedidos detenidos')}` : ''}` : 'ninguno'],
+    cupo: [fmt(cu.length), cu.length ? [sin ? `${fmt(sin)} sin disponible` : '', cu.length - sin ? `${fmt(cu.length - sin)} sobre el 80% del cupo` : ''].filter(Boolean).join(' · ') : 'ninguno'],
+  };
+}
+
+async function secDeudas() {
+  const ICO = '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
+  const cls = ddClientes((await load('pedidos.json')) || []);
+  if (!cls.length) return makePH(ICO, 'Deudas', 'Sin datos de crédito de los clientes');
+  cls.sort((a, b) => b.deuda - a.deuda || b.cheques - a.cheques || a.nombre.localeCompare(b.nombre, 'es'));
+  DD = Object.fromEntries(cls.map(c => [c.k, c]));
+  const ini = ddResumen(DD_SIN_MAGIC ? cls.filter(c => !c.magic) : cls);
+  const n = k => cls.filter(c => ddFlags(c).includes(` ${k} `)).length;
+  const segs = [['deuda', 'Con deuda'], ['bloq', 'Bloqueados'], ['cupo', 'Cupo casi agotado'], ['cheq', 'Con cheques'], ['', 'Todos']]
+    .map(([k, t]) => `<button class="seg${k === 'deuda' ? ' on' : ''}" data-f="${k}">${t} <span class="db-n">${k ? n(k) : cls.length}</span></button>`).join('');
+  // Las tarjetas se recalculan con la búsqueda y con o sin Magic; con los botones "Ver" no, porque son esos mismos números
+  const kpi = (k, lbl, color, ver, [val, sub], extra = '') => `<div class="kpi" data-dk="${k}" ${extra} role="button" tabindex="0" title="${ver}" id="dk-${k}" style="border-top:3px solid ${color}"><div style="min-width:0">
+      <div class="kpi-val" id="dk-${k}-val" style="color:${color}">${val}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-delta d-nu" id="dk-${k}-sub">${ddTx(sub)}</div><div class="db-k-ver">${ver} ›</div></div></div>`;
+  const barra = c => {
+    if (!c.usa) return '<span class="td-dim">—</span>';
+    if (!c.cupo) return `<b style="color:var(--er);font-size:12px">Sin cupo</b><span class="pl-sub">y debe ${fmtM(c.usa)}</span>`;
+    const pct = Math.round(c.uso * 100), clr = c.est === 'rojo' ? 'var(--er)' : c.est === 'amarillo' ? 'var(--wa)' : 'var(--ok)';
+    return `<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:44px;height:6px;border-radius:4px;background:var(--sf2);overflow:hidden">`
+      + `<i style="display:block;height:100%;width:${Math.min(100, pct)}%;background:${clr}"></i></div><b class="td-num" style="color:${clr};font-size:12px">${pct > 999 ? '+999' : pct}%</b></div>`
+      + `<span class="pl-sub">${c.disp > 0 ? `quedan ${fmtM(c.disp)}` : 'sin disponible'}</span>`;
+  };
+  const deuda = c => c.deuda > 0 ? `<b>${fmtCLP(c.deuda)}</b>`
+    : c.deuda < 0 ? `<span style="color:var(--ok)" title="Saldo a favor del cliente">${fmtCLP(-c.deuda)} a favor</span>` : '<span class="td-dim">—</span>';
+  const bloqueado = '<span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒 Bloqueado</span>';
+  return `
+  <div class="fbar">
+    <div class="fbar-row"><div class="fgrp"><span class="flbl">Buscar</span>
+      <input id="ddSearch" class="finput fsearch" placeholder="Cliente, RUT, ciudad o vendedor…" autocomplete="off" style="width:280px;max-width:100%"></div>
+      <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="ddSegs">${segs}</div></div>
+      <div class="fgrp"><span class="flbl">Magic</span><div class="segs" id="ddMagicSegs">
+        <button class="seg${DD_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta la deuda de Magic World, la tienda propia">Con Magic</button>
+        <button class="seg${DD_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin Magic World: queda lo que deben los demás clientes">Sin Magic</button></div></div></div>
+  </div>
+  <div class="kpi-grid db-kpis">
+    ${kpi('deuda', 'Nos deben', 'var(--ac)', 'Ver quiénes', ini.deuda)}
+    ${kpi('top', 'El que más debe', '#6d28d9', 'Ver su ficha', ini.top, `data-cli="${ini.top[2]}"`)}
+    ${kpi('bloq', 'Clientes bloqueados', 'var(--er)', 'Ver cuáles', ini.bloq)}
+    ${kpi('cupo', 'Con el cupo casi agotado', 'var(--wa)', 'Ver cuáles', ini.cupo)}
+  </div>
+  ${grafCard('ddGraf', '¿A quién cobrar primero?', 'Los 15 que más deben de lo que se ve: en rojo los bloqueados y en amarillo los que tienen el cupo casi agotado. Pasa el mouse para ver sus cheques y su cupo; toca una barra para ver su ficha.', 420)}
+  <div class="pl"><div class="tbl-card">
+    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Deuda por cliente</div>
+      <div class="card-sub" style="margin:2px 0 0">El que más debe arriba. Toca un cliente para ver su ficha, su cupo y sus pedidos pendientes.</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="ddCuenta">${fmt(cls.length)} clientes</span></div></div>
+    <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
+      <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Deuda en cuenta corriente, vencida y por vencer">Deuda</th>
+        <th class="r pl-sec" data-ord="n" title="Cheques recibidos que todavía no se cobran">Cheques</th><th class="r pl-sec" data-ord="n" title="Crédito que le da el ERP">Cupo</th>
+        <th data-ord="n" title="Deuda + cheques, contra su cupo">Uso del cupo</th><th class="r" data-ord="n" title="Pedidos con saldo de los últimos ${DD_DIAS_PED} días">Pedidos pendientes</th></tr></thead>
+      <tbody id="ddBody">${cls.map(c => `<tr data-k="${ddTx(c.k)}" data-q="${ddTx(rvSinTilde([c.nombre, c.rut, c.ciudad, c.vendedor, c.contacto].join(' ')))}" data-f="${ddFlags(c)}" data-mag="${c.magic ? 1 : 0}" style="cursor:pointer">
+        <td class="pl-wrap" data-v="${ddTx(c.nombre)}"><b>${ddTx(c.nombre)}</b>${c.bloq ? ' ' + bloqueado : ''}${fichasBadge(c.cli)}
+          <span class="pl-sub">${ddTx([c.ciudad, c.vendedor, c.pago].filter(Boolean).join(' · '))}</span>
+          <span class="pl-sub db-movil">${c.cupo ? `cupo ${fmtM(c.cupo)}` : 'sin cupo'}${c.cheques ? ` · cheques ${fmtM(c.cheques)}` : ''}</span></td>
+        <td class="r td-num" data-v="${c.deuda}">${deuda(c)}</td>
+        <td class="r td-num pl-sec" data-v="${c.cheques}">${c.cheques ? fmtCLP(c.cheques) : '<span class="td-dim">—</span>'}</td>
+        <td class="r td-num pl-sec" data-v="${c.cupo}">${c.cupo ? fmtCLP(c.cupo) : '<span class="td-dim">—</span>'}</td>
+        <td data-v="${c.cupo ? c.uso.toFixed(4) : c.usa ? 99 : 0}" style="min-width:110px">${barra(c)}</td>
+        <td class="r td-num" data-v="${c.vP}">${c.nP ? `${fmtCLP(c.vP)}<span class="pl-sub">${c.nP} pedido${c.nP === 1 ? '' : 's'} · ${fmt(c.uP)} prendas</span>${c.nDet ? '<span class="pl-sub" style="color:var(--er)">🔒 detenidos</span>' : ''}` : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
+        <tr id="ddNada" style="display:none"><td colspan="6" class="td-dim" style="text-align:center;padding:22px">Ningún cliente coincide</td></tr></tbody>
+    </table></div>
+    <div class="tbl-foot">La deuda es la de la cuenta corriente de cada cliente, vencida y por vencer: para separar lo vencido falta el detalle de cada factura con su vencimiento. Disponible = cupo − deuda − cheques. Uso del cupo: verde hasta el 80%, amarillo desde el 80% y rojo sin disponible. El bloqueo lo pone el ERP en la ficha del cliente y detiene sus pedidos. Pedidos pendientes: los de los últimos ${DD_DIAS_PED} días con saldo. Si un RUT tiene varias fichas, se muestra la de mayor cupo.</div>
+  </div></div>`;
+}
+
+/* La ficha de cobranza de un cliente: lo que debe, su cupo, si está bloqueado y sus pedidos pendientes */
+function ddFicha(c) {
+  const dato = (l, v, clr) => `<div><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">${l}</div>`
+    + `<div class="td-num" style="font-weight:800;font-size:16px${clr ? ';color:' + clr : ''}">${v}</div></div>`;
+  const aviso = (txt, clr, bg) => `<div style="margin:0 16px 12px;padding:9px 12px;border-radius:8px;background:${bg};color:${clr};font-size:12.5px;font-weight:600">${txt}</div>`;
+  const pl = (n, uno, varios) => `${fmt(n)} ${n === 1 ? uno : varios}`;
+  const avisos = [
+    c.bloq ? aviso(`🔒 Bloqueado en el ERP: no se le despacha.${c.nDet ? ` Tiene ${pl(c.nDet, 'pedido detenido', 'pedidos detenidos')} de los últimos ${DD_DIAS_PED} días, por ${fmtCLP(c.vDet)}.` : ''}`, 'var(--er)', 'var(--er10)') : '',
+    !c.bloq && c.est === 'rojo' ? aviso(c.cupo ? 'Sin disponible: ya usó todo su cupo.' : `No tiene cupo y debe ${fmtCLP(c.usa)}.`, 'var(--er)', 'var(--er10)') : '',
+    c.est === 'amarillo' ? aviso(`Cupo casi agotado: usa el ${Math.round(c.uso * 100)}% y le quedan ${fmtCLP(c.disp)}.`, 'var(--wa)', 'var(--wa10)') : '',
+  ].join('');
+  const ficha = [['RUT', c.rut], ['Ciudad', c.ciudad], ['Vendedor', c.vendedor], ['Forma de pago', c.pago], ['Contacto', c.contacto],
+    ['Teléfono', c.fono], ['Último pedido', c.ult ? c.ult.split('-').reverse().join('/') : '']]
+    .filter(([, v]) => v).map(([l, v]) => `<div><span class="td-dim">${l}:</span> ${ddTx(v)}</div>`).join('');
+  const f = c.cli, otras = (f.fichas || 1) > 1 ? `<div class="td-dim" style="font-size:11px;padding:0 16px 10px">Este RUT tiene ${f.fichas} fichas en el ERP (sucursales o razones sociales): se muestra la de mayor cupo.`
+    + `${f.deuda_otras ? ` En las otras hay ${fmtCLP(Math.abs(f.deuda_otras))}${f.deuda_otras < 0 ? ' a favor' : ' de deuda'}.` : ''}</div>` : '';
+  const peds = c.peds.slice().sort((a, b) => (b.dias || 0) - (a.dias || 0));
+  const tabla = peds.length ? vTabla(
+    '<th>Pedido</th><th>Fecha</th><th class="r">Días</th><th class="r">Por despachar</th><th class="r">Saldo</th><th></th>',
+    peds.map(p => `<tr><td class="td-code">${p.pedido}</td><td>${p.fecha || ''}</td><td class="r td-num">${fmt(p.dias || 0)}</td><td class="r td-num">${fmt(p.saldo || 0)}</td>`
+      + `<td class="r td-num">${fmtCLP(p.valor_sal || 0)}</td><td>${p.bloqueo ? '<span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒 Detenido</span>' : ''}</td></tr>`).join(''),
+    `${pl(peds.length, 'pedido', 'pedidos')} con saldo de los últimos ${DD_DIAS_PED} días · ${fmt(c.uP)} prendas · ${fmtCLP(c.vP)}`)
+    : `<div class="td-dim" style="padding:4px 16px 16px">No tiene pedidos pendientes de los últimos ${DD_DIAS_PED} días.</div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:14px 16px">
+      ${dato('Deuda', c.deuda < 0 ? `${fmtCLP(-c.deuda)} a favor` : fmtCLP(c.deuda), c.deuda < 0 ? 'var(--ok)' : '')}
+      ${dato('Cheques por cobrar', fmtCLP(c.cheques))}
+      ${dato('Cupo', c.cupo ? fmtCLP(c.cupo) : (c.cli.credito || 0) === 1 ? 'Sin cupo (el ERP lo dejó en $1)' : 'Sin cupo')}
+      ${dato('Disponible', fmtCLP(c.disp), c.usa && c.disp <= 0 ? 'var(--er)' : '')}</div>
+    ${avisos}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 16px;padding:0 16px 12px;font-size:12.5px">${ficha}</div>
+    ${otras}
+    <div class="card-ttl" style="padding:4px 16px 6px;margin:0">Pedidos pendientes</div>
+    ${tabla}
+    <div class="td-dim" style="font-size:11px;padding:10px 16px 14px">La deuda es la de su cuenta corriente, vencida y por vencer.</div>`;
 }
 
 /* ── QUÉ LE DEBEMOS ──────────────────────────────────────────────────
@@ -7603,10 +7778,11 @@ async function secDebemos() {
     ${grafCard('debEdad', '¿Desde cuándo les debemos?', 'Prendas que se deben según los días del pedido. Toca una barra para ver solo los clientes con pedidos de esa antigüedad.', 260)}
   </div>
   <div class="pl"><div class="tbl-card">
-    <div class="tbl-head" style="gap:8px;flex-wrap:wrap"><div><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
+    <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Clientes con algo por despachar</div>
       <div class="card-sub" style="margin:2px 0 0">Toca un cliente para ver qué le debemos talla por talla, dónde está y qué ofrecerle si no hay. Desde la T${TEMP_ACTIVA}, la colección activa: lo anterior son saldos viejos que ya no se despachan</div></div>
-      <span id="debEdadChip" class="graf-chip" style="display:none;margin-left:auto" title="Quitar el filtro"></span>
-      <span class="td-dim" style="margin-left:auto">${fmt(cl.length)} clientes${DEB_SIN_MAGIC ? ' sin Magic World' : ''} · el más antiguo arriba</span></div>
+      ${btnExcel()}
+      <div class="xl-der"><span id="debEdadChip" class="graf-chip" style="display:none" title="Quitar el filtro"></span>
+      <span class="td-dim">${fmt(cl.length)} clientes${DEB_SIN_MAGIC ? ' sin Magic World' : ''} · el más antiguo arriba</span></div></div>
     <div class="tbl-scroll"><table data-ord-col="5" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Cliente</th><th class="r" data-ord="n" title="Todo lo que falta despacharle, contando lo que ya está en cajas">Le debemos</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que ya está armado en cajas">En caja</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que todavía no está en una caja">Sin caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th></tr></thead>
       <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-ed="${debEdades(c)}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
@@ -7640,6 +7816,7 @@ const SECS = {
   'venta-despacho': () => secVentaDespacho(),
   'debemos':        () => secDebemos(),
   'programado':     () => secProgramado(),
+  'deudas':         () => secDeudas(),
   'clientes':       () => secClientes(),
   'campana':        () => secCampana(),
   'proyecciones':   () => secProy(),
@@ -7655,6 +7832,129 @@ function secPermitida(secId) {
 }
 
 let _goSeq = 0;   // si se cambia de sección mientras otra carga, solo la última pinta
+/* ── MOLDE DE LAS SECCIONES ─────────────────────────────────────────
+   Manu, 26-10-2026: "la idea es que todas las secciones estén ordenadas de la misma manera, filtros, la manera que
+   tenemos las tarjetas, etc". Cada sección va igual: filtros arriba (Buscar · Ver · Temp · lo propio de la sección),
+   cuatro tarjetas que se tocan, un gráfico que se toca y la tabla con el Excel al centro.
+   La tarjeta del molde: número grande, qué es, el detalle y "Ver … ›". La sección le pone data-{attr} y la conecta. */
+const tarjetaKpi = ({ attr, k, val, lbl, sub = '&nbsp;', color = 'var(--ac)', ver = 'Ver', extra = '', id = `${attr}-${k}` }) =>
+  `<div class="kpi" data-${attr}="${k}" ${extra} role="button" tabindex="0" title="${ver}" id="${id}" style="border-top:3px solid ${color}"><div style="min-width:0">
+      <div class="kpi-val" id="${id}-val" style="color:${color}">${val}</div><div class="kpi-lbl" id="${id}-lbl">${lbl}</div><div class="kpi-delta d-nu" id="${id}-sub">${sub}</div><div class="db-k-ver">${ver} ›</div></div></div>`;
+
+/* Precio neto por prenda de cada artículo, para el $ de las secciones (Manu, 26-10-2026: "cuánto dinero sería
+   aproximadamente"). Sale del precio de cada línea de pedido (pr, desde el build del 26-10), promediado por las prendas
+   pedidas; mientras un pedido no lo traiga, se usa el precio medio de ese pedido (valor ÷ unidades). Un artículo sin
+   pedidos toma el de su modelo (otro color). Es precio de venta sin IVA, no costo. */
+let PRECIOS = null;
+function preciosArt() {
+  const peds = CACHE['pedidos.json'] || [];
+  if (PRECIOS && PRECIOS.src === peds) return PRECIOS;
+  const art = {}, mod = {};
+  let lineas = 0, exactas = 0;
+  for (const p of peds) {
+    const medio = (p.unidades || 0) > 0 ? (p.valor || 0) / p.unidades : 0;
+    for (const l of (p.lineas || [])) {
+      const u = l.sol || 0, pr = l.pr || medio;
+      if (!u || !pr) continue;
+      lineas++; if (l.pr) exactas++;
+      for (const [m, k] of [[art, l.art], [mod, String(l.art).slice(0, 6)]]) { const a = m[k] = m[k] || { v: 0, u: 0 }; a.v += pr * u; a.u += u; }
+    }
+  }
+  const prom = m => Object.fromEntries(Object.entries(m).map(([k, a]) => [k, a.v / a.u]));
+  PRECIOS = { src: peds, art: prom(art), mod: prom(mod), exacto: lineas > 0 && exactas / lineas > 0.5 };
+  return PRECIOS;
+}
+const precioDe = art => { const P = preciosArt(), a = String(art || ''); return P.art[a] ?? P.mod[a.slice(0, 6)] ?? null; };
+
+/* Ordenar desde los encabezados una tabla cuyas filas llevan sus tallas debajo (filas hijas con la clase `hija`): cada
+   artículo se mueve con sus tallas. estado = { col, dir } (se puede cambiar desde afuera, como hace la tarjeta de valor);
+   clave(fila, columna) dice con qué se ordena. Devuelve la función que reordena. */
+function ordenConHijas(tabla, filas, hija, estado, clave) {
+  const ths = [...tabla.querySelectorAll('thead th')];
+  const iconos = () => ths.forEach((th, i) => {
+    if (!th.dataset.ord) return;
+    let s = th.querySelector('.si');
+    if (!s) { s = document.createElement('span'); s.className = 'si'; th.appendChild(s); }
+    s.textContent = estado.col === i ? (estado.dir === 1 ? ' ▲' : ' ▼') : ' ↕';
+  });
+  const ordenar = () => {
+    const tb = tabla.tBodies[0];
+    const grupos = filas.map(row => {
+      const hijos = [];
+      let s = row.nextElementSibling;
+      while (s && s.classList.contains(hija)) { hijos.push(s); s = s.nextElementSibling; }
+      return { row, hijos, k: clave(row, estado.col) };
+    });
+    grupos.sort((a, b) => (typeof a.k === 'string' ? String(a.k).localeCompare(String(b.k), 'es') : a.k - b.k) * estado.dir);
+    grupos.forEach(({ row, hijos }) => { tb.appendChild(row); hijos.forEach(x => tb.appendChild(x)); });
+    iconos();
+  };
+  ths.forEach((th, i) => {
+    if (!th.dataset.ord) return;
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      Object.assign(estado, estado.col === i ? { dir: -estado.dir } : { col: i, dir: th.dataset.ord === 'n' ? -1 : 1 });
+      ordenar();
+    });
+  });
+  return ordenar;
+}
+
+/* ── EXCEL ──────────────────────────────────────────────────────────
+   El mismo botón en todas las secciones y en el mismo lugar, al centro del encabezado de la tabla (Manu, 26-10-2026:
+   "el botón del excel igual en todas las secciones… si está al centro, que en las demás también"). Con id, la sección
+   le pone su propio Excel (con el detalle por talla, varias hojas…); sin id, baja las filas que se ven de su tabla, o
+   con todo = true las de todas las tablas de la sección, una hoja por tabla. */
+const btnExcel = (id = '', titulo = 'Baja a Excel lo que estás viendo', todo = false) =>
+  `<button class="seg xl-btn"${id ? ` id="${id}"` : ` data-xl="${todo ? 'seccion' : 'tabla'}"`} title="${titulo}">⬇ Descargar Excel</button>`;
+/* Una celda tal como se ve: si su primera línea es un número ("1.234", "$1.234", "−56") va como número; si no, el
+   texto, con lo que en pantalla va en otra línea separado por " · ". Los códigos con cero adelante (artículos,
+   pedidos, OC) quedan como texto. */
+const xlNumero = s => {
+  const m = String(s).replace(/−/g, '-').match(/^(-)?\$?\s?(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?$/);
+  if (!m || /^0\d/.test(m[2])) return null;
+  return (m[1] ? -1 : 1) * Number(m[2].replace(/\./g, '') + (m[3] ? '.' + m[3] : ''));
+};
+const xlCelda = c => {
+  const ls = String(c.innerText ?? c.textContent ?? '').split('\n').map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (!ls.length || (ls.length === 1 && /^[—–-]$/.test(ls[0]))) return '';   // "—" es que no hay nada
+  const n = xlNumero(ls[0]);
+  return n != null ? n : ls.join(' · ');
+};
+function xlFilas(t) {
+  const enc = [...(t.tHead?.rows[t.tHead.rows.length - 1]?.cells || [])].map(th => String(xlCelda(th)).replace(/\s*[↕▲▼]$/, ''));
+  const filas = [];
+  for (const tr of (t.tBodies[0]?.rows || [])) {
+    if (!tr.getClientRects().length) continue;                                                     // la esconde un filtro
+    if (tr.cells.length === 1 && enc.length > 1 && !tr.classList.contains('pl-grupo')) continue;   // "sin resultados" o un detalle abierto
+    filas.push([...tr.cells].map(xlCelda));
+  }
+  return [enc, ...filas];
+}
+function excelDeTablas(btn) {
+  if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de Excel. Revisa la conexión y vuelve a intentar.'); return; }
+  const tablas = btn.dataset.xl === 'seccion' ? [...document.querySelectorAll('#content .tbl-card table')]
+    : [btn.closest('.tbl-card')?.querySelector('table')].filter(Boolean);
+  const libro = XLSX.utils.book_new(), usados = new Set();
+  for (const t of tablas) {
+    if (!t.getClientRects().length) continue;
+    const filas = xlFilas(t);
+    if (filas.length < 2) continue;
+    const hoja = XLSX.utils.aoa_to_sheet(filas);
+    hoja['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length - 1, c: filas[0].length - 1 } }) };
+    hoja['!cols'] = filas[0].map((_, c) => ({ wch: Math.min(48, Math.max(8, ...filas.slice(0, 200).map(f => String(f[c] ?? '').length + 2))) }));
+    const base = (t.closest('.tbl-card')?.querySelector('.card-ttl')?.textContent || 'Datos').split(/ — | · /)[0].replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 28) || 'Datos';
+    let nombre = base;
+    for (let i = 2; usados.has(nombre); i++) nombre = `${base.slice(0, 25)} ${i}`;
+    usados.add(nombre);
+    XLSX.utils.book_append_sheet(libro, hoja, nombre);
+  }
+  if (!libro.SheetNames.length) { alert('No hay filas para bajar con los filtros que elegiste.'); return; }
+  const d = new Date(), titulo = (document.getElementById('hdTitle')?.textContent || 'ADECOM').trim();
+  XLSX.writeFile(libro, `${titulo} ${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}.xlsx`);
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-xl]'); if (b) excelDeTablas(b); });
+
 /* ── GRÁFICOS ───────────────────────────────────────────────── */
 /* Gráficos para decidir rápido (Manu, 23-10-2026: "gráficos en cada sección, que sean interactivos"). Chart.js se carga
    solo la primera vez que una sección lo necesita; pasar el mouse muestra el número y tocar una barra abre o filtra. */
@@ -7673,7 +7973,7 @@ const cargarChart = () => CHART_JS || (CHART_JS = new Promise((ok, mal) => {
 }));
 function cerrarGraficos() { for (const k of Object.keys(GRAFICOS)) { try { GRAFICOS[k].destroy(); } catch (e) {} delete GRAFICOS[k]; } }
 /* Barras (horizontales por defecto, apiladas si hay varias series). alTocar(i) recibe el índice de la barra tocada. */
-function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = true, sufijo = ' prendas', leyenda = true, extra = null } = {}) {
+function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = true, sufijo = ' prendas', leyenda = true, extra = null, formato = fmt, eje = fmt } = {}) {
   return cargarChart().then(Chart => {
     const cv = document.getElementById(id);
     if (!cv) return null;
@@ -7684,7 +7984,7 @@ function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = t
       return prev;
     }
     if (prev) prev.destroy();
-    const ejeV = { stacked: apiladas, grid: { color: color('--bd') }, ticks: { callback: v => fmt(v) }, beginAtZero: true };
+    const ejeV = { stacked: apiladas, grid: { color: color('--bd') }, ticks: { callback: v => eje(v) }, beginAtZero: true };
     const ejeC = { stacked: apiladas, grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } } };
     const g = new Chart(cv, {
       type: 'bar',
@@ -7694,7 +7994,7 @@ function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = t
         scales: horizontal ? { x: ejeV, y: ejeC } : { x: ejeC, y: ejeV },
         plugins: {
           legend: { display: leyenda, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}${sufijo}`, footer: items => (g.$extra && items.length ? g.$extra(items[0].dataIndex) : '') } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${formato(c.raw)}${sufijo}`, footer: items => (g.$extra && items.length ? g.$extra(items[0].dataIndex) : '') } },
         },
         onHover: (e, el) => { if (e.native && e.native.target) e.native.target.style.cursor = el.length ? 'pointer' : 'default'; },
         onClick: (e, el) => { if (el.length && g.$alTocar) g.$alTocar(el[0].index); },
@@ -7751,6 +8051,104 @@ function progGrafico(rows) {
     i => xs[i].click(),
     { apiladas: false, sufijo: ' días', leyenda: false,
       extra: i => `${fmt(+xs[i].dataset.prog)} programadas el ${xs[i].dataset.fecha}${+xs[i].dataset.sal ? ` · se deben ${fmt(+xs[i].dataset.sal)}` : ' · nadie lo espera'}` });
+}
+
+/* Stock Bodega: ¿de qué colección es el stock? Prendas de lo que se ve, por temporada; tocar una barra filtra esa
+   temporada (y tocarla de nuevo vuelve a todas). */
+function stGrafico(porTemp, sel) {
+  const card = document.getElementById('stGrafCard');
+  if (!card) return;
+  const ts = Object.keys(porTemp).filter(t => porTemp[t] > 0).sort((a, b) => +a - +b);
+  card.style.display = ts.length > 1 ? '' : 'none';
+  if (ts.length < 2) return;
+  const ac = color('--ac'), elegida = t => sel === 'all' || sel === t || (sel === 'old' && +t < 40);
+  barras('stGraf', ts.map(t => `T${t}`), [{ label: 'Prendas', data: ts.map(t => porTemp[t]), backgroundColor: ts.map(t => (elegida(t) ? ac : rgba(ac, 0.3))) }],
+    i => {
+      const t = ts[i], b = document.querySelector(`#stTempSegs .seg[data-t="${+t < 40 ? 'old' : t}"]`);
+      (b && b.classList.contains('on') ? document.querySelector('#stTempSegs .seg[data-t="all"]') : b)?.click();
+    },
+    { horizontal: false, apiladas: false, leyenda: false, sufijo: '', extra: i => `toca para ver solo la T${ts[i]}` });
+}
+
+/* Stock Kennedy: ¿de qué colección es el stock de la tienda? Como en Stock Bodega, tocar una barra filtra esa temporada
+   (las anteriores a las vivas van por "Anteriores" y su lista) y tocarla de nuevo vuelve a todas. */
+function knGrafico(porTemp, sel, vieja) {
+  const card = document.getElementById('knGrafCard');
+  if (!card) return;
+  // Una barra por cada temporada viva y una sola para todas las anteriores (la tienda guarda stock muy viejo y códigos raros)
+  const vivas = Object.keys(porTemp).filter(t => porTemp[t] > 0 && esTempViva(t)).sort((a, b) => +a - +b);
+  const viejas = Object.keys(porTemp).filter(t => porTemp[t] > 0 && !esTempViva(t));
+  const barrasT = [...(viejas.length ? [{ k: 'old', txt: 'Anteriores', u: viejas.reduce((s, t) => s + porTemp[t], 0) }] : []),
+    ...vivas.map(t => ({ k: t, txt: `T${t}`, u: porTemp[t] }))];
+  card.style.display = barrasT.length > 1 ? '' : 'none';
+  if (barrasT.length < 2) return;
+  const ac = color('--ac'), boton = t => document.querySelector(`#knTempSegs .seg[data-t="${t}"]`);
+  const elegida = x => sel === 'all' || sel === x.k;
+  barras('knGraf', barrasT.map(x => x.txt), [{ label: 'Prendas', data: barrasT.map(x => x.u), backgroundColor: barrasT.map(x => (elegida(x) ? ac : rgba(ac, 0.3))) }],
+    i => {
+      const b = boton(barrasT[i].k), todas = boton('all');
+      if (b && b.classList.contains('on') && !(barrasT[i].k === 'old' && document.getElementById('knTempOld')?.value)) { todas?.click(); return; }
+      b?.click();
+    },
+    { horizontal: false, apiladas: false, leyenda: false, sufijo: '',
+      extra: i => (barrasT[i].k === 'old' ? `${viejas.length} temporadas anteriores a la T${TEMP_PISO} · toca para verlas` : `toca para ver solo la ${barrasT[i].txt}`) });
+}
+
+/* Venta vs Despacho: las cuatro tarjetas, con los clientes que entran por búsqueda y ciudad (no con Avance, Producción ni
+   Caja, que son esos mismos números). El $ del saldo es aproximado: prendas pendientes × precio neto del artículo. */
+function vdTarjetas() {
+  if (!document.getElementById('vk-sal')) return;
+  const rs = [...document.querySelectorAll('#vdBody tr[data-nombre]')].filter(r => r.dataset.alc === '1');
+  const suma = (xs, k) => xs.reduce((t, r) => t + (parseInt(r.dataset[k]) || 0), 0);
+  const ped = suma(rs, 'ped'), desp = suma(rs, 'desp'), sal = suma(rs, 'sal');
+  let valor = 0;
+  for (const r of rs) for (const x of (r.dataset.artq || '').split(',').filter(Boolean)) {
+    const [a, , , pend] = x.split(':'), p = precioDe(a);
+    if (p) valor += (+pend || 0) * p;
+  }
+  const cero = rs.filter(r => +r.dataset.avance === 0 && +r.dataset.sal > 0), caja = rs.filter(r => +r.dataset.cajas > 0), term = rs.filter(r => +r.dataset.term > 0);
+  const poner = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  poner('vk-sal-val', fmt(sal));
+  poner('vk-sal-sub', `de ${fmt(ped)} pedidas · ${ped ? (desp / ped * 100).toFixed(1) : 0}% despachado${valor ? ` · ≈ ${fmtM(valor)}` : ''}`);
+  poner('vk-cero-val', fmt(cero.length)); poner('vk-cero-sub', `${fmt(suma(cero, 'sal'))} prendas esperan su primer despacho`);
+  poner('vk-caja-val', fmt(caja.length)); poner('vk-caja-sub', `${fmt(suma(caja, 'cajp'))} prendas en cajas armadas`);
+  poner('vk-term-val', fmt(term.length)); poner('vk-term-sub', `${fmt(suma(term, 'termu'))} prendas por llegar de terminación`);
+}
+/* Venta vs Despacho: ¿a quién despachar primero? Los 15 clientes con más saldo de lo que se ve, partido en lo que ya está
+   en caja (listo para salir), lo que está en terminación (por llegar) y el resto. Tocar una barra abre sus pedidos. */
+function vdGrafico() {
+  const card = document.getElementById('vdGrafCard');
+  if (!card) return;
+  const xs = [...document.querySelectorAll('#vdBody tr[data-nombre]')].filter(r => r.style.display !== 'none' && +r.dataset.sal > 0)
+    .sort((a, b) => +b.dataset.sal - +a.dataset.sal).slice(0, 15);
+  card.style.display = xs.length ? '' : 'none';
+  if (!xs.length) return;
+  document.getElementById('vdGrafBox').style.height = `${xs.length * 26 + 60}px`;
+  const ps = xs.map(r => { const sal = +r.dataset.sal || 0, caja = Math.min(sal, +r.dataset.cajp || 0), term = Math.min(sal - caja, +r.dataset.termu || 0); return { caja, term, resto: sal - caja - term }; });
+  barras('vdGraf', xs.map(r => { const s = r.dataset.nombre.toUpperCase(); return s.length > 26 ? s.slice(0, 25) + '…' : s; }), [
+    { label: 'En caja, listo para salir', data: ps.map(p => p.caja), backgroundColor: color('--ok') },
+    { label: 'En terminación', data: ps.map(p => p.term), backgroundColor: '#8b5cf6' },
+    { label: 'Resto del saldo', data: ps.map(p => p.resto), backgroundColor: color('--wa') },
+  ], i => xs[i].click(), { extra: i => `Saldo ${fmt(+xs[i].dataset.sal)} de ${fmt(+xs[i].dataset.ped)} pedidas · toca para ver sus pedidos` });
+}
+
+/* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
+   tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
+function ddGrafico(rows) {
+  const card = document.getElementById('ddGrafCard');
+  if (!card) return;
+  const cs = rows.map(tr => DD[tr.dataset.k]).filter(c => c && c.deuda > 0).sort((a, b) => b.deuda - a.deuda).slice(0, 15);
+  card.style.display = cs.length ? '' : 'none';
+  if (!cs.length) return;
+  document.getElementById('ddGrafBox').style.height = `${cs.length * 26 + 40}px`;
+  const clr = c => c.bloq ? color('--er') : c.est !== 'verde' ? color('--wa') : color('--ac');
+  barras('ddGraf', cs.map(c => c.nombre.length > 26 ? c.nombre.slice(0, 25) + '…' : c.nombre),
+    [{ label: 'Deuda', data: cs.map(c => c.deuda), backgroundColor: cs.map(clr) }],
+    i => rows.find(tr => tr.dataset.k === cs[i].k)?.click(),
+    { apiladas: false, sufijo: '', leyenda: false, formato: fmtCLP, eje: v => (v >= 1e6 ? `$${fmt(Math.round(v / 1e6))} M` : fmtM(v)),
+      extra: i => { const c = cs[i];
+        return [c.bloq ? '🔒 Bloqueado' : '', c.cheques ? `cheques por cobrar ${fmtCLP(c.cheques)}` : '',
+          c.cupo ? `cupo ${fmtM(c.cupo)} · usa el ${Math.min(999, Math.round(c.uso * 100))}%` : 'sin cupo'].filter(Boolean).join(' · '); } });
 }
 
 /* Qué le debemos: ¿a quién despachar o llamar primero? y ¿desde cuándo les debemos? */
@@ -8085,40 +8483,71 @@ function bindContent(secId) {
   }
 
   // Stock Bodega — filters
+  // Venta vs Despacho: cada tarjeta deja solo su filtro (los otros de "Ver" vuelven a Todos) y lleva a la tabla
+  if (secId === 'venta-despacho') {
+    document.querySelectorAll('[data-vk]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.vk;
+        document.querySelector('#vdVistaSegs .seg[data-vista="cliente"]:not(.on)')?.click();
+        for (const s of ['#vdAvanceSegs .seg[data-av="todo"]', '#vdTermSegs .seg[data-tm="todo"]', '#vdCajaSegs .seg[data-cj="todo"]'])
+          document.querySelector(s + ':not(.on)')?.click();
+        const b = { cero: '#vdAvanceSegs .seg[data-av="cero"]', caja: '#vdCajaSegs .seg[data-cj="con"]', term: '#vdTermSegs .seg[data-tm="term"]' }[k];
+        if (b) document.querySelector(b)?.click();
+        document.getElementById('vdBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
+  }
+
   if (secId === 'stock' && document.getElementById('stockBody')) {
     const SUC_NAMES_BIND = {
       '00':'Bod. S.Filomena','01':'Stock Perú','02':'Loc. Perú','04':'San Gerardo',
       '05':'Codegua','08':'Bodega 08','10':'Showroom','12':'Outlet S.Fil.','33':'Urrutia',
       '34':'Telas','35':'Insumos'
     };
+    const admin = !window._bodegaMode;   // el $ y los negativos no los ve bodega
+    const filasSt = [...document.querySelectorAll('#stockBody tr.st-row')];
+    const tablaSt = document.getElementById('stockBody').closest('table');
+    let stOrden = { col: 4, dir: -1 };   // el que más stock tiene arriba
+    const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     function applyStockFilters() {
       const suc  = document.querySelector('#stSucSegs .seg.on')?.dataset.suc  || 'all';
       const temp = document.querySelector('#stTempSegs .seg.on')?.dataset.t   || 'all';
-      const soloNeg = document.querySelector('#stNegSegs .seg.on')?.dataset.n === 'neg';
+      const modo = document.querySelector('#stNegSegs .seg.on')?.dataset.n || 'pos';
       const sucsBotones = [...document.querySelectorAll('#stSucSegs .seg[data-suc]')].map(b => b.dataset.suc).filter(x => x !== 'all');
       const bota = document.getElementById('stBotaSel')?.value || 'all';
       const q    = (document.getElementById('stSearch')?.value || '').toLowerCase().trim();
-      let vis = 0, totalU = 0;
-      document.querySelectorAll('#stockBody tr.st-row').forEach(row => {
+      // Las tarjetas y las cuentas de "Ver" van con la sucursal, la temporada, el tipo y la búsqueda; el gráfico, sin la temporada
+      const cuenta = { pos: 0, caj: 0, neg: 0 }, porTemp = {};
+      let vis = 0, prendas = 0, valor = 0, sinPrecio = 0, sinPrecioU = 0, enCajas = 0;
+      for (const row of filasSt) {
         const tempOk = temp === 'all' ? true
                      : row.dataset.temp === temp || (temp === 'old' && parseInt(row.dataset.temp) < 40);
-        const botaOk = bota === 'all' || row.dataset.bota === bota;
-        const srchOk = !q || (row.dataset.q||'').toLowerCase().includes(q);
+        const alcance = (bota === 'all' || row.dataset.bota === bota) && (!q || (row.dataset.q||'').toLowerCase().includes(q));
         // Con "Todas" + Negativo se suma SOLO la parte negativa de cada bodega: con el neto, un
         // positivo en otro local tapaba el negativo y el artículo no aparecía para corregirlo.
-        const qty = suc !== 'all'
-          ? (parseInt(row.dataset[`s${suc}`])||0)
-          : (soloNeg ? sucsBotones.reduce((a, x) => a + Math.min(0, parseInt(row.dataset[`s${x}`])||0), 0)
-                     : (parseInt(row.dataset.prendas)||0));
+        const qPos = suc !== 'all' ? (parseInt(row.dataset[`s${suc}`])||0) : (parseInt(row.dataset.prendas)||0);
+        const qNeg = suc !== 'all' ? qPos : sucsBotones.reduce((a, x) => a + Math.min(0, parseInt(row.dataset[`s${x}`])||0), 0);
         const cajQty = suc === 'all'
           ? parseInt(row.dataset.cajall)||0
           : parseInt(row.dataset[`caj${suc}`])||0;
-        const show = tempOk && botaOk && srchOk && (soloNeg ? qty < 0 : qty > 0);
+        const pr = +row.dataset.pr || 0;
+        if (alcance && qPos > 0) porTemp[row.dataset.temp] = (porTemp[row.dataset.temp] || 0) + qPos;
+        if (alcance && tempOk) {
+          if (qPos > 0) { cuenta.pos++; prendas += qPos; if (pr) valor += qPos * pr; else { sinPrecio++; sinPrecioU += qPos; } }
+          if (qPos > 0 && cajQty > 0) { cuenta.caj++; enCajas += Math.min(qPos, cajQty); }
+          if (qNeg < 0) cuenta.neg++;
+        }
+        const qty = modo === 'neg' ? qNeg : qPos;
+        const show = alcance && tempOk && (modo === 'neg' ? qNeg < 0 : modo === 'caj' ? qPos > 0 && cajQty > 0 : qPos > 0);
         row.style.display = show ? '' : 'none';
+        row.dataset.vq = qty; row.dataset.vc = cajQty; row.dataset.vv = pr && qty > 0 ? Math.round(qty * pr) : 0;
         const cells = row.cells;
         if (cells[4]) { cells[4].textContent = show ? fmt(qty) : ''; cells[4].style.color = qty < 0 ? 'var(--er)' : ''; }
         if (cells[5]) cells[5].textContent = show ? (cajQty > 0 ? fmt(cajQty) : '—') : '';
         if (cells[6]) cells[6].textContent = show ? fmt(Math.max(0, qty - cajQty)) : '';
+        if (cells[7]) cells[7].textContent = show ? (+row.dataset.vv ? fmtCLP(+row.dataset.vv) : '—') : '';
         // Tallas: recalcular según la sucursal elegida y colapsarlas (se vuelven a abrir con un click)
         let sib = row.nextElementSibling;
         while (sib && sib.classList.contains('st-talla-row')) {
@@ -8135,32 +8564,56 @@ function bindContent(secId) {
         }
         const chv = row.querySelector('.chv');
         if (chv) chv.textContent = '▸';
-        if (show) { vis++; totalU += qty; }
-      });
-      const el = id => document.getElementById(id);
+        if (show) vis++;
+      }
       const sucName = suc === 'all' ? 'todas las bodegas' : (SUC_NAMES_BIND[suc] || suc);
-      if (el('stCount'))     el('stCount').textContent     = `${vis} artículos`;
-      if (el('stTotalUnid')) el('stTotalUnid').textContent = fmt(totalU);
-      if (el('stTotalArt'))  el('stTotalArt').textContent  = fmt(vis);
-      if (el('stPromedio'))  el('stPromedio').textContent  = Math.round(totalU/Math.max(1,vis));
-      if (el('stUnidLbl'))   el('stUnidLbl').textContent   = `Prendas en ${sucName}`;
+      poner('stCount', `${fmt(vis)} artículos`);
       // Que nunca quede duda de qué bodega se está mirando
-      if (el('stTtl')) el('stTtl').textContent = suc === 'all' ? 'Artículos en todas las bodegas' : `Artículos en ${sucName}`;
-      const th = document.querySelector('#stockBody')?.closest('table')?.querySelector('thead th.r');
+      poner('stTtl', suc === 'all' ? 'Artículos en todas las bodegas' : `Artículos en ${sucName}`);
+      const th = tablaSt.querySelector('thead th.r');
       if (th) th.textContent = suc === 'all' ? 'Stock' : `Stock ${sucName}`;
-      // Re-ordenar filas de mayor a menor stock (con sus talla-rows hijas)
-      const tbody = document.getElementById('stockBody');
-      const groups = [];
-      [...tbody.querySelectorAll('tr.st-row')].forEach(row => {
-        const children = [];
-        let sib = row.nextElementSibling;
-        while (sib && sib.classList.contains('st-talla-row')) { children.push(sib); sib = sib.nextElementSibling; }
-        const qty = suc === 'all' ? (parseInt(row.dataset.prendas)||0) : (parseInt(row.dataset[`s${suc}`])||0);
-        groups.push({ row, children, qty });
-      });
-      groups.sort((a, b) => b.qty - a.qty);
-      groups.forEach(({ row, children }) => { tbody.appendChild(row); children.forEach(c => tbody.appendChild(c)); });
+      poner('sk-pos-val', fmt(prendas)); poner('sk-pos-lbl', `Prendas en ${sucName}`);
+      poner('sk-pos-sub', `en ${fmt(cuenta.pos)} artículo${cuenta.pos === 1 ? '' : 's'} · ${fmt(Math.round(prendas / Math.max(1, cuenta.pos)))} por artículo`);
+      poner('sk-valor-val', valor ? '≈ ' + fmtM(valor) : '—');
+      poner('sk-valor-sub', valor ? `a precio de venta neto, sin IVA${sinPrecio ? ` · ${fmt(sinPrecioU)} prendas sin precio` : ''}` : 'sin precios todavía');
+      poner('sk-caj-val', fmt(enCajas));
+      poner('sk-caj-sub', cuenta.caj ? `prendas en cajas, de ${fmt(cuenta.caj)} artículo${cuenta.caj === 1 ? '' : 's'}` : 'ninguna en cajas');
+      poner('sk-neg-val', fmt(cuenta.neg)); poner('sk-neg-sub', cuenta.neg ? 'hay que corregirlos en el ERP' : 'ninguno');
+      const cn = document.getElementById('sk-neg');
+      if (cn) { const clr = cuenta.neg ? 'var(--er)' : 'var(--ok)'; cn.style.borderTopColor = clr; document.getElementById('sk-neg-val').style.color = clr; }
+      document.querySelectorAll('#stNegSegs .seg').forEach(b => { const el = b.querySelector('.db-n'); if (el) el.textContent = fmt(cuenta[b.dataset.n] || 0); });
+      ordenarSt();
+      stGrafico(porTemp, temp);
     }
+    // Ordenar desde los encabezados, con las tallas pegadas a su artículo
+    const ths = [...tablaSt.querySelectorAll('thead th')];
+    const iconos = () => ths.forEach((th, i) => {
+      if (!th.dataset.ord) return;
+      let s = th.querySelector('.si');
+      if (!s) { s = document.createElement('span'); s.className = 'si'; th.appendChild(s); }
+      s.textContent = stOrden.col === i ? (stOrden.dir === 1 ? ' ▲' : ' ▼') : ' ↕';
+    });
+    function ordenarSt() {
+      const tbody = document.getElementById('stockBody');
+      const clave = row => ({ 0: row.dataset.q, 1: +row.dataset.temp, 5: +row.dataset.vc, 6: (+row.dataset.vq) - (+row.dataset.vc), 7: +row.dataset.vv })[stOrden.col] ?? +row.dataset.vq;
+      const grupos = filasSt.map(row => {
+        const hijos = [];
+        let s = row.nextElementSibling;
+        while (s && s.classList.contains('st-talla-row')) { hijos.push(s); s = s.nextElementSibling; }
+        return { row, hijos, k: clave(row) };
+      });
+      grupos.sort((a, b) => (typeof a.k === 'string' ? String(a.k).localeCompare(String(b.k), 'es') : a.k - b.k) * stOrden.dir);
+      grupos.forEach(({ row, hijos }) => { tbody.appendChild(row); hijos.forEach(h => tbody.appendChild(h)); });
+      iconos();
+    }
+    ths.forEach((th, i) => {
+      if (!th.dataset.ord) return;
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', () => {
+        stOrden = stOrden.col === i ? { col: i, dir: -stOrden.dir } : { col: i, dir: th.dataset.ord === 'n' ? -1 : 1 };
+        ordenarSt();
+      });
+    });
     document.querySelectorAll('#stSucSegs .seg').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#stSucSegs .seg').forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyStockFilters();
@@ -8171,6 +8624,17 @@ function bindContent(secId) {
     })));
     document.getElementById('stBotaSel')?.addEventListener('change', applyStockFilters);
     document.getElementById('stSearch')?.addEventListener('input', applyStockFilters);
+    // Tocar una tarjeta: filtra con los mismos botones de "Ver" (o, la del valor, ordena por valor) y lleva a la tabla
+    document.querySelectorAll('[data-sk]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.sk;
+        if (k === 'valor') { document.querySelector('#stNegSegs .seg[data-n="pos"]')?.click(); stOrden = { col: 7, dir: -1 }; ordenarSt(); }
+        else document.querySelector(`#stNegSegs .seg[data-n="${k}"]`)?.click();
+        tablaSt.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
     // Expandir/colapsar tallas al hacer click en fila
     document.querySelectorAll('#stockBody tr.st-row:not(.no-click)').forEach(row => {
       row.addEventListener('click', () => {
@@ -8193,8 +8657,7 @@ function bindContent(secId) {
       });
     });
     applyStockFilters();
-    // Descarga lo que está en pantalla, respetando sucursal, temporada, tipo y búsqueda.
-    // Va como CSV con punto y coma: Excel en Chile lo abre en columnas sin preguntar nada.
+    // Baja lo que está en pantalla, respetando sucursal, temporada, tipo, búsqueda y orden, con el detalle por talla
     document.getElementById('stExcel')?.addEventListener('click', () => {
       const suc = document.querySelector('#stSucSegs .seg.on')?.dataset.suc || 'all';
       const sucName = (suc === 'all' ? 'Todas las bodegas' : (SUC_NAMES_BIND[suc] || suc))
@@ -8216,7 +8679,7 @@ function bindContent(secId) {
       const cols = [...tallas].sort((a, b) => +a - +b);
 
       const enc = ['Artículo', 'Temporada', 'Modelo', 'Color', 'Bota', 'Stock', 'En cajas', 'Disponible',
-                   ...cols.map(t => 'Talla ' + t)];
+                   ...(admin ? ['Valor aprox. (neto)'] : []), ...cols.map(t => 'Talla ' + t)];
       const datos = [enc];
 
       for (const r of filas) {
@@ -8244,13 +8707,14 @@ function bindContent(secId) {
           { v: +((c[3].textContent || '').replace(/[▸▾]/g, '').trim()) || 0, t: 'n', z: '00' },
           r.dataset.bota || '',
           stock, cajas, stock - cajas,
+          ...(admin ? [stock > 0 && +r.dataset.pr ? Math.round(stock * +r.dataset.pr) : ''] : []),
           ...cols.map(t => porTalla[t] ?? 0),
         ]);
       }
 
       const hoja = XLSX.utils.aoa_to_sheet(datos);
       hoja['!cols'] = [{ wch: 11 }, { wch: 10 }, { wch: 8 }, { wch: 7 }, { wch: 11 },
-                       { wch: 8 }, { wch: 9 }, { wch: 11 }, ...cols.map(() => ({ wch: 8 }))];
+                       { wch: 8 }, { wch: 9 }, { wch: 11 }, ...(admin ? [{ wch: 16 }] : []), ...cols.map(() => ({ wch: 8 }))];
       hoja['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: datos.length - 1, c: enc.length - 1 } }) };
       hoja['!freeze'] = { xSplit: 0, ySplit: 1 };
       const libro = XLSX.utils.book_new();
@@ -8259,16 +8723,6 @@ function bindContent(secId) {
       const fecha = `${String(hoy.getDate()).padStart(2,'0')}-${String(hoy.getMonth()+1).padStart(2,'0')}-${hoy.getFullYear()}`;
       XLSX.writeFile(libro, `Stock ${sucName} ${fecha}.xlsx`);
     });
-
-    if (window._bodegaMode) {
-      // Bodega entra viendo todas las sucursales. Lo que no ve es el stock negativo:
-      // es un dato a corregir en el ERP, no mercadería despachable.
-      document.querySelector('#stNegSegs .seg[data-n="pos"]')?.classList.add('on');
-      document.querySelector('#stNegSegs .seg[data-n="neg"]')?.classList.remove('on');
-      const negFbar = document.getElementById('stNegSegs')?.closest('.fbar');
-      if (negFbar) negFbar.style.display = 'none';
-      applyStockFilters();
-    }
   }
 
   // Venta vs Despacho — filters + sort
@@ -8319,6 +8773,7 @@ function bindContent(secId) {
         const textoOk = !texto || row.dataset.nombre.includes(texto) || (row.dataset.ciudades || row.dataset.ciudad || '').includes(texto);
         const qOk = !q || (esArt ? (allHit && textoOk) : textoOk);
         const ok = avOk && tmOk && cjOk && qOk && ciuOk;
+        row.dataset.alc = qOk && ciuOk ? '1' : '';   // para las tarjetas, que no cambian con Avance, Producción ni Caja
         row.style.display = ok ? '' : 'none';
         // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
         const hit = row.querySelector('.vd-arthit');
@@ -8366,6 +8821,7 @@ function bindContent(secId) {
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
       set('vdKPed', fmt(kPed)); set('vdKDesp', fmt(kDesp)); set('vdKSal', fmt(kSal));
       set('vdKPct', `${kPed ? (kDesp / kPed * 100).toFixed(1) : 0}% avance`);
+      vdTarjetas(); vdGrafico();
       const el = document.getElementById('vdCount');
       if (el) {
         const tot = `${fmt(artSol)} pedidas · ${fmt(artDesp)} despachadas · ${fmt(artSal)} pendientes`;
@@ -9118,6 +9574,70 @@ function bindContent(secId) {
   }
 
   // Programado sin cortar: buscar, filtrar, ordenar por los encabezados y tocar una orden para ver a quién se le debe
+  // Deudas: buscador, filtros y tarjetas; las tarjetas cambian con la búsqueda y con o sin Magic
+  if (secId === 'deudas') {
+    const tabla = document.getElementById('ddBody')?.closest('table');
+    if (tabla) planOrdenable(tabla);
+    const filas = [...document.querySelectorAll('#ddBody tr[data-k]')];
+    let fVer = document.querySelector('#ddSegs .seg.on')?.dataset.f ?? 'deuda';
+    const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const tarjetas = rs => {
+      const r = ddResumen(rs.map(tr => DD[tr.dataset.k]));
+      for (const k of ['deuda', 'top', 'bloq', 'cupo']) { poner(`dk-${k}-val`, r[k][0]); poner(`dk-${k}-sub`, r[k][1]); }
+      const ct = document.getElementById('dk-top');
+      if (ct) ct.dataset.cli = r.top[2];
+      document.querySelectorAll('#ddSegs .seg').forEach(b => { const k = b.dataset.f, el = b.querySelector('.db-n');
+        if (el) el.textContent = k ? rs.filter(tr => tr.dataset.f.includes(` ${k} `)).length : rs.length; });
+    };
+    const filtrar = () => {
+      const q = rvSinTilde((document.getElementById('ddSearch')?.value || '').trim().toLowerCase());
+      const enAlcance = filas.filter(tr => (!DD_SIN_MAGIC || tr.dataset.mag !== '1') && (!q || tr.dataset.q.includes(q)));
+      const visibles = new Set(enAlcance.filter(tr => !fVer || tr.dataset.f.includes(` ${fVer} `)));
+      filas.forEach(tr => { tr.style.display = visibles.has(tr) ? '' : 'none'; });
+      document.getElementById('ddNada').style.display = visibles.size ? 'none' : '';
+      poner('ddCuenta', visibles.size === filas.length ? `${fmt(filas.length)} clientes` : `${fmt(visibles.size)} de ${fmt(filas.length)} clientes`);
+      tarjetas(enAlcance);
+      ddGrafico(filas.filter(tr => visibles.has(tr)));
+      return visibles.size;
+    };
+    const abrir = tr => {
+      const c = tr && DD[tr.dataset.k];
+      if (!c) return;
+      document.getElementById('vkOvTtl').textContent = c.nombre;
+      document.getElementById('vkOvBody').innerHTML = ddFicha(c);
+      document.getElementById('vkOv').classList.add('open');
+    };
+    const inp = document.getElementById('ddSearch');
+    inp?.addEventListener('input', filtrar);
+    // Enter con un solo cliente a la vista: se abre su ficha
+    inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
+    document.querySelectorAll('#ddSegs .seg').forEach(b => b.addEventListener('click', () => {
+      fVer = b.dataset.f;
+      document.querySelectorAll('#ddSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      filtrar();
+    }));
+    document.querySelectorAll('#ddMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
+      DD_SIN_MAGIC = b.dataset.mg === 'sin';
+      document.querySelectorAll('#ddMagicSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      filtrar();
+    }));
+    // Tocar una tarjeta: "El que más debe" abre su ficha; las otras filtran la lista y llevan a ella
+    document.querySelectorAll('[data-dk]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.dk;
+        if (k === 'top') { abrir(filas.find(tr => tr.dataset.k === card.dataset.cli)); return; }
+        document.querySelector(`#ddSegs .seg[data-f="${k}"]`)?.click();
+        document.getElementById('ddBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
+    filas.forEach(tr => tr.addEventListener('click', () => abrir(tr)));
+    document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
+    document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+    filtrar();
+  }
+
   if (secId === 'programado') {
     const tabla = document.getElementById('progBody')?.closest('table');
     if (tabla) planOrdenable(tabla);
@@ -9358,32 +9878,56 @@ function bindContent(secId) {
 
   // Stock Kennedy
   if (secId === 'kennedy' && document.getElementById('knBody')) {
+    const filasKn = [...document.querySelectorAll('#knBody tr.kn-row')];
+    const tablaKn = document.getElementById('knBody').closest('table');
+    const ordKn = { col: 4, dir: -1 };   // lo que más tiene la tienda arriba
+    const sinAde = row => row.dataset.ade === '';
+    const ordenarKn = ordenConHijas(tablaKn, filasKn, 'kn-talla', ordKn, (row, col) => ({
+      0: row.dataset.q, 1: +row.dataset.temp, 5: sinAde(row) ? -1e9 : +row.dataset.ade,
+      6: sinAde(row) ? -1e9 : (+row.dataset.cant) - (+row.dataset.ade), 7: (+row.dataset.cant) * (+row.dataset.pr || 0) })[col] ?? +row.dataset.cant);
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     function applyKn() {
       const t = document.querySelector('#knTempSegs .seg.on')?.dataset.t || 'all';
       const c = document.querySelector('#knCmpSegs .seg.on')?.dataset.c || 'all';
       const q = (document.getElementById('knSearch')?.value || '').trim().toLowerCase();
-      let vis = 0, uds = 0;
-      document.querySelectorAll('#knBody tr.kn-row').forEach(row => {
-        const ade = row.dataset.ade === '' ? null : (parseInt(row.dataset.ade) || 0);
-        const vieja = document.getElementById('knTempOld')?.value || '';
+      const vieja = document.getElementById('knTempOld')?.value || '';
+      // Las tarjetas y las cuentas de "Ver" van con la temporada y la búsqueda; el gráfico, solo con la búsqueda
+      const cuenta = { all: 0, solo: 0, neg: 0 }, uds = { all: 0, solo: 0, neg: 0 }, porTemp = {};
+      let vis = 0, udsVis = 0, valor = 0, sinPrecio = 0;
+      for (const row of filasKn) {
+        const ade = sinAde(row) ? null : (parseInt(row.dataset.ade) || 0);
+        const cant = parseInt(row.dataset.cant) || 0;
         const okT = t === 'all' ? true
           : t === 'old' ? (vieja ? row.dataset.temp === vieja
                                  : !esTempViva(row.dataset.temp))
           : row.dataset.temp === t;
-        const okC = c === 'all' || (c === 'solo' ? (ade === null || ade <= 0) : (ade !== null && ade < 0));
         const okQ = !q || (row.dataset.q || '').includes(q);
-        const ok = okT && okC && okQ;
+        const solo = ade === null || ade <= 0, neg = ade !== null && ade < 0;
+        if (okQ) porTemp[row.dataset.temp] = (porTemp[row.dataset.temp] || 0) + cant;
+        if (okQ && okT) {
+          cuenta.all++; uds.all += cant; valor += cant * (+row.dataset.pr || 0); if (!+row.dataset.pr) sinPrecio += cant;
+          if (solo) { cuenta.solo++; uds.solo += cant; }
+          if (neg) { cuenta.neg++; uds.neg += cant; }
+        }
+        const ok = okT && okQ && (c === 'all' || (c === 'solo' ? solo : neg));
         row.style.display = ok ? '' : 'none';
         // Al filtrar se repliegan las tallas, si no quedan sueltas bajo otra fila
         let sib = row.nextElementSibling;
         while (sib && sib.classList.contains('kn-talla')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
         const chv = row.querySelector('.chv'); if (chv) chv.textContent = '▸';
-        if (ok) { vis++; uds += parseInt(row.dataset.cant) || 0; }
-      });
-      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-      set('knKU', fmt(uds)); set('knKA', fmt(vis));
-      set('knCount', `${vis} artículos`);
-      set('knFoot', `${vis} artículos · ${fmt(uds)} prendas`);
+        if (ok) { vis++; udsVis += cant; }
+      }
+      set('knCount', `${fmt(vis)} artículos`);
+      set('knFoot', `${fmt(vis)} artículos · ${fmt(udsVis)} prendas`);
+      set('kk-all-val', fmt(uds.all));
+      set('kk-all-sub', `en ${fmt(cuenta.all)} artículo${cuenta.all === 1 ? '' : 's'} · ${fmt(Math.round(uds.all / Math.max(1, cuenta.all)))} por artículo`);
+      set('kk-valor-val', valor ? '≈ ' + fmtM(valor) : '—');
+      set('kk-valor-sub', `a precio mayorista neto, sin IVA${sinPrecio ? ` · ${fmt(sinPrecio)} prendas sin precio` : ''}`);
+      set('kk-solo-val', fmt(cuenta.solo)); set('kk-solo-sub', `${fmt(uds.solo)} prendas`);
+      set('kk-neg-val', fmt(cuenta.neg)); set('kk-neg-sub', `${fmt(uds.neg)} prendas acá`);
+      document.querySelectorAll('#knCmpSegs .seg').forEach(b => { const el = b.querySelector('.db-n'); if (el) el.textContent = fmt(cuenta[b.dataset.c] || 0); });
+      ordenarKn();
+      knGrafico(porTemp, t, vieja);
     }
     ['knTempSegs', 'knCmpSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
@@ -9398,7 +9942,18 @@ function bindContent(secId) {
     })));
     document.getElementById('knTempOld')?.addEventListener('change', applyKn);
     document.getElementById('knSearch')?.addEventListener('input', applyKn);
-    document.querySelectorAll('#knBody tr.kn-row:not(.no-click)').forEach(row => row.addEventListener('click', () => {
+    // Tocar una tarjeta: filtra con los mismos botones de "Ver" (o, la del valor, ordena por valor) y lleva a la tabla
+    document.querySelectorAll('[data-kk]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.kk;
+        if (k === 'valor') { document.querySelector('#knCmpSegs .seg[data-c="all"]')?.click(); Object.assign(ordKn, { col: 7, dir: -1 }); ordenarKn(); }
+        else document.querySelector(`#knCmpSegs .seg[data-c="${k}"]`)?.click();
+        tablaKn.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
+    filasKn.filter(row => !row.classList.contains('no-click')).forEach(row => row.addEventListener('click', () => {
       let open = false, sib = row.nextElementSibling;
       while (sib && sib.classList.contains('kn-talla')) { if (sib.style.display !== 'none') open = true; sib = sib.nextElementSibling; }
       sib = row.nextElementSibling;
