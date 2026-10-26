@@ -1958,6 +1958,10 @@ async function secTabla() {
   return `
   <div class="fbar">
     <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+      <input id="tblArtSearch" class="finput fsearch" placeholder="Artículo…" style="width:130px">
+      <input id="tblOcSearch"  class="finput fsearch" placeholder="OC…" style="width:110px">
+    </div>
     <div class="fgrp"><span class="flbl">Etapa</span>
       <select id="tblEtapa" class="finput">
         <option value="todo">Todas las etapas</option>
@@ -1989,16 +1993,19 @@ async function secTabla() {
       <div class="fgrp"><span class="flbl">Muestra</span>
       <div id="tblMSegs" style="display:flex;flex-wrap:wrap;gap:4px;padding:2px 0"></div></div>
     </div>
-    <div class="fgrp"><span class="flbl">Buscar</span>
-      <input id="tblArtSearch" class="finput fsearch" placeholder="Artículo…" style="width:130px">
-      <input id="tblOcSearch"  class="finput fsearch" placeholder="OC…" style="width:110px">
-    </div>
     </div>
     ${nMal ? `<div class="fbar-row"><div class="fgrp"><span class="flbl">Revisar</span><div class="segs" id="tblRevSegs">
       <button class="seg on" data-rv="">Todas</button>
       <button class="seg" data-rv="mal" title="Órdenes con el correlativo mal ingresado: un solo 0 adelante en vez de 00">⚠ Correlativo mal (${nMal})</button>
     </div></div></div>` : ''}
   </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'tk', k: 'proc', lbl: 'Prendas en producción', val: '—', color: 'var(--ac)', ver: 'Ver todas' })}
+    ${tarjetaKpi({ attr: 'tk', k: 'final', lbl: 'En la recta final', val: '—', color: 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tk', k: 'sinmov', lbl: 'Órdenes sin movimiento', val: '—', color: 'var(--wa)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tk', k: 'mal', lbl: 'Correlativo mal ingresado', val: fmt(nMal), color: nMal ? 'var(--er)' : 'var(--ok)', ver: 'Ver cuáles' })}
+  </div>
+  ${grafCard('trzGraf', '¿Dónde está la producción?', 'Las prendas detenidas en cada etapa, de lo que se ve. Toca una etapa para ver sus órdenes (y otra vez para ver todas).', 240)}
   ${nMal ? `<div class="corr-aviso" id="tblCorrAviso" role="button" tabindex="0" title="Ver solo esas órdenes">⚠ <b>${nMal} órdenes con el correlativo mal ingresado</b>: empiezan con un solo 0 (como 09614509) y el correcto empieza con 00 (como 00961564). Hay que corregirlas en el ERP. <b>Ver cuáles ›</b></div>` : ''}
   <div class="tbl-card">
     <div class="tbl-head xl-head">
@@ -8359,6 +8366,38 @@ function erGrafico(col) {
     extra: i => { const k = xs[i][0], ing = Math.abs(v('01')); return `${!gasto(k) && v(k) < 0 ? 'pérdida · ' : ''}${ing && k !== '01' ? (Math.abs(v(k)) / ing * 100).toFixed(1) + '% de los ingresos · ' : ''}toca para ver sus cuentas`; } });
 }
 
+/* Trazabilidad: las tarjetas y ¿dónde está la producción?, con lo que entra por temporada, tipo y búsqueda (no por Etapa
+   ni Revisar, que son lo que filtran las tarjetas). nums sigue el orden de NUM: las etapas van de 4 a 9. */
+const TRZ_ETAPAS = [['Corte', 4], ['Costura', 5], ['T.Externo', 6], ['Limpiado', 7], ['Lavandería', 8], ['Terminación', 9]];
+function trzMolde(alc, etapa, final) {
+  const poner = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  // En producción = lo detenido en alguna etapa (calza con el gráfico); "proceso" del ERP suma también órdenes viejas
+  const enEtapas = f => f.nums[4] + f.nums[5] + f.nums[6] + f.nums[7] + f.nums[8] + f.nums[9];
+  const enProc = alc.filter(f => enEtapas(f) > 0), uProc = enProc.reduce((a, f) => a + enEtapas(f), 0);
+  const uFinal = alc.reduce((a, f) => a + f.nums[8] + f.nums[9], 0), nFinal = alc.filter(f => final.has(f.etapa)).length;
+  const sinMov = alc.filter(f => f.etapa === 'Sin movimiento').length, mal = new Set(alc.filter(f => f.mal).map(f => f.oc)).size;
+  poner('tk-proc-val', fmt(uProc)); poner('tk-proc-sub', `en ${fmt(enProc.length)} órden${enProc.length === 1 ? '' : 'es'}`);
+  poner('tk-final-val', fmt(uFinal)); poner('tk-final-sub', `en lavandería y terminación · ${fmt(nFinal)} órden${nFinal === 1 ? '' : 'es'}`);
+  poner('tk-sinmov-val', fmt(sinMov)); poner('tk-sinmov-sub', sinMov ? 'no han pasado por ninguna etapa' : 'ninguna');
+  poner('tk-mal-val', fmt(mal)); poner('tk-mal-sub', mal ? 'un solo 0 adelante: hay que corregirlos en el ERP' : 'ninguno');
+  const cm = document.getElementById('tk-mal');
+  if (cm) { const c = mal ? 'var(--er)' : 'var(--ok)'; cm.style.borderTopColor = c; document.getElementById('tk-mal-val').style.color = c; }
+  const card = document.getElementById('trzGrafCard');
+  if (!card) return;
+  const tot = TRZ_ETAPAS.map(([, i]) => alc.reduce((a, f) => a + f.nums[i], 0));
+  card.style.display = tot.some(Boolean) ? '' : 'none';
+  if (!tot.some(Boolean)) return;
+  const ac = color('--ac'), elegida = n => etapa === 'todo' || etapa === n || (etapa === 'final' && final.has(n));
+  barras('trzGraf', TRZ_ETAPAS.map(e => e[0]), [{ label: 'Prendas detenidas', data: tot, backgroundColor: TRZ_ETAPAS.map(([n]) => (elegida(n) ? ac : rgba(ac, 0.3))) }],
+    i => {
+      const sel = document.getElementById('tblEtapa');
+      if (!sel) return;
+      sel.value = sel.value === TRZ_ETAPAS[i][0] ? 'todo' : TRZ_ETAPAS[i][0];
+      sel.dispatchEvent(new Event('change'));
+    },
+    { horizontal: false, apiladas: false, leyenda: false, extra: () => 'toca para ver esas órdenes' });
+}
+
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
    tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
 function ddGrafico(rows) {
@@ -8612,7 +8651,7 @@ function bindContent(secId) {
       const rv    = document.querySelector('#tblRevSegs .seg.on')?.dataset.rv || '';   // "mal": solo el correlativo mal ingresado
       const artNum = /^\d{4,}$/.test(art);
       const tots = new Array(NUM.length).fill(0);
-      const pasan = [];
+      const pasan = [], alc = [];   // alc: lo que entra sin contar Etapa ni Revisar, para las tarjetas y el gráfico
       for (const f of FILAS) {
         const tipoOk = tipo === 'todo'
           || (tipo === 'muestras' && f.tipo === 'muestras' && (selMs.size === 0 || selMs.has(f.m)))
@@ -8625,8 +8664,10 @@ function bindContent(secId) {
           (!oc  || f.oc.includes(oc)) &&
           (!rv  || f.mal);
         if (show) { pasan.push(f); for (let i = 0; i < NUM.length; i++) tots[i] += f.nums[i]; }
+        if (tipoOk && (temp === 'todo' || f.temp === temp) && (!art || (artNum ? (artMatch(f.art8, art) || f.art.startsWith(art)) : f.art.includes(art))) && (!oc || f.oc.includes(oc))) alc.push(f);
       }
       pintarFilas(pasan);
+      trzMolde(alc, etapa, TBL_FINAL);
       const countEl = document.getElementById('tblCount');
       if (countEl) countEl.textContent = `${pasan.length} de ${FILAS.length} OC`;
       totEls.forEach((el, i) => { if (el) el.textContent = fmt(tots[i]); });
@@ -8649,6 +8690,21 @@ function bindContent(secId) {
       printTable({ table: document.getElementById('tablaBody')?.closest('table'), title: 'Trazabilidad', subtitle: parts.join(' · ') });
     });
     document.getElementById('tblEtapa')?.addEventListener('change', applyTablaFilters);
+    // Tocar una tarjeta: pone su etapa (o "Revisar") con los mismos filtros de arriba y lleva a la tabla
+    document.querySelectorAll('[data-tk]').forEach(card => {
+      const ir = () => {
+        const k = card.dataset.tk, sel = document.getElementById('tblEtapa');
+        if (k === 'mal') document.querySelector('#tblRevSegs .seg[data-rv="mal"]')?.click();
+        else if (sel) {
+          document.querySelector('#tblRevSegs .seg[data-rv=""]:not(.on)')?.click();
+          sel.value = { proc: 'todo', final: 'final', sinmov: 'Sin movimiento' }[k] || 'todo';
+          sel.dispatchEvent(new Event('change'));
+        }
+        document.getElementById('tablaBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
     document.getElementById('tblArtSearch')?.addEventListener('input', filtrarConPausa);
     document.getElementById('tblOcSearch')?.addEventListener('input', filtrarConPausa);
     document.getElementById('tblTempSel')?.addEventListener('change', applyTablaFilters);
@@ -8722,6 +8778,7 @@ function bindContent(secId) {
       th.style.userSelect = 'none';
       th.onclick = () => applyTablaSort(th.dataset.col);
     });
+    trzMolde(FILAS, 'todo', TBL_FINAL);   // las tarjetas y el gráfico al abrir, sin repintar la tabla
   }
 
   // Stock Bodega — filters
