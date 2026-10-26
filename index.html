@@ -3902,41 +3902,33 @@ async function secClientes() {
   const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
   <div class="fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Buscar</span>
+    <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
+    <div class="fgrp"><span class="flbl">Motivo</span>
+    <div class="segs" id="clMotSegs">
+      <button class="seg on" data-m="all">Todos <span class="db-n">${fmt(base.length)}</span></button>
+      <button class="seg" data-m="bloq" title="Tienen el pedido bloqueado">🔒 Bloqueados <span class="db-n"></span></button>
+      <button class="seg" data-m="nobloq" title="No están bloqueados: se les puede vender hoy">No bloqueados <span class="db-n"></span></button>
+      <button class="seg" data-m="deuda" title="Deben algo, estén bloqueados o no">Con deuda <span class="db-n"></span></button>
+      ${base.some(c => c.sinCupo) ? '<button class="seg" data-m="cupo" title="Tienen crédito pero ya no les queda cupo">Sin cupo <span class="db-n"></span></button>' : ''}
+    </div></div>
+    </div>
+    <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Última colección comprada</span>
     <div class="segs" id="clUltSegs">
       <button class="seg on" data-u="all">Todas</button>
       ${ultimas.map(t => `<button class="seg" data-u="${t}">T${t}</button>`).join('')}
     </div></div>
-    <div class="fgrp"><span class="flbl">Motivo</span>
-    <div class="segs" id="clMotSegs">
-      <button class="seg on" data-m="all">Todos</button>
-      <button class="seg" data-m="bloq" title="Tienen el pedido bloqueado">🔒 Bloqueados</button>
-      <button class="seg" data-m="nobloq" title="No están bloqueados: se les puede vender hoy">No bloqueados</button>
-      <button class="seg" data-m="deuda" title="Deben algo, estén bloqueados o no">Con deuda</button>
-      ${base.some(c => c.sinCupo) ? '<button class="seg" data-m="cupo" title="Tienen crédito pero ya no les queda cupo">Sin cupo</button>' : ''}
-    </div></div>
-    <div class="fgrp"><span class="flbl">Buscar</span>
-    <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
-  </div>
-  <div class="kpi-grid">
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-er"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
-      <div><div class="kpi-val" id="clKCount">${base.length}</div><div class="kpi-lbl">Clientes sin comprar en T${CL_ACT}</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div><div class="kpi-val" id="clKUds">${fmt(base.reduce((s,c)=>s+c.unidades,0))}</div><div class="kpi-lbl">Unidades que compraban (T40–T43)</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-ac"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-      <div><div class="kpi-val" id="clKProm">${base.length ? fmt(Math.round(base.reduce((s,c)=>s+c.unidades,0)/base.length)) : 0}</div><div class="kpi-lbl">Promedio por cliente</div></div>
-    </div>
-    <div class="kpi" style="cursor:default">
-      <div class="kpi-ico c-wa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-      <div><div class="kpi-val" id="clKDeuda" style="font-size:20px">${fmtM(base.reduce((s,c)=>s+c.deuda,0))}</div><div class="kpi-lbl">Deuda de estos clientes</div>
-        <div class="kpi-delta d-nu" id="clKFrenados">${base.filter(c=>c.motivo!=='sin motivo visible').length} con algo que los frena</div></div>
     </div>
   </div>
+  <div class="kpi-grid db-kpis">
+    ${tarjetaKpi({ attr: 'clk', k: 'all', lbl: `Clientes sin comprar en T${CL_ACT}`, val: fmt(base.length), sub: `compraban ${fmt(base.reduce((s, c) => s + c.unidades, 0))} unidades en T40–T43`, color: 'var(--ac)', ver: 'Ver todos' })}
+    ${tarjetaKpi({ attr: 'clk', k: 'nobloq', lbl: 'Se les puede vender hoy', val: fmt(base.filter(c => c.motivo !== 'bloqueado').length), sub: 'no están bloqueados', color: 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'clk', k: 'bloq', lbl: 'Bloqueados', val: fmt(base.filter(c => c.motivo === 'bloqueado').length), color: 'var(--er)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'clk', k: 'deuda', lbl: 'Deuda de estos clientes', val: fmtM(base.reduce((s, c) => s + c.deuda, 0)), color: 'var(--wa)', ver: 'Ver los que deben' })}
+  </div>
+  ${grafCard('clGraf', '¿A quién llamar primero?', 'Los 15 que más compraban de lo que se ve: en verde a los que se les puede vender hoy, en amarillo los que deben y en rojo los bloqueados. Toca una barra para ver cuánto compró.', 420)}
   <div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px">
       <div class="xl-izq"><div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT} — toca un cliente para ver cuánto compró</div></div>
@@ -3952,6 +3944,7 @@ async function secClientes() {
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
     </div>
+    <div class="tbl-foot">Clientes que compraron en alguna de las T40–T43 y todavía no en la T${CL_ACT}. Motivo: lo que los frena según su ficha (bloqueo, cupo o deuda). Toca un cliente para ver cuánto compró por colección y un encabezado para ordenar.</div>
   </div>`;
 }
 
@@ -8291,6 +8284,22 @@ function vdGrafico() {
   ], i => xs[i].click(), { extra: i => `Saldo ${fmt(+xs[i].dataset.sal)} de ${fmt(+xs[i].dataset.ped)} pedidas · toca para ver sus pedidos` });
 }
 
+/* Clientes Inactivos: ¿a quién llamar primero? Los 15 que más compraban de lo que se ve: en verde a los que se les puede
+   vender hoy, en amarillo los que deben, en rojo los bloqueados. Tocar una barra abre lo que compró. */
+function clGrafico(rows) {
+  const card = document.getElementById('clGrafCard');
+  if (!card) return;
+  const xs = rows.slice().sort((a, b) => (+b.dataset.u || 0) - (+a.dataset.u || 0)).slice(0, 15);
+  card.style.display = xs.length ? '' : 'none';
+  if (!xs.length) return;
+  document.getElementById('clGrafBox').style.height = `${xs.length * 26 + 40}px`;
+  const clr = r => (r.dataset.motivo === 'bloqueado' ? color('--er') : (+r.dataset.deuda || 0) > 0 ? color('--wa') : color('--ok'));
+  const nom = r => { const s = (r.dataset.nombre || '').toUpperCase(); return s.length > 26 ? s.slice(0, 25) + '…' : s; };
+  barras('clGraf', xs.map(nom), [{ label: 'Unidades que compraba', data: xs.map(r => +r.dataset.u || 0), backgroundColor: xs.map(clr) }],
+    i => xs[i].click(), { apiladas: false, leyenda: false, sufijo: ' unidades',
+      extra: i => { const r = xs[i]; return [r.dataset.ciudadtxt, r.dataset.motivo === 'bloqueado' ? '🔒 bloqueado' : '', +r.dataset.deuda ? `debe ${fmtM(+r.dataset.deuda)}` : ''].filter(Boolean).join(' · '); } });
+}
+
 /* Deudas: ¿a quién cobrar primero? Los 15 que más deben de lo que se ve, en rojo los bloqueados y en amarillo los que
    tienen el cupo casi agotado. Tocar una barra abre la ficha del cliente. */
 function ddGrafico(rows) {
@@ -10563,12 +10572,36 @@ function bindContent(secId) {
       if (el('clKDeuda')) el('clKDeuda').textContent = fmtM(deuda);
       if (el('clKFrenados')) el('clKFrenados').textContent = `${frenados} con algo que los frena`;
       if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades · ${fmtM(deuda)} de deuda`;
+      // Las tarjetas y las cuentas de Motivo van con la búsqueda y la colección, no con Motivo (son esos mismos números)
+      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) &&
+        (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
+      const conM = m => alc.filter(r => pasaMotivo(r, m));
+      const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
+      const libres = conM('nobloq'), bloq = conM('bloq'), conDeuda = conM('deuda');
+      const poner = (id, v) => { const e = el(id); if (e) e.textContent = v; };
+      poner('clk-all-val', fmt(alc.length));
+      poner('clk-all-sub', `compraban ${fmt(sumU(alc))} unidades en T40–T43 · ${fmt(alc.length ? Math.round(sumU(alc) / alc.length) : 0)} por cliente`);
+      poner('clk-nobloq-val', fmt(libres.length)); poner('clk-nobloq-sub', `no están bloqueados · compraban ${fmt(sumU(libres))} unidades`);
+      poner('clk-bloq-val', fmt(bloq.length)); poner('clk-bloq-sub', bloq.length ? `deben ${fmtM(sumD(bloq))}` : 'ninguno');
+      poner('clk-deuda-val', fmtM(sumD(alc)));
+      poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda · ${fmt(alc.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
+      document.querySelectorAll('#clMotSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(conM(b.dataset.m).length); });
+      clGrafico(filasVisibles());
     }
     document.getElementById('clSearch')?.addEventListener('input', applyClFilters);
     ['clUltSegs', 'clMotSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyClFilters();
     })));
+    // Tocar una tarjeta: filtra con los mismos botones de Motivo y lleva a la tabla
+    document.querySelectorAll('[data-clk]').forEach(card => {
+      const ir = () => {
+        document.querySelector(`#clMotSegs .seg[data-m="${card.dataset.clk}"]`)?.click();
+        document.getElementById('clBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      card.addEventListener('click', ir);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
 
     // Orden por las columnas de numeros. Entra ordenado por unidades de mayor a menor:
     // arriba quedan los que mas compraban y dejaron de comprar.
