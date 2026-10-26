@@ -55,6 +55,12 @@ html,body{overflow-x:hidden;max-width:100%}
 .logo-sub{font-size:11px;color:var(--tx2);margin-top:1px}
 .sb-nav{padding:10px 10px 6px;flex:1;display:flex;flex-direction:column;gap:1px}
 .sb-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:14px 8px 5px}
+.sb-grp.plegable{cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-radius:var(--rsm);user-select:none}
+.sb-grp.plegable:hover{color:var(--tx1);background:var(--sf2)}
+.sb-grp.activo{color:var(--ac)}
+.sb-flecha{font-size:11px;display:inline-block;transition:transform .15s}
+.sb-grp.abierto .sb-flecha{transform:rotate(90deg)}
+.nav-item.menu-cerrado{display:none}
 /* Selector de vista arriba del menú: Ambos · San Gerardo · Kennedy. Lo que esconde va con su propia clase,
    para no pisar lo que esconde el rol de bodega (que escribe display:none en el elemento) */
 .sb-vista{margin:4px 2px 2px}
@@ -8788,6 +8794,44 @@ function debGraficos(visibles, paraEdad, edadSel, abrir, tocarEdad) {
 }
 
 /* Ir a una sección con un filtro puesto: tocar = el selector de un botón suyo, o una función */
+/* Menú plegable (Manu, 26-10-2026: "se ven demasiadas cosas"): cada grupo con más de una sección se abre al tocar su
+   título; el grupo de la sección abierta queda siempre desplegado y, aparte, el último que se tocó. Los grupos de una
+   sola sección (Inicio, Cobranza, Finanzas) se ven siempre. La vista Ambos / San Gerardo / Kennedy sigue mandando qué
+   secciones existen (vista-oculta); esto solo pliega. */
+let MENU_ABIERTO = null;   // el grupo que se desplegó a mano, además del de la sección activa
+const menuGrupos = () => {
+  const gs = [];
+  for (const el of document.querySelectorAll('.sb-nav > *')) {
+    if (el.classList.contains('sb-grp')) gs.push({ el, nombre: el.dataset.grp || el.textContent.trim(), items: [] });
+    else if (el.classList.contains('nav-item') && gs.length) gs[gs.length - 1].items.push(el);
+  }
+  return gs;
+};
+function menuActualizar() {
+  for (const g of menuGrupos()) {
+    const plegable = g.items.length > 1, activo = g.items.some(b => b.classList.contains('active'));
+    const abierto = !plegable || activo || MENU_ABIERTO === g.nombre;
+    g.el.classList.toggle('plegable', plegable);
+    g.el.classList.toggle('abierto', abierto);
+    g.el.classList.toggle('activo', activo);
+    g.items.forEach(b => b.classList.toggle('menu-cerrado', !abierto));
+  }
+}
+function menuPlegable() {
+  for (const g of menuGrupos()) {
+    g.el.dataset.grp = g.nombre;
+    if (g.items.length <= 1) continue;
+    g.el.innerHTML = `<span>${g.nombre}</span><span class="sb-flecha" aria-hidden="true">▸</span>`;
+    g.el.setAttribute('role', 'button'); g.el.tabIndex = 0;
+    g.el.title = `Mostrar u ocultar las secciones de ${g.nombre}`;
+    const toca = () => { MENU_ABIERTO = MENU_ABIERTO === g.nombre ? null : g.nombre; menuActualizar(); };
+    g.el.addEventListener('click', toca);
+    g.el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toca(); } });
+  }
+  menuActualizar();
+}
+menuPlegable();
+
 let IR_TOCAR = null;
 function irA(sec, ttl, tocar) { IR_TOCAR = sec ? { sec, tocar: tocar || null } : null; go(sec, ttl); }
 
@@ -8798,6 +8842,7 @@ async function go(secId, title) {
   document.getElementById('hdTitle').textContent = title;
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
+  menuActualizar();   // el grupo de la sección abierta se despliega
   /* Si una sección falla al armarse, se dice y se ofrece reintentar. Antes el error quedaba sin atrapar y la
      página se quedaba en "Cargando…" para siempre: así pasó con Stock Kennedy el 22-10-2026, cuando su entrada
      se borró por error de esta lista al sacar "Para ofrecer". */
