@@ -8202,6 +8202,20 @@ function barras(id, labels, datasets, alTocar, { horizontal = true, apiladas = t
 const grafCard = (id, titulo, sub, alto) => `<div class="graf-card" id="${id}Card">
     <div class="graf-head"><div class="card-ttl" style="margin:0">${titulo}</div><div class="card-sub" style="margin:2px 0 0">${sub}</div></div>
     <div class="graf-box" id="${id}Box" style="height:${alto}px"><canvas id="${id}"></canvas></div></div>`;
+/* Un solo día a la vista (Hoy, o un día elegido): una barra sola no dice nada, así que se muestran los 14 días hasta ese,
+   con ese día marcado. todos = la lista completa (con la sucursal ya elegida); fe = cómo se lee la fecha de cada uno. */
+function grafDias(vistos, todos, fe) {
+  const dias = [...new Set(vistos.map(fe).filter(Boolean))];
+  if (dias.length !== 1) return { xs: vistos, marca: null };
+  const marca = dias[0], d0 = new Date(marca + 'T12:00:00');
+  d0.setDate(d0.getDate() - 13);
+  const desde = ymd(d0);
+  return { xs: todos.filter(x => { const f = fe(x); return f && f >= desde && f <= marca; }), marca };
+}
+const grafSub = (card, marca, normal, toca) => {
+  const s = card.querySelector('.card-sub');
+  if (s) s.textContent = marca ? `Los 14 días hasta el ${marca.slice(8, 10)}/${marca.slice(5, 7)}, para compararlo: ese día va en azul fuerte. ${toca}` : `${normal} ${toca}`;
+};
 
 /* Pedido vs Corte: ¿qué cortar primero? Los 15 artículos con más falta de lo que se ve (temporada, filtros y búsqueda),
    cada barra partida en lo ya programado (apurar el corte) y lo que falta programar. Tocar una barra abre el artículo. */
@@ -8340,9 +8354,11 @@ function clGrafico(rows) {
 
 /* Reporte Venta: ¿cómo va la venta? La venta neta de cada día del período elegido (de cada mes, si son más de dos
    meses); en rojo un día que cerró bajo cero por notas de crédito. Tocar una barra filtra ese día o ese mes. */
-function rvGrafico(docs) {
+function rvGrafico(vistos) {
   const card = document.getElementById('rvGrafCard');
   if (!card) return;
+  const { xs: docs, marca } = grafDias(vistos, docsVenta(), d => d.fecha_iso);
+  grafSub(card, marca, 'La venta neta de cada día del período elegido (de cada mes, si es más de dos meses).', 'Toca una barra para ver sus documentos.');
   const dias = [...new Set(docs.map(d => d.fecha_iso).filter(Boolean))];
   const porMes = dias.length > 62, MESES_C = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   const suma = {};
@@ -8351,7 +8367,8 @@ function rvGrafico(docs) {
   card.style.display = ks.length > 1 ? '' : 'none';
   if (ks.length < 2) return;
   const etiqueta = k => (porMes ? MESES_C[+k.slice(5, 7)] : `${k.slice(8, 10)}/${k.slice(5, 7)}`);
-  barras('rvGraf', ks.map(etiqueta), [{ label: 'Venta neta', data: ks.map(k => suma[k]), backgroundColor: ks.map(k => (suma[k] < 0 ? color('--er') : color('--ac'))) }],
+  barras('rvGraf', ks.map(etiqueta), [{ label: 'Venta neta', data: ks.map(k => suma[k]),
+    backgroundColor: ks.map(k => (suma[k] < 0 ? color('--er') : marca && k !== marca ? rgba(color('--ac'), 0.35) : color('--ac'))) }],
     i => {
       const el = document.getElementById(porMes ? 'ventaMes' : 'ventaFecha');
       if (el) { el.value = ks[i]; el.dispatchEvent(new Event('change')); }
@@ -8362,9 +8379,11 @@ function rvGrafico(docs) {
 
 /* Reporte Pedidos: ¿cómo van los pedidos? El valor pedido de cada día del período elegido (de cada mes, si son más de
    dos meses). Tocar una barra filtra ese día o ese mes. */
-function pdGrafico(ps) {
+function pdGrafico(vistos) {
   const card = document.getElementById('pdGrafCard');
   if (!card) return;
+  const { xs: ps, marca } = grafDias(vistos, PEDIDOS, p => p.fecha_iso);
+  grafSub(card, marca, 'El valor pedido de cada día del período elegido (de cada mes, si es más de dos meses).', 'Toca una barra para ver sus pedidos.');
   const dias = [...new Set(ps.map(p => p.fecha_iso).filter(Boolean))];
   const porMes = dias.length > 62, MESES_C = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   const suma = {};
@@ -8373,7 +8392,8 @@ function pdGrafico(ps) {
   card.style.display = ks.length > 1 ? '' : 'none';
   if (ks.length < 2) return;
   const etiqueta = k => (porMes ? MESES_C[+k.slice(5, 7)] : `${k.slice(8, 10)}/${k.slice(5, 7)}`);
-  barras('pdGraf', ks.map(etiqueta), [{ label: 'Valor pedido', data: ks.map(k => suma[k]), backgroundColor: color('--ac') }],
+  barras('pdGraf', ks.map(etiqueta), [{ label: 'Valor pedido', data: ks.map(k => suma[k]),
+    backgroundColor: ks.map(k => (marca && k !== marca ? rgba(color('--ac'), 0.35) : color('--ac'))) }],
     i => {
       const el = document.getElementById(porMes ? 'pedMes' : 'pedFecha');
       if (el) { el.value = ks[i]; el.dispatchEvent(new Event('change')); }
@@ -8490,9 +8510,12 @@ function dcMolde() {
 
 /* Venta Kennedy: ¿cómo va la venta de la tienda? La venta neta de cada día del período (de cada mes, si son más de dos
    meses); en rojo un día que cerró bajo cero por devoluciones. Tocar una barra filtra ese día o ese mes. */
-function kenGrafico(docs) {
+function kenGrafico(vistos) {
   const card = document.getElementById('kenGrafCard');
   if (!card) return;
+  const suc = document.getElementById('kenSuc')?.value || 'all';
+  const { xs: docs, marca } = grafDias(vistos, KEN.docs.filter(d => suc === 'all' || d.suc === suc), d => d.fecha);
+  grafSub(card, marca, 'La venta neta de cada día del período elegido (de cada mes, si es más de dos meses).', 'Toca una barra para ver sus documentos.');
   const dias = [...new Set(docs.map(d => d.fecha).filter(Boolean))];
   const porMes = dias.length > 62, MESES_C = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   const suma = {};
@@ -8501,7 +8524,8 @@ function kenGrafico(docs) {
   card.style.display = ks.length > 1 ? '' : 'none';
   if (ks.length < 2) return;
   barras('kenGraf', ks.map(k => (porMes ? MESES_C[+k.slice(5, 7)] : `${k.slice(8, 10)}/${k.slice(5, 7)}`)),
-    [{ label: 'Venta neta', data: ks.map(k => suma[k]), backgroundColor: ks.map(k => (suma[k] < 0 ? color('--er') : color('--ac'))) }],
+    [{ label: 'Venta neta', data: ks.map(k => suma[k]),
+      backgroundColor: ks.map(k => (suma[k] < 0 ? color('--er') : marca && k !== marca ? rgba(color('--ac'), 0.35) : color('--ac'))) }],
     i => {
       const el = document.getElementById(porMes ? 'kenMes' : 'kenDia');
       if (el) { el.value = ks[i]; el.dispatchEvent(new Event('change')); }
@@ -9701,6 +9725,10 @@ function bindContent(secId) {
       document.getElementById(btn)?.addEventListener('click', () => document.getElementById(ov).classList.remove('open'));
       document.getElementById(ov)?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     });
+    /* Al abrir, las tarjetas y el gráfico con todos los clientes. Antes se pintaban recién al tocar un filtro: la sección
+       abría con tres tarjetas en "—" y el gráfico en blanco (Manu, 26-10-2026) */
+    document.querySelectorAll('#vdBody tr[data-nombre]').forEach(r => { r.dataset.alc = '1'; });
+    vdTarjetas(); vdGrafico();
   }
 
   // Cajas en Bodega — filtros + expandir contenido
@@ -10834,6 +10862,7 @@ function bindContent(secId) {
                    title: 'Reporte Pedidos',
                    subtitle: document.getElementById('pTblTtl')?.textContent || '' });
     });
+    pdGrafico(PED_FILTRADO);   // al abrir: antes se dibujaba recién al tocar un período y abría en blanco
   }
 
   // Proyecciones — al cambiar el año o la meta se rehace todo el cuerpo
@@ -11382,6 +11411,7 @@ function bindContent(secId) {
       const label = `Documentos de ${nombres[parseInt(mes.split('-')[1])]} ${mes.split('-')[0]}`;
       applyVentaFilter(filtered, label);
     });
+    rvGrafico(VENTA_FILTRADO);   // al abrir: antes se dibujaba recién al tocar un período y abría en blanco
   }
 }
 
