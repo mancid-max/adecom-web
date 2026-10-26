@@ -7432,6 +7432,7 @@ async function secProgramado() {
    - Pedidos pendientes: solo los de los últimos 180 días. Los más viejos son saldos que ya no se van a despachar
      (26-10: 107 de los 145 pedidos bloqueados con saldo tenían más de un año). */
 let DD_GRUPO = 'todos';       // todos · grandes · otros: como separa Gislaine su informe de vencimientos
+let DD_SIN_MAGIC = false;     // sin Magic World, la tienda propia: queda lo que deben los demás (Manu lo pidió de vuelta, 26-10)
 let DD = {};                  // clave del cliente → sus datos, para la ficha y las tarjetas
 const DD_DIAS_PED = 180;
 const DD_CUPO_ALERTA = 0.8;   // desde el 80% del cupo usado va en amarillo; sin disponible, en rojo
@@ -7535,7 +7536,7 @@ async function secDeudas() {
   if (!cls.length) return makePH(ICO, 'Deudas', 'Sin datos de crédito de los clientes');
   cls.sort((a, b) => b.venc - a.venc || b.deuda - a.deuda || b.cheques - a.cheques || a.nombre.localeCompare(b.nombre, 'es'));
   DD = Object.fromEntries(cls.map(c => [c.k, c]));
-  const ini = ddResumen(cls.filter(c => ddEnGrupo(c)));
+  const ini = ddResumen(cls.filter(c => ddEnGrupo(c) && !(DD_SIN_MAGIC && c.magic)));
   const n = k => cls.filter(c => ddFlags(c).includes(` ${k} `)).length;
   const segs = [['venc', 'Con deuda vencida'], ['v90', 'Más de 90 días'], ['aldia', 'Al día'], ['deuda', 'Con deuda'], ['bloq', 'Bloqueados'], ['cupo', 'Cupo casi agotado'], ['cheq', 'Con cheques'], ['', 'Todos']]
     .map(([k, t]) => `<button class="seg${k === 'venc' ? ' on' : ''}" data-f="${k}">${t} <span class="db-n">${k ? n(k) : cls.length}</span></button>`).join('');
@@ -7562,6 +7563,9 @@ async function secDeudas() {
       <input id="ddSearch" class="finput fsearch" placeholder="Cliente, RUT, ciudad o vendedor…" autocomplete="off" style="width:280px;max-width:100%"></div>
       <div class="fgrp"><span class="flbl">Ver</span><div class="segs" id="ddSegs" style="flex-wrap:wrap">${segs}</div></div></div>
     <div class="fbar-row"><div class="fgrp"><span class="flbl">Clientes</span><div class="segs" id="ddGrupoSegs">${grupos}</div></div>
+      <div class="fgrp"><span class="flbl">Magic</span><div class="segs" id="ddMagicSegs">
+        <button class="seg${DD_SIN_MAGIC ? '' : ' on'}" data-mg="con" title="Cuenta la deuda de Magic World, la tienda propia">Con Magic</button>
+        <button class="seg${DD_SIN_MAGIC ? ' on' : ''}" data-mg="sin" title="Sin Magic World: queda lo que deben los demás clientes">Sin Magic</button></div></div>
       <div class="fgrp"><span class="flbl">Vendedor</span>${selVend}</div></div>
   </div>
   <div class="kpi-grid db-kpis">
@@ -7586,7 +7590,7 @@ async function secDeudas() {
         <th class="r" data-ord="n" title="Todo lo vencido">Vencido</th>
         <th class="r" data-ord="n" title="Deuda en cuenta corriente: vencida y por vencer">Total</th>
         <th class="r pl-sec" data-ord="n" title="Pedidos con saldo de los últimos ${DD_DIAS_PED} días">Pendientes</th></tr></thead>
-      <tbody id="ddBody">${cls.map(c => `<tr data-k="${ddTx(c.k)}" data-q="${ddTx(rvSinTilde([c.nombre, c.rut, c.ciudad, c.vendedor, c.contacto].join(' ')))}" data-f="${ddFlags(c)}" data-g="${c.grande ? 1 : 0}" data-vend="${ddTx(c.vendedor)}" style="cursor:pointer">
+      <tbody id="ddBody">${cls.map(c => `<tr data-k="${ddTx(c.k)}" data-q="${ddTx(rvSinTilde([c.nombre, c.rut, c.ciudad, c.vendedor, c.contacto].join(' ')))}" data-f="${ddFlags(c)}" data-g="${c.grande ? 1 : 0}" data-mag="${c.magic ? 1 : 0}" data-vend="${ddTx(c.vendedor)}" style="cursor:pointer">
         <td class="pl-wrap" data-v="${ddTx(c.nombre)}"><b>${ddTx(c.nombre)}</b> ${estado(c)}${c.bloq ? ' ' + bloqueado : ''}${fichasBadge(c.cli)}
           <span class="pl-sub">${ddTx([c.ciudad, c.vendedor, c.pago].filter(Boolean).join(' · '))}</span>
           ${cupoTxt(c) ? `<span class="pl-sub">${cupoTxt(c)}</span>` : ''}</td>
@@ -10277,7 +10281,7 @@ function bindContent(secId) {
       const q = rvSinTilde((document.getElementById('ddSearch')?.value || '').trim().toLowerCase());
       const vend = document.getElementById('ddVend')?.value || '';
       const enAlcance = filas.filter(tr => (DD_GRUPO === 'todos' || tr.dataset.g === (DD_GRUPO === 'grandes' ? '1' : '0'))
-        && (!vend || tr.dataset.vend === vend) && (!q || tr.dataset.q.includes(q)));
+        && (!DD_SIN_MAGIC || tr.dataset.mag !== '1') && (!vend || tr.dataset.vend === vend) && (!q || tr.dataset.q.includes(q)));
       const visibles = new Set(enAlcance.filter(tr => !fVer || tr.dataset.f.includes(` ${fVer} `)));
       filas.forEach(tr => { tr.style.display = visibles.has(tr) ? '' : 'none'; });
       document.getElementById('ddNada').style.display = visibles.size ? 'none' : '';
@@ -10305,6 +10309,11 @@ function bindContent(secId) {
     document.querySelectorAll('#ddGrupoSegs .seg').forEach(b => b.addEventListener('click', () => {
       DD_GRUPO = b.dataset.g;
       document.querySelectorAll('#ddGrupoSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      filtrar();
+    }));
+    document.querySelectorAll('#ddMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
+      DD_SIN_MAGIC = b.dataset.mg === 'sin';
+      document.querySelectorAll('#ddMagicSegs .seg').forEach(x => x.classList.toggle('on', x === b));
       filtrar();
     }));
     document.getElementById('ddVend')?.addEventListener('change', filtrar);
