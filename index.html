@@ -4346,6 +4346,10 @@ async function cvFetch(q = '', body = null) {
   if (!r.ok) j.ok = false;
   return j;
 }
+/* logos de los canales (27-10, Manu: "¿se podría ver con logo de WhatsApp, Insta?") */
+const cvIcono = (canal, t = 14) => canal === 'instagram'
+  ? `<svg class="cv-ico" width="${t}" height="${t}" viewBox="0 0 24 24" aria-label="Instagram"><defs><linearGradient id="cvIg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f9a825"/><stop offset=".45" stop-color="#e1306c"/><stop offset="1" stop-color="#833ab4"/></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="6" fill="url(#cvIg)"/><circle cx="12" cy="12" r="4.3" fill="none" stroke="#fff" stroke-width="2"/><circle cx="17.4" cy="6.6" r="1.3" fill="#fff"/></svg>`
+  : `<svg class="cv-ico" width="${t}" height="${t}" viewBox="0 0 24 24" aria-label="WhatsApp"><path fill="#25d366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>`;
 const cvTag = k => { const x = CV_MOT[k]; return x ? `<span class="cv-tag" style="background:var(${x[2]});color:var(${x[1]})">${x[0]}</span>` : ''; };
 
 async function secConversaciones() {
@@ -4369,10 +4373,10 @@ async function secConversaciones() {
     ].filter(Boolean).join(' ') || `<span class="td-dim" style="font-size:11.5px">La atiende ${cvEsc(c.agente)}</span>`;
     return `<div class="cv-row cv-g-${g}" role="button" tabindex="0" data-id="${cvEsc(c.id)}" data-g="${g}" data-m="${cvEsc((c.motivos || []).join(' '))}" data-ag="${cvEsc(c.agente)}" data-canal="${cvEsc(c.canal)}"
         data-q="${cvEsc(`${c.nombre} ${c.agente} ${(u && u.texto) || ''} ${c.caso ? c.caso.numero : ''}`.toLowerCase())}">
-      <div class="cv-av" style="background:${COLOR_AG[c.agente] || 'var(--tx3)'}">${cvEsc((c.nombre || '?').trim().charAt(0).toUpperCase())}</div>
+      <div class="cv-av" style="background:${COLOR_AG[c.agente] || 'var(--tx3)'}">${cvEsc((c.nombre || '?').trim().charAt(0).toUpperCase())}<span class="cv-av-canal">${cvIcono(c.canal, 15)}</span></div>
       <div class="cv-cuerpo">
         <div class="cv-l1"><b>${cvEsc(c.nombre)}</b><span class="cv-hace" title="${cvEsc(cvHora(c.actividad))}">${cvHace(c.actividad)}</span></div>
-        <div class="cv-l2">${c.canal === 'instagram' ? 'Instagram' : 'WhatsApp'} · ${cvEsc(c.agente)}${c.etapa ? ' · ' + cvEsc(c.etapa) : ''}</div>
+        <div class="cv-l2">${cvIcono(c.canal, 12)} ${c.canal === 'instagram' ? 'Instagram' : 'WhatsApp'} · ${cvEsc(c.agente)}${c.etapa ? ' · ' + cvEsc(c.etapa) : ''}</div>
         ${u && u.texto ? `<div class="cv-ult"><span>${u.de === 'clienta' ? 'Ella' : 'Agente'}:</span> ${cvEsc(u.texto)}</div>` : ''}
         <div class="cv-marcas">${marcas}</div>
       </div>
@@ -4387,7 +4391,10 @@ async function secConversaciones() {
     .cv-row{display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);border-left:3px solid transparent;cursor:pointer}
     .cv-row:hover{background:var(--sf2)}.cv-row.sel{background:var(--ac10)}
     .cv-g-necesita{border-left-color:var(--er)}.cv-g-caso{border-left-color:var(--wa)}.cv-g-tomada{border-left-color:var(--ac)}
-    .cv-av{flex:0 0 34px;height:34px;border-radius:50%;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+    .cv-av{position:relative;flex:0 0 36px;height:36px;border-radius:50%;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+    .cv-av-canal{position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;border-radius:50%;background:var(--sf);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--bd)}
+    .cv-ico{display:inline-block !important;vertical-align:-2px;flex:0 0 auto;margin-right:2px}
+    .cv-av-canal .cv-ico{margin:0}
     .cv-cuerpo{min-width:0;flex:1}
     .cv-l1{display:flex;justify-content:space-between;gap:8px;font-size:13.5px}.cv-l1 b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .cv-hace{flex:0 0 auto;font-size:11px;color:var(--tx3)}
@@ -4428,7 +4435,7 @@ async function secConversaciones() {
     <div class="fgrp"><span class="flbl">Agente</span>
     <div class="segs" id="cvAgSegs">${seg('a', 'all', 'Las dos')}${seg('a', 'Valentina', 'Valentina')}${seg('a', 'Sofía', 'Sofía')}</div></div>
     <div class="fgrp"><span class="flbl">Canal</span>
-    <div class="segs" id="cvCanalSegs">${seg('c', 'all', 'Todos')}${seg('c', 'whatsapp', 'WhatsApp')}${seg('c', 'instagram', 'Instagram')}</div></div>
+    <div class="segs" id="cvCanalSegs">${seg('c', 'all', 'Todos')}${seg('c', 'whatsapp', cvIcono('whatsapp', 13) + ' WhatsApp')}${seg('c', 'instagram', cvIcono('instagram', 13) + ' Instagram')}</div></div>
     <div class="fgrp"><button class="cv-btn" id="cvRecargar" title="Volver a leer las conversaciones">↻ Actualizar</button></div>
     </div>
   </div>
@@ -4475,7 +4482,7 @@ function cvRender(d) {
       ${(c.historia || []).map(e => `<div class="td-dim" style="font-size:11.5px">${cvEsc(cvHora(e.t))} · ${cvEsc(e.quien)}: ${cvEsc(e.texto)}</div>`).join('')}</div>`).join('');
   const pedidos = (d.pedidos || []).map(p => `<div class="cv-caso">${cvEsc(p.numero)} · ${cvEsc(p.fecha)} · ${cvEsc(p.total)} · <b>${cvEsc(p.estado)}</b></div>`).join('');
   return `<div class="cv-hd"><div><div style="font-size:16px;font-weight:700">${cvEsc(L.nombre)}</div>
-      <div class="td-dim" style="font-size:12px">${L.canal === 'instagram' ? 'Instagram' : 'WhatsApp'}${L.celular ? ' · ' + cvEsc(L.celular) : ''}${L.correo ? ' · ' + cvEsc(L.correo) : ''} · ${ag}${L.etapa ? ' · ' + cvEsc(L.etapa) : ''}</div>
+      <div class="td-dim" style="font-size:12px">${cvIcono(L.canal, 13)} ${L.canal === 'instagram' ? 'Instagram' : 'WhatsApp'}${L.celular ? ' · ' + cvEsc(L.celular) : ''}${L.correo ? ' · ' + cvEsc(L.correo) : ''} · ${ag}${L.etapa ? ' · ' + cvEsc(L.etapa) : ''}</div>
       <div style="font-size:12px;margin-top:3px">${estado}</div></div>
     <div class="cv-btns">${L.tomada || L.pausada ? `<button class="cv-btn" data-cva="devolver" title="${ag} le vuelve a responder">↩ Devolver a ${ag}</button>` : `<button class="cv-btn pri" data-cva="tomar" title="${ag} deja de responderle y la atiendes tú">Tomar</button>`}
       <a class="cv-btn" href="${cvEsc(L.nexor)}" target="_blank" rel="noopener">Abrir en Nexor</a></div></div>
