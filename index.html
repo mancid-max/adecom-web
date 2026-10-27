@@ -198,6 +198,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* Mohi, la guía y el chat en una sola burbuja, abajo a la derecha */
 #guia{position:fixed;right:20px;bottom:20px;z-index:190;display:flex;flex-direction:column;align-items:flex-end;gap:8px;width:min(440px,calc(100vw - 32px));pointer-events:none}
 #guia>*{pointer-events:auto}
+#verNueva{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:400;background:#111827;color:#fff;border:0;border-radius:22px;padding:11px 18px;font:inherit;font-size:13.5px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.28);cursor:pointer;max-width:calc(100vw - 24px);text-align:center}
 #iaChat{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
 #iaChat:empty{display:none}
 #iaForm{display:flex;gap:6px;align-items:flex-end;margin-top:8px}
@@ -806,6 +807,50 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 </div>
 
 <script>
+/* ── Versión nueva (Manu, 27-10-2026: "quizás es porque lo tengo instalado como app… eso debería ser apenas entren en la app") ──
+   Instalada como app en el iPad, la página se queda con la copia vieja y no hay botón de recargar. Al entrar se compara la
+   fecha del archivo que corre (document.lastModified: el Last-Modified que mandó el servidor, también para la copia guardada)
+   con la del servidor ahora (HEAD sin caché). Si hay una más nueva, se recarga al tiro, una sola vez por versión (para no
+   quedar en un bucle si algo falla). Al volver a la app después de un rato se avisa con una barra y se recarga al tocarla. */
+(function () {
+  const m = /(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+):(\d+)/.exec(document.lastModified || '');
+  const corre = m ? new Date(+m[3], +m[1] - 1, +m[2], +m[4], +m[5], +m[6]).getTime() : 0;
+  if (!corre || location.protocol === 'file:') return;
+  const ruta = location.pathname.endsWith('/') ? location.pathname + 'index.html' : location.pathname;
+  const recargar = () => location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+  async function servidor() {
+    try {
+      const r = await fetch(ruta + '?v=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+      return r.ok ? (Date.parse(r.headers.get('last-modified') || '') || 0) : 0;
+    } catch (e) { return 0; }
+  }
+  function aviso() {
+    if (document.getElementById('verNueva')) return;
+    const b = document.createElement('button');
+    b.id = 'verNueva'; b.type = 'button'; b.textContent = 'Hay una versión nueva de ADECOM · toca para actualizar';
+    b.onclick = recargar;
+    document.body.appendChild(b);
+  }
+  async function revisar(alEntrar) {
+    const lm = await servidor();
+    if (!lm || lm <= corre + 1000) return false;      // la que corre es la última
+    const clave = 'adecom_recargada_para';
+    let ya = ''; try { ya = sessionStorage.getItem(clave) || ''; } catch (e) {}
+    if (alEntrar && ya !== String(lm)) {
+      try { sessionStorage.setItem(clave, String(lm)); } catch (e) {}
+      recargar(); return true;
+    }
+    aviso(); return true;
+  }
+  window.adecomRevisarVersion = revisar;
+  revisar(true);
+  let ultima = Date.now();
+  document.addEventListener('visibilitychange', () => {   // al volver a la app después de 5 minutos o más
+    if (document.visibilityState !== 'visible' || Date.now() - ultima < 5 * 60 * 1000) return;
+    ultima = Date.now(); revisar(false);
+  });
+})();
+
 /* ── CACHE ──────────────────────────────────────────────────── */
 const CACHE = {};
 const _VER = Date.now();
