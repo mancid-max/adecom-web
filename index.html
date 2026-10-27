@@ -1084,7 +1084,7 @@ function buildByTemp() {
     byTemp[t].total += item.total;
     byTemp[t].modelos++;
     byTemp[t].items.push({ base:item.base, total:item.total, desp:item.desp||0, saldo:item.saldo||0, stock:item.stock||0,
-                           colores:item.modelos.length, modelos:item.modelos, bota:item.bota||'', tiro:item.tiro||'' });
+                           colores:item.modelos.length, modelos:item.modelos, bota:item.bota||'', tiro:item.tiro||'', tela:item.tela||'' });
   }
   return byTemp;
 }
@@ -1708,7 +1708,7 @@ function secDetalleColor() {
         const a = dcArt(t, item.base, v.mod);
         return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
           <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
-          <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span></td>
+          <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${v.tela}</span>` : ''}</td>
           <td></td>
           <td class="r td-num td-dim">${fmt(v.qty)}</td>
           <td class="r td-dim">—</td>
@@ -1717,7 +1717,7 @@ function secDetalleColor() {
       const bota = item.bota || '', tiro = item.tiro || '';
       return `<tr data-expandable data-base="${item.base}" data-bota="${bota.toLowerCase()}" data-tiro="${tiro.toLowerCase()}" style="font-weight:600">
         <td>${artImg(dcArt(t, item.base, (item.modelos||[{mod:'00'}])[0].mod))}<span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
-        <td><div style="display:flex;gap:4px;flex-wrap:wrap">${dcTag(bota, 'var(--ac10)', 'var(--ac)')}${dcTag(tiro, 'var(--sf2)', 'var(--tx2)')}</div></td>
+        <td><div style="display:flex;gap:4px;flex-wrap:wrap">${dcTag(bota, 'var(--ac10)', 'var(--ac)')}${dcTag(tiro, 'var(--sf2)', 'var(--tx2)')}${dcTag(item.tela || '', '#fef3c7', '#92400e')}</div></td>
         <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores > 1 ? 'es' : ''}</td>
         <td class="r td-num">${fmt(item.total)}</td>
         <td class="r td-dim">
@@ -4371,7 +4371,7 @@ function pvcFilasDe(t, ftMap, exMap, sinMagic = PVC_SIN_MAGIC) {
       if (mg && !ped && !stk && !pro) continue;     // solo lo pidió Magic y no hay nada físico
       filas.push({ art, base: item.base, mod, ped, desp, sal, enCaja, stk, stkErp, pro, prog: ftr.prog || 0, progOcs: ftr.progOcs || [], ts: v.ts || null, tc: v.tc || null,
                    diff: stk + pro - sal, ocs: ftr.ocs || [], etapas: ftr.etapas || {},
-                   ex: exMap ? exMap[item.base] : null, bota: item.bota, tiro: item.tiro });
+                   ex: exMap ? exMap[item.base] : null, bota: item.bota, tiro: item.tiro, tela: v.tela || '' });
     }
   }
   return filas;
@@ -4426,10 +4426,11 @@ function buildPVCRows(t, ftMap, exMap) {
         ).join('') + progChip
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e), f.bota, f.tiro, f.prog ? 'programado' : ''].join(' ').toLowerCase();
-    /* La bota y el tiro van debajo del código y no en otra columna: la tabla ya llena el
-       ancho y una columna más la haría correrse a la derecha. */
-    const botaTiro = [f.bota, f.tiro].filter(Boolean).join(' · ');
+    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e), f.bota, f.tiro, f.tela, f.prog ? 'programado' : ''].join(' ').toLowerCase();
+    /* La bota, el tiro y la tela van debajo del código y no en otra columna: la tabla ya llena el
+       ancho y una columna más la haría correrse a la derecha. La tela la escribe Adecom en el ERP
+       artículo por artículo (desde el 27-10-2026): el que todavía no la tiene, no la muestra. */
+    const botaTiro = [f.bota, f.tiro, f.tela].filter(Boolean).join(' · ');
 
     return `<tr data-expandable data-art="${f.art}" data-estado="${estadoKey}" data-prog="${f.prog}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
       <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}${f.prog ? `<div style="margin-top:3px"><span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">📋 ${fmt(f.prog)} programado · OC ${f.progOcs.map(o => o.oc).join(', ')}</span></div>` : ''}</div></div></td>
@@ -7840,7 +7841,7 @@ async function secProgramado() {
   PVC_FILAS = {};
   for (const t of Object.keys(buildByTemp())) for (const f of pvcFilasDe(t, ftMap, null, false)) PVC_FILAS[f.art] = f;
   const bota = {};
-  for (const r of ft) { const a = (r.articulo || '').trim(); if (a && !bota[a]) bota[a] = [r.bota, r.tiro].filter(Boolean).join(' · '); }
+  for (const r of ft) { const a = (r.articulo || '').trim(); if (a && !bota[a]) bota[a] = [r.bota, r.tiro, r.tela].filter(Boolean).join(' · '); }
   /* Un artículo que Pedido vs Corte no arma (los que no empiezan con 01, como el 00400100 de Magic) se arma acá con sus
      pedidos, igual que pvcFilasDe, para saber cuánto se debe y poder abrir su detalle */
   const suelta = art => {
@@ -7851,7 +7852,7 @@ async function secProgramado() {
     const enCaja = Math.min(salTot, cjA.total), stkErp = STOCK_MAP[art] || 0, stk = Math.max(0, stkErp - cjA.s04), pro = (ftMap[art] || {}).pend || 0;
     return { art, base: art.slice(2, 6), mod: art.slice(6, 8), ped: ls.reduce((a, l) => a + (l.sol || 0), 0), desp: ls.reduce((a, l) => a + (l.desp || 0), 0),
       sal: salTot - enCaja, enCaja, stk, stkErp, pro, prog: (ftMap[art] || {}).prog || 0, progOcs: (ftMap[art] || {}).progOcs || [],
-      ts: null, tc: null, diff: stk + pro - (salTot - enCaja), ocs: [], etapas: {}, bota: '', tiro: '' };
+      ts: null, tc: null, diff: stk + pro - (salTot - enCaja), ocs: [], etapas: {}, bota: '', tiro: '', tela: '' };
   };
   for (const [art, m] of Object.entries(ftMap)) if ((m.progOcs || []).length && !PVC_FILAS[art]) { const f = suelta(art); if (f) PVC_FILAS[art] = f; }
   // Quiénes esperan cada artículo y desde cuándo; y lo que ya está en cajas de esos pedidos, por talla (no se debe)
@@ -8366,7 +8367,7 @@ function debDetalle(c) {
     const nCajas = [...it.cajas].map(n => String(n).replace(/^0+/, '')).join(', ');
     return `<tr class="db-fila" data-dart="${it.art}" data-f=" ${it.cats.join(' ')} " data-pcli title="Toca para ver el detalle de este artículo">
       <td class="pl-wrap" data-v="${it.art}"><div style="display:flex;align-items:center">${artImg(it.art)}<div><span class="td-code">${cod(it.art)}</span>
-        <span class="pl-sub">${[f.bota, f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${it.art.slice(2, 4)}</span>${it.bloq ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Pedido bloqueado</span>' : ''}</div></div></td>
+        <span class="pl-sub">${[f.bota, f.tiro, f.tela].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${it.art.slice(2, 4)}</span>${it.bloq ? '<span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 Pedido bloqueado</span>' : ''}</div></div></td>
       <td class="pl-wrap pl-sec" data-v="${it.dias}"><b>${fmt(it.dias)} días</b>
         <span class="pl-sub">${peds.length === 1 ? `pedido ${peds[0].replace(/^0+/, '')}` : `${peds.length} pedidos`}</span></td>
       <td class="pl-wrap" data-v="${it.sal}"><div class="db-debe"><b style="color:${debe > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(it.sal)}</b><span>${it.sal === 1 ? 'prenda' : 'prendas'}${debe > 0 ? '' : ' · todo en su caja'}</span></div>
@@ -8379,7 +8380,7 @@ function debDetalle(c) {
         ${est === 'parcial' ? `<span class="pl-sub">Faltan ${fmt(Math.max(0, f.sal - f.stk - f.pro))} por cortar para cubrir a todos los clientes</span>` : ''}
         ${alt.length ? `<div class="db-alt"><span class="pl-sub" style="margin:0;font-weight:700;color:var(--tx2)">${est === 'cortar' ? 'Ofrecerle en su lugar' : 'Si no le alcanza, ofrecerle'}</span>
           ${alt.map(a => `<div class="db-alt-i">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span>
-            <span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
+            <span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro, a.f.tela].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
             ${debDisp(a.tallasOk, Object.fromEntries(tallas.map(x => [x.t, x.n])))}</div></div>`).join('')}</div>`
           : est === 'cortar' ? `<span class="pl-sub">${f.bota ? 'Sin otro modelo de esa bota que sobre' : 'El ERP todavía no le asigna bota: no hay con qué compararlo'}</span>` : ''}</td></tr>`;
   }).join('');
@@ -8449,7 +8450,7 @@ function debArticulo(c, art) {
       <div style="display:flex;gap:14px;align-items:center">
         <div class="db-foto">${artImg(art)}</div>
         <div style="min-width:0"><div style="font-size:18px;font-weight:800">${cod(art)}</div>
-          <div class="td-dim" style="font-size:13px">${[f.bota, f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${art.slice(2, 4)}</div>
+          <div class="td-dim" style="font-size:13px">${[f.bota, f.tiro, f.tela].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${art.slice(2, 4)}</div>
           <div style="margin-top:6px"><span class="pl-tag" style="background:var(--${clr}10);color:var(--${clr});font-size:12px;padding:3px 10px">${lbl}</span></div></div>
       </div>
       <div class="pc-kpis">
@@ -8469,7 +8470,7 @@ function debArticulo(c, art) {
     <div class="pc" style="padding-top:14px">
       ${otros.length ? `<div><div class="pc-h">También lo esperan</div><div class="pc-chips">${otros.slice(0, 8).map(x => `<span class="pc-chip"><b>${x.c.nombre}</b>${fmt(x.debe)}</span>`).join('')}${otros.length > 8 ? `<span class="pc-chip">y ${fmt(otros.length - 8)} más</span>` : ''}</div></div>` : ''}
       ${alt.length ? `<div><div class="pc-h">${est === 'cortar' ? 'Ofrecerle en su lugar' : 'Si no le alcanza, ofrecerle'}</div>
-        ${alt.map(a => `<div class="pc-mod"><div class="pl-mod">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span><span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
+        ${alt.map(a => `<div class="pc-mod"><div class="pl-mod">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span><span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro, a.f.tela].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
           ${debDisp(a.tallasOk, suyo)}</div></div></div>`).join('')}</div>`
         : est === 'cortar' ? `<div class="td-dim" style="font-size:12px">${f.bota ? 'Sin otro modelo de esa bota que sobre.' : 'El ERP todavía no le asigna bota a este artículo: no hay con qué compararlo para ofrecer otro.'}</div>` : ''}
     </div>`;
@@ -8544,7 +8545,7 @@ function debTarjeta(k) {
   const etapas = art => Object.entries(D.etapas[art] || {}).sort((x, y) => (ETAPA_RANK[y[0]] ?? -2) - (ETAPA_RANK[x[0]] ?? -2));
   const cliBlock = a => `<div class="db-kcs"><span class="db-tl">Lo esperan</span>${a.clis.map((x, i) => `<button type="button" class="db-kc" data-kcli="${idx.get(x.c)}" data-kf="${a.est}"${i >= 4 ? ' hidden' : ''} title="Ver qué le debemos a ${dv(x.c.nombre)}">${x.c.nombre} <b>${fmt(x.n)}</b></button>`).join('')}${a.clis.length > 4 ? `<button type="button" class="db-kc db-kc-mas" data-kmas>y ${a.clis.length - 4} más</button>` : ''}</div>`;
   const artCell = (a, extra) => `<td class="pl-wrap" data-v="${a.art}"><div style="display:flex;align-items:flex-start">${artImg(a.art)}<div style="min-width:0"><span class="td-code">${cod(a.art)}</span>
-        <span class="pl-sub">${[a.f.bota, a.f.tiro].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${a.art.slice(2, 4)}</span>${extra}${cliBlock(a)}</div></div></td>`;
+        <span class="pl-sub">${[a.f.bota, a.f.tiro, a.f.tela].filter(Boolean).join(' · ') || 'Sin bota todavía'} · T${a.art.slice(2, 4)}</span>${extra}${cliBlock(a)}</div></div></td>`;
   const debeCell = a => `<td class="pl-wrap" data-v="${a.debe}"><div class="db-debe"><b style="color:var(--wa)">${fmt(a.debe)}</b><span>${a.debe === 1 ? 'prenda' : 'prendas'}</span></div>
         <span class="pl-sub db-movil">esperando ${dias(a.dias)}</span>
         ${a.tallas.length ? `<div class="db-tallas">${a.tallas.map(x => chipT(x.t, x.n, x.k)).join('')}</div>` : ''}</td>`;
@@ -12501,7 +12502,7 @@ function buildColorRowsForTemp(byTemp, t) {
       const a = art(item.base, v.mod);
       return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
         <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
-        <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span></td>
+        <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${v.tela}</span>` : ''}</td>
         <td></td>
         <td class="r td-num td-dim">${fmt(v.qty)}</td>
         <td class="r td-dim">—</td>
@@ -12510,7 +12511,7 @@ function buildColorRowsForTemp(byTemp, t) {
     const bota = item.bota || '', tiro = item.tiro || '';
     return `<tr data-expandable data-base="${item.base}" data-bota="${bota.toLowerCase()}" data-tiro="${tiro.toLowerCase()}" style="font-weight:600">
       <td>${artImg(art(item.base, (item.modelos||[{mod:'00'}])[0].mod))}<span class="badge ${tc.cls}">T${t}</span> <span class="td-code" style="margin-left:6px">${item.base}</span></td>
-      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${tag(bota,'var(--ac10)','var(--ac)')}${tag(tiro,'var(--sf2)','var(--tx2)')}</div></td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${tag(bota,'var(--ac10)','var(--ac)')}${tag(tiro,'var(--sf2)','var(--tx2)')}${tag(item.tela||'','#fef3c7','#92400e')}</div></td>
       <td class="td-dim" style="font-weight:400">${item.colores} color${item.colores>1?'es':''}</td>
       <td class="r td-num">${fmt(item.total)}</td>
       <td class="r td-dim">
