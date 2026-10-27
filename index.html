@@ -878,11 +878,20 @@ function printTable({ table, title, subtitle = '', landscape = true }) {
     thead{display:table-header-group}
     tr{page-break-inside:avoid}
     .foot{margin-top:8px;color:#777;font-size:9px}
+    .barra{position:sticky;top:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:0 0 10px;background:#f6f7fb;border-bottom:1px solid #ddd;font-size:12px;color:#444}
+    .barra button{font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border-radius:8px;border:0;background:#4f46e5;color:#fff;cursor:pointer}
+    .barra .volver{background:#fff;color:#333;border:1px solid #bbb}
+    @media screen{body{padding:0 10px 10px}.barra{margin:0 -10px 10px}}
+    @media print{.barra{display:none}}
   </style></head><body>
+  <div class="barra"><button type="button" class="volver" onclick="if (history.length > 1) history.back(); else { window.close(); setTimeout(() => location.replace('${location.href}'), 300); }">‹ Volver</button><button type="button" onclick="window.print()">🖨 Imprimir o guardar como PDF</button><span>Si no se abre el diálogo (iPhone, iPad), toca el botón o usa Compartir → Imprimir.</span></div>
   <h1>${title} <span style="font-weight:400;color:#777;font-size:11px">· ADECOM Mohicano Jeans</span></h1>
   <div class="sub">${subtitle}${subtitle ? ' · ' : ''}${rows} filas · ${meta} · Impreso ${new Date().toLocaleString('es-CL')}</div>
   ${t.outerHTML}
-  <script>window.onload = () => window.print();<\/script></body></html>`);
+  <script>/* En iPhone y iPad el diálogo no se abre solo y no hay cómo volver (Manu, 27-10-2026: "me tira la tabla pero nada
+  más… y no puedo volver para atrás"): quedan los botones de arriba; Volver cierra la ventana o, si no se puede, vuelve al tablero */
+  const ir = () => setTimeout(() => { try { window.print(); } catch (e) {} }, 300);
+  if (document.readyState === 'complete') ir(); else window.addEventListener('load', ir);<\/script></body></html>`);
   w.document.close();
 }
 
