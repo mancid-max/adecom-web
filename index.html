@@ -5710,6 +5710,7 @@ function pintarPlan() {
   for (const T of C) {
     const corte = `${+hoyD.slice(0, 4) - aniosAtras(T)}${hoyD.slice(4)}`;
     for (const l of T.lineas) {
+      if (CAMP_FUERA[l.cli]) continue;   // no se le ofrece (ver CAMP_FUERA)
       const c = cliMap[l.cli] = cliMap[l.cli] || { cli: l.cli, nombre: l.nombre, ciudad: l.ciudad, vendedor: l.vendedor, u: 0, por: {}, mes1: false, alDia: 0 };
       c.u += l.u; c.por[T.t] = (c.por[T.t] || 0) + l.u;
       if (l.fecha <= corte) c.alDia += l.u;
@@ -6360,6 +6361,7 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
   const porCli = new Map();
   for (const p of peds) {
     const k = vdKey(p);
+    if (CAMP_FUERA[k]) continue;   // no se le ofrece (ver CAMP_FUERA)
     const x = porCli.get(k) || { nombre: (p.nombre || p.rut || '').toUpperCase(), ciudad: p.ciudad || '', vendedor: p.vendedor || '', u: {} };
     for (const [t, u] of Object.entries(p.u_temp || {})) x.u[t] = (x.u[t] || 0) + (u || 0);
     porCli.set(k, x);
@@ -6369,7 +6371,7 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
   const umbral = conBase.length ? conBase[Math.max(0, Math.ceil(conBase.length * REP_PCT_ESTRATEGICO) - 1)] : Infinity;
   const estrategico = k => uBase(k) > 0 && uBase(k) >= umbral;
 
-  const recuperar = clInactivos(peds).map(c => {
+  const recuperar = clInactivos(peds).filter(c => !CAMP_FUERA[vdKey(c)]).map(c => {   // Titanium y cía. tampoco en "Dejaron de comprar"
     const est = estrategico(vdKey({ rut: c.rut, nombre: c.nombre }));
     const desc = (c.bloq || c.deuda > 0) ? 'Cobrar antes'
                : (est && !c.sinCupo) ? `${Math.round(REP_DESC_ESTRATEGICO * 100)}% de descuento` : 'Sin descuento';
@@ -6492,6 +6494,7 @@ function repDatos(peds, pa, ft, sb, bsale, base = '', cmp = []) {
   const cliV = new Map();
   for (const p of peds) {
     const k = vdKey(p);
+    if (CAMP_FUERA[k]) continue;   // no se le ofrece (ver CAMP_FUERA)
     const x = cliV.get(k) || { k, nombre: (p.nombre || p.rut || '').toUpperCase(), ciudad: p.ciudad || '', u: {}, mix: {}, tot: 0, enNueva: {} };
     if (!x.ciudad) x.ciudad = p.ciudad || '';
     for (const l of (p.lineas || [])) {
@@ -6838,6 +6841,10 @@ try { const _t = localStorage.getItem('adecom_campana_tab'); if (_t === 'venta' 
    vs Corte, no se recuerda: cada vez parte con Magic, para que nadie lea cifras sin ella sin darse cuenta. */
 let CAMP_SIN_MAGIC = false;
 const campPeds = peds => CAMP_SIN_MAGIC ? peds.filter(p => !esMagic(p)) : peds;
+/* Clientes a los que no se les ofrece la colección (Manu, 27-10-2026: "¿me podrías sacar ese Titanium?"): no salen en
+   "a quién ofrecer primero", ni en "a quién llamar", ni en los grupos de la campaña. Sus unidades sí siguen contando en
+   las cifras (metas, ritmo, botas): lo que compraron es historia real. Por RUT, como Magic. Otro más = una línea más. */
+const CAMP_FUERA = { '777307800': 'MANUFACTURAS E IMP. TITANIUM CHILE' };
 
 function campElegir(temp, cmp) {
   PLAN_TEMP = REP_TEMP = temp;
@@ -6913,7 +6920,8 @@ async function campArmarDatos(peds, pa) {
   const fichas = Object.fromEntries(ddClientes(peds, docs).map(c => [c.k, c]));
   const cl = new Map();
   for (const p of peds) {
-    const k = vdKey(p); let c = cl.get(k);
+    const k = vdKey(p); if (CAMP_FUERA[k]) continue;   // no se le escribe (ver CAMP_FUERA)
+    let c = cl.get(k);
     if (!c) cl.set(k, c = { k, nombre: p.nombre || p.rut || '—', rut: p.rut || '', ciudad: p.ciudad || '', vendedor: p.vendedor || '', ult: '', uA: 0, uN: 0, uAno: 0, botasA: {}, magic: esMagic(p) });
     if ((p.fecha_iso || '') >= c.ult) { c.ult = p.fecha_iso || ''; if (p.ciudad) c.ciudad = p.ciudad; if (p.vendedor) c.vendedor = p.vendedor; }
     c.uA += (p.u_temp || {})[TA] || 0; c.uN += (p.u_temp || {})[T] || 0;
@@ -7315,14 +7323,19 @@ async function secCampana() {
   const [peds, pa, ft, cortesHist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
   PLAN = planBase(campPeds(peds), pa, ft, Array.isArray(cortesHist) ? {} : cortesHist);   // si no está, load() devuelve []
   const conProd = Object.keys(PLAN.cat).sort((a, b) => +b - +a);
+  /* Una colección que solo tiene muestras se lista, pero no se abre por defecto ni es "la nueva" (Manu, 27-10-2026: "¿de
+     dónde sacaste esa cole 46?": ese día la T46 apareció con una sola muestra, la M1 del 4603, en la trazabilidad). La
+     nueva es la más reciente con producción o pedidos; la de puras muestras va marcada "· muestras" hasta tener una orden. */
+  const soloMuestras = t => !PLAN.temps[t] && !Object.values(PLAN.cat[t] || {}).some(b => b.prog > 0);
   const todas = [...new Set([...Object.keys(PLAN.temps), ...conProd])].sort((a, b) => +b - +a);
   if (!todas.length) return makePH('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>', 'Campaña', 'Sin historia de pedidos');
   // Por defecto, la colección de estas fechas (la más nueva) contra las del Plan
-  if (!PLAN_TEMP || !todas.includes(PLAN_TEMP)) PLAN_TEMP = conProd[0] || todas[0];
+  if (!PLAN_TEMP || !todas.includes(PLAN_TEMP)) PLAN_TEMP = conProd.find(t => !soloMuestras(t)) || todas[0];
   if (!PLAN_CMP.length) PLAN_CMP = planComparables(PLAN.temps, PLAN_TEMP);
   campElegir(PLAN_TEMP, PLAN_CMP);
   const hist = Object.values(PLAN.temps).filter(T => T.total >= 3000 && T.t !== PLAN_TEMP).sort((a, b) => +b.t - +a.t);
-  const etiqueta = t => t === TEMP_ACTIVA ? ' · activa' : (t === todas[0] && +t > +TEMP_ACTIVA ? ' · nueva' : '');
+  const nueva = todas.find(t => +t > +TEMP_ACTIVA && !soloMuestras(t)) || '';
+  const etiqueta = t => t === TEMP_ACTIVA ? ' · activa' : t === nueva ? ' · nueva' : (+t > +TEMP_ACTIVA && soloMuestras(t) ? ' · muestras' : '');
   const cuerpo = CAMP_TAB === 'venta' ? await secReporte() : CAMP_TAB === 'armar' ? await campArmarSec(peds, pa) : '<div id="planBody" class="pl"></div>';
   return `
   <div class="fbar">
