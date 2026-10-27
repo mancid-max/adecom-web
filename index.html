@@ -6604,7 +6604,7 @@ async function campArmarDatos(peds, pa) {
   const fuera = new Set(estado.fuera || []), dentro = new Set(estado.dentro || []);
   const clientes = [...cl.values()].map(c => {
     const f = fichas[c.k] || {};
-    c.contacto = f.contacto || ''; c.fono = f.fono || ''; c.bloq = !!f.bloq; c.venc = f.venc || 0; c.v90 = (f.v && f.v.v90) || 0;
+    c.contacto = f.contacto || ''; c.fono = f.fono || ''; c.correo = f.correo || ''; c.bloq = !!f.bloq; c.venc = f.venc || 0; c.v90 = (f.v && f.v.v90) || 0;
     c.grupo = c.uN > 0 ? 'ya' : c.uA > 0 ? 'activa' : (c.uAno > 0 && c.ult < hace90) ? 'ano' : '';
     c.motivo = c.magic ? 'tienda propia' : c.bloq ? 'bloqueado: va a cobranza' : c.v90 > 0 ? `deuda vencida hace más de 90 días (${fmtM(c.v90)}): cobrar antes` : '';
     c.incluido = dentro.has(c.k) ? true : fuera.has(c.k) ? false : !c.motivo;
@@ -6766,7 +6766,7 @@ async function caApi(accion, extra = {}) {
   return d;
 }
 let CA_CANAL = 'whatsapp';   // el canal elegido en la ventana de envío
-const caLista = () => CA.clientes.filter(c => c.incluido).map(c => ({ rut: c.rut, nombre: c.nombre, saludo: caNombre(c), telefono: c.fono || '', grupo: c.grupo,
+const caLista = () => CA.clientes.filter(c => c.incluido).map(c => ({ rut: c.rut, nombre: c.nombre, saludo: caNombre(c), telefono: c.fono || '', correo: c.correo || '', grupo: c.grupo,
   producto: caListar(caModelosPara(c, 3).map(m => m.base + (m.bota ? ' ' + m.bota : ''))) }));
 const caConCorreo = lista => lista.map(x => { const c = CA.clientes.find(y => y.rut === x.rut && y.nombre === x.nombre); if (!c) return x; const m = caCorreoHtml(c, !!document.getElementById('caPrecios')?.checked); return { ...x, asunto: m.asunto, html: m.html, texto: m.texto }; });
 function caModalHtml(prev, lista) {
@@ -6865,7 +6865,7 @@ function campArmarHtml() {
       <td><input type="checkbox" class="ca-inc" data-k="${caTx(c.k)}" ${c.incluido ? 'checked' : ''} title="${c.incluido ? 'Sacar de la campaña' : 'Incluir igual'}"></td>
       <td class="pl-wrap" data-v="${caTx(c.nombre)}"><b>${caTx(c.nombre)}</b>${c.motivo ? `<span class="pl-sub" style="color:var(--er)">${caTx(c.motivo)}</span>` : ''}<span class="pl-sub">${caTx([c.ciudad, c.vendedor].filter(Boolean).join(' · '))}</span></td>
       <td data-v="${A.grupos[c.grupo].orden}">${caTx(A.grupos[c.grupo].ttl.split(':')[0].replace(/ y .*$/, ''))}</td>
-      <td class="pl-sec">${caTx(c.contacto || '—')}<span class="pl-sub">${caTx(c.fono || '')}</span></td>
+      <td class="pl-sec">${caTx(c.contacto || '—')}<span class="pl-sub">${caTx([c.fono, c.correo].filter(Boolean).join(' · '))}</span></td>
       <td class="r td-num" data-v="${c.uA}">${c.uA ? fmt(c.uA) : '—'}<span class="pl-sub">${caTx(c.botasTxt)}</span></td>
       <td class="r td-num pl-sec" data-v="${c.uAno}">${c.uAno ? fmt(c.uAno) : '—'}</td>
       <td class="td-dim" data-v="${c.ult}">${c.ult ? c.ult.split('-').reverse().join('/') : '—'}</td>
@@ -8034,7 +8034,7 @@ function ddClientes(peds, docs = []) {
     const grande = c.magic || DD_GRANDES.some(g => String(f.razon || '').toUpperCase().includes(g));
     return { ...c, nombre: f.razon || c.rut || '—', deuda, cheques, cupo, disp, usa, uso, est,
       bloq: f.bloqueo_ficha === 'S' || c.bloqPed, pago: ddPago(f.fpago),
-      contacto: String(f.contacto || '').trim(), fono: String(f.fono || '').trim(),
+      contacto: String(f.contacto || '').trim(), fono: String(f.fono || '').trim(), correo: String(f.correo || '').trim(),   // el correo llega con el build del 27-10
       nP: c.peds.length, uP: c.peds.reduce((a, p) => a + (p.saldo || 0), 0), vP: c.peds.reduce((a, p) => a + (p.valor_sal || 0), 0),
       nDet: det.length, vDet: det.reduce((a, p) => a + (p.valor_sal || 0), 0),
       v, venc, alDia: deuda > 0 && venc <= 0, grande };
@@ -8151,7 +8151,7 @@ function ddFicha(c) {
     c.est === 'amarillo' ? aviso(`Cupo casi agotado: usa el ${Math.round(c.uso * 100)}% y le quedan ${fmtCLP(c.disp)}.`, 'var(--wa)', 'var(--wa10)') : '',
   ].join('');
   const ficha = [['RUT', c.rut], ['Ciudad', c.ciudad], ['Vendedor', c.vendedor], ['Forma de pago', c.pago], ['Contacto', c.contacto],
-    ['Teléfono', c.fono], ['Último pedido', c.ult ? c.ult.split('-').reverse().join('/') : '']]
+    ['Teléfono', c.fono], ['Correo', c.correo], ['Último pedido', c.ult ? c.ult.split('-').reverse().join('/') : '']]
     .filter(([, v]) => v).map(([l, v]) => `<div><span class="td-dim">${l}:</span> ${ddTx(v)}</div>`).join('');
   const f = c.cli, otras = (f.fichas || 1) > 1 ? `<div class="td-dim" style="font-size:11px;padding:0 16px 10px">Este RUT tiene ${f.fichas} fichas en el ERP (sucursales o razones sociales): se muestra la de mayor cupo.`
     + `${f.deuda_otras ? ` En las otras hay ${fmtCLP(Math.abs(f.deuda_otras))}${f.deuda_otras < 0 ? ' a favor' : ' de deuda'}.` : ''}</div>` : '';
