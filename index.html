@@ -6693,6 +6693,7 @@ function caCatalogoHtml(clientes, conPrecios = true) {
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1b2233;background:#f4f5f8}
   .mc-barra{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #e1e4ea;padding:10px 16px;display:flex;gap:12px;align-items:center;font-size:13px;color:#5e6675}
   .mc-barra button{padding:7px 14px;border-radius:8px;border:0;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;font-size:13px}
+  .mc-barra .volver{background:#fff;color:#333;border:1px solid #bbb}
   .mc-pagina{background:#fff;max-width:800px;margin:16px auto;padding:28px 32px;border-radius:12px;box-shadow:0 2px 12px rgba(16,24,40,.08);page-break-after:always;break-after:page}
   .mc-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #4f46e5;padding-bottom:12px}
   .mc-marca{display:flex;align-items:center;gap:10px;font-size:15px;letter-spacing:.04em}
@@ -6716,7 +6717,7 @@ function caCatalogoHtml(clientes, conPrecios = true) {
   @media print{body{background:#fff}.mc-barra{display:none}.mc-pagina{box-shadow:none;margin:0;border-radius:0;max-width:none;padding:0}}
   @media(max-width:640px){.mc-grid{grid-template-columns:repeat(2,1fr)}.mc-cab{flex-direction:column}.mc-para{text-align:left}}
   </style></head><body>
-  <div class="mc-barra"><button onclick="window.print()">Imprimir o guardar como PDF</button><span>${clientes.length === 1 ? '1 minicatálogo' : clientes.length + ' minicatálogos, uno por página'}${conPrecios ? ' · precios netos, sin IVA' : ' · sin precios'} · Mohicano Jeans</span></div>
+  <div class="mc-barra"><button type="button" class="volver" onclick="if (history.length > 1) history.back(); else { window.close(); setTimeout(() => location.replace('${location.href}'), 300); }">‹ Volver</button><button type="button" onclick="window.print()">🖨 Imprimir o guardar como PDF</button><span>${clientes.length === 1 ? '1 minicatálogo' : clientes.length + ' minicatálogos, uno por página'}${conPrecios ? ' · precios netos, sin IVA' : ' · sin precios'} · Mohicano Jeans</span></div>
   ${clientes.map(pagina).join('')}
   </body></html>`;
 }
