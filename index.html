@@ -6625,12 +6625,13 @@ async function campArmarDatos(peds, pa) {
   };
   const msgs = { ...plantillas, ...(estado.msgs || {}) };
   const modelosFuera = new Set(estado.modelosFuera || []);
+  const envios = (await load(`campanas/${T}-envios.json`)) || [];   // lo que ya salió por WhatsApp, anotado por la función
   // Cuándo: desde el próximo lunes, cuatro semanas; y cuánto pesan octubre y noviembre en el año pasado
   const lunes = new Date(hoy + 'T12:00:00'); lunes.setDate(lunes.getDate() + ((8 - lunes.getDay()) % 7 || 7));
   const sem = i => { const x = new Date(lunes); x.setDate(x.getDate() + 7 * i); return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}`; };
   const anoPas = String(+hoy.slice(0, 4) - 1), uAnoTot = peds.filter(p => (p.fecha_iso || '').startsWith(anoPas)).reduce((s, p) => s + (p.unidades || 0), 0);
   const uOctNov = peds.filter(p => (p.fecha_iso || '').startsWith(anoPas) && /-(10|11)-/.test(p.fecha_iso)).reduce((s, p) => s + (p.unidades || 0), 0);
-  return { T, TA, modelos, botasNueva, tempAno: tempAno[0], uTempAno: tempAno[1], topBotasAno, desde, hasta, clientes, grupos, msgs, plantillas, modelosFuera, sem, pctOctNov: uAnoTot ? Math.round(uOctNov / uAnoTot * 100) : 0, anoPas };
+  return { T, TA, modelos, botasNueva, envios: Array.isArray(envios) ? envios : [], tempAno: tempAno[0], uTempAno: tempAno[1], topBotasAno, desde, hasta, clientes, grupos, msgs, plantillas, modelosFuera, sem, pctOctNov: uAnoTot ? Math.round(uOctNov / uAnoTot * 100) : 0, anoPas };
 }
 function caMensaje(c) {   // el mensaje de su grupo, con su nombre
   return (CA.msgs[c.grupo] || '').replace(/\{nombre\}/g, caNombre(c)).replace(/\{vendedor\}/g, c.vendedor || '');
@@ -6714,6 +6715,101 @@ function caAbrirCatalogo(ks) {
   if (!w) { alert('El navegador bloqueó la ventana del catálogo. Permite las ventanas emergentes para este sitio y vuelve a intentar.'); return; }
   w.document.open(); w.document.write(caCatalogoHtml(cs, conPrecios)); w.document.close();
 }
+/* ── Enviar la campaña por WhatsApp (Manu, 27-10-2026) ──
+   Habla con la función 'campana' de Supabase, que tiene la clave de Nexor y manda la plantilla aprobada por Meta
+   (coleccion_nueva_mayorista) desde el número de Mohicano Jeans; las respuestas las atiende Sofía. Aquí: la previa (quién
+   está listo, quién no tiene celular, quién ya recibió), una prueba al celular propio, la confirmación y el envío por
+   lotes de 10 con avance. Nada sale sin marcar la casilla y apretar el botón. */
+const caEnvio = c => (CA && CA.envios || []).filter(e => e.estado === 'enviado' && !e.prueba && String(e.rut || '').replace(/[^0-9kK]/gi, '').toUpperCase().replace(/^0+/, '') === c.k).pop();
+const caEnvioTxt = c => { const e = caEnvio(c); return e ? `<span style="color:var(--ok);font-weight:700" title="${caTx(e.telefono || '')}">✓ ${e.fecha ? e.fecha.slice(8, 10) + '/' + e.fecha.slice(5, 7) : 'enviado'}</span>` : '<span class="td-dim">—</span>'; };
+async function caApi(accion, extra = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+  const r = await fetch(SUPA_URL + '/functions/v1/campana', { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accion, temporada: CA.T, ...extra }), signal: AbortSignal.timeout(150000) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.error) throw new Error(d.error || ('La función respondió ' + r.status));
+  return d;
+}
+const caLista = () => CA.clientes.filter(c => c.incluido).map(c => ({ rut: c.rut, nombre: c.nombre, saludo: caNombre(c), telefono: c.fono || '', grupo: c.grupo,
+  producto: caListar(caModelosPara(c, 3).map(m => m.base + (m.bota ? ' ' + m.bota : ''))) }));
+function caModalHtml(prev, lista) {
+  const ej = lista[0] || { saludo: 'Roberto', producto: '4515 Flare, 4557 Tobillo y 4541 Wide Leg' };
+  const texto = (prev.plantilla.texto || 'Hola {{nombre}}, soy Sofía de Mohicano Jeans. Ya está disponible nuestra colección nueva y te separé modelos de lo que más vendes en tu tienda: {{producto}}. ¿Te mando las fotos, las tallas disponibles y los precios?')
+    .replace('{{nombre}}', `<b>${caTx(ej.saludo)}</b>`).replace('{{producto}}', `<b>${caTx(ej.producto)}</b>`);
+  const r = prev.resumen, est = { listo: ['Listo', 'var(--ok)'], sin_celular: ['Sin celular', 'var(--er)'], ya_enviado: ['Ya recibió', 'var(--tx3)'], duplicado: ['Mismo celular que otro', 'var(--wa)'] };
+  const filas = prev.filas.slice().sort((a, b) => (a.estado === 'listo' ? 0 : 1) - (b.estado === 'listo' ? 0 : 1)).map(f => `<tr><td><span class="badge" style="background:var(--sf2);color:${est[f.estado][1]};font-size:10px">${est[f.estado][0]}</span></td>
+    <td class="pl-wrap"><b>${caTx(f.nombre)}</b><span class="pl-sub">${caTx(f.saludo || '')} · ${caTx(CA.grupos[f.grupo]?.ttl.split(':')[0].split(' y ')[0] || '')}</span></td>
+    <td class="td-num">${f.telefono ? caTx(f.telefono) + `<span class="pl-sub">${f.origen === 'crm' ? 'del CRM' : 'de la ficha'}</span>` : '<span class="td-dim">—</span>'}</td><td style="white-space:normal;font-size:11.5px;color:var(--tx2)">${caTx(f.producto || '')}</td></tr>`).join('');
+  const costo = Math.round(r.listos * 85);
+  return `<div style="padding:12px 16px 16px;display:grid;gap:12px;font-size:13px">
+    ${prev.plantilla.error ? `<div style="padding:9px 12px;border-radius:8px;background:var(--wa10);color:var(--wa);font-weight:600">${caTx(prev.plantilla.error)}</div>` : ''}
+    <div class="guia-caja"><b>Lo que recibe cada cliente</b> <span class="td-dim">(plantilla ${caTx(prev.plantilla.nombre)}, aprobada por Meta; la manda Sofía desde el número de Mohicano Jeans):</span>
+      <div style="margin:8px 0;padding:10px 12px;background:var(--sf);border-radius:10px;border:1px solid var(--bd);line-height:1.5">${texto}</div>
+      <div class="td-dim" style="font-size:12px">Debajo van tres botones: "Sí, mándamelos" · "Ahora no" · "No recibir más". Si contesta, Sofía sigue la conversación: fotos, tallas, precios y el pedido. Cada mensaje cuesta del orden de $85.</div></div>
+    <div class="kpi-grid db-kpis" style="margin:0">
+      ${tarjetaKpi({ attr: 'cae', k: 'listos', lbl: 'Listos para salir', val: fmt(r.listos), sub: `≈ ${fmtCLP(costo)} en total`, color: 'var(--ok)', ver: 'Son los de abajo' })}
+      ${tarjetaKpi({ attr: 'cae', k: 'sin', lbl: 'Sin celular', val: fmt(r.sin_celular), sub: r.sin_celular ? 'ni en la ficha ni en el CRM: hay que conseguirlo' : 'todos tienen', color: 'var(--er)', ver: 'Ver cuáles' })}
+      ${tarjetaKpi({ attr: 'cae', k: 'ya', lbl: 'Ya recibieron', val: fmt(r.ya_enviados), sub: 'de esta campaña; no se repite', color: 'var(--tx3)', ver: 'Ver cuáles' })}
+      ${tarjetaKpi({ attr: 'cae', k: 'dup', lbl: 'Mismo celular', val: fmt(r.duplicados), sub: 'dos clientes con el mismo número: sale uno', color: 'var(--wa)', ver: 'Ver cuáles' })}
+    </div>
+    <div class="tbl-scroll" style="max-height:34vh"><table><thead><tr><th>Estado</th><th>Cliente</th><th>Celular</th><th>Lo que le separamos</th></tr></thead><tbody>${filas}</tbody></table></div>
+    <div class="guia-caja"><b>Primero una prueba a tu celular</b> <span class="td-dim">(te llega tal cual, con el primer cliente de ejemplo):</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><input id="caTel" class="finput" placeholder="+56 9 1234 5678" style="width:170px"><button type="button" class="seg" id="caPrueba" style="border:1px solid var(--bd2)">Mandarme la prueba</button><span id="caPruebaRes" class="td-dim" style="font-size:12px"></span></div></div>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px"><input type="checkbox" id="caOk" style="margin-top:3px"><span>Revisé el mensaje y la lista. Que salga ahora a los <b>${fmt(r.listos)}</b> clientes listos. Después de esto no se puede deshacer.</span></label>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="seg ppal" id="caIr" disabled style="padding:8px 16px;opacity:.5">📨 Enviar a los ${fmt(r.listos)}</button><span id="caProg" class="td-dim"></span></div>
+    <div id="caRes"></div>
+  </div>`;
+}
+async function caEnviarAbrir() {
+  const ov = document.getElementById('vkOv'), body = document.getElementById('vkOvBody');
+  document.getElementById('vkOvTtl').textContent = `Enviar la campaña T${CA.T} por WhatsApp`;
+  body.innerHTML = '<div class="td-dim" style="padding:20px">Revisando celulares y lo ya enviado…</div>';
+  ov.classList.add('open');
+  try {
+    const lista = caLista();
+    if (!lista.length) throw new Error('No hay clientes incluidos en la campaña.');
+    const prev = await caApi('previa', { clientes: lista });
+    CA.previa = prev; CA.lista = lista;
+    body.innerHTML = caModalHtml(prev, lista);
+    caModalBind();
+  } catch (e) { body.innerHTML = `<div style="padding:20px;color:var(--er)">${caTx(String(e.message || e))}</div>`; }
+}
+function caModalBind() {
+  const body = document.getElementById('vkOvBody'), ok = body.querySelector('#caOk'), ir = body.querySelector('#caIr'), prog = body.querySelector('#caProg'), res = body.querySelector('#caRes');
+  const listos = CA.previa.filas.filter(f => f.estado === 'listo');
+  ok.addEventListener('change', () => { ir.disabled = !ok.checked || !listos.length; ir.style.opacity = ir.disabled ? '.5' : '1'; });
+  body.querySelectorAll('[data-cae]').forEach(k => k.addEventListener('click', () => body.querySelector('.tbl-scroll')?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+  body.querySelector('#caPrueba').addEventListener('click', async () => {
+    const tel = body.querySelector('#caTel').value.trim(), out = body.querySelector('#caPruebaRes');
+    if (!tel) { out.textContent = 'Escribe tu celular.'; return; }
+    if (!confirm(`¿Mando la prueba al ${tel}? Es un mensaje real por WhatsApp.`)) return;
+    out.textContent = 'Mandando…';
+    try { const r = await caApi('prueba', { telefono: tel, clientes: [CA.lista[0]], confirmacion: 'ENVIAR' }); out.textContent = r.envio.estado === 'enviado' ? `Listo, revisa tu WhatsApp (${r.envio.telefono}).` : 'No salió: ' + (r.envio.error || r.envio.estado); }
+    catch (e) { out.textContent = 'No salió: ' + String(e.message || e); }
+  });
+  ir.addEventListener('click', async () => {
+    if (!ok.checked) return;
+    if (!confirm(`Van a salir ${listos.length} mensajes de WhatsApp a clientes reales. ¿Seguro?`)) return;
+    ir.disabled = true; ok.disabled = true; ir.style.opacity = '.5';
+    let enviados = 0, errores = 0, hechos = 0; const fallas = [];
+    for (let i = 0; i < listos.length; i += 10) {
+      const lote = listos.slice(i, i + 10);
+      prog.textContent = `Enviando ${hechos + 1}–${Math.min(hechos + lote.length, listos.length)} de ${listos.length}… no cierres esta ventana`;
+      try {
+        const r = await caApi('enviar', { clientes: lote, confirmacion: 'ENVIAR' });
+        enviados += r.resumen.enviados; errores += r.resumen.errores;
+        r.hechos.filter(x => x.estado === 'error').forEach(x => fallas.push(`${x.nombre}: ${x.error || ''}`));
+      } catch (e) { errores += lote.length; fallas.push(`Lote de ${lote.map(x => x.nombre).join(', ')}: ${String(e.message || e)}`); }
+      hechos += lote.length;
+    }
+    prog.textContent = '';
+    res.innerHTML = `<div class="guia-caja" style="background:${errores ? 'var(--wa10)' : 'var(--ok10)'}"><b>Listo: ${fmt(enviados)} enviados${errores ? `, ${fmt(errores)} con error` : ''}.</b> Las respuestas llegan a Sofía; en la tabla de la campaña queda la marca ✓ de cada uno.${fallas.length ? `<div class="td-dim" style="font-size:12px;margin-top:6px">${fallas.slice(0, 12).map(caTx).join('<br>')}</div>` : ''}</div>`;
+    delete CACHE[`campanas/${CA.T}-envios.json`];
+    CA.envios = (await load(`campanas/${CA.T}-envios.json`)) || [];
+    campArmarPintar();
+  });
+}
 function campArmarHtml() {
   const A = CA, dentro = A.clientes.filter(c => c.incluido), porG = g => A.clientes.filter(c => c.grupo === g), dentroG = g => porG(g).filter(c => c.incluido);
   const gkeys = Object.keys(A.grupos).sort((a, b) => A.grupos[a].orden - A.grupos[b].orden);
@@ -6733,7 +6829,8 @@ function campArmarHtml() {
       <td class="r td-num pl-sec" data-v="${c.uAno}">${c.uAno ? fmt(c.uAno) : '—'}</td>
       <td class="td-dim" data-v="${c.ult}">${c.ult ? c.ult.split('-').reverse().join('/') : '—'}</td>
       <td class="pl-sec" style="max-width:320px;white-space:normal;font-size:11.5px;color:var(--tx2)">${c.incluido ? caTx(caMensaje(c)) : '<span class="td-dim">fuera de la campaña</span>'}</td>
-      <td data-xl-no><button type="button" class="seg ca-cat" data-k="${caTx(c.k)}" style="border:1px solid var(--bd2)" title="Su minicatálogo: los modelos de la T${A.T} elegidos para él, con su curva de tallas">📄 Minicatálogo</button></td></tr>`).join('');
+      <td data-xl-no><button type="button" class="seg ca-cat" data-k="${caTx(c.k)}" style="border:1px solid var(--bd2)" title="Su minicatálogo: los modelos de la T${A.T} elegidos para él, con su curva de tallas">📄 Minicatálogo</button></td>
+      <td data-v="${caEnvio(c) ? 1 : 0}">${caEnvioTxt(c)}</td></tr>`).join('');
   const tarjetasModelo = A.modelos.map(m => `<label class="ca-modelo${A.modelosFuera.has(m.base) ? ' fuera' : ''}">
       <input type="checkbox" class="ca-mod" data-base="${m.base}" ${A.modelosFuera.has(m.base) ? '' : 'checked'}>
       <div class="ca-img">${m.foto ? `<img src="${m.foto}" alt="" loading="lazy">` : caSilueta(m.bota)}</div>
@@ -6758,9 +6855,10 @@ function campArmarHtml() {
     <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">1 · A quién: ${fmt(dentro.length)} clientes</div>
       <div class="card-sub" style="margin:2px 0 0">Marcados los que entran. Los bloqueados y los con deuda vencida hace más de 90 días quedan fuera (primero cobranza); puedes incluirlos igual.</div></div>
       ${btnExcel()}<div class="xl-der"><label class="td-dim" style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="caPrecios" ${caEstado().precios === false ? '' : 'checked'}> con precios</label>
-      <button type="button" class="seg" id="caCatTodos" style="border:1px solid var(--bd2)" title="Un minicatálogo por cliente incluido, uno por página, para imprimir o guardar como PDF">📄 Todos los minicatálogos</button><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
+      <button type="button" class="seg" id="caCatTodos" style="border:1px solid var(--bd2)" title="Un minicatálogo por cliente incluido, uno por página, para imprimir o guardar como PDF">📄 Todos los minicatálogos</button>
+      <button type="button" class="seg" id="caEnviar" style="border:1px solid var(--ac);color:var(--ac);font-weight:700" title="Mandar la plantilla aprobada por WhatsApp a los incluidos, con confirmación">📨 Enviar WhatsApp</button><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
     <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
-      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="pl-sec">Mensaje que le llegaría</th><th data-xl-no>Catálogo</th></tr></thead>
+      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="pl-sec">Mensaje que le llegaría</th><th data-xl-no>Catálogo</th><th data-ord="n" title="Si ya le salió el WhatsApp de la campaña">WhatsApp</th></tr></thead>
       <tbody id="caBody">${filas}</tbody></table></div>
     <div class="tbl-foot">Grupos: los que compraron la T${A.TA} y aún no piden la T${A.T}; los que compraron entre el ${A.desde.split('-').reverse().join('/')} y el ${A.hasta.split('-').reverse().join('/')} (lo equivalente a estas fechas el año pasado) y no han pedido en 3 meses; y los que ya pidieron la T${A.T}. Magic World no entra. El Excel baja la lista con el mensaje personalizado de cada uno.</div>
   </div>
@@ -6824,6 +6922,7 @@ function campArmarBind() {
     clearTimeout(deb); deb = setTimeout(() => { caGuardar({ msgs: CA.msgs }); cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { const c = CA.clientes.find(x => x.k === tr.dataset.k); if (c && c.incluido && c.grupo === t.dataset.g) tr.cells[7].textContent = caMensaje(c); }); }, 400);
   }));
   cont.querySelectorAll('.ca-cat').forEach(b => b.addEventListener('click', () => caAbrirCatalogo([b.dataset.k])));
+  document.getElementById('caEnviar')?.addEventListener('click', caEnviarAbrir);
   document.getElementById('caCatTodos')?.addEventListener('click', () => caAbrirCatalogo(CA.clientes.filter(c => c.incluido).map(c => c.k)));
   document.getElementById('caPrecios')?.addEventListener('change', e => caGuardar({ precios: e.target.checked }));
   cont.querySelectorAll('.ca-copiar').forEach(b => b.addEventListener('click', () => navigator.clipboard.writeText(CA.msgs[b.dataset.g] || '').then(() => { b.textContent = 'Copiado ✓'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); }).catch(() => {})));
