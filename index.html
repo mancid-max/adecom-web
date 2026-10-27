@@ -4363,10 +4363,12 @@ async function secConversaciones() {
   const cs = d.conversaciones || [];
   const tiene = (c, k) => (c.motivos || []).includes(k);
   const grupo = c => tiene(c, 'persona') || tiene(c, 'sin_respuesta') ? 'necesita' : tiene(c, 'caso') ? 'caso' : tiene(c, 'tomada') ? 'tomada' : 'agente';
-  const n = k => k === 'all' ? cs.length : cs.filter(c => grupo(c) === k || (k !== 'agente' && tiene(c, k))).length;
+  const reales = cs.filter(c => !c.prueba);   // las de prueba (el número de Manu) se ven pero no cuentan
+  const n = k => k === 'all' ? reales.length : reales.filter(c => grupo(c) === k || (k !== 'agente' && tiene(c, k))).length;
   const filas = cs.map(c => {
     const g = grupo(c), u = c.ultimo;
     const marcas = [
+      c.prueba ? '<span class="cv-tag" style="background:var(--sf2);color:var(--tx2)">Prueba</span>' : '',
       tiene(c, 'persona') ? cvTag('persona') : '',
       tiene(c, 'sin_respuesta') ? cvTag('sin_respuesta') : '',
       c.caso ? `<span class="cv-tag" style="background:var(--wa10);color:var(--wa)" title="Caso abierto con la tienda">Caso ${cvEsc(c.caso.numero)} · ${c.caso.dias === 0 ? 'hoy' : c.caso.dias === 1 ? '1 día' : c.caso.dias + ' días'}</span>` : '',
