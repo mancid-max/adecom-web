@@ -243,14 +243,16 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .guia-aviso.oculta{display:none}
 .guia-mano{display:inline-block;animation:guiaSaludo 1.6s ease-in-out infinite;transform-origin:70% 70%;font-size:16px}
 .guia-bot{position:relative;animation:guiaPulso 2.4s ease-in-out infinite}
-#guia.abierta .guia-bot{animation:none}
+#guia.abierta .guia-bot,#guia.quieta .guia-bot{animation:none}
+.guia-aviso-x{color:var(--tx3);font-size:13px;line-height:1;padding:0 2px;margin-left:2px}
+.guia-aviso-x:hover{color:var(--tx1)}
 .guia-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--er);color:#fff;font-size:11px;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 5px;border:2px solid var(--sf)}
 .guia-badge.on{display:flex}
 @keyframes guiaFlota{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @keyframes guiaSaludo{0%,100%{transform:rotate(0)}25%{transform:rotate(18deg)}75%{transform:rotate(-8deg)}}
 @keyframes guiaPulso{0%{box-shadow:0 6px 18px rgba(79,70,229,.35),0 0 0 0 rgba(79,70,229,.45)}70%{box-shadow:0 6px 18px rgba(79,70,229,.35),0 0 0 12px rgba(79,70,229,0)}100%{box-shadow:0 6px 18px rgba(79,70,229,.35),0 0 0 0 rgba(79,70,229,0)}}
 @media(prefers-reduced-motion:reduce){.guia-aviso,.guia-mano,.guia-bot{animation:none}}
-@media(max-width:640px){#guia{right:12px;bottom:78px;width:calc(100vw - 24px)}}
+@media(max-width:640px){#guia{right:12px;bottom:78px;width:calc(100vw - 24px)}#guia .guia-aviso{display:none}}   /* en el teléfono el saludo tapa la pantalla: queda el robot con el número */
 .ia-msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .ia-yo{align-self:flex-end;background:var(--ok);color:#fff;border-bottom-right-radius:3px}
 .ia-bot{align-self:flex-start;background:var(--sf2);color:var(--tx1);border-bottom-left-radius:3px}
@@ -630,7 +632,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
     <form id="iaForm" class="guia-form" style="display:none" autocomplete="off"><textarea id="iaInput" class="finput" rows="1" placeholder="Pregúntale a Mohi sobre lo que ves…" maxlength="1000"></textarea><button id="iaSend" type="submit">Enviar</button></form>
   </div>
   <div class="guia-fila">
-    <button type="button" class="guia-aviso" id="guiaAviso" aria-label="Abrir la guía"><span class="guia-mano">👋</span><span>Hola, soy <b>Mohi</b>. ¿Te ayudo con esta pantalla?</span></button>
+    <button type="button" class="guia-aviso" id="guiaAviso" aria-label="Abrir la guía"><span class="guia-mano">👋</span><span>Hola, soy <b>Mohi</b>. ¿Te ayudo con esta pantalla?</span><span class="guia-aviso-x" title="No mostrar más por hoy">✕</span></button>
   <button class="guia-bot" id="guiaBtn" title="Mohi, la guía: qué es esta sección y qué mirar primero" aria-label="Abrir la guía">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><circle cx="9" cy="14" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M12 8V5"/><circle cx="12" cy="3.5" r="1.2"/><path d="M9.5 17.5h5"/></svg>
       <span class="guia-badge" id="guiaBadge" aria-label="Cosas urgentes"></span>
@@ -1523,6 +1525,7 @@ async function secResumen() {
     load('full_table.json'), load('saldos_bodega.json'), load('pedidos.json'), load('cajas.json'),
   ]);
   try { LU = luAlertas(); } catch (e) { console.error('Lo urgente', e); LU = []; }   // si falla, el Resumen sigue
+  guiaAviso();   // el número en rojo del robot, al tiro
   RES = resBase(ft, sb, peds);
   const vendidas30 = DOCS.filter(d => (d.bod || '') === BOD_SG && (d.fecha_iso || '') >= resHace(30));
   const uVend30 = vendidas30.reduce((a, d) => a + (d.prendas || 0), 0);
@@ -9440,6 +9443,7 @@ const GUIA_QUE_HACER = {
   erp: 'Si el ERP no exportó, avisarle a Adecom: los datos de hoy no están.',
 };
 let GUIA_PASO = 0, GUIA_SEC = '', GUIA_TTL = '', GUIA_ABIERTA = false;   // cerrada al entrar: el robot saluda y la abre quien quiera
+let GUIA_AVISO_T = 0, GUIA_AVISO_FIN = false;   // el saludo se ve unos segundos al entrar y después queda solo el robot con el número
 const guiaTx = s => ddTx(s);
 function guiaTarjetas() {   // lo que dicen las tarjetas de la sección abierta (las cuatro primeras)
   return [...document.querySelectorAll('#content .kpi')].filter(k => k.offsetParent).slice(0, 4).map(k => {
@@ -9543,15 +9547,26 @@ async function guiaUrgente() {
     ${cerca.length ? `<div class="guia-txt" style="margin-top:10px;font-size:12px;color:var(--tx2)">Cerca de aquí:</div>${cerca.map(fila).join('')}` : ''}
     <div class="guia-acc"><button class="seg" data-g="volver">‹ Volver a la guía</button><button class="seg" data-g="resumen">Todo lo urgente, en Resumen</button></div>`;
 }
-function guiaAviso() {   // el saludo junto al robot y el número de cosas en rojo
+function guiaAviso(saludar = true) {   // el saludo junto al robot y el número de cosas en rojo
   const n = (Array.isArray(LU) ? LU : []).filter(a => a.nivel === 'rojo').length;
   const bd = document.getElementById('guiaBadge'), av = document.getElementById('guiaAviso');
   if (bd) { bd.textContent = n; bd.classList.toggle('on', n > 0); }
   if (av) {
-    av.innerHTML = n ? `<span class="guia-mano">👋</span><span>Hay <b>${n} cosas urgentes</b> hoy. ¿Las vemos?</span>` : `<span class="guia-mano">👋</span><span>Hola, soy <b>Mohi</b>. ¿Te ayudo con esta pantalla?</span>`;
-    av.classList.toggle('oculta', GUIA_ABIERTA);
+    av.innerHTML = (n ? `<span class="guia-mano">👋</span><span>Hay <b>${n} cosas urgentes</b> hoy. ¿Las vemos?</span>` : `<span class="guia-mano">👋</span><span>Hola, soy <b>Mohi</b>. ¿Te ayudo con esta pantalla?</span>`)
+      + '<span class="guia-aviso-x" title="No mostrar más por hoy">✕</span>';
+    /* Manu, 27-10-2026: "el mensaje de hay 5 casos urgentes está molestando en el celular". El saludo se ve 9 segundos
+       al entrar y después queda solo el robot con el número; la ✕ lo quita antes y cerrar la guía no lo trae de vuelta.
+       En el teléfono no sale nunca (CSS): el número en el robot dice lo mismo sin tapar la pantalla. */
+    const ver = saludar && !GUIA_ABIERTA && !GUIA_AVISO_FIN;
+    av.classList.toggle('oculta', !ver);
+    if (ver && !GUIA_AVISO_T) GUIA_AVISO_T = setTimeout(guiaAvisoFin, 9000);
   }
   document.getElementById('guia')?.classList.toggle('abierta', GUIA_ABIERTA);
+}
+function guiaAvisoFin() {   // se acabó el saludo: queda el robot quieto con el número en rojo
+  GUIA_AVISO_FIN = true;
+  document.getElementById('guiaAviso')?.classList.add('oculta');
+  document.getElementById('guia')?.classList.add('quieta');
 }
 function guiaMostrar(secId, titulo, forzar = false) {
   const b = document.getElementById('guiaBurbuja');
@@ -9565,17 +9580,18 @@ function guiaMostrar(secId, titulo, forzar = false) {
 }
 document.getElementById('guia')?.addEventListener('click', e => {
   const btn = e.target.closest('[data-g]');
+  if (e.target.closest('.guia-aviso-x')) { clearTimeout(GUIA_AVISO_T); guiaAvisoFin(); return; }   // la ✕ del saludo
   if (e.target.closest('#guiaBtn') || e.target.closest('#guiaAviso')) {   // el saludo abre; el robot abre o cierra
     const b = document.getElementById('guiaBurbuja');
     if (b.classList.contains('oculta') || e.target.closest('#guiaAviso')) guiaMostrar(GUIA_SEC, GUIA_TTL, true);
-    else { GUIA_ABIERTA = false; b.classList.add('oculta'); guiaAviso(); }
+    else { GUIA_ABIERTA = false; b.classList.add('oculta'); guiaAviso(false); }
     return;
   }
   const chip = e.target.closest('.guia-chip');   // una pregunta sugerida: se manda tal cual
   if (chip) { const inp = document.getElementById('iaInput'); if (inp && !document.getElementById('iaSend')?.disabled) { inp.value = chip.dataset.q; iaPreguntar(); } return; }
   if (!btn) return;
   const g = btn.dataset.g, b = document.getElementById('guiaBurbuja');
-  if (g === 'cerrar' || g === 'fin') { GUIA_ABIERTA = false; b.classList.add('oculta'); guiaAviso(); return; }
+  if (g === 'cerrar' || g === 'fin') { GUIA_ABIERTA = false; b.classList.add('oculta'); guiaAviso(false); return; }
   if (g === 'sig') { GUIA_PASO++; guiaPinta(); return; }
   if (g === 'ant') { GUIA_PASO = Math.max(0, GUIA_PASO - 1); guiaPinta(); return; }
   if (g === 'limpiar') { IA_HIST = []; const ch = document.getElementById('iaChat'); if (ch) ch.innerHTML = ''; guiaPinta(); return; }
