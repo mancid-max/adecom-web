@@ -4505,11 +4505,25 @@ function cvRender(d) {
   const estadoCaso = K ? `<b>${cvEsc(K.caso)}</b> · ${K.estado === 'pendiente' ? `<span class="cv-er">abierto desde el ${cvEsc(K.abierto)}</span>` : `<span class="cv-ok">resuelto ${cvEsc(K.resuelto || '')}</span>`}<br>${K.tienda_le_escribio ? 'La tienda le escribió' : '<span class="cv-er">La tienda no le ha escrito desde el aviso</span>'}${K.reclamos ? ` · volvió a reclamar ${K.reclamos} ${K.reclamos === 1 ? 'vez' : 'veces'}` : ''}` : '';
   const casos = (d.casos || []).filter(c => !K || c.caso !== K.caso).map(c => `<div class="cv-caso"><b>${cvEsc(c.caso)}</b> · ${c.estado === 'pendiente' ? '<span class="cv-er">abierto</span>' : '<span class="cv-ok">resuelto</span>'} · ${cvEsc(c.abierto)}<div>${cvEsc(c.texto)}</div>${c.resuelto ? `<div class="td-dim">Resuelto: ${cvEsc(c.resuelto)}</div>` : ''}</div>`).join('');
   const historia = K && (K.historia || []).length ? (K.historia || []).map(e => `<div class="td-dim" style="font-size:11.5px;margin-bottom:3px">${cvEsc(cvHora(e.t))} · ${cvEsc(e.quien)}: ${cvEsc(e.texto)}</div>`).join('') : '';
+  /* Qué ofrecerle (27-10, Manu: "sugerir qué venderle al cliente para cuando le hable un humano") */
+  const O = d.ofrecer || {};
+  const fmtF = f => f ? String(f).slice(0, 10).split('-').reverse().join('-') : '';
+  const resumenO = O.tipo === 'mayorista' && O.resumen ? [
+      fila('Últimos 12 meses', `${fmt(O.resumen.unidades_12m)} prendas${O.resumen.facturado_12m ? ` · facturado ${fmtCLP(O.resumen.facturado_12m)}` : ''}${O.resumen.colecciones ? ` · cole ${cvEsc(O.resumen.colecciones)}` : ''}`),
+      O.resumen.ultimo_pedido ? fila('Último pedido', `${cvEsc(fmtF(O.resumen.ultimo_pedido.fecha))} · ${fmt(O.resumen.ultimo_pedido.unidades)} prendas`) : '',
+      (O.resumen.estilos || []).length ? fila('Sus estilos', cvEsc(O.resumen.estilos.join(', '))) : '',
+      (O.resumen.mas_pidio || []).length ? fila('Lo que más pidió', cvEsc(O.resumen.mas_pidio.join(' · '))) : ''].join('')
+    : O.tipo === 'clienta' ? [fila('Su talla', cvEsc(O.talla || 'no la sé')), (O.ultima_compra || []).length ? fila('Su última compra', cvEsc(O.ultima_compra.join(' · '))) : ''].join('') : '';
+  const sugO = (O.sugeridos || []).map(m => O.tipo === 'mayorista'
+      ? `<div class="cv-caso"><b>${cvEsc(m.codigo)} ${cvEsc(m.nombre)}</b> · ${cvEsc(m.estilo)} · ${cvEsc(m.precio)}<br><span class="td-dim">${fmt(m.stock)} en bodega · tallas ${cvEsc(m.tallas)}${m.ya_lo_pidio ? ' · <b style="color:var(--ok)">ya lo pidió</b>' : ''}</span></div>`
+      : `<div class="cv-caso">${cvEsc(m.nombre)}${m.link ? `<br><a href="${cvEsc(m.link)}" target="_blank" rel="noopener" style="color:var(--ac)">ver en la tienda ›</a>` : ''}</div>`).join('');
+  const ofrecerHtml = (resumenO || sugO) ? `<h4>Qué ofrecerle</h4>${resumenO}${sugO}${sugO && d.responder && d.responder.ok ? '<button class="cv-linkbtn" data-cvof="1" style="margin:2px 0 6px">✍️ Ofrecérselos en el mensaje</button>' : ''}${O.nota ? `<div class="td-dim" style="font-size:11px">${cvEsc(O.nota)}</div>` : ''}` : (O.nota ? `<h4>Qué ofrecerle</h4><div class="td-dim" style="font-size:11.5px">${cvEsc(O.nota)}</div>` : '');
   const pedidos = (d.pedidos || []).map(p => `<div class="cv-caso">${cvEsc(p.numero)}<br>${cvEsc(p.fecha)} · ${cvEsc(p.total)} · <b>${cvEsc(p.estado)}</b></div>`).join('');
   const ctx = `<h4>Contexto</h4>
       ${fila('Lo que pide ahora', X.pide ? `«${cvEsc(X.pide)}»` : '', 'cv-cx-pide')}
       ${K ? fila('Qué pasó', cvEsc(K.que_paso)) + fila('Qué necesita', cvEsc(K.que_necesita)) + fila('Qué hacer', cvEsc(K.que_hacer)) + fila('Su caso', estadoCaso) : fila('Caso con la tienda', '<span class="td-dim">No tiene</span>')}
       ${fila(`Lo último que le dijo ${ag}`, X.agente_dijo ? `«${cvEsc(X.agente_dijo)}»` : '', 'td-dim')}
+      ${ofrecerHtml}
       ${historia ? `<h4>Historia del caso</h4>${historia}` : ''}
       ${pedidos ? `<h4>Pedidos en mohicano.cl</h4>${pedidos}` : ''}
       ${casos ? `<h4>Otros casos</h4>${casos}` : ''}
@@ -4555,6 +4569,15 @@ async function cvAbrir(id, { silencio = false } = {}) {
   det.querySelector('[data-cvsug]')?.addEventListener('click', () => {   // el borrador: se completa con la solución antes de enviar
     if (!ta) return;
     ta.value = (d.contexto && d.contexto.sugerencia) || ''; crecer(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
+  det.querySelector('[data-cvof]')?.addEventListener('click', () => {   // la oferta escrita, para que la persona la ajuste y la mande
+    if (!ta) return;
+    const O = d.ofrecer || {}, pila = String(d.lead.nombre || '').trim().split(/\s+/)[0];
+    const ms = (O.sugeridos || []);
+    const txt = O.tipo === 'mayorista'
+      ? `Hola ${pila}, te cuento que tenemos con despacho inmediato:\n${ms.map(m => `• ${m.codigo} ${m.nombre} (${m.estilo}), ${m.precio}`).join('\n')}\n¿Te mando las fotos y las tallas?`
+      : `Hola ${pila}, te recomiendo estos que quedan${O.talla ? ` en tu talla ${O.talla}` : ''}:\n${ms.map(m => `• ${m.nombre}${m.link ? ' ' + m.link : ''}`).join('\n')}`;
+    ta.value = (ta.value ? ta.value.trimEnd() + '\n' : '') + txt; crecer(); ta.focus();
   });
   det.querySelector('[data-cvback]')?.addEventListener('click', () => { document.getElementById('cvApp')?.classList.remove('cv-abierta'); CV_SEL = null; });
   det.querySelector('[data-cvctx]')?.addEventListener('click', () => det.classList.toggle('cv-ver-ctx'));
@@ -4732,8 +4755,11 @@ function buildPVCRows(t, ftMap, exMap) {
         ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar ${fmt(-f.diff)}</span>`
         : `<span style="background:var(--sf2);color:var(--tx3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">✓ OK</span>`;
     const exHtml = f.ex?.ex_base
-      ? `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${f.ex.ex_base}</span>`
+      ? `<span title="Modelo de la colección pasada al que corresponde${f.ex.ex2 ? ' · también ' + f.ex.ex2 : ''}" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${f.ex.ex_base}</span>`
       : `<span style="color:var(--tx3);font-size:11px">—</span>`;
+    /* "Sí va": el modelo está en el perchero aprobado (Manu, 27-10-2026: Excel de modelaje de Pedro Meneses, hoja
+       "PERCHERO DON RICHARD (SI VA)" → seed/COLE45_ORIGEN.json → pvc_ex.json). Va junto al modelo de origen. */
+    const vaHtml = f.ex?.va ? ` <span title="En el perchero que sí va" style="background:var(--ok10);color:var(--ok);border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;white-space:nowrap">Sí va</span>` : '';
     const cantExHtml = f.ex?.ex_saldo > 0
       ? `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${fmt(f.ex.ex_saldo)}</span>`
       : `<span style="color:var(--bd2);font-size:12px">————</span>`;
@@ -4745,7 +4771,7 @@ function buildPVCRows(t, ftMap, exMap) {
         ).join('') + progChip
       : '<span style="color:var(--tx3);font-size:11px">—</span>';
     const domEtapa = etapaEntries.length ? etapaEntries[0][0] : '—';
-    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e), f.bota, f.tiro, f.tela, f.prog ? 'programado' : ''].join(' ').toLowerCase();
+    const q = [f.art, f.base, `${f.base}-${f.mod}`, f.ex?.ex_base || '', f.ex?.ex2 || '', f.ex?.va ? 'sí va perchero' : '', ...f.ocs.map(o => o.oc || ''), ...etapaEntries.map(([e]) => e), f.bota, f.tiro, f.tela, f.prog ? 'programado' : ''].join(' ').toLowerCase();
     /* La bota, el tiro y la tela van debajo del código y no en otra columna: la tabla ya llena el
        ancho y una columna más la haría correrse a la derecha. La tela la escribe Adecom en el ERP
        artículo por artículo (desde el 27-10-2026): el que todavía no la tiene, no la muestra. */
@@ -4761,7 +4787,7 @@ function buildPVCRows(t, ftMap, exMap) {
       <td class="r td-num" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
       <td class="r td-num" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
       <td style="text-align:center">${estadoHtml}</td>
-      <td>${exHtml}</td>
+      <td style="white-space:nowrap">${exHtml}${vaHtml}</td>
       <td class="r">${cantExHtml}</td>
       <td style="padding-left:4px;white-space:normal">${modelEtapaHtml}</td>
     </tr>`;
