@@ -6557,7 +6557,12 @@ function caGuardar(patch) {
   try { localStorage.setItem('adecom_campana_' + CA.T, JSON.stringify(e)); } catch (x) {}
   return e;
 }
-const caNombre = n => { const s = String(n || '').trim(); const w = s.split(/\s+/)[0] || s; return w.length > 2 ? w[0] + w.slice(1).toLowerCase() : s; };
+const caNombre = c => {   // cómo saludarlo: el nombre de pila del contacto; si no hay, la razón social sin SPA/LTDA ("Hola Comercial" no sirve)
+  const tit = s => s.toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase());
+  const contacto = String(c.contacto || '').trim();
+  if (contacto && !/^\d/.test(contacto)) return tit(contacto.split(/\s+/)[0]);
+  return tit(String(c.nombre || '').replace(/\b(SPA|S\.?A\.?|LTDA\.?|LIMITADA|EIRL|E\.I\.R\.L\.?|S\.?P\.?A\.?)\b/gi, '').replace(/[.,]+$/, '').replace(/\s+/g, ' ').trim()) || 'cliente';
+};
 const caListar = xs => xs.slice(0, -1).join(', ') + (xs.length > 1 ? ' y ' : '') + (xs[xs.length - 1] || '');
 /* Los datos: la colección nueva, lo que se vendía a esta fecha el año pasado, y los clientes por grupo */
 async function campArmarDatos(peds, pa) {
@@ -6628,7 +6633,86 @@ async function campArmarDatos(peds, pa) {
   return { T, TA, modelos, botasNueva, tempAno: tempAno[0], uTempAno: tempAno[1], topBotasAno, desde, hasta, clientes, grupos, msgs, plantillas, modelosFuera, sem, pctOctNov: uAnoTot ? Math.round(uOctNov / uAnoTot * 100) : 0, anoPas };
 }
 function caMensaje(c) {   // el mensaje de su grupo, con su nombre
-  return (CA.msgs[c.grupo] || '').replace(/\{nombre\}/g, caNombre(c.nombre)).replace(/\{vendedor\}/g, c.vendedor || '');
+  return (CA.msgs[c.grupo] || '').replace(/\{nombre\}/g, caNombre(c)).replace(/\{vendedor\}/g, c.vendedor || '');
+}
+/* El minicatálogo de un cliente (Manu, 27-10-2026): una página para imprimir o guardar como PDF con los modelos de la
+   colección nueva elegidos para él, su curva de tallas y el mensaje de su grupo. Se abre en una pestaña nueva. */
+function caCurva(c) {   // las tallas que acostumbra pedir, de sus pedidos de la colección activa
+  const t = {};
+  for (const p of CACHE['pedidos.json'] || []) if (vdKey(p) === c.k) for (const l of p.lineas || []) if (String(l.temp) === CA.TA) for (const [k, v] of Object.entries(l.st || {})) t[k] = (t[k] || 0) + (v || 0);
+  const tot = Object.values(t).reduce((a, b) => a + b, 0);
+  return Object.entries(t).filter(([, v]) => v > 0).sort((a, b) => (isNaN(+a[0]) || isNaN(+b[0]) ? a[0].localeCompare(b[0]) : +a[0] - +b[0])).map(([k, v]) => ({ talla: k, pct: tot ? Math.round(v / tot * 100) : 0 }));
+}
+function caModelosPara(c, n = 8) {   // primero los modelos con las botas que más le compró; se completa con los más pedidos
+  const pref = Object.entries(c.botasA).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+  const puntaje = m => (pref.includes(m.bota) ? (pref.length - pref.indexOf(m.bota)) * 10000 : 0) + m.total;
+  return CA.modelos.filter(m => !CA.modelosFuera.has(m.base)).slice().sort((a, b) => puntaje(b) - puntaje(a)).slice(0, n);
+}
+function caPrecio(m) {   // precio neto por prenda del modelo: el promedio de sus colores con precio
+  const ps = m.colores.map(cc => precioDe('01' + m.base + cc)).filter(v => v > 0);
+  return ps.length ? Math.round(ps.reduce((a, b) => a + b, 0) / ps.length) : 0;
+}
+function caCatalogoHtml(clientes, conPrecios = true) {
+  const abs = u => new URL(u, location.href).href, hoy = today().split('-').reverse().join('/');
+  const pagina = c => {
+    const ms = caModelosPara(c), curva = caCurva(c);
+    const tarjeta = m => {
+      const img = m.foto || (m.ref && m.ref.src), p = conPrecios ? caPrecio(m) : 0;
+      return `<div class="mc-modelo"><div class="mc-img">${img ? `<img src="${abs(img)}" alt="">` : caSilueta(m.bota)}</div>
+        <div class="mc-cod">${m.base}</div><div class="mc-det">${caTx([m.bota, m.tiro ? m.tiro.toLowerCase() : ''].filter(Boolean).join(' · ')) || '&nbsp;'}</div>
+        ${m.colores.length ? `<div class="mc-col">colores ${m.colores.join(' · ')}</div>` : ''}
+        ${p ? `<div class="mc-precio">$${fmt(p)} + IVA</div>` : ''}
+        ${!m.foto && img ? `<div class="mc-ref">foto referencial T${CA.TA}</div>` : ''}</div>`;
+    };
+    return `<section class="mc-pagina">
+      <header class="mc-cab"><div class="mc-marca"><span class="mc-logo">M</span><div><b>MOHICANO JEANS</b><div class="mc-sub">Colección T${CA.T} · ${hoy}</div></div></div>
+        <div class="mc-para"><div class="mc-sub">Preparado para</div><b>${caTx(c.nombre)}</b><div class="mc-sub">${caTx([c.ciudad, c.vendedor ? 'vendedor ' + c.vendedor : ''].filter(Boolean).join(' · '))}</div></div></header>
+      <p class="mc-msg">${caTx(caMensaje(c))}</p>
+      <div class="mc-grid">${ms.map(tarjeta).join('')}</div>
+      ${curva.length ? `<div class="mc-tallas"><b>Tus tallas de la T${CA.TA}:</b> ${curva.map(x => `<span>${caTx(x.talla)} <small>${x.pct}%</small></span>`).join('')}<span class="mc-sub">· te armamos el pedido con esa curva si quieres</span></div>` : ''}
+      <footer class="mc-pie">Para pedir, responde este mensaje${c.vendedor ? ' o escríbele a ' + caTx(c.vendedor) : ''}. Mohicano Jeans · ${hoy}${ms.some(m => !m.foto && m.ref) ? ' · Las fotos marcadas como referenciales son de la colección anterior, del mismo tipo de bota.' : ''}</footer>
+    </section>`;
+  };
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Minicatálogo T${CA.T} · Mohicano Jeans</title><meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+  @page{size:A4;margin:12mm}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1b2233;background:#f4f5f8}
+  .mc-barra{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #e1e4ea;padding:10px 16px;display:flex;gap:12px;align-items:center;font-size:13px;color:#5e6675}
+  .mc-barra button{padding:7px 14px;border-radius:8px;border:0;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;font-size:13px}
+  .mc-pagina{background:#fff;max-width:800px;margin:16px auto;padding:28px 32px;border-radius:12px;box-shadow:0 2px 12px rgba(16,24,40,.08);page-break-after:always;break-after:page}
+  .mc-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #4f46e5;padding-bottom:12px}
+  .mc-marca{display:flex;align-items:center;gap:10px;font-size:15px;letter-spacing:.04em}
+  .mc-logo{width:38px;height:38px;border-radius:10px;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px}
+  .mc-sub{font-size:11.5px;color:#5e6675}
+  .mc-para{text-align:right;font-size:14px}
+  .mc-msg{font-size:13.5px;line-height:1.55;background:#eef0ff;border-radius:10px;padding:12px 14px;margin:16px 0}
+  .mc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .mc-modelo{border:1px solid #e1e4ea;border-radius:10px;padding:8px;font-size:12px;text-align:center;break-inside:avoid}
+  .mc-img{height:150px;display:flex;align-items:center;justify-content:center;background:#f4f5f8;border-radius:8px;overflow:hidden;margin-bottom:6px}
+  .mc-img img{max-height:150px;max-width:100%;object-fit:contain}
+  .mc-cod{font-weight:800;font-size:14px}
+  .mc-det{color:#5e6675}
+  .mc-col{font-size:11px;color:#5e6675;margin-top:2px}
+  .mc-precio{font-weight:700;color:#15803d;margin-top:4px}
+  .mc-ref{font-size:10px;color:#94a0b0;margin-top:2px}
+  .mc-tallas{margin-top:14px;font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .mc-tallas span{background:#f4f5f8;border-radius:8px;padding:3px 8px}
+  .mc-tallas small{color:#5e6675}
+  .mc-pie{margin-top:16px;border-top:1px solid #e1e4ea;padding-top:10px;font-size:11.5px;color:#5e6675}
+  @media print{body{background:#fff}.mc-barra{display:none}.mc-pagina{box-shadow:none;margin:0;border-radius:0;max-width:none;padding:0}}
+  @media(max-width:640px){.mc-grid{grid-template-columns:repeat(2,1fr)}.mc-cab{flex-direction:column}.mc-para{text-align:left}}
+  </style></head><body>
+  <div class="mc-barra"><button onclick="window.print()">Imprimir o guardar como PDF</button><span>${clientes.length === 1 ? '1 minicatálogo' : clientes.length + ' minicatálogos, uno por página'}${conPrecios ? ' · precios netos, sin IVA' : ' · sin precios'} · Mohicano Jeans</span></div>
+  ${clientes.map(pagina).join('')}
+  </body></html>`;
+}
+function caAbrirCatalogo(ks) {
+  const cs = CA.clientes.filter(c => ks.includes(c.k));
+  if (!cs.length) return;
+  const conPrecios = !!document.getElementById('caPrecios')?.checked;
+  const w = window.open('', '_blank');
+  if (!w) { alert('El navegador bloqueó la ventana del catálogo. Permite las ventanas emergentes para este sitio y vuelve a intentar.'); return; }
+  w.document.open(); w.document.write(caCatalogoHtml(cs, conPrecios)); w.document.close();
 }
 function campArmarHtml() {
   const A = CA, dentro = A.clientes.filter(c => c.incluido), porG = g => A.clientes.filter(c => c.grupo === g), dentroG = g => porG(g).filter(c => c.incluido);
@@ -6648,7 +6732,8 @@ function campArmarHtml() {
       <td class="r td-num" data-v="${c.uA}">${c.uA ? fmt(c.uA) : '—'}<span class="pl-sub">${caTx(c.botasTxt)}</span></td>
       <td class="r td-num pl-sec" data-v="${c.uAno}">${c.uAno ? fmt(c.uAno) : '—'}</td>
       <td class="td-dim" data-v="${c.ult}">${c.ult ? c.ult.split('-').reverse().join('/') : '—'}</td>
-      <td class="pl-sec" style="max-width:320px;white-space:normal;font-size:11.5px;color:var(--tx2)">${c.incluido ? caTx(caMensaje(c)) : '<span class="td-dim">fuera de la campaña</span>'}</td></tr>`).join('');
+      <td class="pl-sec" style="max-width:320px;white-space:normal;font-size:11.5px;color:var(--tx2)">${c.incluido ? caTx(caMensaje(c)) : '<span class="td-dim">fuera de la campaña</span>'}</td>
+      <td data-xl-no><button type="button" class="seg ca-cat" data-k="${caTx(c.k)}" style="border:1px solid var(--bd2)" title="Su minicatálogo: los modelos de la T${A.T} elegidos para él, con su curva de tallas">📄 Minicatálogo</button></td></tr>`).join('');
   const tarjetasModelo = A.modelos.map(m => `<label class="ca-modelo${A.modelosFuera.has(m.base) ? ' fuera' : ''}">
       <input type="checkbox" class="ca-mod" data-base="${m.base}" ${A.modelosFuera.has(m.base) ? '' : 'checked'}>
       <div class="ca-img">${m.foto ? `<img src="${m.foto}" alt="" loading="lazy">` : caSilueta(m.bota)}</div>
@@ -6672,9 +6757,10 @@ function campArmarHtml() {
   <div class="tbl-card" id="caClientes">
     <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">1 · A quién: ${fmt(dentro.length)} clientes</div>
       <div class="card-sub" style="margin:2px 0 0">Marcados los que entran. Los bloqueados y los con deuda vencida hace más de 90 días quedan fuera (primero cobranza); puedes incluirlos igual.</div></div>
-      ${btnExcel()}<div class="xl-der"><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
+      ${btnExcel()}<div class="xl-der"><label class="td-dim" style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="caPrecios" ${caEstado().precios === false ? '' : 'checked'}> con precios</label>
+      <button type="button" class="seg" id="caCatTodos" style="border:1px solid var(--bd2)" title="Un minicatálogo por cliente incluido, uno por página, para imprimir o guardar como PDF">📄 Todos los minicatálogos</button><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
     <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
-      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="pl-sec">Mensaje que le llegaría</th></tr></thead>
+      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="pl-sec">Mensaje que le llegaría</th><th data-xl-no>Catálogo</th></tr></thead>
       <tbody id="caBody">${filas}</tbody></table></div>
     <div class="tbl-foot">Grupos: los que compraron la T${A.TA} y aún no piden la T${A.T}; los que compraron entre el ${A.desde.split('-').reverse().join('/')} y el ${A.hasta.split('-').reverse().join('/')} (lo equivalente a estas fechas el año pasado) y no han pedido en 3 meses; y los que ya pidieron la T${A.T}. Magic World no entra. El Excel baja la lista con el mensaje personalizado de cada uno.</div>
   </div>
@@ -6737,6 +6823,9 @@ function campArmarBind() {
     CA.msgs[t.dataset.g] = t.value;
     clearTimeout(deb); deb = setTimeout(() => { caGuardar({ msgs: CA.msgs }); cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { const c = CA.clientes.find(x => x.k === tr.dataset.k); if (c && c.incluido && c.grupo === t.dataset.g) tr.cells[7].textContent = caMensaje(c); }); }, 400);
   }));
+  cont.querySelectorAll('.ca-cat').forEach(b => b.addEventListener('click', () => caAbrirCatalogo([b.dataset.k])));
+  document.getElementById('caCatTodos')?.addEventListener('click', () => caAbrirCatalogo(CA.clientes.filter(c => c.incluido).map(c => c.k)));
+  document.getElementById('caPrecios')?.addEventListener('change', e => caGuardar({ precios: e.target.checked }));
   cont.querySelectorAll('.ca-copiar').forEach(b => b.addEventListener('click', () => navigator.clipboard.writeText(CA.msgs[b.dataset.g] || '').then(() => { b.textContent = 'Copiado ✓'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); }).catch(() => {})));
   cont.querySelectorAll('.ca-plantilla').forEach(b => b.addEventListener('click', () => { CA.msgs[b.dataset.g] = CA.plantillas[b.dataset.g]; caGuardar({ msgs: CA.msgs }); campArmarPintar(); }));
   // Otra versión escrita por Mohi: una llamada al asistente con lo que hay que decir; lo que vuelve se pone en el cuadro
@@ -8592,12 +8681,12 @@ const xlCelda = c => {
   return n != null ? n : ls.join(' · ');
 };
 function xlFilas(t) {
-  const enc = [...(t.tHead?.rows[t.tHead.rows.length - 1]?.cells || [])].map(th => String(xlCelda(th)).replace(/\s*[↕▲▼]$/, ''));
+  const enc = [...(t.tHead?.rows[t.tHead.rows.length - 1]?.cells || [])].filter(th => !th.hasAttribute('data-xl-no')).map(th => String(xlCelda(th)).replace(/\s*[↕▲▼]$/, ''));
   const filas = [];
   for (const tr of (t.tBodies[0]?.rows || [])) {
     if (!tr.getClientRects().length) continue;                                                     // la esconde un filtro
     if (tr.cells.length === 1 && enc.length > 1 && !tr.classList.contains('pl-grupo')) continue;   // "sin resultados" o un detalle abierto
-    filas.push([...tr.cells].map(xlCelda));
+    filas.push([...tr.cells].filter(td => !td.hasAttribute('data-xl-no')).map(xlCelda));
   }
   return [enc, ...filas];
 }
