@@ -4438,6 +4438,17 @@ async function secConversaciones() {
     .cv-comp textarea:focus{border-color:var(--ac)}
     .cv-pick{cursor:pointer;transition:border-color .12s,background .12s}.cv-pick:hover{border-color:var(--ac)}
     .cv-pick.on{border-color:var(--ac);background:var(--ac10);box-shadow:inset 3px 0 0 var(--ac)}
+    .cv-sec{border:1px solid var(--bd);border-radius:12px;padding:10px 12px 8px;margin-bottom:10px;background:var(--sf)}
+    .cv-sec-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--tx1);margin-bottom:8px}
+    .cv-chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:none;letter-spacing:0;white-space:nowrap}
+    .cv-datos{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+    .cv-dato{background:var(--sf2);border-radius:8px;padding:6px 8px;min-width:0}.cv-dato span{display:block;font-size:10.5px;color:var(--tx3)}.cv-dato b{font-size:13px}.cv-dato small{display:block;font-size:10.5px;font-weight:500;color:var(--tx3)}
+    .cv-fuente{font-size:11px;margin-top:4px;line-height:1.45}
+    .cv-avance{background:var(--sf2);border-radius:10px;padding:8px 10px;margin-bottom:8px}
+    .cv-av-l1{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;font-weight:700}.cv-av-l1 b{font-size:20px}
+    .cv-barra{height:7px;border-radius:9px;background:var(--bd);overflow:hidden;margin:4px 0 5px}.cv-barra i{display:block;height:100%;border-radius:9px}
+    .cv-av-l2{font-size:11.5px;line-height:1.45}
+    .cv-hist{display:flex;gap:5px;margin-top:6px}.cv-hist span{flex:1;text-align:center;background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:3px 0;font-size:12px;font-weight:700}.cv-hist span small{display:block;font-size:10px;font-weight:500;color:var(--tx3)}.cv-hist span.on{border-color:var(--ac);color:var(--ac)}
     .cv-fila{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;font-size:12.5px;line-height:1.4}
     .cv-sub{font-size:11px;font-weight:700;color:var(--tx2);margin:10px 0 5px}
     .cv-sug{display:inline-block;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:8px;background:var(--ac10);color:var(--ac)}.cv-sug-ok{background:var(--ok10);color:var(--ok)}
@@ -4528,38 +4539,66 @@ function cvRender(d) {
       : `<div class="cv-caso cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje">${cvEsc(m.nombre)}${m.link ? `<br><a href="${cvEsc(m.link)}" target="_blank" rel="noopener" style="color:var(--ac)">ver en la tienda ›</a>` : ''}</div>`).join('');
   /* su cuenta en el ERP y lo que viene en producción (28-10, Manu: "si está bloqueado, si está con deuda y con saldo a
      favor, qué ofrecerle de la nueva cole… si tenemos programado o en producción y en qué parte está") */
+  /* la columna en secciones (28-10, Manu: "más ordenada por sección: Cobranza… después Pedidos, lo que pidió, qué
+     mandarle y cuánto llevamos del porcentaje de lo que deberíamos llevar con las colecciones pasadas") */
+  const sec = (ico, tit, chip, cuerpo) => cuerpo ? `<section class="cv-sec"><div class="cv-sec-hd"><span>${ico} ${tit}</span>${chip || ''}</div>${cuerpo}</section>` : '';
+  const chipS = (txt, c) => `<span class="cv-chip" style="background:var(--${c}10);color:var(--${c})">${txt}</span>`;
+  const dato = (lbl, val, cls = '') => `<div class="cv-dato"><span>${lbl}</span><b class="${cls}">${val}</b></div>`;
   const Q = O.cuenta;
-  const cuentaHtml = Q ? `<h4>Su cuenta</h4>${[
-      Q.bloqueado ? `<div class="cv-alerta cv-alerta-er">🔒 <b>Bloqueado en el ERP</b>: sus pedidos quedan detenidos. Antes de tomarle uno, revisarlo con cobranza.</div>` : '',
-      fila('Deuda', Q.deuda > 0 ? `<b>${fmtCLP(Q.deuda)}</b>${Q.vencida > 0 ? ` · <span class="cv-er">${fmtCLP(Q.vencida)} vencida${Q.atraso >= 90 ? ', más de 90 días' : Q.atraso ? `, hace ${Q.atraso} días` : ''}</span>` : ' · <span class="cv-ok">al día</span>'}` : Q.a_favor > 0 ? '<span class="td-dim">No debe</span>' : '<span class="cv-ok">No debe</span>'),
-      Q.a_favor > 0 ? fila('Saldo a favor', `<b class="cv-ok">${fmtCLP(Q.a_favor)}</b>`) : '',
-      Q.cheques > 0 ? fila('Cheques por cobrar', fmtCLP(Q.cheques)) : '',
-      fila('Cupo', Q.cupo ? `${Q.sin_cupo ? '<span class="cv-er">sin cupo disponible</span>' : `${fmtCLP(Q.disponible)} disponible`} de ${fmtCLP(Q.cupo)}` : '<span class="td-dim">Sin cupo de crédito</span>'),
-      fila('Forma de pago', cvEsc(Q.forma_pago)), fila('Vendedor', cvEsc(Q.vendedor))].join('')}
-      <div class="td-dim" style="font-size:11px">De su ficha del ERP. Lo vencido se estima como en Deudas.</div>` : '';
+  const cuentaHtml = Q ? sec('💰', 'Cobranza',
+      Q.bloqueado ? chipS('🔒 Bloqueado', 'er') : Q.vencida > 0 ? chipS('Deuda vencida', 'wa') : Q.deuda > 0 ? chipS('Al día', 'ok') : Q.a_favor > 0 ? chipS('Saldo a favor', 'ok') : chipS('Sin deuda', 'ok'),
+      `${Q.bloqueado ? '<div class="cv-alerta cv-alerta-er">Sus pedidos quedan detenidos en el ERP. Antes de tomarle uno, revisarlo con cobranza.</div>' : ''}
+      <div class="cv-datos">
+        ${dato('Bloqueado', Q.bloqueado ? 'Sí' : 'No', Q.bloqueado ? 'cv-er' : 'cv-ok')}
+        ${dato('Deuda', Q.deuda > 0 ? fmtCLP(Q.deuda) : '$0')}
+        ${dato('Vencida', Q.vencida > 0 ? `${fmtCLP(Q.vencida)}<small>${Q.atraso >= 90 ? 'más de 90 días' : `hace ${Q.atraso} días`}</small>` : '$0', Q.vencida > 0 ? 'cv-er' : '')}
+        ${dato('Saldo a favor', Q.a_favor > 0 ? fmtCLP(Q.a_favor) : '$0', Q.a_favor > 0 ? 'cv-ok' : '')}
+        ${dato('Cupo disponible', Q.cupo ? `${Q.sin_cupo ? '$0' : fmtCLP(Q.disponible)}<small>de ${fmtCLP(Q.cupo)}</small>` : 'Sin cupo', Q.sin_cupo ? 'cv-er' : '')}
+        ${dato('Cheques', Q.cheques > 0 ? fmtCLP(Q.cheques) : '$0')}
+      </div>
+      <div class="td-dim cv-fuente">${[Q.forma_pago, Q.vendedor ? 'vendedor ' + cvEsc(Q.vendedor) : ''].filter(Boolean).map(cvEsc).join(' · ')}${Q.forma_pago || Q.vendedor ? ' · ' : ''}ficha del ERP; lo vencido se estima como en Deudas</div>`) : '';
+  /* Pedidos: cuánto lleva de la colección actual frente a la anterior y a su promedio, y sus últimos pedidos */
+  const A = O.avance, R = O.resumen;
+  const colorPct = p => p == null ? 'tx2' : p >= 100 ? 'ok' : p >= 60 ? 'wa' : 'er';
+  const avanceHtml = A && (A.unidades || A.ref_unidades) ? `<div class="cv-avance">
+        <div class="cv-av-l1"><span>Cole ${cvEsc(A.cole)}</span><b style="color:var(--${colorPct(A.pct)})">${A.pct != null ? A.pct + '%' : '—'}</b></div>
+        <div class="cv-barra"><i style="width:${Math.min(100, A.pct || 0)}%;background:var(--${colorPct(A.pct)})"></i></div>
+        <div class="td-dim cv-av-l2">${A.ref_cole ? `${fmt(A.unidades)} de ${fmt(A.ref_unidades)} prendas que llevó en la ${cvEsc(A.ref_cole)}` : `${fmt(A.unidades)} prendas; no compró las anteriores`}${A.completo && A.pct_promedio != null && (A.promedio_de || []).length > 1 ? ` · ${A.pct_promedio}% de su promedio (${fmt(A.promedio)}, cole ${cvEsc(A.promedio_de.slice().reverse().join('-'))})` : ''}${A.unidades ? ` · despachado ${fmt(A.despachado)}` : ''}</div>
+        ${A.completo && (A.historia || []).length ? `<div class="cv-hist">${A.historia.map(h => `<span${h.cole === A.cole ? ' class="on"' : ''}><small>${cvEsc(h.cole)}</small>${fmt(h.unidades)}</span>`).join('')}</div>` : ''}
+        ${A.siguiente ? `<div class="cv-av-l2">Ya pidió <b>${fmt(A.siguiente.unidades)}</b> de la ${cvEsc(A.siguiente.cole)} (preventa)</div>` : ''}
+      </div>` : '';
+  const pedErp = (O.pedidos_erp || []).map(p => `<div class="cv-fila"><b>${fmtF(p.fecha)}</b> · ${fmt(p.unidades)} prendas · cole ${cvEsc(p.colecciones)}<span class="td-dim"> · ${p.unidades ? Math.round(p.despachado / p.unidades * 100) : 0}% despachado</span>${p.bloqueado ? ' <span class="cv-sug" style="background:var(--er10);color:var(--er)">detenido</span>' : ''}</div>`).join('');
+  const pedidosHtml = O.tipo === 'mayorista' ? sec('📦', 'Pedidos', A && A.pct != null ? chipS(`${A.pct}% de la ${cvEsc(A.ref_cole)}`, colorPct(A.pct)) : '',
+      [avanceHtml,
+       pedErp ? `<div class="cv-sub">Sus últimos pedidos</div>${pedErp}` : '',
+       R ? `<div class="td-dim cv-fuente">12 meses: ${fmt(R.unidades_12m)} prendas${R.facturado_12m ? ` · facturado ${fmtCLP(R.facturado_12m)}` : ''}${(R.estilos || []).length ? ` · sus estilos: ${cvEsc(R.estilos.join(', '))}` : ''}</div>` : ''].join('')) : '';
+
   const viene = (O.viene || []).map((m, i) => `<div class="cv-caso cv-pick" data-cvpick="v${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje"><b>${cvEsc(m.codigo)}${m.nombre ? ' ' + cvEsc(m.nombre) : ''}</b> · cole ${cvEsc(m.cole)}${m.estilo ? ' · ' + cvEsc(m.estilo) : ''}${m.precio ? ' · ' + cvEsc(m.precio) : ''}<br>
       <span class="cv-etapa" title="${cvEsc(m.detalle)}">${cvEsc(m.etapa)}</span> <span class="td-dim">${[m.en_produccion ? fmt(m.en_produccion) + ' en producción' : '', m.programado ? fmt(m.programado) + ' programado sin cortar' : '', m.desde ? 'OC del ' + cvEsc(m.desde) : ''].filter(Boolean).join(' · ')}</span></div>`).join('');
-  const vieneHtml = viene ? `<h4>Lo que viene</h4>${viene}<div class="td-dim" style="font-size:11px">Trazabilidad de Adecom: en qué etapa está cada uno (programado = OC emitida, sin cortar).</div>` : '';
+  const vieneHtml = viene ? sec('🧵', 'Lo que viene', '', `${viene}<div class="td-dim cv-fuente">Trazabilidad de Adecom: en qué etapa está cada uno (programado = OC emitida, sin cortar).</div>`) : '';
   /* lo que suele comprar (28-10, Manu: "también otra parte de los que él suele comprar y ofrecerle") */
   const suele = (O.suele || []).map((m, i) => `<div class="cv-caso cv-pick" data-cvpick="u${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje"><b>${cvEsc(m.codigo)}${m.nombre ? ' ' + cvEsc(m.nombre) : ''}</b> · ${cvEsc(m.estilo)}${m.precio ? ' · ' + cvEsc(m.precio) : ''}<br>
       <span class="td-dim">Pidió ${fmt(m.pidio)} en 12 meses · cole ${cvEsc(m.cole)} · </span>${m.estado === 'disponible' ? `<b class="cv-ok">${fmt(m.stock)} disponibles</b>` : '<span class="cv-etapa">en producción</span>'}</div>`).join('');
   const nDisp = (O.sugeridos || []).length;
-  const ofrecerHtml = (resumenO || sugO || suele) ? `<h4>Qué ofrecerle</h4>${(sugO || suele) && d.responder && d.responder.ok ? '<div class="cv-pick-nota">✍️ Toca los que quieras ofrecerle: el mensaje se arma solo abajo.</div>' : ''}${resumenO}
+  const resumenCl = O.tipo === 'clienta' ? resumenO : '';
+  const ofrecerHtml = (resumenCl || sugO || suele || O.nota) ? sec('🛍', O.tipo === 'mayorista' ? 'Qué mandarle' : 'Qué ofrecerle', '',
+      `${(sugO || suele) && d.responder && d.responder.ok ? '<div class="cv-pick-nota">✍️ Toca los que quieras ofrecerle: el mensaje se arma solo abajo.</div>' : ''}${resumenCl}
       ${suele ? `<div class="cv-sub">Lo que suele comprar</div>${suele}` : ''}
       ${sugO ? `<div class="cv-sub">${O.tipo === 'mayorista' ? `Con despacho inmediato (${fmt(nDisp)})` : 'Para ella'}</div>${sugO}` : ''}
-      ${O.nota ? `<div class="td-dim" style="font-size:11px;margin-top:6px">${cvEsc(O.nota)}</div>` : ''}` : (O.nota ? `<h4>Qué ofrecerle</h4><div class="td-dim" style="font-size:11.5px">${cvEsc(O.nota)}</div>` : '');
+      ${O.nota ? `<div class="td-dim cv-fuente">${cvEsc(O.nota)}</div>` : ''}`) : '';
   const pedidos = (d.pedidos || []).map(p => `<div class="cv-caso">${cvEsc(p.numero)}<br>${cvEsc(p.fecha)} · ${cvEsc(p.total)} · <b>${cvEsc(p.estado)}</b></div>`).join('');
-  const ctx = `<h4>Contexto</h4>
+  const ctx = `${sec('💬', 'Conversación', '', `
       ${fila('Lo que pide ahora', X.pide ? `«${cvEsc(X.pide)}»` : '', 'cv-cx-pide')}
-      ${K ? fila('Qué pasó', cvEsc(K.que_paso)) + fila('Qué necesita', cvEsc(K.que_necesita)) + fila('Qué hacer', cvEsc(K.que_hacer)) + fila('Su caso', estadoCaso) : fila('Caso con la tienda', '<span class="td-dim">No tiene</span>')}
-      ${fila(`Lo último que le dijo ${ag}`, X.agente_dijo ? `«${cvEsc(X.agente_dijo)}»` : '', 'td-dim')}
+      ${K ? fila('Qué pasó', cvEsc(K.que_paso)) + fila('Qué necesita', cvEsc(K.que_necesita)) + fila('Qué hacer', cvEsc(K.que_hacer)) + fila('Su caso', estadoCaso) : O.tipo === 'mayorista' ? '' : fila('Caso con la tienda', '<span class="td-dim">No tiene</span>')}
+      ${fila(`Lo último que le dijo ${ag}`, X.agente_dijo ? `«${cvEsc(String(X.agente_dijo).length > 220 ? String(X.agente_dijo).slice(0, 219) + '…' : X.agente_dijo)}»` : '', 'td-dim')}`)}
       ${cuentaHtml}
+      ${pedidosHtml}
       ${ofrecerHtml}
       ${vieneHtml}
-      ${historia ? `<h4>Historia del caso</h4>${historia}` : ''}
-      ${pedidos ? `<h4>Pedidos en mohicano.cl</h4>${pedidos}` : ''}
-      ${casos ? `<h4>Otros casos</h4>${casos}` : ''}
-      <h4>Datos</h4>${fila('Celular', cvEsc(L.celular))}${fila('Correo', cvEsc(L.correo))}${fila('Etapa', cvEsc(L.etapa))}`;
+      ${historia ? sec('🗂', 'Historia del caso', '', historia) : ''}
+      ${pedidos ? sec('🛒', 'Pedidos en mohicano.cl', '', pedidos) : ''}
+      ${casos ? sec('📮', 'Otros casos', '', casos) : ''}
+      ${sec('👤', 'Datos', '', fila('Celular', cvEsc(L.celular)) + fila('Correo', cvEsc(L.correo)) + fila('Etapa', cvEsc(L.etapa)))}`;
   return `<div class="cv-chatcol">
       <div class="cv-chathd">
         <button class="cv-btn cv-volver" data-cvback="1" title="Volver a la lista">←</button>
