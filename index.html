@@ -4374,7 +4374,7 @@ async function secConversaciones() {
       c.caso ? `<span class="cv-tag" style="background:var(--wa10);color:var(--wa)" title="Caso abierto con la tienda">Caso ${cvEsc(c.caso.numero)} · ${c.caso.dias === 0 ? 'hoy' : c.caso.dias === 1 ? '1 día' : c.caso.dias + ' días'}</span>` : '',
       tiene(c, 'tomada') ? `<span class="cv-tag" style="background:var(--ac10);color:var(--ac)" title="Desde el ${cvEsc(cvHora(c.tomada_en))}">La atiende una persona</span>` : '',
     ].filter(Boolean).join(' ');
-    return `<div class="cv-row cv-g-${g}" role="button" tabindex="0" data-id="${cvEsc(c.id)}" data-g="${g}" data-m="${cvEsc((c.motivos || []).join(' '))}" data-ag="${cvEsc(c.agente)}" data-canal="${cvEsc(c.canal)}"
+    return `<div class="cv-row cv-g-${g}" role="button" tabindex="0" data-id="${cvEsc(c.id)}" data-g="${g}" data-m="${cvEsc((c.motivos || []).join(' '))}" data-ag="${cvEsc(c.agente)}" data-erp="${c.erp ? 1 : 0}" data-canal="${cvEsc(c.canal)}"
         data-q="${cvEsc(`${c.nombre} ${c.agente} ${(u && u.texto) || ''} ${c.caso ? c.caso.numero : ''}`.toLowerCase())}">
       ${cvAvatar(c.nombre, c.agente, c.canal)}
       <div class="cv-cuerpo">
@@ -4493,7 +4493,7 @@ async function secConversaciones() {
         <input id="cvSearch" class="finput" placeholder="🔍 Buscar nombre, mensaje o n° de caso…">
         <div class="segs" id="cvVerSegs">${chip('all', 'Todas')}${chip('necesita', 'Una persona')}${chip('caso', 'Caso')}${chip('tomada', 'Equipo')}</div>
         <div class="cv-lsel">
-          <select id="cvAgSel" title="Agente"><option value="all">Ignacia y Valentina</option><option value="Valentina">Valentina</option><option value="Ignacia">Ignacia</option></select>
+          <select id="cvAgSel" title="Agente"><option value="all">Ignacia y Valentina</option><option value="Valentina">Valentina</option><option value="Ignacia">Ignacia</option><option value="erp">Mayoristas del ERP (${fmt(cs.filter(c => c.erp).length)})</option></select>
           <select id="cvCanalSel" title="Canal"><option value="all">Todos los canales</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option></select>
           <button class="cv-btn" id="cvRecargar" title="Volver a leer las conversaciones">↻</button>
         </div>
@@ -12109,7 +12109,7 @@ function bindContent(secId) {
       for (const row of filasCv) {
         const m = (row.dataset.m || '').split(' ');
         const okF = f === 'all' || row.dataset.g === f || m.includes(f);
-        const ok = okF && (ag === 'all' || row.dataset.ag === ag) && (ca === 'all' || row.dataset.canal === ca) && (!q || (row.dataset.q || '').includes(q));
+        const ok = okF && (ag === 'all' || (ag === 'erp' ? row.dataset.erp === '1' : row.dataset.ag === ag)) && (ca === 'all' || row.dataset.canal === ca) && (!q || (row.dataset.q || '').includes(q));
         row.style.display = ok ? '' : 'none';
         if (ok) vis++;
       }
@@ -12131,12 +12131,25 @@ function bindContent(secId) {
     document.getElementById('cvRecargar')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
     applyCv();
     if (CV_SEL) cvAbrir(CV_SEL);   // al volver a armar la lista (después de tomar o devolver) sigue abierta la misma
-    /* mientras la sección esté abierta, la conversación se refresca sola cada 20 s (si no estás escribiendo) */
+    /* mientras la sección esté abierta (28-10, Manu: "se demora mucho en mostrar los mensajes"): cada 4 s una consulta liviana
+       mira si llegó o se leyó un mensaje y, solo entonces, se recarga la conversación; además, todo cada 60 s. No se recarga
+       mientras estás escribiendo en el cuadro. */
     clearInterval(CV_TIMER);
-    CV_TIMER = setInterval(() => {
+    let cvFirmaUlt = '', cvVuelta = 0, cvOcupado = false;
+    CV_TIMER = setInterval(async () => {
       if (!document.getElementById('cvDet')) { clearInterval(CV_TIMER); return; }
-      if (CV_SEL && document.visibilityState === 'visible' && !(document.getElementById('cvTexto')?.value)) cvAbrir(CV_SEL, { silencio: true });
-    }, 20000);
+      if (!CV_SEL || document.visibilityState !== 'visible' || cvOcupado) return;
+      const ta = document.getElementById('cvTexto');
+      if (ta && ta.value && document.activeElement === ta) return;
+      cvOcupado = true;
+      try {
+        const sel = CV_SEL, r = await cvFetch('?ultimo=' + encodeURIComponent(sel));
+        cvVuelta++;
+        const cambio = r.ok && r.firma && cvFirmaUlt && r.firma !== cvFirmaUlt;
+        if (r.ok && r.firma) cvFirmaUlt = r.firma;
+        if (sel === CV_SEL && (cambio || cvVuelta % 15 === 0)) await cvAbrir(sel, { silencio: true });
+      } finally { cvOcupado = false; }
+    }, 4000);
   }
 
   // Estado de Resultado
