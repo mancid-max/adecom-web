@@ -1451,12 +1451,14 @@ let LU = [];
 const LU_NIVEL = { rojo: 0, amarillo: 1, verde: 2 };
 const LU_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 /* ── Órdenes que llevan demasiado en una etapa (Manu, 28-10-2026: "la idea de todo esto es avisar cuando lleva demasiado
-   en cada etapa"). Lo normal de cada etapa sale de la historia: la mediana de lo que duró (entrada → salida) en las
-   órdenes de producción ya cerradas. El aviso salta cuando una orden con saldo lleva en una etapa más que el umbral
-   (el percentil 90 de la historia, con tope de 2 × mediana + 7 y piso de 5 días); rojo si pasa el doble del umbral.
-   Solo etapas en las que entró en los últimos 180 días: las más viejas quedaron sin cerrar en el ERP (misma regla que
-   Programado sin cortar). Las fechas que vienen del futuro no cuentan. Una sola regla para Lo urgente, Trazabilidad
-   y el detalle de la orden. */
+   en cada etapa"). El estándar de la empresa, en días (Manu, 28-10-2026: "programado a corte 5 días, taller 28,
+   limpiado 4, lavandería 3 y terminación 2"): el aviso salta cuando una orden con saldo lleva en una etapa más que su
+   estándar; rojo si pasa el doble. El de Corte se cuenta desde que se programó la orden (la fecha de la OC), los demás
+   desde que la orden entró a la etapa. Taller externo usa el mismo estándar que Taller. La mediana real de la historia
+   (órdenes de producción cerradas) se muestra al lado, solo como referencia. Solo etapas en las que entró en los últimos
+   180 días: las más viejas quedaron sin cerrar en el ERP (misma regla que Programado sin cortar). Las fechas que vienen
+   del futuro no cuentan. Una sola regla para Lo urgente, Trazabilidad y el detalle de la orden. */
+const TRZ_ESTANDAR = { Corte: 5, Taller: 28, 'Taller Ext': 28, Limpiado: 4, Lavander: 3, Terminacion: 2 };
 const TRZ_ETAPA_NOMBRE = { Corte: 'Corte', Taller: 'Taller', 'Taller Ext': 'Taller externo', Limpiado: 'Limpiado', Lavander: 'Lavandería', Terminacion: 'Terminación' };
 const trzFechaD = s => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
 const trzDiasD = (a, b) => Math.round((b - a) / 86400000);
@@ -1472,19 +1474,16 @@ function trzAtrasos(toc) {
       if (a && b && a <= b && b <= hoy) { const d = trzDiasD(a, b); if (d <= 400) (dur[s.name] = dur[s.name] || []).push(d); }
     }
   }
-  const normal = {}, umbral = {};
-  for (const [k, v] of Object.entries(dur)) {
-    v.sort((x, y) => x - y);
-    const med = v[Math.floor(v.length / 2)] || 0, p90 = v[Math.min(v.length - 1, Math.floor(v.length * 0.9))] || 0;
-    normal[k] = med; umbral[k] = Math.max(5, Math.min(p90, 2 * med + 7));
-  }
+  const normal = {}, umbral = { ...TRZ_ESTANDAR };
+  for (const [k, v] of Object.entries(dur)) { v.sort((x, y) => x - y); normal[k] = v[Math.floor(v.length / 2)] || 0; }   // la mediana real, solo de referencia
   const atr = [];
   for (const o of lista) {
     if ((o.saldo || 0) <= 0) continue;
     for (const s of (o.stages || [])) {
       const a = trzFechaD(s.ini), b = trzFechaD(s.fin);
       if (!a || a > hoy || !((s.pend || 0) > 0 || !b)) continue;   // está ahí: con unidades pendientes o sin fecha de salida
-      const dias = trzDiasD(a, hoy);
+      const desde = s.name === 'Corte' ? (trzFechaD(o.fecha) || a) : a;   // el estándar de corte corre desde que se programó la orden
+      const dias = trzDiasD(desde, hoy);
       if (dias > 180) continue;
       const u = umbral[s.name] || 14;
       if (dias > u) atr.push({ oc: (o.oc || '').trim(), art: (o.articulo || '').trim(), tipo: o.tipo || '', m: o.m || '', etapa: s.name,
@@ -1523,12 +1522,12 @@ function luAlertas() {
   for (const [art, m] of Object.entries(ftMap)) for (const o of (m.progOcs || [])) ocs.push({ art, ...o });
   if (ocs.length) {
     const vieja = ocs.reduce((m, o) => (!m || o.dias > m.dias ? o : m), null);
-    const d30 = ocs.filter(o => o.dias > 30).length, d14 = ocs.filter(o => o.dias > 14).length;
+    const d30 = ocs.filter(o => o.dias > 10).length, d14 = ocs.filter(o => o.dias > 5).length;   // estándar: programado a corte en 5 días (Manu, 28-10-2026); rojo al doble
     const prendas = ocs.reduce((a, o) => a + (o.programa || 0), 0);
     const valor = ocs.reduce((a, o) => { const p = precioDe(o.art); return a + (p ? (o.programa || 0) * p : 0); }, 0);
     A.push({ k: 'prog', nivel: d30 ? 'rojo' : d14 ? 'amarillo' : 'verde', area: 'Producción', n: ocs.length, valor,
-      titulo: d30 ? `${pl(d30, 'orden programada lleva', 'órdenes programadas llevan')} más de 30 días sin cortar`
-        : d14 ? `${pl(d14, 'orden programada lleva', 'órdenes programadas llevan')} más de 14 días sin cortar` : 'Las órdenes programadas se están cortando a tiempo',
+      titulo: d30 ? `${pl(d30, 'orden programada lleva', 'órdenes programadas llevan')} más de 10 días sin cortar`
+        : d14 ? `${pl(d14, 'orden programada lleva', 'órdenes programadas llevan')} más de 5 días sin cortar` : 'Las órdenes programadas se están cortando a tiempo',
       detalle: `la más antigua, OC ${vieja.oc} con ${pl(vieja.dias, 'día', 'días')} · ${fmt(prendas)} prendas en ${pl(ocs.length, 'orden', 'órdenes')}${plata(valor)}`,
       sec: 'programado', ttl: 'Programado sin cortar', tocar: d30 ? '#progSegs .seg[data-f="d30"]' : null });
   }
@@ -1541,9 +1540,9 @@ function luAlertas() {
       const peor = at.lista[0], prendas = at.lista.reduce((a, x) => a + (x.pend || 0), 0);
       A.push({ k: 'atr', nivel: rojas.length ? 'rojo' : 'amarillo', area: 'Producción', n: ocsAt.size,
         titulo: `${pl(ocsAt.size, 'orden lleva', 'órdenes llevan')} demasiado en una etapa`,
-        detalle: `la peor, OC ${peor.oc.replace(/^0+/, '')} con ${pl(peor.dias, 'día', 'días')} en ${peor.nombre}, lo normal son ${pl(peor.normal, 'día', 'días')}${rojas.length ? ` · ${pl(rojas.length, 'pasa', 'pasan')} el doble de lo normal` : ''}${prendas ? ` · ${fmt(prendas)} prendas esperando` : ''}`,
+        detalle: `la peor, OC ${peor.oc.replace(/^0+/, '')} con ${pl(peor.dias, 'día', 'días')} en ${peor.nombre}, el estándar es ${pl(peor.umbral, 'día', 'días')}${rojas.length ? ` · ${pl(rojas.length, 'pasa', 'pasan')} el doble del estándar` : ''}${prendas ? ` · ${fmt(prendas)} prendas esperando` : ''}`,
         sec: 'tabla', ttl: 'Trazabilidad', tocar: '#tblRevSegs .seg[data-rv="atr"]' });
-    } else A.push({ k: 'atr', nivel: 'verde', area: 'Producción', titulo: 'Ninguna orden lleva demasiado en su etapa', detalle: 'según lo que suele durar cada etapa', sec: 'tabla', ttl: 'Trazabilidad' });
+    } else A.push({ k: 'atr', nivel: 'verde', area: 'Producción', titulo: 'Ninguna orden lleva demasiado en su etapa', detalle: 'según el estándar de días de cada etapa', sec: 'tabla', ttl: 'Trazabilidad' });
   }
 
   // 3. Lo que se le debe a los clientes, por antigüedad (como en Qué le debemos)
@@ -1640,7 +1639,7 @@ function luPanel(A) {
       <div class="card-sub" style="margin:2px 0 0">Lo que hay que mirar primero, de lo más grave a lo menos. Toca una fila para ir a su sección con el filtro puesto.</div></div>
       <div class="lu-resumen">${resumen}</div></div>
     <div class="lu-lista">${A.map(fila).join('')}</div>
-    <div class="tbl-foot">Rojo: hay que actuar hoy · amarillo: atención · verde: al día. Órdenes sin cortar: rojo con más de 30 días, amarillo con más de 14 · lo que se debe: rojo con más de 90 días, amarillo de 61 a 90 · falta programar: rojo desde 1.000 prendas · cajas armadas: rojo con 60 días, amarillo con 30 · cobranza: rojo si un bloqueado tiene pedidos detenidos · datos del ERP: amarillo si no exportó hoy, rojo con 2 días hábiles. Los $ son aproximados: prendas × precio neto de pedido.</div>
+    <div class="tbl-foot">Rojo: hay que actuar hoy · amarillo: atención · verde: al día. Órdenes sin cortar: rojo con más de 10 días, amarillo con más de 5 (el estándar es cortar a los 5) · lo que se debe: rojo con más de 90 días, amarillo de 61 a 90 · falta programar: rojo desde 1.000 prendas · cajas armadas: rojo con 60 días, amarillo con 30 · cobranza: rojo si un bloqueado tiene pedidos detenidos · datos del ERP: amarillo si no exportó hoy, rojo con 2 días hábiles. Los $ son aproximados: prendas × precio neto de pedido.</div>
   </div>`;
 }
 
@@ -2164,7 +2163,7 @@ async function secTabla() {
       <td class="td-dim">${corrMal(r) ? `<span style="color:var(--er);font-weight:700">${r.corte}</span> <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px" title="El correlativo correcto empieza con 00; este quedó con un solo 0">⚠ revisar</span>` : (r.corte||'—')}</td>
       <td class="td-dim">${r.fecha||'—'}</td>
       <td class="td-dim">${r.tipo||'—'}${r.m ? ' <span style="font-size:10px;font-weight:700;color:var(--ac)">'+r.m+'</span>' : ''}</td>
-      <td><span class="badge ${r.etapa==='Bodega'?'b-bol':r.etapa==='Lavandería'?'b-nc':'b-otro'}" style="font-size:9px">${r.etapa}</span>${(x => x ? ` <span class="badge" style="font-size:9px;background:${x.nivel === 'rojo' ? 'var(--er10)' : 'var(--wa10)'};color:${x.nivel === 'rojo' ? 'var(--er)' : 'var(--wa)'}" title="Lleva ${x.dias} días en ${x.nombre}; lo normal son ${x.normal} y el aviso salta desde ${x.umbral}">${x.dias} d</span>` : '')(atrDe(r))}</td>
+      <td><span class="badge ${r.etapa==='Bodega'?'b-bol':r.etapa==='Lavandería'?'b-nc':'b-otro'}" style="font-size:9px">${r.etapa}</span>${(x => x ? ` <span class="badge" style="font-size:9px;background:${x.nivel === 'rojo' ? 'var(--er10)' : 'var(--wa10)'};color:${x.nivel === 'rojo' ? 'var(--er)' : 'var(--wa)'}" title="Lleva ${x.dias} días en ${x.nombre}; el estándar es ${x.umbral}${x.normal ? ` (en la historia, ${x.normal})` : ''}${x.etapa === 'Corte' ? ' · contado desde que se programó' : ''}">${x.dias} d</span>` : '')(atrDe(r))}</td>
       <td class="r td-dim">${fmt(r.programa||0)}</td>
       <td class="r td-num">${fmt(r.proceso||0)}</td>
       <td class="r td-num" style="color:${(r.bodega||0)>0?'var(--ok)':'inherit'}">${fmt(r.bodega||0)}</td>
@@ -8547,7 +8546,7 @@ async function secProgramado() {
 
   // 4497-00 para los que empiezan con 01; los otros, con el código entero (el 00400100 no es el 4001-00)
   const cod = a => a.startsWith('01') ? `${a.slice(2, 6)}-${a.slice(6, 8)}` : a;
-  const diasClr = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'var(--ok)';
+  const diasClr = d => d > 10 ? 'var(--er)' : d > 5 ? 'var(--wa)' : 'var(--ok)';
   const dias = d => `${fmt(d)} día${d === 1 ? '' : 's'}`;
   const ORD = { cortar: 0, apurar: 1, alcanza: 2, sin: 3 };
   const TAG = {
@@ -8559,14 +8558,14 @@ async function secProgramado() {
   const arts = [...new Set(filas.map(x => x.art))];
   const totProg = filas.reduce((a, x) => a + x.o.programa, 0);
   const conCli = filas.filter(x => x.sal > 0), sumSal = arts.reduce((a, k) => a + (PVC_FILAS[k] ? PVC_FILAS[k].sal : 0), 0);
-  const n30 = filas.filter(x => x.o.dias > 30).length, vieja = filas[0];
+  const n30 = filas.filter(x => x.o.dias > 10).length, vieja = filas[0];
   const valProg = filas.reduce((a, x) => a + x.o.programa * (precioDe(x.art) || 0), 0);   // el $ aproximado de lo programado
   /* Las tarjetas se recalculan con la colección y la búsqueda (Manu, 23-10: "cuando presione el filtro por cole, que
      cambie el dato de las tarjetas"); con los botones "Ver" no, porque son esos mismos números */
   const kpi = (val, lbl, sub, color, k, ver, extra = '') => `<div class="kpi" data-pk="${k}" ${extra} role="button" tabindex="0" title="${ver}" id="pk-${k || 'n'}" style="border-top:3px solid ${color}"><div style="min-width:0">
       <div class="kpi-val" id="pk-${k || 'n'}-val" style="color:${color}">${val}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-delta d-nu" id="pk-${k || 'n'}-sub">${sub}</div><div class="db-k-ver">${ver} ›</div></div></div>`;
   const temps = [...new Set(filas.map(x => x.temp))].sort((a, b) => +b - +a);
-  const segs = [['', 'Todas', filas.length], ['cli', 'Con clientes esperando', conCli.length], ['sin', 'Nadie lo espera', filas.length - conCli.length], ['d30', 'Más de 30 días', n30]]
+  const segs = [['', 'Todas', filas.length], ['cli', 'Con clientes esperando', conCli.length], ['sin', 'Nadie lo espera', filas.length - conCli.length], ['d30', 'Más de 10 días', n30]]
     .filter(([k, , n]) => !k || n).map(([k, t, n]) => `<button class="seg${k ? '' : ' on'}" data-f="${k}">${t} <span class="db-n">${n}</span></button>`).join('');
   return `
   <div class="fbar">
@@ -8579,9 +8578,9 @@ async function secProgramado() {
     ${kpi(fmt(filas.length), 'Órdenes programadas sin cortar', `${fmt(totProg)} prendas programadas${valProg ? ' · ≈ ' + fmtM(valProg) : ''}`, '#6d28d9', '', 'Ver todas')}
     ${kpi(dias(vieja.o.dias), 'La más antigua', `OC ${vieja.o.oc} · ${cod(vieja.art)} · ${fmt(vieja.o.programa)} prendas, del ${vieja.o.fecha}`, diasClr(vieja.o.dias), 'vieja', 'Ver a quién se le debe', `data-art="${vieja.art}"`)}
     ${kpi(fmt(conCli.length), 'Con clientes esperando', `se les deben ${fmt(sumSal)} prendas de esos artículos`, 'var(--wa)', 'cli', 'Ver cuáles')}
-    ${kpi(fmt(n30), 'Más de 30 días sin cortar', n30 ? 'son las primeras que hay que apurar' : 'ninguna', n30 ? 'var(--er)' : 'var(--ok)', 'd30', 'Ver cuáles')}
+    ${kpi(fmt(n30), 'Más de 10 días sin cortar', n30 ? 'son las primeras que hay que apurar' : 'ninguna', n30 ? 'var(--er)' : 'var(--ok)', 'd30', 'Ver cuáles')}
   </div>
-  ${grafCard('progGraf', '¿Qué orden apurar? Días sin cortar', 'Cada orden de lo que se ve, la más antigua arriba: en rojo más de 30 días, en amarillo más de 14. Pasa el mouse para ver cuánto se programó y cuánto se debe; tócala para ver a quién.', 300)}
+  ${grafCard('progGraf', '¿Qué orden apurar? Días sin cortar', 'Cada orden de lo que se ve, la más antigua arriba: en rojo más de 10 días, en amarillo más de 5: el estándar es cortar a los 5 días de programar. Pasa el mouse para ver cuánto se programó y cuánto se debe; tócala para ver a quién.', 300)}
   <div class="pl"><div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">Órdenes de corte programadas que todavía no se cortan</div>
       <div class="card-sub" style="margin:2px 0 0">La más antigua arriba. Toca una para ver a quién se le debe ese artículo, talla por talla. Son las órdenes de producción con programa y nada cortado de los últimos 180 días: las más viejas quedaron sin hacerse.</div></div>
@@ -8591,7 +8590,7 @@ async function secProgramado() {
       <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n" title="Días desde que se programó la orden">Programada</th><th class="r pl-sec" data-ord="n">Programado</th>
         <th data-ord="n">Se debe<span class="pl-sub">por talla</span></th><th class="r pl-sec" data-ord="n" title="Stock libre en San Gerardo + lo que ya está cortado">Hay</th>
         <th data-ord="n">Qué hacer</th><th class="r pl-sec" data-ord="n" title="Días del pedido más antiguo que espera este artículo">Espera</th></tr></thead>
-      <tbody id="progBody">${filas.map(x => `<tr data-part="${x.art}" data-cod="${cod(x.art)}" data-oc="${x.o.oc}" data-fecha="${x.o.fecha}" data-dias="${x.o.dias}" data-prog="${x.o.programa}" data-sal="${x.sal}" data-t="${x.temp}" data-f=" ${x.sal ? 'cli' : 'sin'} ${x.o.dias > 30 ? 'd30' : ''} " data-q="${rvSinTilde([x.art, cod(x.art), x.art.slice(2, 6), x.o.oc, bota[x.art] || ''].join(' ').toLowerCase())}" title="Toca para ver a quién se le debe">
+      <tbody id="progBody">${filas.map(x => `<tr data-part="${x.art}" data-cod="${cod(x.art)}" data-oc="${x.o.oc}" data-fecha="${x.o.fecha}" data-dias="${x.o.dias}" data-prog="${x.o.programa}" data-sal="${x.sal}" data-t="${x.temp}" data-f=" ${x.sal ? 'cli' : 'sin'} ${x.o.dias > 10 ? 'd30' : ''} " data-q="${rvSinTilde([x.art, cod(x.art), x.art.slice(2, 6), x.o.oc, bota[x.art] || ''].join(' ').toLowerCase())}" title="Toca para ver a quién se le debe">
         <td class="pl-wrap" data-v="${x.art}"><div style="display:flex;align-items:center">${artImg(x.art)}<div><span class="td-code">${cod(x.art)}</span>
           <span class="pl-sub">${bota[x.art] || 'Sin bota'} · T${x.temp} · OC ${x.o.oc}</span><span class="pl-sub db-movil">${fmt(x.o.programa)} programadas</span></div></div></td>
         <td class="r td-num" data-v="${x.o.dias}"><b style="color:${diasClr(x.o.dias)}">${dias(x.o.dias)}</b><span class="pl-sub">${x.o.fecha}</span></td>
@@ -8603,7 +8602,7 @@ async function secProgramado() {
         <td class="r td-num td-dim pl-sec" data-v="${x.espera}">${x.sal ? dias(x.espera) : '—'}</td></tr>`).join('')}
         <tr id="progNada" style="display:none"><td colspan="7" class="td-dim" style="text-align:center;padding:22px">Ninguna orden coincide</td></tr></tbody>
     </table></div>
-    <div class="tbl-foot">Días de la orden: en verde hasta 14, en amarillo hasta 30, en rojo más de 30. Lo programado no cuenta como "en producción" mientras no se corte. Se debe = saldo de Adecom − lo que ya está en cajas, como en Pedido vs Corte.</div>
+    <div class="tbl-foot">Días de la orden: en verde hasta 5, en amarillo hasta 10, en rojo más de 10 (el estándar es cortar a los 5 días). Lo programado no cuenta como "en producción" mientras no se corte. Se debe = saldo de Adecom − lo que ya está en cajas, como en Pedido vs Corte.</div>
   </div></div>`;
 }
 
@@ -10502,13 +10501,14 @@ function bindContent(secId) {
         const pend = s.pend || 0;
         if (!enCurso && ((ini && !fin) || pend > 0)) enCurso = nombre;   // dónde está hoy, aunque la fecha venga mal
         const nor = ATRX.normal[k], umb = ATRX.umbral[k];
-        const tarde = !!(ini && !fin && !malIni && umb && trzDias(ini, hoy) > umb);   // lleva más de lo normal
+        const desdeOC = k === 'Corte' && fOC && ini && !malIni ? trzDias(fOC, fin || hoy) : null;   // el estándar de corte corre desde la orden
+        const tarde = !!(ini && !fin && !malIni && umb && (desdeOC !== null ? desdeOC : trzDias(ini, hoy)) > umb);   // lleva más que el estándar
         return `<tr${tarde ? ' style="background:var(--er10)"' : (ini && !fin ? ' style="background:var(--wa10)"' : '')}>
           <td style="font-weight:600">${nombre}</td>
           <td class="td-dim">${s.ini ? fechaHtml(s.ini, malIni) : '—'}</td>
           <td class="td-dim">${s.fin ? fechaHtml(s.fin, malFin) : (ini ? '<span style="color:var(--wa);font-weight:700">todavía ahí</span>' : '—')}</td>
-          <td class="r td-num"${tarde ? ' style="color:var(--er)"' : ''}>${dias}${nota ? ` <span class="td-dim" style="font-size:10px">${nota}</span>` : ''}${tarde ? ' <span style="font-size:10px;font-weight:700">demasiado</span>' : ''}</td>
-          <td class="r td-dim">${nor ? fmt(nor) : '—'}</td>
+          <td class="r td-num"${tarde ? ' style="color:var(--er)"' : ''}>${dias}${nota ? ` <span class="td-dim" style="font-size:10px">${nota}</span>` : ''}${tarde ? ' <span style="font-size:10px;font-weight:700">demasiado</span>' : ''}${desdeOC !== null ? ` <span class="td-dim" style="font-size:10px">${fmt(Math.max(0, desdeOC))} desde la orden</span>` : ''}</td>
+          <td class="r td-num" title="${nor ? `En la historia esta etapa dura ${fmt(nor)} días (mediana)` : ''}">${umb ? fmt(umb) : '—'}</td>
           <td class="r td-dim">${s.dias ? fmt(s.dias) : '—'}</td>
           <td class="r td-num" style="color:${pend > 0 ? 'var(--wa)' : 'var(--tx3)'}">${pend > 0 ? fmt(pend) : '—'}</td></tr>`;
       }).join('');
@@ -10537,8 +10537,8 @@ function bindContent(secId) {
         <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 6px">${chip('Tipo', `${o.tipo || '—'}${o.m ? ' ' + o.m : ''}`)}${chip('Orden emitida', o.fecha || '—')}${chip('Programado', fmt(o.prog || 0))}${chip('Cortado', fmt(o.cort || 0))}${chip('A bodega', fmt(o.ent || 0), (o.ent || 0) > 0 ? 'var(--ok)' : '')}${chip('Saldo', fmt(o.saldo || 0), (o.saldo || 0) > 0 ? 'var(--wa)' : '')}${o.totDias ? chip('Días (ERP)', fmt(o.totDias)) : ''}</div>
         <div style="padding:6px 16px 4px;font-size:13px">${llegada}</div>
         ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${o.inc}</div>` : ''}
-        <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Lo que suele durar esta etapa: mediana de las órdenes de producción cerradas">Normal</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
-          <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Normal = lo que suele durar; en rojo, la etapa donde la orden lleva más de lo normal. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
+        <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Los días que debería durar cada etapa según la empresa; el de Corte se cuenta desde que se programó la orden">Estándar</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
+          <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Estándar = los días que debería durar cada etapa; el de Corte corre desde que se programó la orden. En rojo, la etapa donde la orden lleva más que el estándar. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
         ${tallasHtml}`;
     }
     FILAS.forEach(f => {
@@ -11922,13 +11922,13 @@ function bindContent(secId) {
     if (tabla) planOrdenable(tabla);
     const filas = [...document.querySelectorAll('#progBody tr[data-part]')];
     let fEst = '', fT = '';
-    const diasClr = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'var(--ok)';
+    const diasClr = d => d > 10 ? 'var(--er)' : d > 5 ? 'var(--wa)' : 'var(--ok)';
     const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     // Las tarjetas y las cuentas de los botones, con lo que entra por colección y búsqueda
     const tarjetas = rs => {
       const d = tr => +tr.dataset.dias, vieja = rs.slice().sort((a, b) => d(b) - d(a) || +b.dataset.prog - +a.dataset.prog)[0];
       const conCli = rs.filter(tr => +tr.dataset.sal > 0), arts = new Map(conCli.map(tr => [tr.dataset.part, +tr.dataset.sal]));
-      const n30 = rs.filter(tr => d(tr) > 30).length;
+      const n30 = rs.filter(tr => d(tr) > 10).length;
       const vProg = rs.reduce((a, tr) => a + (+tr.dataset.prog) * (precioDe(tr.dataset.part) || 0), 0);
       poner('pk-n-val', fmt(rs.length)); poner('pk-n-sub', `${fmt(rs.reduce((a, tr) => a + +tr.dataset.prog, 0))} prendas programadas${vProg ? ' · ≈ ' + fmtM(vProg) : ''}`);
       const cv = document.getElementById('pk-vieja');
