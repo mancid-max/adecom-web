@@ -4395,6 +4395,16 @@ async function secConversaciones() {
   <style>
     #content:has(.cv-app){padding-bottom:12px}
     .cv-stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    .cv-camp{margin-top:14px;border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:14px 16px}
+    .cv-camp-hd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}.cv-camp-hd b{font-size:15px}.cv-camp-hd span{font-size:12px;color:var(--tx3)}
+    .cv-camp-ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .cv-camp-k{border:1px solid var(--bd);border-radius:var(--rsm);padding:10px 12px;min-width:0}
+    .cv-camp-n{font-size:26px;font-weight:700;line-height:1.1}.cv-camp-t{font-size:13px;font-weight:600;margin-top:2px}.cv-camp-s{font-size:11.5px;color:var(--tx3);margin-top:4px}
+    .cv-camp-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+    .cv-camp-ct{font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+    .cv-camp-f{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--bd)}.cv-camp-f span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cv-camp-f span:last-child{flex:0 0 auto}
+    .cv-camp-pie{font-size:11px;color:var(--tx3);margin-top:12px}
+    @media(max-width:900px){.cv-camp-ks{grid-template-columns:repeat(2,minmax(0,1fr))}.cv-camp-cols{grid-template-columns:1fr}}
     .cv-stat{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--bd);border-radius:999px;background:var(--sf);font:inherit;font-size:12.5px;color:var(--tx2);cursor:pointer}
     .cv-stat b{font-size:15px}.cv-stat:hover{border-color:var(--bd2);background:var(--sf2)}
     .cv-app{display:grid;grid-template-columns:330px minmax(0,1fr);height:calc(100vh - 175px);min-height:540px;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;background:var(--sf)}
@@ -4513,7 +4523,43 @@ async function secConversaciones() {
       <div class="cv-lfoot"><span id="cvCount">${fmt(cs.length)}</span> conversaciones · Nexor en vivo, al ${cvEsc(cvHora(d.generado))}. Rojo: necesita una persona · naranjo: caso con la tienda · azul: la atiende el equipo.</div>
     </aside>
     <section class="cv-det" id="cvDet"><div class="cv-vacio">Elige una conversación para verla y responder</div></section>
-  </div>`;
+  </div>
+  <div class="cv-camp" id="cvCamp"><div class="td-dim">Leyendo el reporte de la campaña…</div></div>`;
+}
+
+/* Reporte de la campaña de despacho inmediato, abajo de la bandeja (28-10, Manu: "a cuántos les llegó el mensaje y el correo,
+   cuántos están en contacto con la agente, cuántas ventas concretó, qué podríamos ofrecer"). Lo calcula la página
+   (campana-despacho-background) cada 10 min como máximo. */
+async function cvCampana() {
+  const el = document.getElementById('cvCamp'); if (!el) return;
+  const d = await cvFetch('?campana=1');
+  if (!document.getElementById('cvCamp')) return;
+  const hd = (extra = '') => `<div class="cv-camp-hd"><b>Campaña despacho inmediato · Dolce Vita 44</b><span>${extra}</span></div>`;
+  if (!d.ok) { el.innerHTML = hd() + `<div class="td-dim">${cvEsc(d.mensaje || 'No pude leer el reporte.')}</div>`; return; }
+  const L = d.lista || {};
+  if (!d.hay) {
+    el.innerHTML = hd(d.actualizando ? 'calculando…' : '') + `<div class="td-dim">Todavía no se manda. ${L.clientes ? `Lista lista: ${fmt(L.clientes)} mayoristas, ${fmt(L.con_celular)} con celular y ${fmt(L.con_correo)} con correo.` : 'Falta subir la lista.'}</div>`;
+    if (d.actualizando) setTimeout(cvCampana, 45000);
+    return;
+  }
+  const w = d.whatsapp || {}, c = d.correo || {}, v = d.ventas || {};
+  const k = (n, t, sub, color) => `<div class="cv-camp-k"><div class="cv-camp-n" style="color:var(${color})">${n}</div><div class="cv-camp-t">${t}</div><div class="cv-camp-s">${sub}</div></div>`;
+  const pct = (a, b) => b ? ` (${Math.round(a / b * 100)}%)` : '';
+  const lista = (titulo, filas, vacio) => `<div class="cv-camp-col"><div class="cv-camp-ct">${titulo}</div>${filas.length ? filas.join('') : `<div class="td-dim">${vacio}</div>`}</div>`;
+  el.innerHTML = hd(`desde el ${cvEsc(cvHora(d.desde))} · al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''}`) + `
+    <div class="cv-camp-ks">
+      ${k(fmt(d.recibieron), 'les llegó', `WhatsApp: ${fmt(w.llegaron)} de ${fmt(w.enviados)}, ${fmt(w.leyeron)} lo leyeron · Correo: ${fmt(c.enviados)}, ${fmt(c.abrieron)} lo abrieron`, '--tx1')}
+      ${k(fmt(d.conversando), 'conversan con Sofía', `le escribieron después del aviso${pct(d.conversando, d.recibieron)}`, '--ac')}
+      ${k(fmt(v.clientes), 'compraron', v.clientes ? `${fmt(v.unidades)} prendas · ${fmtM(v.valor)} neto en el ERP${v.web ? ` · ${fmt(v.web)} pedidos por la página` : ''}` : 'pedidos del ERP y de la página después del aviso', '--ok')}
+      ${k(fmt((d.tibios || []).length), 'para seguir', 'abrieron o tocaron el botón y no escribieron', '--wa')}
+    </div>
+    <div class="cv-camp-cols">
+      ${lista('Compraron', (v.detalle || []).map(x => `<div class="cv-camp-f"><span>${cvEsc(x.cliente)}</span><span>${x.valor ? fmtM(x.valor) : 'pedido por la página'}</span></div>`), 'Todavía nadie')}
+      ${lista('Para llamar o escribirles', (d.tibios || []).map(x => `<div class="cv-camp-f"><span>${cvEsc(x.cliente)}</span><span class="td-dim">${x.toco ? 'tocó el botón' : 'abrió el correo'}</span></div>`), 'Nadie por ahora')}
+      ${lista('Qué ofrecer (más stock hoy)', (d.ofrecer || []).map(x => `<div class="cv-camp-f"><span>${cvEsc(x.codigo)} ${cvEsc(x.nombre)} · ${cvEsc(x.estilo)}</span><span class="td-dim">${fmt(x.total)} u.</span></div>`), 'Sin datos de stock')}
+    </div>
+    <div class="cv-camp-pie">WhatsApp: estado del mensaje en Nexor. Correo: píxel de apertura (aproximado: algunos correos abren las imágenes solos). Ventas: pedidos del ERP (bi/pedidos.json) y de la página (quotes) con fecha posterior al aviso de cada cliente.</div>`;
+  if (d.actualizando) setTimeout(cvCampana, 45000);
 }
 
 function cvRender(d) {
@@ -10354,6 +10400,82 @@ function bindContent(secId) {
     const totEls = NUM.map(k => document.getElementById(`tblTotal_${k}`));
     const tbody  = document.getElementById('tablaBody');
 
+    /* Tocar una orden (Manu, 28-10-2026: "cuántos días estuvo en cada etapa, cuándo llegó a la última y cómo se cortó
+       en cada talla"): abre la ventana con las fechas de cada etapa (traza_oc.json), los días entre entrada y salida,
+       la llegada a Terminación y el corte por talla del artículo (pedidos_art: tc = cortado, ts = saldo). Las tallas
+       son por artículo, suma de todas sus órdenes, porque el ERP no exporta tallas por orden. */
+    const trzFecha = s => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
+    const trzDias = (a, b) => (a && b) ? Math.round((b - a) / 86400000) : null;
+    const TRZ_ETAPAS = [['Corte', 'Corte'], ['Taller', 'Taller (costura)'], ['Taller Ext', 'Taller externo'], ['Limpiado', 'Limpiado'], ['Lavander', 'Lavandería'], ['Terminacion', 'Terminación']];
+    async function trzDetalle(oc, art) {
+      const ov = document.getElementById('vkOv'), ttl = document.getElementById('vkOvTtl'), body = document.getElementById('vkOvBody');
+      if (!ov) return;
+      ttl.textContent = `Orden ${String(oc).replace(/^0+/, '')} · ${art}`;
+      body.innerHTML = '<div class="td-dim" style="padding:18px">Cargando…</div>';
+      ov.classList.add('open');
+      document.getElementById('vkOvClose').onclick = () => ov.classList.remove('open');
+      ov.onclick = e => { if (e.target === ov) ov.classList.remove('open'); };
+      const [toc, pa] = await Promise.all([load('traza_oc.json'), load('pedidos_art.json')]);
+      const lista = Array.isArray(toc) ? toc : [];
+      const mismo = x => String(x.oc).toLowerCase() === String(oc).toLowerCase();
+      const o = lista.find(x => mismo(x) && String(x.articulo).toLowerCase() === String(art).toLowerCase()) || lista.find(mismo);
+      if (!o) { body.innerHTML = '<div class="td-dim" style="padding:18px">Esta orden no está en el detalle de etapas del ERP.</div>'; return; }
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      const fOC = trzFecha(o.fecha), etapaDe = k => (o.stages || []).find(x => x.name === k) || {};
+      let enCurso = '';
+      const filas = TRZ_ETAPAS.map(([k, nombre]) => {
+        const s = etapaDe(k), ini = trzFecha(s.ini), fin = trzFecha(s.fin);
+        const futuro = d => d && trzDias(hoy, d) > 1;   // una fecha más adelante que hoy está mal ingresada en el ERP
+        const malIni = futuro(ini), malFin = futuro(fin);
+        const fechaHtml = (txt, mal) => mal ? `<span style="color:var(--er);font-weight:700" title="Fecha en el futuro: revisar en el ERP">${txt} ⚠</span>` : txt;
+        let dias = '—', nota = '';
+        if (malIni || malFin) { dias = '?'; nota = 'fecha mal ingresada'; }
+        else if (ini && fin) dias = fmt(Math.max(0, trzDias(ini, fin)));
+        else if (ini) { dias = fmt(Math.max(0, trzDias(ini, hoy))); nota = 'en curso'; }
+        const pend = s.pend || 0;
+        if (!enCurso && ((ini && !fin) || pend > 0)) enCurso = nombre;   // dónde está hoy, aunque la fecha venga mal
+        return `<tr${ini && !fin ? ' style="background:var(--wa10)"' : ''}>
+          <td style="font-weight:600">${nombre}</td>
+          <td class="td-dim">${s.ini ? fechaHtml(s.ini, malIni) : '—'}</td>
+          <td class="td-dim">${s.fin ? fechaHtml(s.fin, malFin) : (ini ? '<span style="color:var(--wa);font-weight:700">todavía ahí</span>' : '—')}</td>
+          <td class="r td-num">${dias}${nota ? ` <span class="td-dim" style="font-size:10px">${nota}</span>` : ''}</td>
+          <td class="r td-dim">${s.dias ? fmt(s.dias) : '—'}</td>
+          <td class="r td-num" style="color:${pend > 0 ? 'var(--wa)' : 'var(--tx3)'}">${pend > 0 ? fmt(pend) : '—'}</td></tr>`;
+      }).join('');
+      const term = etapaDe('Terminacion'), tIni = trzFecha(term.ini), tFin = trzFecha(term.fin);
+      const totalDias = fOC && (tFin || tIni) ? trzDias(fOC, tFin || tIni) : null;
+      const llegada = tIni
+        ? `Llegó a Terminación el <b>${term.ini}</b>${tFin ? `, terminó el <b>${term.fin}</b>` : ' y todavía está ahí'}${totalDias !== null ? ` · <b>${fmt(totalDias)} días</b> desde que se emitió la orden` : ''}.`
+        : (enCurso ? `Todavía no llega a Terminación: hoy está en <b>${enCurso}</b>.` : 'Sin movimiento todavía.');
+      const chip = (t, v, c) => `<div style="background:var(--sf2);border-radius:10px;padding:8px 12px;min-width:92px"><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em">${t}</div><div style="font-weight:800;font-size:16px;color:${c || 'inherit'}">${v}</div></div>`;
+      // Corte por talla del artículo (36 a 52)
+      const temp = art.slice(2, 4), base = art.slice(2, 6), mod = art.slice(6, 8);
+      const item = (Array.isArray(pa) ? pa : []).find(x => String(x.temp) === temp && String(x.base) === base);
+      const col = item ? (item.modelos || []).find(m => String(m.mod).padStart(2, '0') === mod) : null;
+      const tc = col && Array.isArray(col.tc) ? col.tc : null, ts = col && Array.isArray(col.ts) ? col.ts : null;
+      let tallasHtml;
+      if (tc || ts) {
+        const n = Math.max(tc ? tc.length : 0, ts ? ts.length : 0, 6);
+        const cab = [...Array(n)].map((_, i) => `<th class="r">${36 + 2 * i}</th>`).join('');
+        const fila = (nom, arr, fuerte) => arr ? `<tr><td style="font-weight:600">${nom}</td>${[...Array(n)].map((_, i) => `<td class="r ${fuerte ? 'td-num' : 'td-dim'}">${arr[i] ? fmt(arr[i]) : '—'}</td>`).join('')}<td class="r td-num">${fmt(arr.reduce((a, b) => a + (b || 0), 0))}</td></tr>` : '';
+        const atributos = [item && item.bota, item && item.tiro, col && col.tela].filter(Boolean).join(' · ');
+        tallasHtml = `<div style="padding:4px 16px 12px"><div style="font-weight:700;margin:8px 0 6px">Corte por talla del artículo ${art}${atributos ? ` <span class="td-dim" style="font-weight:400">· ${atributos}</span>` : ''}</div>
+          <div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Talla</th>${cab}<th class="r">Total</th></tr></thead><tbody>${fila('Cortadas', tc, true)}${fila('Saldo en bodega', ts, false)}</tbody></table></div>
+          <div class="td-dim" style="font-size:11px;margin-top:6px">${tc ? 'Es por artículo: suma todas sus órdenes, porque el ERP no exporta las tallas por orden.' : 'El ERP no trae el corte por talla de este artículo; se muestra el saldo por talla.'}</div></div>`;
+      } else tallasHtml = '<div class="td-dim" style="padding:8px 16px 14px;font-size:12px">Sin detalle por talla para este artículo en los datos del ERP.</div>';
+      body.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 6px">${chip('Tipo', `${o.tipo || '—'}${o.m ? ' ' + o.m : ''}`)}${chip('Orden emitida', o.fecha || '—')}${chip('Programado', fmt(o.prog || 0))}${chip('Cortado', fmt(o.cort || 0))}${chip('A bodega', fmt(o.ent || 0), (o.ent || 0) > 0 ? 'var(--ok)' : '')}${chip('Saldo', fmt(o.saldo || 0), (o.saldo || 0) > 0 ? 'var(--wa)' : '')}${o.totDias ? chip('Días (ERP)', fmt(o.totDias)) : ''}</div>
+        <div style="padding:6px 16px 4px;font-size:13px">${llegada}</div>
+        ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${o.inc}</div>` : ''}
+        <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
+          <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
+        ${tallasHtml}`;
+    }
+    FILAS.forEach(f => {
+      f.el.classList.remove('no-click'); f.el.style.cursor = 'pointer'; f.el.title = 'Toca para ver los días en cada etapa y el corte por talla';
+      f.el.addEventListener('click', () => trzDetalle(f.el.dataset.oc || '', (f.el.dataset.art || '').toUpperCase()));
+    });
+
     // Las filas que no pasan el filtro se SACAN del documento, no se esconden con display:none.
     // Esconderlas las deja igual dentro de la tabla, y con 1.130 filas de 15 columnas el navegador
     // tiene que recalcular el ancho de todas las columnas en cada pasada: eso era lo que se seguia
@@ -12146,6 +12268,7 @@ function bindContent(secId) {
     });
     document.getElementById('cvRecargar')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
     applyCv();
+    cvCampana();
     if (CV_SEL) cvAbrir(CV_SEL);   // al volver a armar la lista (después de tomar o devolver) sigue abierta la misma
     /* mientras la sección esté abierta (28-10, Manu: "se demora mucho en mostrar los mensajes"): cada 4 s una consulta liviana
        mira si llegó o se leyó un mensaje y, solo entonces, se recarga la conversación; además, todo cada 60 s. No se recarga
