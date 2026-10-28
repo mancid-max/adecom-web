@@ -4455,6 +4455,7 @@ async function secConversaciones() {
     .cv-tallas span.ok{background:var(--ok10);border-color:transparent}.cv-tallas span.ok i{color:var(--ok)}.cv-tallas span.wa{background:var(--wa10);border-color:transparent}.cv-tallas span.wa i{color:var(--wa)}.cv-tallas span.er{background:var(--er10);border-color:transparent}.cv-tallas span.er i{color:var(--er)}
     .cv-tallas span em{display:block;font-style:normal;font-size:9.5px;font-weight:500;color:var(--tx3)}.cv-tallas span em.dif{color:var(--er);font-weight:700}
     .cv-dif{font-size:11px;color:var(--er);margin:3px 0 2px;line-height:1.4}
+    .cv-aviso-24{background:var(--wa10);color:var(--tx1);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.45}
     .cv-falta-l1{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
     .cv-reemp{margin-top:4px;padding:4px 7px;border:1px dashed var(--ac);border-radius:7px;color:var(--tx1)}
     .cv-fila{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;font-size:12.5px;line-height:1.4}
@@ -4529,7 +4530,10 @@ function cvRender(d) {
   const comp = d.responder && d.responder.ok
     ? `${avisoPend}<div class="cv-comp-fila"><textarea id="cvTexto" rows="1" placeholder="Escríbele a ${cvEsc(pila)} por WhatsApp…"></textarea>
         <button class="cv-enviar" data-cva="responder" title="Enviar por WhatsApp (Enter · Shift + Enter para otra línea)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>
-       <div class="cv-comp-nota">${X.sugerencia ? `<button class="cv-linkbtn" data-cvsug="1">✍️ Usar el texto sugerido</button>` : ''}<span>Sale del número de ${ag} · quedan ${cvEsc(d.responder.quedan_horas)} h de la ventana de 24 h${L.tomada ? '' : ` · al enviar, ${ag} deja de responderle`}</span></div>`
+       <div class="cv-comp-nota">${X.sugerencia ? `<button class="cv-linkbtn" data-cvsug="1">✍️ Usar el texto sugerido</button>` : ''}<span${d.responder.quedan_horas < 3 ? ' class="cv-er" style="font-weight:700"' : ''}>${d.responder.quedan_horas < 3 ? '⏰ ' : ''}Sale del número de ${ag} · quedan ${cvEsc(d.responder.quedan_horas)} h de la ventana de 24 h${d.responder.quedan_horas < 3 ? ' (después, solo con plantilla)' : ''}${L.tomada ? '' : ` · al enviar, ${ag} deja de responderle`}</span></div>`
+    : d.responder && d.responder.fuera_24h ? `<div class="cv-aviso cv-aviso-24"><b>⏰ No se le puede escribir libre.</b> ${cvEsc(d.responder.motivo)}
+        ${d.responder.plantilla ? `<div style="margin-top:6px">Puedes mandarle la plantilla de seguimiento de ${ag} (~US$0,09): toca hasta 3 modelos en <b>Qué mandarle</b> y aprieta el botón. Si contesta, se abren 24 h.</div>
+        <button class="cv-btn pri" data-cvplantilla="1" style="margin-top:8px">📨 Mandar plantilla</button>` : '<div style="margin-top:6px">A las clientas de la tienda no hay plantilla aprobada: hay que esperar a que ella escriba.</div>'}</div>`
     : `<div class="cv-aviso">${cvEsc((d.responder && d.responder.motivo) || 'No se le puede escribir desde acá.')} <a href="${cvEsc(L.nexor)}" target="_blank" rel="noopener" style="color:var(--ac);font-weight:600">Abrir en Nexor ›</a></div>`;
   /* el contexto (27-10, Manu: "¿dónde veo ese contexto, para saber qué decirle a la clienta?") */
   const fila = (lbl, val, cls = '') => val ? `<div class="cv-cx-f"><span>${lbl}</span><div class="${cls}">${val}</div></div>` : '';
@@ -4738,6 +4742,17 @@ async function cvAbrir(id, { silencio = false } = {}) {
     };
     el.addEventListener('click', tocar);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tocar(); } });
+  });
+  det.querySelector('[data-cvplantilla]')?.addEventListener('click', async e => {
+    const O = d.ofrecer || {}, msg = document.getElementById('cvMsg') || e.target.parentNode;
+    const cods = [...elegidos].map(k => k[0] === 's' ? ((O.sugeridos || [])[+k.slice(1)] || {}).codigo : k[0] === 'u' ? ((O.suele || [])[+k.slice(1)] || {}).codigo : k[0] === 'r' ? (((O.por_despachar || [])[+k.slice(1)] || {}).reemplazo || {}).codigo : null).filter(Boolean);
+    if (!cods.length) { e.target.insertAdjacentHTML('afterend', '<div class="cv-er" style="font-size:12px;margin-top:4px">Toca primero los modelos en Qué mandarle.</div>'); return; }
+    if (!confirm(`¿Mandarle la plantilla de seguimiento con ${cods.slice(0, 3).join(', ')}? Cuesta ~US$0,09.`)) return;
+    e.target.disabled = true; e.target.textContent = 'Enviando…';
+    const r = await cvFetch('', { accion: 'plantilla', lead: id, codigos: cods.slice(0, 3) });
+    e.target.disabled = false; e.target.textContent = '📨 Mandar plantilla';
+    e.target.insertAdjacentHTML('afterend', `<div class="${r.ok ? 'cv-ok' : 'cv-er'}" style="font-size:12px;margin-top:4px">${cvEsc(r.mensaje || (r.ok ? 'Enviada.' : 'No se pudo.'))}</div>`);
+    if (r.ok) cvAbrir(id, { silencio: true });
   });
   det.querySelector('[data-cvback]')?.addEventListener('click', () => { document.getElementById('cvApp')?.classList.remove('cv-abierta'); CV_SEL = null; });
   det.querySelector('[data-cvctx]')?.addEventListener('click', () => det.classList.toggle('cv-ver-ctx'));
