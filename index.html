@@ -1450,6 +1450,53 @@ function resDetClientes(cual) {
 let LU = [];
 const LU_NIVEL = { rojo: 0, amarillo: 1, verde: 2 };
 const LU_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+/* ── Órdenes que llevan demasiado en una etapa (Manu, 28-10-2026: "la idea de todo esto es avisar cuando lleva demasiado
+   en cada etapa"). Lo normal de cada etapa sale de la historia: la mediana de lo que duró (entrada → salida) en las
+   órdenes de producción ya cerradas. El aviso salta cuando una orden con saldo lleva en una etapa más que el umbral
+   (el percentil 90 de la historia, con tope de 2 × mediana + 7 y piso de 5 días); rojo si pasa el doble del umbral.
+   Solo etapas en las que entró en los últimos 180 días: las más viejas quedaron sin cerrar en el ERP (misma regla que
+   Programado sin cortar). Las fechas que vienen del futuro no cuentan. Una sola regla para Lo urgente, Trazabilidad
+   y el detalle de la orden. */
+const TRZ_ETAPA_NOMBRE = { Corte: 'Corte', Taller: 'Taller', 'Taller Ext': 'Taller externo', Limpiado: 'Limpiado', Lavander: 'Lavandería', Terminacion: 'Terminación' };
+const trzFechaD = s => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
+const trzDiasD = (a, b) => Math.round((b - a) / 86400000);
+let TRZ_ATR = null;
+function trzAtrasos(toc) {
+  if (TRZ_ATR && TRZ_ATR.de === toc) return TRZ_ATR;
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const lista = Array.isArray(toc) ? toc : [], dur = {};
+  for (const o of lista) {
+    if (!/PRODUC/i.test(o.tipo || '')) continue;
+    for (const s of (o.stages || [])) {
+      const a = trzFechaD(s.ini), b = trzFechaD(s.fin);
+      if (a && b && a <= b && b <= hoy) { const d = trzDiasD(a, b); if (d <= 400) (dur[s.name] = dur[s.name] || []).push(d); }
+    }
+  }
+  const normal = {}, umbral = {};
+  for (const [k, v] of Object.entries(dur)) {
+    v.sort((x, y) => x - y);
+    const med = v[Math.floor(v.length / 2)] || 0, p90 = v[Math.min(v.length - 1, Math.floor(v.length * 0.9))] || 0;
+    normal[k] = med; umbral[k] = Math.max(5, Math.min(p90, 2 * med + 7));
+  }
+  const atr = [];
+  for (const o of lista) {
+    if ((o.saldo || 0) <= 0) continue;
+    for (const s of (o.stages || [])) {
+      const a = trzFechaD(s.ini), b = trzFechaD(s.fin);
+      if (!a || a > hoy || !((s.pend || 0) > 0 || !b)) continue;   // está ahí: con unidades pendientes o sin fecha de salida
+      const dias = trzDiasD(a, hoy);
+      if (dias > 180) continue;
+      const u = umbral[s.name] || 14;
+      if (dias > u) atr.push({ oc: (o.oc || '').trim(), art: (o.articulo || '').trim(), tipo: o.tipo || '', m: o.m || '', etapa: s.name,
+        nombre: TRZ_ETAPA_NOMBRE[s.name] || s.name, dias, umbral: u, normal: normal[s.name] || 0, pend: s.pend || 0, nivel: dias > 2 * u ? 'rojo' : 'amarillo' });
+    }
+  }
+  atr.sort((x, y) => (y.dias / y.umbral) - (x.dias / x.umbral));
+  const porOc = {};
+  for (const x of atr) { const k = x.oc + '|' + x.art; if (!porOc[k]) porOc[k] = x; }
+  return (TRZ_ATR = { de: toc, umbral, normal, lista: atr, porOc });
+}
+
 function luAlertas() {
   const peds = CACHE['pedidos.json'] || [], ft = CACHE['full_table.json'] || [], sb = CACHE['saldos_bodega.json'] || [];
   const cj = CACHE['cajas.json'], meta = CACHE['meta.json'], A = [];
@@ -1484,6 +1531,19 @@ function luAlertas() {
         : d14 ? `${pl(d14, 'orden programada lleva', 'órdenes programadas llevan')} más de 14 días sin cortar` : 'Las órdenes programadas se están cortando a tiempo',
       detalle: `la más antigua, OC ${vieja.oc} con ${pl(vieja.dias, 'día', 'días')} · ${fmt(prendas)} prendas en ${pl(ocs.length, 'orden', 'órdenes')}${plata(valor)}`,
       sec: 'programado', ttl: 'Programado sin cortar', tocar: d30 ? '#progSegs .seg[data-f="d30"]' : null });
+  }
+
+  // 2b. Órdenes que llevan demasiado en una etapa (Manu, 28-10-2026). Lo normal sale de la historia: ver trzAtrasos
+  const toc = CACHE['traza_oc.json'];
+  if (Array.isArray(toc) && toc.length) {
+    const at = trzAtrasos(toc), rojas = at.lista.filter(x => x.nivel === 'rojo'), ocsAt = new Set(at.lista.map(x => x.oc));
+    if (at.lista.length) {
+      const peor = at.lista[0], prendas = at.lista.reduce((a, x) => a + (x.pend || 0), 0);
+      A.push({ k: 'atr', nivel: rojas.length ? 'rojo' : 'amarillo', area: 'Producción', n: ocsAt.size,
+        titulo: `${pl(ocsAt.size, 'orden lleva', 'órdenes llevan')} demasiado en una etapa`,
+        detalle: `la peor, OC ${peor.oc.replace(/^0+/, '')} con ${pl(peor.dias, 'día', 'días')} en ${peor.nombre}, lo normal son ${pl(peor.normal, 'día', 'días')}${rojas.length ? ` · ${pl(rojas.length, 'pasa', 'pasan')} el doble de lo normal` : ''}${prendas ? ` · ${fmt(prendas)} prendas esperando` : ''}`,
+        sec: 'tabla', ttl: 'Trazabilidad', tocar: '#tblRevSegs .seg[data-rv="atr"]' });
+    } else A.push({ k: 'atr', nivel: 'verde', area: 'Producción', titulo: 'Ninguna orden lleva demasiado en su etapa', detalle: 'según lo que suele durar cada etapa', sec: 'tabla', ttl: 'Trazabilidad' });
   }
 
   // 3. Lo que se le debe a los clientes, por antigüedad (como en Qué le debemos)
@@ -1587,7 +1647,7 @@ function luPanel(A) {
 async function secResumen() {
   // El Resumen necesita produccion y stock, ademas de los pedidos que ya estaban
   const [ft, sb, peds] = await Promise.all([
-    load('full_table.json'), load('saldos_bodega.json'), load('pedidos.json'), load('cajas.json'),
+    load('full_table.json'), load('saldos_bodega.json'), load('pedidos.json'), load('cajas.json'), load('traza_oc.json'),
   ]);
   try { LU = luAlertas(); } catch (e) { console.error('Lo urgente', e); LU = []; }   // si falla, el Resumen sigue
   guiaAviso();   // el número en rojo del robot, al tiro
@@ -2067,7 +2127,7 @@ function getEtapa(r) {
 }
 
 async function secTabla() {
-  const ft = await load('full_table.json');
+  const [ft, toc] = await Promise.all([load('full_table.json'), load('traza_oc.json')]);
   if (!ft.length) return makePH('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>','Trazabilidad','Sin datos disponibles');
 
   const temps = [...new Set(ft.map(r => r.temporada).filter(Boolean))].sort();
@@ -2076,6 +2136,9 @@ async function secTabla() {
   // Pre-compute etapa and sort by fecha_iso DESC (más reciente primero)
   const rows = ft.map(r => ({ ...r, etapa: getEtapa(r) }))
                  .sort((a, b) => (b.fecha_iso||'') < (a.fecha_iso||'') ? -1 : 1);
+  // Atrasadas en su etapa (ver trzAtrasos): se marcan en la fila, se cuentan en una tarjeta y se filtran en Revisar
+  const ATR = trzAtrasos(toc), atrDe = r => ATR.porOc[(r.corte || '').trim() + '|' + (r.articulo || '').trim()];
+  const nAtr = rows.filter(atrDe).length;
 
   const NUM_COLS = ['programa','proceso','bodega','saldo','p_corte','p_taller','p_texterno','p_limpiado','p_lavanderia','p_terminacion'];
 
@@ -2095,13 +2158,13 @@ async function secTabla() {
   const rowsHtml = rows.map(r => {
     const bg = (r.bodega||0) > 0 ? 'style="background:var(--ok10)"'
                : (r.lavanderia||0) > 0 ? 'style="background:var(--wa10)"' : '';
-    const dataAttrs = `data-mal="${corrMal(r) ? 1 : ''}" data-art="${(r.articulo||'').trim().toLowerCase()}" data-oc="${(r.corte||'').trim().toLowerCase()}" data-temp="${r.temporada||''}" data-tipo="${(r.tipo||'').toLowerCase()}" data-m="${(r.m||'').toLowerCase()}" data-etapa="${r.etapa}" data-fecha="${r.fecha_iso||''}" ${NUM_COLS.map(k=>`data-${k}="${r[k]||0}"`).join(' ')}`;
+    const dataAttrs = `data-mal="${corrMal(r) ? 1 : ''}" data-atr="${(atrDe(r) || {}).nivel || ''}" data-art="${(r.articulo||'').trim().toLowerCase()}" data-oc="${(r.corte||'').trim().toLowerCase()}" data-temp="${r.temporada||''}" data-tipo="${(r.tipo||'').toLowerCase()}" data-m="${(r.m||'').toLowerCase()}" data-etapa="${r.etapa}" data-fecha="${r.fecha_iso||''}" ${NUM_COLS.map(k=>`data-${k}="${r[k]||0}"`).join(' ')}`;
     return `<tr class="no-click" ${bg} ${dataAttrs}>
       <td class="td-code">${r.articulo}</td>
       <td class="td-dim">${corrMal(r) ? `<span style="color:var(--er);font-weight:700">${r.corte}</span> <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px" title="El correlativo correcto empieza con 00; este quedó con un solo 0">⚠ revisar</span>` : (r.corte||'—')}</td>
       <td class="td-dim">${r.fecha||'—'}</td>
       <td class="td-dim">${r.tipo||'—'}${r.m ? ' <span style="font-size:10px;font-weight:700;color:var(--ac)">'+r.m+'</span>' : ''}</td>
-      <td><span class="badge ${r.etapa==='Bodega'?'b-bol':r.etapa==='Lavandería'?'b-nc':'b-otro'}" style="font-size:9px">${r.etapa}</span></td>
+      <td><span class="badge ${r.etapa==='Bodega'?'b-bol':r.etapa==='Lavandería'?'b-nc':'b-otro'}" style="font-size:9px">${r.etapa}</span>${(x => x ? ` <span class="badge" style="font-size:9px;background:${x.nivel === 'rojo' ? 'var(--er10)' : 'var(--wa10)'};color:${x.nivel === 'rojo' ? 'var(--er)' : 'var(--wa)'}" title="Lleva ${x.dias} días en ${x.nombre}; lo normal son ${x.normal} y el aviso salta desde ${x.umbral}">${x.dias} d</span>` : '')(atrDe(r))}</td>
       <td class="r td-dim">${fmt(r.programa||0)}</td>
       <td class="r td-num">${fmt(r.proceso||0)}</td>
       <td class="r td-num" style="color:${(r.bodega||0)>0?'var(--ok)':'inherit'}">${fmt(r.bodega||0)}</td>
@@ -2156,15 +2219,17 @@ async function secTabla() {
       <div id="tblMSegs" style="display:flex;flex-wrap:wrap;gap:4px;padding:2px 0"></div></div>
     </div>
     </div>
-    ${nMal ? `<div class="fbar-row"><div class="fgrp"><span class="flbl">Revisar</span><div class="segs" id="tblRevSegs">
+    ${(nMal || nAtr) ? `<div class="fbar-row"><div class="fgrp"><span class="flbl">Revisar</span><div class="segs" id="tblRevSegs">
       <button class="seg on" data-rv="">Todas</button>
-      <button class="seg" data-rv="mal" title="Órdenes con el correlativo mal ingresado: un solo 0 adelante en vez de 00">⚠ Correlativo mal (${nMal})</button>
+      ${nAtr ? `<button class="seg" data-rv="atr" title="Órdenes que llevan en una etapa más de lo que suele durar">⏳ Atrasadas en su etapa (${nAtr})</button>` : ''}
+      ${nMal ? `<button class="seg" data-rv="mal" title="Órdenes con el correlativo mal ingresado: un solo 0 adelante en vez de 00">⚠ Correlativo mal (${nMal})</button>` : ''}
     </div></div></div>` : ''}
   </div>
   <div class="kpi-grid db-kpis">
     ${tarjetaKpi({ attr: 'tk', k: 'proc', lbl: 'Prendas en producción', val: '—', color: 'var(--ac)', ver: 'Ver todas' })}
     ${tarjetaKpi({ attr: 'tk', k: 'final', lbl: 'En la recta final', val: '—', color: 'var(--ok)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'tk', k: 'sinmov', lbl: 'Órdenes sin movimiento', val: '—', color: 'var(--wa)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tk', k: 'atr', lbl: 'Atrasadas en su etapa', val: fmt(nAtr), color: nAtr ? (ATR.lista.some(x => x.nivel === 'rojo') ? 'var(--er)' : 'var(--wa)') : 'var(--ok)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'tk', k: 'mal', lbl: 'Correlativo mal ingresado', val: fmt(nMal), color: nMal ? 'var(--er)' : 'var(--ok)', ver: 'Ver cuáles' })}
   </div>
   ${grafCard('trzGraf', '¿Dónde está la producción?', 'Las prendas detenidas en cada etapa, de lo que se ve. Toca una etapa para ver sus órdenes (y otra vez para ver todas).', 240)}
@@ -10027,6 +10092,7 @@ const GUIA_QUE_HACER = {
   ven: 'Llamar primero a los de más de 90 días. Deudas los ordena por lo vencido y muestra las facturas de cada uno.',
   cob: 'Ver con cobranza si cada bloqueado se desbloquea o se cancela su pedido: mientras tanto esa mercadería no sale.',
   prog: 'Apurar el corte con el taller, la orden más antigua primero: está programado y no ha empezado.',
+  atr: 'Preguntar en esa etapa por qué no avanza, la más atrasada primero. Si es un taller externo o la lavandería, llamarlos hoy.',
   fp: 'Programar el corte de esos artículos: no los cubre la bodega, ni la producción, ni una orden.',
   deb: 'Despachar lo que ya está en bodega y avisarle al cliente qué viene en producción.',
   cajas: 'Facturar y despachar las cajas armadas, o liberar ese stock si el cliente ya no las quiere.',
@@ -10394,7 +10460,7 @@ function bindContent(secId) {
       el,
       art: el.dataset.art || '', art8: (el.dataset.art || '').slice(0, 8),
       oc: el.dataset.oc || '', temp: el.dataset.temp || '', fecha: el.dataset.fecha || '',
-      tipo: el.dataset.tipo || '', m: el.dataset.m || '', etapa: el.dataset.etapa || '', mal: el.dataset.mal === '1',
+      tipo: el.dataset.tipo || '', m: el.dataset.m || '', etapa: el.dataset.etapa || '', mal: el.dataset.mal === '1', atr: el.dataset.atr || '',
       nums: NUM.map(k => parseInt(el.dataset[k]) || 0),
     }));
     const totEls = NUM.map(k => document.getElementById(`tblTotal_${k}`));
@@ -10416,6 +10482,7 @@ function bindContent(secId) {
       document.getElementById('vkOvClose').onclick = () => ov.classList.remove('open');
       ov.onclick = e => { if (e.target === ov) ov.classList.remove('open'); };
       const [toc, pa] = await Promise.all([load('traza_oc.json'), load('pedidos_art.json')]);
+      const ATRX = trzAtrasos(toc);
       const lista = Array.isArray(toc) ? toc : [];
       const mismo = x => String(x.oc).toLowerCase() === String(oc).toLowerCase();
       const o = lista.find(x => mismo(x) && String(x.articulo).toLowerCase() === String(art).toLowerCase()) || lista.find(mismo);
@@ -10434,11 +10501,14 @@ function bindContent(secId) {
         else if (ini) { dias = fmt(Math.max(0, trzDias(ini, hoy))); nota = 'en curso'; }
         const pend = s.pend || 0;
         if (!enCurso && ((ini && !fin) || pend > 0)) enCurso = nombre;   // dónde está hoy, aunque la fecha venga mal
-        return `<tr${ini && !fin ? ' style="background:var(--wa10)"' : ''}>
+        const nor = ATRX.normal[k], umb = ATRX.umbral[k];
+        const tarde = !!(ini && !fin && !malIni && umb && trzDias(ini, hoy) > umb);   // lleva más de lo normal
+        return `<tr${tarde ? ' style="background:var(--er10)"' : (ini && !fin ? ' style="background:var(--wa10)"' : '')}>
           <td style="font-weight:600">${nombre}</td>
           <td class="td-dim">${s.ini ? fechaHtml(s.ini, malIni) : '—'}</td>
           <td class="td-dim">${s.fin ? fechaHtml(s.fin, malFin) : (ini ? '<span style="color:var(--wa);font-weight:700">todavía ahí</span>' : '—')}</td>
-          <td class="r td-num">${dias}${nota ? ` <span class="td-dim" style="font-size:10px">${nota}</span>` : ''}</td>
+          <td class="r td-num"${tarde ? ' style="color:var(--er)"' : ''}>${dias}${nota ? ` <span class="td-dim" style="font-size:10px">${nota}</span>` : ''}${tarde ? ' <span style="font-size:10px;font-weight:700">demasiado</span>' : ''}</td>
+          <td class="r td-dim">${nor ? fmt(nor) : '—'}</td>
           <td class="r td-dim">${s.dias ? fmt(s.dias) : '—'}</td>
           <td class="r td-num" style="color:${pend > 0 ? 'var(--wa)' : 'var(--tx3)'}">${pend > 0 ? fmt(pend) : '—'}</td></tr>`;
       }).join('');
@@ -10467,8 +10537,8 @@ function bindContent(secId) {
         <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 6px">${chip('Tipo', `${o.tipo || '—'}${o.m ? ' ' + o.m : ''}`)}${chip('Orden emitida', o.fecha || '—')}${chip('Programado', fmt(o.prog || 0))}${chip('Cortado', fmt(o.cort || 0))}${chip('A bodega', fmt(o.ent || 0), (o.ent || 0) > 0 ? 'var(--ok)' : '')}${chip('Saldo', fmt(o.saldo || 0), (o.saldo || 0) > 0 ? 'var(--wa)' : '')}${o.totDias ? chip('Días (ERP)', fmt(o.totDias)) : ''}</div>
         <div style="padding:6px 16px 4px;font-size:13px">${llegada}</div>
         ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${o.inc}</div>` : ''}
-        <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
-          <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
+        <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Lo que suele durar esta etapa: mediana de las órdenes de producción cerradas">Normal</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
+          <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Normal = lo que suele durar; en rojo, la etapa donde la orden lleva más de lo normal. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
         ${tallasHtml}`;
     }
     FILAS.forEach(f => {
@@ -10514,7 +10584,7 @@ function bindContent(secId) {
           (temp  === 'todo' || f.temp  === temp) &&
           (!art || (artNum ? (artMatch(f.art8, art) || f.art.startsWith(art)) : f.art.includes(art))) &&
           (!oc  || f.oc.includes(oc)) &&
-          (!rv  || f.mal);
+          (!rv  || (rv === 'mal' ? f.mal : rv === 'atr' ? !!f.atr : true));
         if (show) { pasan.push(f); for (let i = 0; i < NUM.length; i++) tots[i] += f.nums[i]; }
         if (tipoOk && (temp === 'todo' || f.temp === temp) && (!art || (artNum ? (artMatch(f.art8, art) || f.art.startsWith(art)) : f.art.includes(art))) && (!oc || f.oc.includes(oc))) alc.push(f);
       }
@@ -10538,7 +10608,9 @@ function bindContent(secId) {
       const parts = [`Etapa: ${selTxt('tblEtapa')}`, `Temp: ${selTxt('tblTempSel')}`, `Tipo: ${tipo}${ms.length ? ' (' + ms.join(', ') + ')' : ''}`];
       if (art) parts.push(`Artículo: ${art}`);
       if (oc)  parts.push(`OC: ${oc}`);
-      if (document.querySelector('#tblRevSegs .seg.on')?.dataset.rv) parts.push('Solo correlativo mal ingresado');
+      const rvOn = document.querySelector('#tblRevSegs .seg.on')?.dataset.rv;
+      if (rvOn === 'mal') parts.push('Solo correlativo mal ingresado');
+      if (rvOn === 'atr') parts.push('Solo atrasadas en su etapa');
       printTable({ table: document.getElementById('tablaBody')?.closest('table'), title: 'Trazabilidad', subtitle: parts.join(' · ') });
     });
     document.getElementById('tblEtapa')?.addEventListener('change', applyTablaFilters);
@@ -10546,7 +10618,7 @@ function bindContent(secId) {
     document.querySelectorAll('[data-tk]').forEach(card => {
       const ir = () => {
         const k = card.dataset.tk, sel = document.getElementById('tblEtapa');
-        if (k === 'mal') document.querySelector('#tblRevSegs .seg[data-rv="mal"]')?.click();
+        if (k === 'mal' || k === 'atr') document.querySelector(`#tblRevSegs .seg[data-rv="${k}"]`)?.click();
         else if (sel) {
           document.querySelector('#tblRevSegs .seg[data-rv=""]:not(.on)')?.click();
           sel.value = { proc: 'todo', final: 'final', sinmov: 'Sin movimiento' }[k] || 'todo';
