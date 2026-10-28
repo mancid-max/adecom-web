@@ -4599,7 +4599,25 @@ function cvRender(d) {
       <span class="td-dim">Pidió ${fmt(m.pidio)} en 12 meses · cole ${cvEsc(m.cole)} · </span>${m.estado === 'disponible' ? `<b class="cv-ok">${fmt(m.stock)} disponibles</b>` : '<span class="cv-etapa">en producción</span>'}</div>`).join('');
   const nDisp = (O.sugeridos || []).length;
   const resumenCl = O.tipo === 'clienta' ? resumenO : '';
-  const ofrecerHtml = (resumenCl || sugO || suele || O.nota) ? sec('🛍', O.tipo === 'mayorista' ? 'Qué mandarle' : 'Qué ofrecerle', '',
+  /* la clienta de la tienda (Valentina) no tiene cobranza ni colecciones: sus compras en Bsale (28-10, Manu: "tenemos dos
+     flujos de negocio: Sofía mayorista… y Valentina para el consumidor final") */
+  const BSa = O.bsale;
+  const haceGris = n => n == null ? '' : n === 0 ? 'hoy' : n === 1 ? 'hace 1 día' : `hace ${n} días`;   /* en una compra no es atraso: sin color */
+  const comprasHtml = O.tipo !== 'clienta' ? '' : sec('🧾', 'Sus compras', BSa && BSa.encontrada ? chipS(`${fmt(BSa.compras)} ${BSa.compras === 1 ? 'compra' : 'compras'}`, 'ac') : '',
+    !BSa ? '<div class="td-dim">No pude leer Bsale.</div>'
+    : BSa.sin_celular ? '<div class="td-dim">Escribe por Instagram y no dejó celular: sin él no se puede buscar en Bsale.</div>'
+    : BSa.sin_indice ? '<div class="td-dim">Las compras de Bsale todavía se están cargando (se arman cada hora).</div>'
+    : !BSa.encontrada ? '<div class="td-dim">No la encontré en Bsale con este celular: no ha comprado en los últimos 12 meses, o compró sin dejar su número.</div>'
+    : `<div class="cv-datos">
+        ${dato('Compras', fmt(BSa.compras) + (BSa.devoluciones ? `<small>${fmt(BSa.devoluciones)} ${BSa.devoluciones === 1 ? 'nota de crédito' : 'notas de crédito'}</small>` : ''))}
+        ${dato('Gastado', fmtCLP(BSa.total) + '<small>12 meses, con IVA</small>')}
+        ${dato('Prendas', fmt(BSa.prendas))}
+        ${dato('Su talla', cvEsc(BSa.talla || '—'), BSa.talla ? 'cv-ok' : '')}
+      </div>
+      ${BSa.ultima ? `<div class="cv-sub">Última compra</div><div class="cv-fila"><b>${fmtF(BSa.ultima.fecha)}</b> <span class="td-dim">${haceGris(BSa.ultima.dias)}</span> · ${cvEsc(BSa.ultima.tienda)} · ${fmtCLP(BSa.ultima.total)}<div class="td-dim">${cvEsc((BSa.ultima.items || []).join(' · '))}</div></div>` : ''}
+      ${(BSa.recientes || []).length ? `<div class="cv-sub">Antes</div>${BSa.recientes.map(x => `<div class="cv-fila"><b>${fmtF(x.fecha)}</b> <span class="td-dim">${haceGris(x.dias)}</span> · ${cvEsc(x.tienda)} · ${fmt(x.prendas)} ${x.prendas === 1 ? 'prenda' : 'prendas'} · ${fmtCLP(x.total)}</div>`).join('')}` : ''}
+      <div class="td-dim cv-fuente">Bsale (boletas y notas de crédito, por su celular)${BSa.actualizado ? ` · al ${cvEsc(cvHora(BSa.actualizado))}` : ''}</div>`);
+  const ofrecerHtml = (resumenCl || sugO || suele || O.nota) ? sec(O.tipo === 'mayorista' ? '🛍' : '🎁', O.tipo === 'mayorista' ? 'Qué mandarle' : 'Qué recomendarle', '',
       `${(sugO || suele) && d.responder && d.responder.ok ? '<div class="cv-pick-nota">✍️ Toca los que quieras ofrecerle: el mensaje se arma solo abajo.</div>' : ''}${resumenCl}
       ${suele ? `<div class="cv-sub">Lo que suele comprar</div>${suele}` : ''}
       ${sugO ? `<div class="cv-sub">${O.tipo === 'mayorista' ? `Con despacho inmediato (${fmt(nDisp)})` : 'Para ella'}</div>${sugO}` : ''}
@@ -4611,12 +4629,14 @@ function cvRender(d) {
       ${fila(`Lo último que le dijo ${ag}`, X.agente_dijo ? `«${cvEsc(String(X.agente_dijo).length > 220 ? String(X.agente_dijo).slice(0, 219) + '…' : X.agente_dijo)}»` : '', 'td-dim')}`)}
       ${cuentaHtml}
       ${pedidosHtml}
+      ${comprasHtml}
+      ${O.tipo === 'clienta' && pedidos ? sec('🛒', 'Pedidos en mohicano.cl', '', pedidos) : ''}
       ${ofrecerHtml}
       ${vieneHtml}
       ${historia ? sec('🗂', 'Historia del caso', '', historia) : ''}
-      ${pedidos ? sec('🛒', 'Pedidos en mohicano.cl', '', pedidos) : ''}
+      ${O.tipo !== 'clienta' && pedidos ? sec('🛒', 'Pedidos en mohicano.cl', '', pedidos) : ''}
       ${casos ? sec('📮', 'Otros casos', '', casos) : ''}
-      ${sec('👤', 'Datos', '', fila('Celular', cvEsc(L.celular)) + fila('Correo', cvEsc(L.correo)) + fila('Etapa', cvEsc(L.etapa)))}`;
+      ${sec('👤', 'Datos', '', fila('Celular', cvEsc(L.celular)) + fila('Correo', cvEsc(L.correo || (BSa && BSa.correo) || '')) + fila('Comuna', cvEsc((BSa && BSa.comuna) || '')) + fila('Etapa', cvEsc(L.etapa)))}`;
   return `<div class="cv-chatcol">
       <div class="cv-chathd">
         <button class="cv-btn cv-volver" data-cvback="1" title="Volver a la lista">←</button>
