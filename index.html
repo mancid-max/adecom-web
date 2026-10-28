@@ -4423,7 +4423,10 @@ async function secConversaciones() {
     .cv-btns{display:flex;flex-wrap:wrap;gap:6px}
     .cv-btn{padding:7px 12px;border:1px solid var(--bd2);border-radius:var(--rsm);background:var(--sf);color:var(--tx1);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap}
     .cv-btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}.cv-btn:disabled{opacity:.55;cursor:default}
-    .cv-volver,.cv-vctx{display:none}
+    .cv-volver,.cv-vctx,.cv-ctx-cerrar{display:none}
+    .cv-ctx-cerrar{position:sticky;top:-12px;z-index:2;width:calc(100% + 24px);margin:-12px -12px 10px;padding:12px;border:0;border-bottom:1px solid var(--bd);background:var(--sf);font:inherit;font-size:14px;font-weight:700;color:var(--ac);text-align:left;cursor:pointer}
+    .cv-lsel{flex-wrap:wrap}.cv-lsel select{flex:1 1 40%;width:auto;min-width:0}
+    .cv-app,.cv-det,.cv-chatcol,.cv-ctxcol,.cv-col-lista{min-width:0;max-width:100%}.cv-chat,.cv-ctxcol{overflow-x:hidden}.cv-b{overflow-wrap:anywhere}
     .cv-chat{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:16px 18px;background:#efeae2}
     .cv-b{max-width:78%;padding:7px 10px 5px;border-radius:10px;font-size:13.5px;line-height:1.42;white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 1px rgba(0,0,0,.08)}
     .cv-in{align-self:flex-start;background:#fff;border-top-left-radius:3px}
@@ -4456,6 +4459,7 @@ async function secConversaciones() {
     .cv-tallas span em{display:block;font-style:normal;font-size:9.5px;font-weight:500;color:var(--tx3)}.cv-tallas span em.dif{color:var(--er);font-weight:700}
     .cv-dif{font-size:11px;color:var(--er);margin:3px 0 2px;line-height:1.4}
     .cv-aviso-24{background:var(--wa10);color:var(--tx1);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.45}
+    .cv-pt{display:flex;flex-wrap:wrap;gap:2px;margin-top:5px}.cv-pt span{font-size:11px;font-weight:700;background:var(--sf2);border-radius:5px;padding:1px 4px;font-variant-numeric:tabular-nums}.cv-pt span small{font-size:9.5px;font-weight:500;color:var(--tx3);margin-right:2px}
     .cv-falta-l1{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
     .cv-reemp{margin-top:4px;padding:4px 7px;border:1px dashed var(--ac);border-radius:7px;color:var(--tx1)}
     .cv-fila{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;font-size:12.5px;line-height:1.4}
@@ -4477,12 +4481,13 @@ async function secConversaciones() {
     .cv-cx-pide{font-weight:600;color:var(--tx1)}
     .cv-caso{border:1px solid var(--bd);border-radius:var(--rsm);padding:8px 10px;font-size:12px;line-height:1.45;margin-bottom:6px}
     .cv-ok{color:var(--ok)}.cv-er{color:var(--er)}
-    @media(max-width:1280px){.cv-det{grid-template-columns:minmax(0,1fr)}.cv-ctxcol{display:none}.cv-vctx{display:inline-block}
+    @media(max-width:1280px){.cv-det{grid-template-columns:minmax(0,1fr)}.cv-ctxcol{display:none}.cv-vctx{display:inline-block}.cv-ctx-cerrar{display:block}
       .cv-det.cv-ver-ctx .cv-ctxcol{display:block;position:absolute;right:0;top:0;bottom:0;width:min(320px,90%);box-shadow:-8px 0 24px rgba(0,0,0,.12);z-index:5}
       .cv-det{position:relative}}
     @media(max-width:760px){.cv-app{grid-template-columns:1fr;height:calc(100vh - 150px)}
       .cv-app .cv-det{display:none}.cv-app.cv-abierta .cv-col-lista{display:none}.cv-app.cv-abierta .cv-det{display:grid}
-      .cv-volver{display:inline-block}.cv-b{max-width:88%}.cv-comp{padding-right:72px}}
+      .cv-volver{display:inline-block}.cv-b{max-width:88%}.cv-comp{padding-right:72px}
+      .cv-det.cv-ver-ctx .cv-ctxcol{width:100%}.cv-chathd{flex-wrap:wrap;row-gap:6px}.cv-btns{flex-wrap:wrap;width:100%}}
   </style>
   <div class="cv-stats">
     ${stat('necesita', 'necesitan una persona', '--er')}${stat('caso', 'con caso abierto', '--wa')}${stat('tomada', 'las atiende el equipo', '--ac')}${stat('all', `en los últimos ${fmt(d.dias || 30)} días`, '--tx2')}
@@ -4553,8 +4558,10 @@ function cvRender(d) {
       (O.resumen.estilos || []).length ? fila('Sus estilos', cvEsc(O.resumen.estilos.join(', '))) : '',
       (O.resumen.mas_pidio || []).length && !(O.suele || []).length ? fila('Lo que más pidió', cvEsc(O.resumen.mas_pidio.join(' · '))) : ''].join('')
     : O.tipo === 'clienta' ? [fila('Su talla', cvEsc(O.talla || 'no la sé')), (O.ultima_compra || []).length ? fila('Su última compra', cvEsc(O.ultima_compra.join(' · '))) : ''].join('') : '';
+  /* el stock por talla, abajo de cada modelo (28-10, Manu: "el qué mandarle me podría salir con el stock por abajito") */
+  const porTalla = pt => { const xs = Object.entries(pt || {}).filter(([, n]) => Number(n) > 0); return xs.length ? `<div class="cv-pt">${xs.map(([t, n]) => `<span><small>${cvEsc(t)}</small>${fmt(n)}</span>`).join('')}</div>` : ''; };
   const sugO = (O.sugeridos || []).map((m, i) => O.tipo === 'mayorista'
-      ? `<div class="cv-fila cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tallas ${cvEsc(m.tallas)} · tócalo para sumarlo al mensaje"><b>${cvEsc(m.codigo)} ${cvEsc(m.nombre)}</b> · ${cvEsc(m.estilo)} · ${cvEsc(String(m.precio).replace(' + IVA', ''))}<span class="td-dim"> · ${fmt(m.stock)} u.</span>${i < 3 ? ' <span class="cv-sug">para él</span>' : ''}${m.ya_lo_pidio ? ' <span class="cv-sug cv-sug-ok">ya lo pidió</span>' : ''}</div>`
+      ? `<div class="cv-fila cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tallas ${cvEsc(m.tallas)} · tócalo para sumarlo al mensaje"><b>${cvEsc(m.codigo)} ${cvEsc(m.nombre)}</b> · ${cvEsc(m.estilo)} · ${cvEsc(String(m.precio).replace(' + IVA', ''))}<span class="td-dim"> · ${fmt(m.stock)} u.</span>${i < 3 ? ' <span class="cv-sug">para él</span>' : ''}${m.ya_lo_pidio ? ' <span class="cv-sug cv-sug-ok">ya lo pidió</span>' : ''}${porTalla(m.por_talla)}</div>`
       : `<div class="cv-caso cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje">${cvEsc(m.nombre)}${m.link ? `<br><a href="${cvEsc(m.link)}" target="_blank" rel="noopener" style="color:var(--ac)">ver en la tienda ›</a>` : ''}</div>`).join('');
   /* su cuenta en el ERP y lo que viene en producción (28-10, Manu: "si está bloqueado, si está con deuda y con saldo a
      favor, qué ofrecerle de la nueva cole… si tenemos programado o en producción y en qué parte está") */
@@ -4612,7 +4619,7 @@ function cvRender(d) {
   const vieneHtml = viene ? sec('🧵', 'Lo que viene', '', viene) : '';
   /* lo que suele comprar (28-10, Manu: "también otra parte de los que él suele comprar y ofrecerle") */
   const suele = (O.suele || []).map((m, i) => `<div class="cv-caso cv-pick" data-cvpick="u${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje"><b>${cvEsc(m.codigo)}${m.nombre ? ' ' + cvEsc(m.nombre) : ''}</b> · ${cvEsc(m.estilo)}${m.precio ? ' · ' + cvEsc(m.precio) : ''}<br>
-      <span class="td-dim">pidió ${fmt(m.pidio)} · </span>${m.estado === 'disponible' ? `<b class="cv-ok">${fmt(m.stock)} disp.</b>` : '<span class="cv-etapa">en producción</span>'}</div>`).join('');
+      <span class="td-dim">pidió ${fmt(m.pidio)} · </span>${m.estado === 'disponible' ? `<b class="cv-ok">${fmt(m.stock)} disp.</b>` : '<span class="cv-etapa">en producción</span>'}${m.estado === 'disponible' ? porTalla(m.por_talla) : ''}</div>`).join('');
   const nDisp = (O.sugeridos || []).length;
   const resumenCl = O.tipo === 'clienta' ? resumenO : '';
   /* la clienta de la tienda (Valentina) no tiene cobranza ni colecciones: sus compras en Bsale (28-10, Manu: "tenemos dos
@@ -4669,7 +4676,7 @@ function cvRender(d) {
       <div class="cv-chat" id="cvChat">${chat}</div>
       <div class="cv-comp">${comp}<div class="td-dim" id="cvMsg" style="font-size:12px;margin-top:4px"></div></div>
     </div>
-    <aside class="cv-ctxcol">${ctx}</aside>`;
+    <aside class="cv-ctxcol"><button class="cv-ctx-cerrar" data-cvctxx="1">← Volver al chat</button>${ctx}</aside>`;
 }
 
 let CV_FIRMA = '';
@@ -4756,6 +4763,7 @@ async function cvAbrir(id, { silencio = false } = {}) {
   });
   det.querySelector('[data-cvback]')?.addEventListener('click', () => { document.getElementById('cvApp')?.classList.remove('cv-abierta'); CV_SEL = null; });
   det.querySelector('[data-cvctx]')?.addEventListener('click', () => det.classList.toggle('cv-ver-ctx'));
+  det.querySelector('[data-cvctxx]')?.addEventListener('click', () => det.classList.remove('cv-ver-ctx'));   /* 28-10: en el celular el contexto tapaba el chat y no se podía cerrar */
   det.querySelectorAll('[data-cva]').forEach(b => b.addEventListener('click', async () => {
     const accion = b.dataset.cva, msg = document.getElementById('cvMsg');
     const texto = accion === 'responder' ? (document.getElementById('cvTexto')?.value || '').trim() : '';
