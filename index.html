@@ -4580,6 +4580,9 @@ function cvRender(d) {
       </div>` : '';
   const pedErp = (O.pedidos_erp || []).map(p => `<div class="cv-fila"><b>${fmtF(p.fecha)}</b> ${hace(p.dias)} · ${fmt(p.unidades)} prendas · cole ${cvEsc(p.colecciones)}<span class="td-dim"> · ${p.unidades ? Math.round(p.despachado / p.unidades * 100) : 0}% despachado</span>${p.bloqueado ? ' <span class="cv-sug" style="background:var(--er10);color:var(--er)">detenido</span>' : ''}</div>`).join('');
   /* lo que falta despachar, si hay en bodega y con qué reemplazarlo (28-10, Manu) */
+  /* lo que no alcanza de un modelo, por talla (28-10, Manu: "el cambiar supongo que va a cambiar el de la talla que falta") */
+  const noAlcanza = x => (x.detalle || []).map(t => ({ t: t.talla, n: t.falta - Math.min(t.falta, x.fuente === 'excel' ? (t.excel || 0) : t.erp) })).filter(y => y.n > 0);
+  const noAlcanzaTxt = x => { const ys = noAlcanza(x); return ys.length ? ys.map(y => `la ${y.t} (${y.n})`).join(', ') : (x.faltan_tallas || []).map(t => `la ${t}`).join(', '); };
   const tallasTxt = t => Object.entries(t || {}).map(([k, n]) => `${k}: ${n}`).join(' · ');
   const faltaHtml = (O.por_despachar || []).map((x, i) => {
     const chip = x.estado === 'hay' ? chipS(x.fuente === 'excel' ? '✓ alcanza (Excel)' : '✓ alcanza (ERP)', 'ok') : x.estado === 'parcial' ? chipS(`hay ${fmt(x.hay)} de ${fmt(x.falta)}`, 'wa') : chipS('sin stock', 'er');
@@ -4588,7 +4591,7 @@ function cvRender(d) {
       ${(x.detalle || []).length ? `<div class="cv-tallas">${x.detalle.map(t => { const h = x.fuente === 'excel' ? t.excel : t.erp, d = t.excel != null ? t.erp - t.excel : 0;   /* cuánto más (o menos) dice el ERP que el Excel */
         return `<span class="${h >= t.falta ? 'ok' : h > 0 ? 'wa' : 'er'}"><small>${cvEsc(t.talla)}</small>${fmt(t.falta)}${t.excel != null ? `<i>Excel ${fmt(t.excel)}</i><em${d ? ' class="dif"' : ''}>ERP ${fmt(t.erp)}${d ? ` (${d > 0 ? '+' : ''}${fmt(d)})` : ''}</em>` : `<i>ERP ${fmt(t.erp)}</i>`}</span>`; }).join('')}</div>` : `<div class="td-dim">${cvEsc(tallasTxt(x.tallas))}</div>`}
       ${x.produccion ? `<div class="td-dim">Viene en producción: <span class="cv-etapa">${cvEsc(x.produccion.etapa)}</span></div>` : ''}
-      ${r ? `<div class="cv-reemp cv-pick" data-cvpick="r${i}" role="button" tabindex="0" title="Tócalo para ofrecérselo en el mensaje">↳ Cambiar por <b>${cvEsc(r.codigo)} ${cvEsc(r.nombre)}</b> · ${cvEsc(r.estilo)}${(r.tallas_que_tiene || []).length < (x.faltan_tallas || []).length ? ` · tiene la ${cvEsc((r.tallas_que_tiene || []).join(', '))}` : ''}</div>` : ''}</div>`;
+      ${r ? `<div class="cv-reemp cv-pick" data-cvpick="r${i}" role="button" tabindex="0" title="Tócalo para ofrecérselo en el mensaje">↳ ${x.estado === 'sin' ? 'Cambiar todo' : `Cambiar ${cvEsc(noAlcanzaTxt(x))}`} por <b>${cvEsc(r.codigo)} ${cvEsc(r.nombre)}</b> · ${cvEsc(r.estilo)}${(r.tallas_que_tiene || []).length < (x.faltan_tallas || []).length ? ` · tiene la ${cvEsc((r.tallas_que_tiene || []).join(', '))}` : ''}</div>` : ''}</div>`;
   }).join('');
   const pedidosHtml = O.tipo === 'mayorista' ? sec('📦', 'Pedidos', A && A.pct != null ? chipS(`${A.pct}% de la ${cvEsc(A.ref_cole)}`, colorPct(A.pct)) : '',
       [avanceHtml,
@@ -4709,7 +4712,10 @@ async function cvAbrir(id, { silencio = false } = {}) {
     if (O.tipo !== 'mayorista') return `Hola ${pila}, te recomiendo estos que quedan${O.talla ? ` en tu talla ${O.talla}` : ''}:\n${ms.map(m => `• ${m.nombre}${m.link ? ' ' + m.link : ''}`).join('\n')}\n¿Te ayudo con alguno?`;
     const ETQ = { 'Corte': 'en corte', 'Costura': 'en costura', 'Taller externo': 'en taller', 'Limpiado': 'en terminaciones', 'Lavandería': 'en lavandería', 'Terminación': 'en la última etapa', 'Programado': 'programado para cortar' };
     const partes = [`Hola ${pila}, ¿cómo estás?`];
-    if (rs.length) partes.push(rs.map(x => `De tu pedido, del ${x.codigo}${x.nombre ? ' ' + x.nombre : ''} no nos queda${x.estado === 'parcial' ? ` la ${x.faltan_tallas.join(', ')}` : ''}. En su lugar te puedo mandar el ${x.reemplazo.codigo} ${x.reemplazo.nombre} (${x.reemplazo.estilo}), ${x.reemplazo.precio}.`).join('\n') + '\n¿Te sirve el cambio?');
+    const noAlc = x => (x.detalle || []).map(t => ({ t: t.talla, n: t.falta - Math.min(t.falta, x.fuente === 'excel' ? (t.excel || 0) : t.erp) })).filter(y => y.n > 0);
+    if (rs.length) partes.push(rs.map(x => { const ys = noAlc(x), n = ys.reduce((a, y) => a + y.n, 0), tl = ys.map(y => `la ${y.t}`).join(', ');
+      return x.estado === 'sin' ? `De tu pedido, del ${x.codigo}${x.nombre ? ' ' + x.nombre : ''} no nos queda stock. En su lugar te puedo mandar el ${x.reemplazo.codigo} ${x.reemplazo.nombre} (${x.reemplazo.estilo}), ${x.reemplazo.precio}, en las mismas tallas.`
+        : `De tu pedido, el ${x.codigo}${x.nombre ? ' ' + x.nombre : ''} te lo despachamos, menos ${tl}${n ? ` (${n} ${n === 1 ? 'prenda' : 'prendas'})` : ''}, que no nos queda. En su lugar te puedo mandar el ${x.reemplazo.codigo} ${x.reemplazo.nombre} (${x.reemplazo.estilo}) en ${tl}, ${x.reemplazo.precio}.`; }).join('\n') + '\n¿Te sirve el cambio?');
     if (ms.length) partes.push(`Te cuento que tenemos con despacho inmediato:\n${ms.map(m => `• ${m.codigo}${m.nombre ? ' ' + m.nombre : ''} (${m.estilo}), ${m.precio}${m.suyo ? ', de los que más llevas' : ''}`).join('\n')}`);
     if (vs.length) partes.push(`${ms.length ? 'Y v' : 'V'}iene en camino${vs.every(v => v.cole === vs[0].cole) ? ` de la colección ${vs[0].cole}` : ''}:\n${vs.map(v => `• ${v.codigo}${v.nombre ? ' ' + v.nombre : ''}${v.estilo ? ` (${v.estilo})` : ''}${v.precio ? ', ' + v.precio : ''}: ya está en producción, ${ETQ[v.etapa] || 'en proceso'}`).join('\n')}`);
     if (ms.length || vs.length) partes.push(ms.length ? '¿Te mando las fotos y las tallas?' : '¿Te aviso apenas llegue a bodega?');
