@@ -4449,6 +4449,9 @@ async function secConversaciones() {
     .cv-barra{height:7px;border-radius:9px;background:var(--bd);overflow:hidden;margin:4px 0 5px}.cv-barra i{display:block;height:100%;border-radius:9px}
     .cv-av-l2{font-size:11.5px;line-height:1.45}
     .cv-hist{display:flex;gap:5px;margin-top:6px}.cv-hist span{flex:1;text-align:center;background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:3px 0;font-size:12px;font-weight:700}.cv-hist span small{display:block;font-size:10px;font-weight:500;color:var(--tx3)}.cv-hist span.on{border-color:var(--ac);color:var(--ac)}
+    .cv-hace-d{font-weight:700;font-size:11.5px}
+    .cv-falta-l1{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
+    .cv-reemp{margin-top:4px;padding:4px 7px;border:1px dashed var(--ac);border-radius:7px;color:var(--tx1)}
     .cv-fila{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;font-size:12.5px;line-height:1.4}
     .cv-sub{font-size:11px;font-weight:700;color:var(--tx2);margin:10px 0 5px}
     .cv-sug{display:inline-block;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:8px;background:var(--ac10);color:var(--ac)}.cv-sug-ok{background:var(--ok10);color:var(--ok)}
@@ -4528,6 +4531,9 @@ function cvRender(d) {
   /* Qué ofrecerle (27-10, Manu: "sugerir qué venderle al cliente para cuando le hable un humano") */
   const O = d.ofrecer || {};
   const fmtF = f => f ? String(f).slice(0, 10).split('-').reverse().join('-') : '';
+  /* hace cuánto (28-10, Manu: "hace cuánto fue el pedido, cuánto lleva en tiempo"): verde hasta 14 días, amarillo hasta 30,
+     rojo más, como los días de la orden en Adecom */
+  const hace = n => n == null ? '' : `<span class="cv-hace-d" style="color:var(--${n > 30 ? 'er' : n > 14 ? 'wa' : 'ok'})">${n === 0 ? 'hoy' : n === 1 ? 'hace 1 día' : `hace ${n} días`}</span>`;
   const resumenO = O.tipo === 'mayorista' && O.resumen ? [
       fila('Últimos 12 meses', `${fmt(O.resumen.unidades_12m)} prendas${O.resumen.facturado_12m ? ` · facturado ${fmtCLP(O.resumen.facturado_12m)}` : ''}${O.resumen.colecciones ? ` · cole ${cvEsc(O.resumen.colecciones)}` : ''}`),
       O.resumen.ultimo_pedido ? fila('Último pedido', `${cvEsc(fmtF(O.resumen.ultimo_pedido.fecha))} · ${fmt(O.resumen.ultimo_pedido.unidades)} prendas`) : '',
@@ -4567,9 +4573,21 @@ function cvRender(d) {
         ${A.completo && (A.historia || []).length ? `<div class="cv-hist">${A.historia.map(h => `<span${h.cole === A.cole ? ' class="on"' : ''}><small>${cvEsc(h.cole)}</small>${fmt(h.unidades)}</span>`).join('')}</div>` : ''}
         ${A.siguiente ? `<div class="cv-av-l2">Ya pidió <b>${fmt(A.siguiente.unidades)}</b> de la ${cvEsc(A.siguiente.cole)} (preventa)</div>` : ''}
       </div>` : '';
-  const pedErp = (O.pedidos_erp || []).map(p => `<div class="cv-fila"><b>${fmtF(p.fecha)}</b> · ${fmt(p.unidades)} prendas · cole ${cvEsc(p.colecciones)}<span class="td-dim"> · ${p.unidades ? Math.round(p.despachado / p.unidades * 100) : 0}% despachado</span>${p.bloqueado ? ' <span class="cv-sug" style="background:var(--er10);color:var(--er)">detenido</span>' : ''}</div>`).join('');
+  const pedErp = (O.pedidos_erp || []).map(p => `<div class="cv-fila"><b>${fmtF(p.fecha)}</b> ${hace(p.dias)} · ${fmt(p.unidades)} prendas · cole ${cvEsc(p.colecciones)}<span class="td-dim"> · ${p.unidades ? Math.round(p.despachado / p.unidades * 100) : 0}% despachado</span>${p.bloqueado ? ' <span class="cv-sug" style="background:var(--er10);color:var(--er)">detenido</span>' : ''}</div>`).join('');
+  /* lo que falta despachar, si hay en bodega y con qué reemplazarlo (28-10, Manu) */
+  const tallasTxt = t => Object.entries(t || {}).map(([k, n]) => `${k}: ${n}`).join(' · ');
+  const faltaHtml = (O.por_despachar || []).map((x, i) => {
+    const chip = x.estado === 'hay' ? chipS('✓ hay en bodega', 'ok') : x.estado === 'parcial' ? chipS(`hay ${fmt(x.hay)} de ${fmt(x.falta)}`, 'wa') : chipS('sin stock', 'er');
+    const r = x.reemplazo;
+    return `<div class="cv-fila"><div class="cv-falta-l1"><span><b>${cvEsc(x.codigo)}${x.nombre ? ' ' + cvEsc(x.nombre) : ''}</b>${x.estilo ? ' · ' + cvEsc(x.estilo) : ''} · falta ${fmt(x.falta)}</span>${chip}</div>
+      <div class="td-dim">Pedido el ${cvEsc(fmtF(x.fecha))} · ${hace(x.dias)}</div>
+      <div class="td-dim">${cvEsc(tallasTxt(x.tallas))}${x.estado === 'parcial' ? ` · no alcanza en la ${cvEsc(x.faltan_tallas.join(', '))}` : ''}</div>
+      ${x.produccion ? `<div class="td-dim">Viene en producción: <span class="cv-etapa">${cvEsc(x.produccion.etapa)}</span></div>` : ''}
+      ${r ? `<div class="cv-reemp cv-pick" data-cvpick="r${i}" role="button" tabindex="0" title="Tócalo para ofrecérselo en el mensaje">↳ Reemplazo: <b>${cvEsc(r.codigo)} ${cvEsc(r.nombre)}</b> · ${cvEsc(r.estilo)}${r.mismo_estilo ? '' : ' (parecido)'} · ${fmt(r.stock)} u.${(r.tallas_que_tiene || []).length < (x.faltan_tallas || []).length ? ` · tiene la ${cvEsc((r.tallas_que_tiene || []).join(', '))}` : ''}</div>` : ''}</div>`;
+  }).join('');
   const pedidosHtml = O.tipo === 'mayorista' ? sec('📦', 'Pedidos', A && A.pct != null ? chipS(`${A.pct}% de la ${cvEsc(A.ref_cole)}`, colorPct(A.pct)) : '',
       [avanceHtml,
+       faltaHtml ? `<div class="cv-sub">Falta despachar</div>${faltaHtml}<div class="td-dim cv-fuente">Pendiente de sus pedidos de los últimos 180 días. "Hay en bodega" = saldo de San Gerardo sin lo que ya está en cajas (puede estar pedido por otros clientes).</div>` : '',
        pedErp ? `<div class="cv-sub">Sus últimos pedidos</div>${pedErp}` : '',
        R ? `<div class="td-dim cv-fuente">12 meses: ${fmt(R.unidades_12m)} prendas${R.facturado_12m ? ` · facturado ${fmtCLP(R.facturado_12m)}` : ''}${(R.estilos || []).length ? ` · sus estilos: ${cvEsc(R.estilos.join(', '))}` : ''}</div>` : ''].join('')) : '';
 
@@ -4618,6 +4636,7 @@ function cvRender(d) {
     <aside class="cv-ctxcol">${ctx}</aside>`;
 }
 
+let CV_FIRMA = '';
 async function cvAbrir(id, { silencio = false } = {}) {
   const det = document.getElementById('cvDet');
   if (!det) return;
@@ -4627,11 +4646,19 @@ async function cvAbrir(id, { silencio = false } = {}) {
   if (!silencio) det.innerHTML = '<div class="cv-vacio">Cargando la conversación…</div>';
   const d = await cvFetch('?lead=' + encodeURIComponent(id));
   if (CV_SEL !== id || !document.getElementById('cvDet')) return;
+  /* 28-10 (Manu: "la parte derecha se va sola para arriba de vez en cuando"): la recarga de cada 20 s volvía a dibujar
+     todo desde arriba. Si nada cambió no se toca; si cambió, la columna y el chat quedan donde estaban. */
+  const firma = JSON.stringify(d);
+  if (silencio && firma === CV_FIRMA) return;
+  CV_FIRMA = firma;
   const borrador = document.getElementById('cvTexto')?.value || '';
   const verCtx = det.classList.contains('cv-ver-ctx');
+  const ctxAntes = det.querySelector('.cv-ctxcol')?.scrollTop || 0, chat0 = document.getElementById('cvChat');
+  const chatAbajo = !chat0 || chat0.scrollHeight - chat0.scrollTop - chat0.clientHeight < 60, chatAntes = chat0 ? chat0.scrollTop : 0;
   det.innerHTML = cvRender(d);
   det.classList.toggle('cv-ver-ctx', verCtx);
-  const chat = document.getElementById('cvChat'); if (chat) chat.scrollTop = chat.scrollHeight;
+  const chat = document.getElementById('cvChat'); if (chat) chat.scrollTop = !silencio || chatAbajo ? chat.scrollHeight : chatAntes;
+  if (silencio) { const cx = det.querySelector('.cv-ctxcol'); if (cx) cx.scrollTop = ctxAntes; }
   const ta = document.getElementById('cvTexto');
   const crecer = () => { if (!ta) return; ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; };
   if (ta && borrador) { ta.value = borrador; crecer(); }
@@ -4652,13 +4679,15 @@ async function cvAbrir(id, { silencio = false } = {}) {
     const ms = [...us.filter(u => u.estado === 'disponible').map(u => ({ ...u, suyo: true })), ...ks.filter(k => k[0] === 's').map(k => (O.sugeridos || [])[+k.slice(1)]).filter(Boolean)]
       .filter((m, i, xs) => xs.findIndex(x => x.codigo === m.codigo) === i);   // el mismo modelo tocado en las dos listas va una vez
     const vs = [...us.filter(u => u.estado !== 'disponible').map(u => ({ ...u, etapa: '' })), ...ks.filter(k => k[0] === 'v').map(k => (O.viene || [])[+k.slice(1)]).filter(Boolean)];
-    if (!ms.length && !vs.length) return '';
+    const rs = ks.filter(k => k[0] === 'r').map(k => (O.por_despachar || [])[+k.slice(1)]).filter(x => x && x.reemplazo);
+    if (!ms.length && !vs.length && !rs.length) return '';
     if (O.tipo !== 'mayorista') return `Hola ${pila}, te recomiendo estos que quedan${O.talla ? ` en tu talla ${O.talla}` : ''}:\n${ms.map(m => `• ${m.nombre}${m.link ? ' ' + m.link : ''}`).join('\n')}\n¿Te ayudo con alguno?`;
     const ETQ = { 'Corte': 'en corte', 'Costura': 'en costura', 'Taller externo': 'en taller', 'Limpiado': 'en terminaciones', 'Lavandería': 'en lavandería', 'Terminación': 'en la última etapa', 'Programado': 'programado para cortar' };
     const partes = [`Hola ${pila}, ¿cómo estás?`];
+    if (rs.length) partes.push(rs.map(x => `De tu pedido, del ${x.codigo}${x.nombre ? ' ' + x.nombre : ''} no nos queda${x.estado === 'parcial' ? ` la ${x.faltan_tallas.join(', ')}` : ''}. En su lugar te puedo mandar el ${x.reemplazo.codigo} ${x.reemplazo.nombre} (${x.reemplazo.estilo}), ${x.reemplazo.precio}.`).join('\n') + '\n¿Te sirve el cambio?');
     if (ms.length) partes.push(`Te cuento que tenemos con despacho inmediato:\n${ms.map(m => `• ${m.codigo}${m.nombre ? ' ' + m.nombre : ''} (${m.estilo}), ${m.precio}${m.suyo ? ', de los que más llevas' : ''}`).join('\n')}`);
     if (vs.length) partes.push(`${ms.length ? 'Y v' : 'V'}iene en camino${vs.every(v => v.cole === vs[0].cole) ? ` de la colección ${vs[0].cole}` : ''}:\n${vs.map(v => `• ${v.codigo}${v.nombre ? ' ' + v.nombre : ''}${v.estilo ? ` (${v.estilo})` : ''}${v.precio ? ', ' + v.precio : ''}: ya está en producción, ${ETQ[v.etapa] || 'en proceso'}`).join('\n')}`);
-    partes.push(ms.length ? '¿Te mando las fotos y las tallas?' : '¿Te aviso apenas llegue a bodega?');
+    if (ms.length || vs.length) partes.push(ms.length ? '¿Te mando las fotos y las tallas?' : '¿Te aviso apenas llegue a bodega?');
     return partes.join('\n\n');
   };
   det.querySelectorAll('[data-cvpick]').forEach(el => {
