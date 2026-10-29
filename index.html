@@ -710,6 +710,10 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       Cajas en Bodega
     </button>
+    <button class="nav-item" data-sec="telas" data-ttl="Telas" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/></svg>
+      Telas
+    </button>
     <button class="nav-item" data-sec="fotos" data-ttl="Fotos pendientes" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       Fotos pendientes
@@ -3959,6 +3963,53 @@ const cajasDiasClr = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'var(--t
    si es reciente. Una caja vieja es plata parada: tiene que saltar sin buscarla. */
 const cajasDiasBorde = d => d > 30 ? 'var(--er)' : d > 14 ? 'var(--wa)' : 'transparent';
 
+/* ── Telas (29-10-2026): stock por bodega en metros, consumo y para cuántas prendas alcanza. Datos: telas.json (Adecom
+   exporta el stock de tela en SALDOSXLOCAL con códigos 7… y el consumo por orden en CONSUMOS-OP2.CSV). Manu: "¿no
+   podremos mostrar cuánto stock tenemos de la tela, por sucursal?". */
+const TELA_SUC = { '33': 'Urrutia', '34': 'Telas (S. Filomena)', '35': 'Insumos', '05': 'Codegua', '00': 'Bod. S.Filomena', '04': 'San Gerardo', '13': 'Bodega 13', '36': 'Bodega 36' };
+const telaNorm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function telaDe(nombre) {   // la tela de un artículo (nombre que escribe el ERP) → su ficha en telas.json, comparando sin espacios ni puntos
+  const T = CACHE['telas.json']; if (!Array.isArray(T) || !nombre) return null;
+  if (!telaDe._m || telaDe._m.de !== T) { const m = new Map(); for (const t of T) if (t.nombre) m.set(telaNorm(t.nombre), t); telaDe._m = { de: T, m }; }
+  return telaDe._m.m.get(telaNorm(nombre)) || null;
+}
+function telaChip(nombre) {   // "2.834 m · ≈ 2.000 prendas" junto a la tela (Pedido vs Corte y el detalle de la orden)
+  const t = telaDe(nombre); if (!t || !t.stock_total) return '';
+  const neg = t.stock_total < 0, al = t.m_prenda ? Math.floor(t.stock_total / t.m_prenda) : null;
+  const det = Object.entries(t.stock || {}).map(([s, m]) => `${TELA_SUC[s] || 'bodega ' + s} ${fmt(Math.round(m))} m`).join(', ');
+  return ` <span class="badge" style="font-size:9px;background:${neg ? 'var(--er10)' : 'var(--ok10)'};color:${neg ? 'var(--er)' : 'var(--ok)'}" title="Stock de la tela ${t.nombre}: ${det}${t.m_prenda ? ` · ${t.m_prenda} m por prenda` : ''}">${fmt(Math.round(t.stock_total))} m${al !== null && !neg ? ` · ≈ ${fmt(al)} prendas` : ''}</span>`;
+}
+async function secTelas() {
+  const T = await load('telas.json');
+  if (!Array.isArray(T) || !T.length) return makePH('<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/>', 'Telas', 'Todavía no hay datos de telas: llegan con la próxima corrida del ThinkPad (stock de tela y consumo por orden del ERP).');
+  const sucs = [...new Set(T.flatMap(t => Object.keys(t.stock || {})))].sort((a, b) => ((b === '33') - (a === '33')) || a.localeCompare(b));
+  const neg = T.filter(t => t.stock_total < 0), conStock = T.filter(t => t.stock_total > 0);
+  const mUrr = T.reduce((a, t) => a + Math.max(0, (t.stock || {})['33'] || 0), 0), m90 = T.reduce((a, t) => a + (t.consumo_90d || 0), 0);
+  const filas = T.map(t => { const al = t.m_prenda && t.stock_total > 0 ? Math.floor(t.stock_total / t.m_prenda) : null;
+    return `<tr data-q="${(t.nombre + ' ' + t.cod + ' ' + (t.comp || '')).toLowerCase().replace(/"/g, '')}" data-neg="${t.stock_total < 0 ? 1 : ''}" data-urr="${(t.stock || {})['33'] ? 1 : ''}"${t.stock_total < 0 ? ' style="background:var(--er10)"' : ''}>
+      <td><b>${t.nombre || '<span class="td-dim">sin nombre en el ERP</span>'}</b><div class="td-dim" style="font-size:10px">${t.cod}${t.comp ? ' · ' + t.comp : ''}</div></td>
+      ${sucs.map(s => `<td class="r td-num" style="color:${((t.stock || {})[s] || 0) < 0 ? 'var(--er)' : 'inherit'}">${(t.stock || {})[s] ? fmt(Math.round(t.stock[s])) : '—'}</td>`).join('')}
+      <td class="r td-num" style="font-weight:800;color:${t.stock_total < 0 ? 'var(--er)' : t.stock_total > 0 ? 'var(--ok)' : 'var(--tx3)'}">${t.stock_total ? fmt(Math.round(t.stock_total)) : '—'}</td>
+      <td class="r td-dim">${t.m_prenda ? t.m_prenda : '—'}</td>
+      <td class="r td-num">${al !== null ? fmt(al) : '—'}</td>
+      <td class="r td-dim">${t.consumo_90d ? fmt(Math.round(t.consumo_90d)) + ' m · ' + fmt(t.ocs_90d) + ' OC' : '—'}</td>
+      <td class="td-dim">${t.ultimo ? t.ultimo.split('-').reverse().join('/') : '—'}</td></tr>`; }).join('');
+  return `
+  <div class="kpis">
+    ${tarjetaKpi({ attr: 'tl', k: 'con', lbl: 'Telas con stock', val: fmt(conStock.length), color: 'var(--ac)', ver: 'Ver todas' })}
+    ${tarjetaKpi({ attr: 'tl', k: 'urr', lbl: 'Metros en Urrutia', val: fmt(Math.round(mUrr)), color: 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tl', k: 'neg', lbl: 'Con saldo negativo', val: fmt(neg.length), color: neg.length ? 'var(--er)' : 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tl', k: 'con', lbl: 'Consumidos en 90 días', val: fmt(Math.round(m90)) + ' m', color: 'var(--wa)', ver: 'Ver todas' })}
+  </div>
+  <div class="tbl-card">
+    <div class="tbl-head"><div><div class="tbl-ttl">Stock de tela por bodega</div><div class="card-sub">En metros, como lo exporta el ERP. Alcanza = stock ÷ metros por prenda (mediana de las órdenes de producción que usaron esa tela).</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="telasBuscar" class="finput fsearch" placeholder="Tela, código o composición…" style="width:220px"><button class="seg" id="telasPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div></div>
+    <div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th>${sucs.map(s => `<th class="r">${TELA_SUC[s] || 'Bod. ' + s}</th>`).join('')}<th class="r">Total m</th><th class="r" title="Metros por prenda, mediana de las órdenes que la usaron">m/prenda</th><th class="r">Alcanza para</th><th class="r">Consumo 90 d</th><th>Último uso</th></tr></thead>
+      <tbody id="telasBody">${filas}</tbody></table></div>
+    <div class="tbl-foot">Un saldo negativo es consumo registrado sin ingreso en el ERP: corregirlo con Adecom. Las telas sin nombre no aparecen en el consumo de ninguna orden; el nombre lo da el ERP solo ahí.</div>
+  </div>`;
+}
+
 async function secCajas() {
   const data  = await load('cajas.json');
   const cajas = Array.isArray(data) ? [] : (data?.cajas || []);
@@ -4625,93 +4676,196 @@ async function secConversaciones() {
 /* Reporte de Atención (29-10, Manu: "en esa misma sección de Atención deja una de reporte: cuántas personas hablaron, cuántas
    necesitan una persona, cuánto concretó Valentina en venta y Sofía"). Lo calcula la página (reporte-atencion-background,
    ~1,5 min, cada 15 min como máximo); acá se muestra el último. */
-let RA_DATA = null, RA_PER = 'd7', RA_TIMER = null;
+let RA_DATA = null, RA_CAMP = null, RA_PER = 'd7', RA_TIMER = null;
 async function secReporteAtencion() {
   const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
-  const d = await cvFetch('?reporte=1');
+  const [d, c] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1')]);
   if (!d.ok) return makePH(ICO, 'Reporte de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
-  RA_DATA = d;
+  RA_DATA = d; RA_CAMP = c && c.ok ? c : null;
   return `<style>
-    .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .ra-hd .td-dim{font-size:12px}
+    .ra-bloque{margin-bottom:22px}
+    .ra-bt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px}.ra-bt h3{margin:0;font-size:16px}.ra-bt span{font-size:12px;color:var(--tx3)}
     .ra-ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-    .ra-k{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:14px 16px;min-width:0}
-    .ra-n{font-size:30px;font-weight:700;line-height:1.1}.ra-t{font-size:13.5px;font-weight:600;margin-top:3px}.ra-s{font-size:12px;color:var(--tx3);margin-top:6px;line-height:1.45}
-    .ra-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+    .ra-ks.ra-7{grid-template-columns:repeat(7,minmax(0,1fr))}
+    .ra-k{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:13px 15px;min-width:0}
+    .ra-n{font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}.ra-7 .ra-n{font-size:22px}
+    .ra-t{font-size:13px;font-weight:600;margin-top:3px}.ra-s{font-size:11.5px;color:var(--tx3);margin-top:5px;line-height:1.45}
+    .ra-g2{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px;margin-top:12px}
+    .ra-g11{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
     .ra-col{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:12px 14px;min-width:0}
-    .ra-ct{font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
-    .ra-f{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:8px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);align-items:baseline}
+    .ra-ct{font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+    .ra-ct small{text-transform:none;letter-spacing:0;font-weight:500;color:var(--tx3)}
+    .ra-chart{position:relative;height:220px}.ra-chart.alto{height:250px}
+    .ra-f{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:8px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);align-items:baseline}
     .ra-f span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ra-f small{color:var(--tx3)}
     .ra-sub{font-size:11.5px;font-weight:700;color:var(--tx3);margin:12px 0 4px}
-    .ra-m{display:grid;grid-template-columns:minmax(0,1fr) 190px 150px;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12.5px;cursor:pointer}
-    .ra-m:hover{background:var(--sf2)}.ra-m-n{display:flex;align-items:center;gap:7px;min-width:0}.ra-m-n b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    @media(max-width:700px){.ra-m{grid-template-columns:1fr}}
-    .ra-pie{font-size:11px;color:var(--tx3);margin-top:12px;line-height:1.5}
+    .ra-pie{font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5}
     .ra-link{border:0;background:none;color:var(--ac);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;margin-top:6px}
-    @media(max-width:1000px){.ra-ks{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-cols{grid-template-columns:1fr}}
-    @media(max-width:520px){.ra-ks{grid-template-columns:1fr}}
+    .ra-tabla{width:100%;border-collapse:collapse;font-size:12.5px}
+    .ra-tabla th{text-align:left;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+    .ra-tabla td{padding:8px;border-bottom:1px solid var(--bd);vertical-align:middle}
+    .ra-tabla tr[data-ralead]{cursor:pointer}.ra-tabla tr[data-ralead]:hover td{background:var(--sf2)}
+    .ra-nom{display:flex;align-items:center;gap:9px;min-width:0}.ra-nom b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+    .ra-av{flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:var(--ac);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;position:relative}
+    .ra-av span{position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;background:var(--sf);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--bd)}
+    .ra-chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+    .ra-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    @media(max-width:1200px){.ra-ks.ra-7{grid-template-columns:repeat(4,minmax(0,1fr))}}
+    @media(max-width:1000px){.ra-ks{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-g2,.ra-g11{grid-template-columns:1fr}}
+    @media(max-width:700px){.ra-ks.ra-7{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-tabla .ra-ocultar{display:none}}
   </style><div id="raBody">${raRender()}</div>`;
 }
+const RA_EST = { conversando: ['Conversando', '--ok', '--ok10'], requiere: ['Requiere una persona', '--er', '--er10'], pausa: ['En pausa', '--tx2', '--sf2'], baja: ['Se dio de baja', '--tx3', '--sf2'] };
+const raChip = (txt, col, bg) => `<span class="ra-chip" style="color:var(${col});background:var(${bg})">${txt}</span>`;
+const raFecha = t => { const x = new Date(t); return `${String(x.getDate()).padStart(2, '0')}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
+const raPct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
 function raRender() {
   const d = RA_DATA || {};
   if (d.vacio) return '<div class="cv-vacio">Calculando el primer reporte: tarda como 2 minutos. Se muestra solo cuando esté.</div>';
   const P = RA_PER, ini = Date.parse((d.inicios || {})[P] || 0);
   const H = (d.hablaron || {})[P] || {}, R = d.requieren || {}, V = d.valentina || {}, S = d.sofia || {};
   const vr = (V.resumen || {})[P] || {}, vp = (V.resumen_probables || {})[P] || {}, sr = (S.resumen || {})[P] || {};
-  const per = { hoy: 'hoy', d7: 'los últimos 7 días', d30: 'los últimos 30 días' }[P];
+  const per = { hoy: 'hoy', d7: 'en 7 días', d30: 'en 30 días' }[P];
   const seg = (k, l) => `<button class="seg${P === k ? ' on' : ''}" data-raper="${k}">${l}</button>`;
-  const k = (n, t, sub, color, extra = '') => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div><div class="ra-s">${sub}</div>${extra}</div>`;
-  const fF = f => { const x = new Date(f); return `${String(x.getDate()).padStart(2, '0')}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
-  const fila = (o, monto) => `<div class="ra-f"><small>${fF(o.fecha)}</small><span title="${cvEsc(o.via || '')}">${cvEsc(o.nombre || '—')} <small>· ${cvEsc(o.via || '')}</small></span><b>${monto}</b></div>`;
+  const k = (n, t, sub, color, extra = '') => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${extra}</div>`;
+  const fila = (o, monto) => `<div class="ra-f"><small>${raFecha(o.fecha)}</small><span title="${cvEsc(o.via || '')}">${cvEsc(o.nombre || '—')} <small>· ${cvEsc(o.via || '')}</small></span><b>${monto}</b></div>`;
   const enPer = xs => (xs || []).filter(o => Date.parse(o.fecha) >= ini);
   const vC = enPer(V.confirmadas), vP = enPer(V.probables), sP = enPer(S.pedidos);
   const web = sP.filter(o => o.via !== 'ERP').length;
   return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
       <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
-    <div class="ra-ks">
-      ${k(fmt(H.total), `personas hablaron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)}<br>WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
-      ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta<br>El equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
-      ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? `<br>+ ${fmt(vp.pedidos)} probables por ${fmtM(vp.monto)}` : ''}`, '--ok')}
-      ${k(fmtM(sr.monto || 0), `pidieron los mayoristas de Sofía ${per}`, `${fmt(sr.pedidos)} ${sr.pedidos === 1 ? 'pedido' : 'pedidos'}${sr.unidades ? ` · ${fmt(sr.unidades)} prendas` : ''}, neto${web ? `<br>${fmt(web)} por la página, sin monto todavía` : ''}`, '--ac')}
-    </div>
-    <div class="ra-cols">
-      <div class="ra-col"><div class="ra-ct">Ventas de Valentina</div>
-        ${vC.length ? vC.map(o => fila(o, fmtCLP(o.total))).join('') : '<div class="td-dim">Sin ventas confirmadas en el período</div>'}
-        ${vP.length ? `<div class="ra-sub">Probables (abrió su link y compró otra cuenta, o el mismo nombre)</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
+
+    <section class="ra-bloque"><div class="ra-bt"><h3>Atención</h3><span>Sofía (mayoristas) y Valentina (tienda), por WhatsApp e Instagram</span></div>
+      <div class="ra-ks">
+        ${k(fmt(H.total), `personas escribieron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)} · WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
+        ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta · el equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
+        ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? ` · ${fmt(vp.pedidos)} probables más (${fmtM(vp.monto)})` : ''}`, '--ok')}
+        ${k(fmtM(sr.monto || 0), `pidieron los mayoristas de Sofía ${per}`, `${fmt(sr.pedidos)} ${sr.pedidos === 1 ? 'pedido' : 'pedidos'}${sr.unidades ? ` · ${fmt(sr.unidades)} prendas` : ''}, neto${web ? ` · ${fmt(web)} por la página` : ''}`, '--ac')}
       </div>
-      <div class="ra-col"><div class="ra-ct">Pedidos de los mayoristas de Sofía</div>
-        ${sP.length ? sP.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Ningún mayorista que habló con Sofía hizo un pedido en el período</div>'}
+      <div class="ra-g2">
+        <div class="ra-col"><div class="ra-ct">Personas que escribieron cada día <small>${P === 'd30' ? 'últimos 30 días' : 'últimos 7 días'}</small></div><div class="ra-chart"><canvas id="raDias"></canvas></div></div>
+        <div class="ra-col"><div class="ra-ct">A qué hora escriben <small>mensajes de clientes, 30 días</small></div><div class="ra-chart"><canvas id="raHoras"></canvas></div></div>
       </div>
-    </div>
+    </section>
+
+    ${raCampana()}
+
+    <section class="ra-bloque"><div class="ra-bt"><h3>Ventas</h3><span>${per}</span></div>
+      <div class="ra-g11">
+        <div class="ra-col"><div class="ra-ct">Valentina · mohicano.cl <small>${fmt(vC.length)} confirmadas</small></div>
+          ${vC.length ? vC.map(o => fila(o, fmtCLP(o.total))).join('') : '<div class="td-dim">Sin ventas confirmadas en el período</div>'}
+          ${vP.length ? `<div class="ra-sub">Probables (abrió su link y compró otra cuenta, o el mismo nombre) · no suman</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
+        </div>
+        <div class="ra-col"><div class="ra-ct">Mayoristas de Sofía <small>pedido hasta 14 días después de escribirle</small></div>
+          ${sP.length ? sP.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Ningún mayorista que habló con Sofía hizo un pedido en el período</div>'}
+        </div>
+      </div>
+    </section>
+
     ${raMayoristas(S.mayoristas, ini, per)}
-    <div class="ra-pie">Hablaron: personas que escribieron al menos un mensaje por WhatsApp o Instagram (sin pruebas ni el chat de la tienda), de las ${fmt(d.conversaciones)} conversaciones de los últimos 30 días.
-      Valentina: compras en mohicano.cl con el mismo celular del chat después de conversar, o entrando por un link suyo; las probables van aparte y no suman.
-      Sofía: pedidos del ERP (bi/pedidos.json) y de la página de los mayoristas que le escribieron, hasta 14 días después de un mensaje suyo; el RUT sale del celular, así que uno que escribe desde otro número no se cruza.</div>`;
+
+    <div class="ra-pie">Fuentes: conversaciones de Nexor (sin pruebas ni el chat de la tienda; ${fmt(d.conversaciones)} con movimiento en 30 días) · aviso por WhatsApp: estado del mensaje en Nexor · correo: píxel de apertura (aproximado) y clics anotados en el CRM · Valentina: compras en mohicano.cl con el mismo celular o entrando por su link · Sofía: pedidos del ERP (bi/pedidos.json) y de la página; el RUT sale del celular.</div>`;
 }
-/* por mayorista (29-10, Manu: "¿y por mayorista?"): cada uno que le escribió a Sofía en el período */
+/* la campaña de despacho inmediato (29-10, Manu: "el reporte para saber cómo nos va a ir en la campaña y cómo mejorarla"):
+   desde que salió, no depende del período */
+function raCampana() {
+  const c = RA_CAMP;
+  if (!c || !c.hay) return `<section class="ra-bloque"><div class="ra-bt"><h3>Campaña despacho inmediato</h3><span>Dolce Vita 44</span></div>
+    <div class="ra-col td-dim">Todavía no sale. ${c && c.lista ? `En la lista: ${fmt(c.lista.clientes)} mayoristas (${fmt(c.lista.con_celular)} con celular, ${fmt(c.lista.con_correo)} con correo; sin bloqueados).` : ''}</div></section>`;
+  const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, L = c.lista || {};
+  const resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
+  const k = (n, t, sub, color) => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div>`;
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Campaña despacho inmediato</h3><span>Dolce Vita 44 · desde el ${cvEsc(cvHora(c.desde))} · al ${cvEsc(cvHora(c.generado))}</span></div>
+    <div class="ra-ks ra-7">
+      ${k(fmt(w.enviados), 'se les mandó', `de ${fmt(L.con_celular)} con celular${c.pendientes_wa ? ` · faltan ${fmt(c.pendientes_wa)}` : ''}`, '--tx1')}
+      ${k(fmt(w.llegaron), 'les llegó', raPct(w.llegaron, w.enviados) + (w.fallaron ? ` · ${fmt(w.fallaron)} fallaron` : ''), '--tx1')}
+      ${k(fmt(w.leyeron), 'lo leyeron', raPct(w.leyeron, w.enviados), '--tx1')}
+      ${k(fmt(respondieron), 'respondieron', raPct(respondieron, w.enviados), '--ac')}
+      ${k(fmt(c.conversando_ahora), 'conversan con Sofía', 'escribieron en las últimas 72 h', '--ok')}
+      ${k(fmt(v.clientes), 'compraron', v.clientes ? `${fmtM(v.valor)} neto · ${fmt(v.unidades)} prendas` : 'pedidos después del aviso', '--ok')}
+      ${k(fmt(c.bajas), 'no recibir más', raPct(c.bajas, w.enviados) + ' de los avisos', c.bajas ? '--er' : '--tx2')}
+    </div>
+    <div class="ra-g11">
+      <div class="ra-col"><div class="ra-ct">Embudo del aviso por WhatsApp <small>% sobre los que se les mandó</small></div><div class="ra-chart alto"><canvas id="raEmbudo"></canvas></div></div>
+      <div class="ra-col"><div class="ra-ct">Qué respondieron <small>su primer mensaje después del aviso</small></div><div class="ra-chart alto"><canvas id="raResp"></canvas></div></div>
+    </div>
+    <div class="ra-g11">
+      <div class="ra-col"><div class="ra-ct">Por qué no les llegó el aviso <small>${fmt(c.sin_aviso ? c.sin_aviso.length : 0)} mayoristas${c.bloqueados ? ` · además ${fmt(c.bloqueados)} bloqueados en el ERP, fuera de la campaña` : ''}</small></div><div class="ra-chart"><canvas id="raNoLlego"></canvas></div></div>
+      <div class="ra-col"><div class="ra-ct">A quiénes no les llegó <small>el correo les llega a los que tienen</small></div>
+        <div style="max-height:220px;overflow-y:auto">${(c.sin_aviso || []).map(x => `<div class="ra-f" style="grid-template-columns:minmax(0,1fr) auto auto"><span>${cvEsc(x.cliente)}</span><small>${cvEsc(x.motivo)}</small><small>${x.correo_enviado ? '📧 enviado' : x.correo ? '📧 tiene correo' : 'sin correo'}</small></div>`).join('') || '<div class="td-dim">A todos les llegó</div>'}</div>
+      </div>
+    </div>
+    <div class="ra-g11">
+      <div class="ra-col"><div class="ra-ct">Correo <small>sale 3 días después del WhatsApp, a los que no respondieron ni compraron</small></div>
+        <div class="ra-ks" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          ${k(fmt(co.enviados), 'enviados', co.pendientes ? `${fmt(co.pendientes)} por mandar` : '', '--tx1')}
+          ${k(fmt(co.abrieron), 'lo abrieron', raPct(co.abrieron, co.enviados), '--tx1')}
+          ${k(fmt(co.tocaron), 'tocaron "Sofía"', raPct(co.tocaron, co.enviados), '--ac')}
+          ${k(fmt(co.visitaron), 'entraron al catálogo', raPct(co.visitaron, co.enviados), '--ac')}
+        </div></div>
+      <div class="ra-col"><div class="ra-ct">Para seguir <small>abrieron o tocaron y no escribieron</small></div>
+        ${(c.tibios || []).length ? c.tibios.map(x => `<div class="ra-f"><small>${x.grupo === 1 ? '44' : '40-43'}</small><span>${cvEsc(x.cliente)}</span><small>${x.toco ? 'tocó el botón' : 'abrió el correo'}</small></div>`).join('') : '<div class="td-dim">Nadie por ahora</div>'}
+      </div>
+    </div>
+  </section>`;
+}
+/* por mayorista (29-10, Manu: "¿y por mayorista?" · "esos mayoristas de abajo están horribles"): una tabla */
 function raMayoristas(ms, ini, per) {
   const xs = (ms || []).filter(m => (m.escribio || []).some(t => t >= ini));
-  const fF = t => { const x = new Date(t); return `${String(x.getDate()).padStart(2, '0')}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
+  const cuenta = k => xs.filter(m => m.estado === k).length;
   const filas = xs.map(m => {
     const n = m.escribio.filter(t => t >= ini).length, ult = m.escribio[m.escribio.length - 1];
     const ps = (m.pedidos || []).filter(o => Date.parse(o.fecha) >= ini);
     const monto = ps.reduce((t, o) => t + (o.total || 0), 0), uds = ps.reduce((t, o) => t + (o.unidades || 0), 0);
-    return `<div class="ra-m" role="button" tabindex="0" data-ralead="${cvEsc(m.id)}">
-      <span class="ra-m-n">${cvAvatar(m.nombre, 'Sofía', m.canal, 24)}<b>${cvEsc(m.nombre)}</b>${m.erp ? '<span class="cv-tag" style="background:var(--ac10);color:var(--ac)">Cliente del ERP</span>' : '<span class="cv-tag" style="background:var(--sf2);color:var(--tx2)">Nuevo</span>'}${m.requiere ? '<span class="cv-tag" style="background:var(--er10);color:var(--er)">Requiere una persona</span>' : ''}</span>
-      <span class="td-dim">${fmt(n)} ${n === 1 ? 'mensaje' : 'mensajes'} · último ${fF(ult)}</span>
-      <span>${ps.length ? `<b>${monto ? fmtCLP(monto) : fmt(uds) + ' u.'}</b> <small class="td-dim">${ps.length === 1 ? '1 pedido' : ps.length + ' pedidos'}</small>` : '<span class="td-dim">sin pedido</span>'}</span>
-    </div>`;
+    const e = RA_EST[m.estado] || RA_EST.pausa;
+    return `<tr data-ralead="${cvEsc(m.id)}">
+      <td><div class="ra-nom"><div class="ra-av">${cvEsc((m.nombre || '?').trim().charAt(0).toUpperCase())}<span>${cvIcono(m.canal, 11)}</span></div><b title="${cvEsc(m.contacto || '')}">${cvEsc(m.nombre)}</b></div></td>
+      <td class="ra-ocultar">${m.erp ? raChip('Cliente del ERP', '--ac', '--ac10') : raChip('Nuevo', '--tx2', '--sf2')}</td>
+      <td>${raChip(e[0], e[1], e[2])}</td>
+      <td class="ra-ocultar">${m.aviso ? `${raFecha(m.aviso)}${m.respuesta ? ` · <span class="td-dim">«${cvEsc(m.respuesta)}»</span>` : ' · <span class="td-dim">sin respuesta</span>'}` : '<span class="td-dim">—</span>'}</td>
+      <td class="ra-num">${fmt(n)}</td>
+      <td class="ra-num ra-ocultar">${raFecha(ult)}</td>
+      <td class="ra-num">${ps.length ? `<b>${monto ? fmtCLP(monto) : fmt(uds) + ' u.'}</b>` : '<span class="td-dim">—</span>'}</td>
+    </tr>`;
   }).join('');
-  const conPed = xs.filter(m => (m.pedidos || []).some(o => Date.parse(o.fecha) >= ini)).length;
-  return `<div class="ra-col" style="margin-top:14px"><div class="ra-ct">Mayoristas que hablaron con Sofía ${per} · ${fmt(xs.length)}${xs.length ? ` · ${fmt(xs.filter(m => m.erp).length)} clientes del ERP · ${fmt(conPed)} pidieron` : ''}</div>
-    ${filas || '<div class="td-dim">Ningún mayorista le escribió a Sofía en el período</div>'}</div>`;
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Mayoristas que hablaron con Sofía</h3><span>${per} · ${fmt(xs.length)} · ${fmt(cuenta('conversando'))} conversando · ${fmt(cuenta('requiere'))} requieren una persona · ${fmt(xs.filter(m => m.erp).length)} clientes del ERP</span></div>
+    <div class="ra-col" style="overflow-x:auto">${xs.length ? `<table class="ra-tabla"><thead><tr><th>Mayorista</th><th class="ra-ocultar">Tipo</th><th>Estado</th><th class="ra-ocultar">Aviso</th><th class="ra-num">Mensajes</th><th class="ra-num ra-ocultar">Último</th><th class="ra-num">Pedido</th></tr></thead><tbody>${filas}</tbody></table>` : '<div class="td-dim">Ningún mayorista le escribió a Sofía en el período</div>'}</div>
+  </section>`;
+}
+const raEnteros = v => Number.isInteger(v) ? fmt(v) : '';   // en los ejes, solo números enteros (son personas)
+function raGraficos() {
+  const d = RA_DATA || {}, P = RA_PER;
+  const dias = (d.por_dia || []).slice(P === 'd30' ? -30 : -7);
+  barras('raDias', dias.map(x => raFecha(x.dia + 'T12:00:00-03:00')), [
+    { label: 'Valentina', data: dias.map(x => x.valentina), backgroundColor: '#c026d3', borderRadius: 3 },
+    { label: 'Sofía', data: dias.map(x => x.sofia), backgroundColor: color('--ac'), borderRadius: 3 }], null, { horizontal: false, sufijo: ' personas', eje: raEnteros }).catch(() => {});
+  const hs = d.por_hora || [];
+  barras('raHoras', hs.map((_, h) => String(h).padStart(2, '0')), [{ label: 'Mensajes', data: hs, backgroundColor: rgba(color('--ac'), .75), borderRadius: 3 }], null,
+    { horizontal: false, apiladas: false, leyenda: false, sufijo: ' mensajes', eje: raEnteros }).catch(() => {});
+  const c = RA_CAMP;
+  if (c && c.hay) {
+    const w = c.whatsapp || {}, resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
+    const pasos = [['Se les mandó', w.enviados], ['Les llegó', w.llegaron], ['Lo leyeron', w.leyeron], ['Respondieron', respondieron], ['Conversan ahora', c.conversando_ahora], ['Compraron', (c.ventas || {}).clientes]];
+    barras('raEmbudo', pasos.map(p => p[0]), [{ label: 'Mayoristas', data: pasos.map(p => p[1] || 0), backgroundColor: pasos.map((_, i) => rgba(color('--ac'), 1 - i * .12)), borderRadius: 4 }], null,
+      { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros, extra: i => w.enviados ? `${Math.round((pasos[i][1] || 0) / w.enviados * 100)}% de los que se les mandó` : '' }).catch(() => {});
+    const nl = c.no_llego || [];
+    const COLNL = { 'Su número no tiene WhatsApp': color('--er'), 'Meta lo frenó (límite de avisos)': color('--wa'), 'Otro error de WhatsApp': color('--er'), 'Problema de pago de Meta': color('--er'), 'Sin celular en el ERP': color('--tx3'), 'Lo atiende alguien del equipo': color('--ac'), 'No se alcanzó a mandar': color('--tx3') };
+    barras('raNoLlego', nl.map(x => x[0]), [{ label: 'Mayoristas', data: nl.map(x => x[1]), backgroundColor: nl.map(x => COLNL[x[0]] || color('--tx3')), borderRadius: 4 }], null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
+    const orden = ['Sí, mándamelas', 'El catálogo completo', 'Escribió otra cosa', 'Ahora no', 'No recibir más', 'Sin respuesta'];
+    const COL = { 'Sí, mándamelas': color('--ok'), 'El catálogo completo': color('--ac'), 'Escribió otra cosa': color('--ac'), 'Ahora no': color('--wa'), 'No recibir más': color('--er'), 'Sin respuesta': color('--tx3') };
+    const ks = orden.filter(x => resp[x]);
+    barras('raResp', ks, [{ label: 'Mayoristas', data: ks.map(x => resp[x]), backgroundColor: ks.map(x => COL[x]), borderRadius: 4 }], null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
+  }
 }
 function raMontar() {
   const body = document.getElementById('raBody'); if (!body) return;
-  body.querySelectorAll('[data-raper]').forEach(b => b.addEventListener('click', () => { RA_PER = b.dataset.raper; body.innerHTML = raRender(); raMontar(); }));
+  body.querySelectorAll('[data-raper]').forEach(b => b.addEventListener('click', () => { RA_PER = b.dataset.raper; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); }));
   body.querySelector('[data-raconv]')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
   body.querySelectorAll('[data-ralead]').forEach(r => r.addEventListener('click', () => { CV_SEL = r.dataset.ralead; go('conversaciones', 'Conversaciones'); }));
-  body.querySelector('[data-raact]')?.addEventListener('click', async () => { const r = await cvFetch('?reporte=1&forzar=1'); if (r.ok) { RA_DATA = { ...RA_DATA, actualizando: true }; body.innerHTML = raRender(); raMontar(); raEsperar(); } });
+  body.querySelector('[data-raact]')?.addEventListener('click', async () => { const r = await cvFetch('?reporte=1&forzar=1'); cvFetch('?campana=1'); if (r.ok) { RA_DATA = { ...RA_DATA, actualizando: true }; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); raEsperar(); } });
+  raGraficos();
   if (RA_DATA && (RA_DATA.vacio || RA_DATA.actualizando)) raEsperar();
 }
 /* mientras se calcula uno nuevo, se vuelve a mirar cada 30 s (hasta 5 min) */
@@ -4721,8 +4875,11 @@ function raEsperar() {
   let vueltas = 0;
   RA_TIMER = setInterval(async () => {
     if (!document.getElementById('raBody') || ++vueltas > 10) { clearInterval(RA_TIMER); return; }
-    const r = await cvFetch('?reporte=1');
-    if (r.ok && r.generado && r.generado !== antes) { clearInterval(RA_TIMER); RA_DATA = { ...r, actualizando: false }; const b = document.getElementById('raBody'); if (b) { b.innerHTML = raRender(); raMontar(); } }
+    const [r, c] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1')]);
+    if (r.ok && r.generado && r.generado !== antes) {
+      clearInterval(RA_TIMER); RA_DATA = { ...r, actualizando: false }; if (c && c.ok) RA_CAMP = c;
+      const b = document.getElementById('raBody'); if (b) { cerrarGraficos(); b.innerHTML = raRender(); raMontar(); }
+    }
   }, 30000);
 }
 
@@ -5294,7 +5451,7 @@ function buildPVCRows(t, ftMap, exMap) {
     const botaTiro = [f.bota, f.tiro, f.tela].filter(Boolean).join(' · ');
 
     return `<tr data-expandable data-art="${f.art}" data-estado="${estadoKey}" data-prog="${f.prog}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
-      <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}${f.prog ? `<div style="margin-top:3px"><span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">📋 ${fmt(f.prog)} programado · OC ${f.progOcs.map(o => o.oc).join(', ')}</span></div>` : ''}</div></div></td>
+      <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}${telaChip(f.tela)}</div>` : ''}${f.prog ? `<div style="margin-top:3px"><span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">📋 ${fmt(f.prog)} programado · OC ${f.progOcs.map(o => o.oc).join(', ')}</span></div>` : ''}</div></div></td>
       <td class="r td-num">${fmt(f.ped)}</td>
       <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
       <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}${f.enCaja ? `<div class="td-dim" style="font-size:10px;font-weight:400">+${fmt(f.enCaja)} en cajas</div>` : ''}</td>
@@ -5458,6 +5615,7 @@ async function secPVC() {
   await load('pedidos.json');     // para saber a quien se le debe cada articulo
   await load('cajas.json');       // y quién ya lo tiene en una caja armada (con su número, como en Adecom)
   const exMap = await load('pvc_ex.json');
+  await load('telas.json');   // el stock de cada tela, para el chip junto a la tela (telaChip)
   STOCK_MAP = buildStockMap(await load('saldos_bodega.json'));
   const ftMap = buildFtMap(ft);
   const byTemp = buildByTemp();
@@ -9581,6 +9739,7 @@ const SECS = {
   'stock':          () => secStock(),
   'kennedy':        () => secKennedy(),
   'cajas':          () => secCajas(),
+  'telas':          () => secTelas(),
   'fotos':          () => secFotos(),
   'conversaciones': () => secConversaciones(),
   'reporte-atencion': () => secReporteAtencion(),
@@ -10289,6 +10448,7 @@ const GUIA_TEXTOS = {
   pvc:            { preguntas: ['¿Qué corto primero esta semana?'], que: 'Pedido contra corte: qué artículos no alcanza a cubrir la bodega ni la producción y hay que cortar, y cuáles sobran para ofrecer.', primero: 'La tarjeta de lo que falta programar y el gráfico "¿Qué cortar primero?".' },
   stock:          { preguntas: ['¿Qué artículos tengo de sobra para ofrecer?'], que: 'El stock del ERP por artículo y talla, con su valor aproximado. Busca primero; los filtros acotan por temporada y estado.', primero: 'Los negativos: son errores que hay que corregir en el ERP.' },
   kennedy:        { preguntas: ['¿Qué debo reponer en la tienda?'], que: 'El stock de la tienda Kennedy desde Bsale, por artículo y talla, con su valor.', primero: 'Lo de colecciones antiguas: es plata parada en la tienda.' },
+  telas:          { preguntas: ['¿Qué tela falta para lo que hay que cortar?'], que: 'El stock de cada tela por bodega, en metros, lo que se consume y para cuántas prendas alcanza.', primero: 'Las telas con saldo negativo, en rojo: corregirlas en el ERP. Y las que no alcanzan para lo programado.' },
   cajas:          { preguntas: ['¿Qué cajas despacho hoy?'], que: 'Las cajas ya armadas en bodega esperando despacho: de quién, hace cuántos días y por cuánto.', primero: 'Las de más de 30 días: facturar y despachar, o liberar el stock.' },
   fotos:          { que: 'Los modelos con stock que no tienen foto en la página, y dónde dejar las fotos para que entren solas.', primero: 'Los de "Fotografiar": sin foto no se venden por la web.' },
   tabla:          { preguntas: ['¿Dónde está trabada la producción?'], que: 'Trazabilidad de las órdenes de corte: en qué etapa va cada una (corte, costura, taller externo, limpiado, lavandería, terminación) y cuánto falta llegar a bodega.', primero: 'Las que no se mueven hace más días.' },
@@ -10394,7 +10554,7 @@ const guiaPrefijo = () => {
   return s.length > 600 ? s.slice(0, 597) + '…] ' : s;
 };
 /* Lo urgente de la sección, dentro de la burbuja: las alertas que apuntan a esta sección y, aparte, las de su área */
-const GUIA_AREAS = { tabla: ['Producción'], programado: ['Producción'], cuadrados: ['Producción'], metas: ['Producción'], pvc: ['Producción'], 'bi-prod': ['Producción'],
+const GUIA_AREAS = { telas: ['Producción'], tabla: ['Producción'], programado: ['Producción'], cuadrados: ['Producción'], metas: ['Producción'], pvc: ['Producción'], 'bi-prod': ['Producción'],
   'detalle-color': ['Producción', 'Despacho'], 'venta-despacho': ['Despacho', 'Bodega'], debemos: ['Despacho', 'Bodega'], cajas: ['Bodega', 'Despacho'], top10: ['Despacho'],
   'rep-pedidos': ['Despacho'], 'reporte-venta': ['Despacho'], proyecciones: ['Despacho'], deudas: ['Cobranza'], clientes: ['Cobranza', 'Despacho'], 'bi-clientes': ['Cobranza'],
   stock: ['Stock', 'Bodega'], kennedy: ['Stock'], 'bi-kennedy': ['Stock'], 'venta-kennedy': ['Stock'], fotos: ['Stock'], campana: ['Stock', 'Cobranza'],
@@ -10668,6 +10828,18 @@ function bindContent(secId) {
   }
 
   // Tabla Completa section — client-side filters
+  if (secId === 'telas') {
+    const filas = [...document.querySelectorAll('#telasBody tr')];
+    let soloK = '';
+    const filtrar = () => { const q = (document.getElementById('telasBuscar')?.value || '').trim().toLowerCase();
+      filas.forEach(tr => { tr.style.display = (!q || (tr.dataset.q || '').includes(q)) && (soloK !== 'neg' || tr.dataset.neg) && (soloK !== 'urr' || tr.dataset.urr) ? '' : 'none'; }); };
+    document.getElementById('telasBuscar')?.addEventListener('input', filtrar);
+    document.getElementById('telasPrint')?.addEventListener('click', () => printTable({ table: document.getElementById('telasBody')?.closest('table'), title: 'Stock de tela por bodega', subtitle: 'En metros · ' + new Date().toLocaleDateString('es-CL') }));
+    document.querySelectorAll('[data-tl]').forEach(card => card.addEventListener('click', () => {
+      soloK = card.dataset.tl === 'con' ? '' : card.dataset.tl; filtrar();
+      document.getElementById('telasBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+  }
   if (secId === 'tabla') {
     const NUM = ['programa','proceso','bodega','saldo','p_corte','p_taller','p_texterno','p_limpiado','p_lavanderia','p_terminacion'];
 
@@ -10699,7 +10871,7 @@ function bindContent(secId) {
       ov.classList.add('open');
       document.getElementById('vkOvClose').onclick = () => ov.classList.remove('open');
       ov.onclick = e => { if (e.target === ov) ov.classList.remove('open'); };
-      const [toc, pa] = await Promise.all([load('traza_oc.json'), load('pedidos_art.json')]);
+      const [toc, pa, con] = await Promise.all([load('traza_oc.json'), load('pedidos_art.json'), load('consumo_oc.json'), load('telas.json')]);
       const ATRX = trzAtrasos(toc);
       const lista = Array.isArray(toc) ? toc : [];
       const mismo = x => String(x.oc).toLowerCase() === String(oc).toLowerCase();
@@ -10752,12 +10924,20 @@ function bindContent(secId) {
           <div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Talla</th>${cab}<th class="r">Total</th></tr></thead><tbody>${fila('Cortadas', tc, true)}${fila('Saldo en bodega', ts, false)}</tbody></table></div>
           <div class="td-dim" style="font-size:11px;margin-top:6px">${tc ? 'Es por artículo: suma todas sus órdenes, porque el ERP no exporta las tallas por orden.' : 'El ERP no trae el corte por talla de este artículo; se muestra el saldo por talla.'}</div></div>`;
       } else tallasHtml = '<div class="td-dim" style="padding:8px 16px 14px;font-size:12px">Sin detalle por talla para este artículo en los datos del ERP.</div>';
+      // Tela y materiales de esta orden (29-10-2026): consumo_oc.json, del CONSUMOS-OP2.CSV que exporta Adecom
+      const escT = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      const cx = (con && !Array.isArray(con)) ? con[String(o.oc || '').trim()] : null;
+      const matHtml = cx ? `<div style="padding:4px 16px 12px"><div style="font-weight:700;margin:8px 0 6px">Tela y materiales de esta orden <span class="td-dim" style="font-weight:400">· ${fmtCLP(cx.total)} en total${cx.costo_prenda ? ` · ${fmtCLP(cx.costo_prenda)} por prenda cortada` : ''}</span></div>
+          ${(cx.telas || []).length ? `<div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th><th class="r">Metros</th><th class="r">$ por metro</th><th class="r">Valor</th></tr></thead><tbody>${cx.telas.map(t => `<tr><td><b>${escT(t.nombre || t.cod)}</b>${telaChip(t.nombre)}</td><td class="r td-num">${fmt(t.m)}</td><td class="r td-dim">${fmtCLP(t.costo)}</td><td class="r td-num">${fmtCLP(t.valor)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="td-dim" style="font-size:12px">Sin tela registrada en esta orden.</div>'}
+          <div class="td-dim" style="font-size:11px;margin-top:6px">${cx.m ? `${fmt(cx.m)} m de tela${cx.m_prenda ? ` · ${cx.m_prenda} m por prenda cortada` : ''} · ` : ''}insumos ${fmtCLP(cx.insumos)}: etiquetas, cierres, botones y embalaje.</div></div>`
+        : '<div class="td-dim" style="padding:8px 16px 4px;font-size:12px">Sin consumo de tela registrado para esta orden en el ERP.</div>';
       body.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 6px">${chip('Tipo', `${o.tipo || '—'}${o.m ? ' ' + o.m : ''}`)}${chip('Orden emitida', o.fecha || '—')}${chip('Programado', fmt(o.prog || 0))}${chip('Cortado', fmt(o.cort || 0))}${chip('A bodega', fmt(o.ent || 0), (o.ent || 0) > 0 ? 'var(--ok)' : '')}${chip('Saldo', fmt(o.saldo || 0), (o.saldo || 0) > 0 ? 'var(--wa)' : '')}${o.totDias ? chip('Días (ERP)', fmt(o.totDias)) : ''}</div>
         <div style="padding:6px 16px 4px;font-size:13px">${llegada}</div>
         ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${o.inc}</div>` : ''}
         <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Los días que debería durar cada etapa según la empresa; el de Corte se cuenta desde que se programó la orden">Estándar</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
           <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Estándar = los días que debería durar cada etapa; el de Corte corre desde que se programó la orden. En rojo, la etapa donde la orden lleva más que el estándar. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
+        ${matHtml}
         ${tallasHtml}`;
     }
     FILAS.forEach(f => {
