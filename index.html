@@ -4778,6 +4778,7 @@ function raCampana() {
   const resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
   const k = (n, t, sub, color) => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div>`;
   return `<section class="ra-bloque"><div class="ra-bt"><h3>Campaña despacho inmediato</h3><span>Dolce Vita 44 · desde el ${cvEsc(cvHora(c.desde))} · al ${cvEsc(cvHora(c.generado))}</span></div>
+    ${c.alcance ? `<div class="ra-col" style="margin-bottom:12px;display:flex;gap:18px;flex-wrap:wrap;align-items:baseline"><span style="font-size:15px"><b style="font-size:22px">${fmt(c.alcance.whatsapp + c.alcance.solo_correo)}</b> de ${fmt(c.alcance.total)} mayoristas recibieron el aviso</span><span class="td-dim">${fmt(c.alcance.whatsapp)} por WhatsApp · ${fmt(c.alcance.solo_correo)} solo por correo · ${fmt(c.alcance.ninguno)} por ningún lado${c.bloqueados ? ` · ${fmt(c.bloqueados)} bloqueados, fuera de la campaña` : ''}</span></div>` : ''}
     <div class="ra-ks ra-7">
       ${k(fmt(w.enviados), 'se les mandó', `de ${fmt(L.con_celular)} con celular${c.pendientes_wa ? ` · faltan ${fmt(c.pendientes_wa)}` : ''}`, '--tx1')}
       ${k(fmt(w.llegaron), 'les llegó', raPct(w.llegaron, w.enviados) + (w.fallaron ? ` · ${fmt(w.fallaron)} fallaron` : ''), '--tx1')}
@@ -4794,13 +4795,13 @@ function raCampana() {
     <div class="ra-g11">
       <div class="ra-col"><div class="ra-ct">Por qué no les llegó el aviso <small>${fmt(c.sin_aviso ? c.sin_aviso.length : 0)} mayoristas${c.bloqueados ? ` · además ${fmt(c.bloqueados)} bloqueados en el ERP, fuera de la campaña` : ''}</small></div><div class="ra-chart"><canvas id="raNoLlego"></canvas></div></div>
       <div class="ra-col"><div class="ra-ct">A quiénes no les llegó <small>el correo les llega a los que tienen</small></div>
-        <div style="max-height:220px;overflow-y:auto">${(c.sin_aviso || []).map(x => `<div class="ra-f" style="grid-template-columns:minmax(0,1fr) auto auto"><span>${cvEsc(x.cliente)}</span><small>${cvEsc(x.motivo)}</small><small>${x.correo_enviado ? '📧 enviado' : x.correo ? '📧 tiene correo' : 'sin correo'}</small></div>`).join('') || '<div class="td-dim">A todos les llegó</div>'}</div>
+        <div style="max-height:220px;overflow-y:auto">${(c.sin_aviso || []).map(x => `<div class="ra-f" style="grid-template-columns:minmax(0,1fr) auto auto"><span>${cvEsc(x.cliente)}</span><small>${cvEsc(x.motivo)}</small><small>${x.correo_enviado ? '📧 le llegó el correo' : x.correo_fallo ? '📧 correo mal escrito' : x.correo ? '📧 tiene correo' : 'sin correo'}</small></div>`).join('') || '<div class="td-dim">A todos les llegó</div>'}</div>
       </div>
     </div>
     <div class="ra-g11">
       <div class="ra-col"><div class="ra-ct">Correo <small>sale 3 días después del WhatsApp, a los que no respondieron ni compraron</small></div>
         <div class="ra-ks" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-          ${k(fmt(co.enviados), 'enviados', co.pendientes ? `${fmt(co.pendientes)} por mandar` : '', '--tx1')}
+          ${k(fmt(co.enviados), 'enviados', [co.pendientes ? `${fmt(co.pendientes)} por mandar` : '', co.fallaron ? `${fmt(co.fallaron)} no salieron: ${(co.fallas || []).map(f => cvEsc(f.cliente) + ' (' + cvEsc(f.motivo) + ')').join(', ')}` : ''].filter(Boolean).join(' · '), '--tx1')}
           ${k(fmt(co.abrieron), 'lo abrieron', raPct(co.abrieron, co.enviados), '--tx1')}
           ${k(fmt(co.tocaron), 'tocaron "Sofía"', raPct(co.tocaron, co.enviados), '--ac')}
           ${k(fmt(co.visitaron), 'entraron al catálogo', raPct(co.visitaron, co.enviados), '--ac')}
