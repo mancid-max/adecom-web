@@ -4554,6 +4554,9 @@ async function secConversaciones() {
     .cv-dato{background:var(--sf2);border-radius:8px;padding:6px 8px;min-width:0}.cv-dato span{display:block;font-size:10.5px;color:var(--tx3)}.cv-dato b{font-size:13px}.cv-dato small{display:block;font-size:10.5px;font-weight:500;color:var(--tx3)}
     .cv-fuente{font-size:11px;margin-top:4px;line-height:1.45}
     .cv-avance{background:var(--sf2);border-radius:10px;padding:8px 10px;margin-bottom:8px}
+.cv-dec{border:1px solid;border-radius:10px;padding:7px 10px;font-size:12px;line-height:1.4;margin-bottom:8px}.cv-dec b{font-size:12px;margin-right:4px}
+.cv-ckpis{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}
+.cv-ckpi{background:var(--sf2);border-radius:8px;padding:6px 8px}.cv-ckpi b{display:block;font-size:15px;font-weight:800}.cv-ckpi b em{font-style:normal;font-size:11px;margin-left:4px}.cv-ckpi span{display:block;font-size:10px;color:var(--tx3);line-height:1.25}
     .cv-av-l1{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;font-weight:700}.cv-av-l1 b{font-size:20px}
     .cv-barra{height:7px;border-radius:9px;background:var(--bd);overflow:hidden;margin:4px 0 5px}.cv-barra i{display:block;height:100%;border-radius:9px}
     .cv-av-l2{font-size:11.5px;line-height:1.45}
@@ -4758,6 +4761,81 @@ async function cvCampana() {
   if (d.actualizando) setTimeout(cvCampana, 45000);
 }
 
+/* ── La campaña del cliente, dentro del panel de la conversación (Manu, 29-10-2026: "quiero saber como el dato de campaña,
+   cuánto deberíamos venderle, qué deberíamos venderle en la nueva temporada, cuánto porcentaje llevamos cumplido con las
+   temporadas equivalentes pasadas a la fecha; para la 45 es la 37 y 41"). Es el mismo cerebro del Plan de Campaña
+   (planBase, planComparables y la misma regla de decisión) calculado para un solo cliente, con los datos del tablero. El
+   cliente se reconoce por sus números de pedido del ERP (los trae el panel) o por su razón social. Se pinta después del
+   panel, cuando los datos están; sus modelos se tocan para sumarlos al mensaje como los demás. */
+var CV_CAMPCLI = null;
+var cvCampanaCliente = async function (d) {   // var: el tramo está dentro de un bloque y así queda visible para toda la página
+  const cont = document.getElementById('cvCamp'); if (!cont) return;
+  const O = d.ofrecer || {}, esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  try {
+    const [peds, pa, ft, hist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
+    if (!document.getElementById('cvCamp')) return;   // ya se cambió de conversación
+    const nums = new Set((O.pedidos_erp || []).map(p => String(p.numero || '').replace(/^0+/, '')).filter(Boolean));
+    const nombre = String(O.cliente || '').trim().toUpperCase();
+    let cli = '';
+    if (nums.size) { const p = peds.find(p => nums.has(String(p.pedido || '').replace(/^0+/, ''))); if (p) cli = vdKey(p); }
+    if (!cli && nombre) { const p = peds.find(p => String(p.nombre || '').trim().toUpperCase() === nombre); if (p) cli = vdKey(p); }
+    if (!cli) { cont.innerHTML = '<div class="td-dim cv-fuente">Sin pedidos en el ERP: no hay con qué calcular su meta de campaña.</div>'; return; }
+    const plan = planBase(campPeds(peds), pa, ft, Array.isArray(hist) ? {} : hist);
+    const soloM = t => !plan.temps[t] && !Object.values(plan.cat[t] || {}).some(b => b.prog > 0);
+    const conProd = Object.keys(plan.cat).sort((a, b) => +b - +a);
+    const T = conProd.find(t => !soloM(t)) || Object.keys(plan.temps).sort((a, b) => +b - +a)[0];
+    const cmp = T ? planComparables(plan.temps, T).filter(t => plan.temps[t]) : [];
+    if (!T || !cmp.length) { cont.innerHTML = ''; return; }
+    const C = cmp.map(t => plan.temps[t]), P = plan.temps[T] || { t: T, lineas: [], total: 0, porMes: {}, lanzo: '' };
+    const sg = cmp.map(t => 'T' + t).join(' y ');
+    const lanzoP = P.lanzo || today().slice(0, 7);
+    const aniosAtras = X => Math.round(((+lanzoP.slice(0, 4) - +X.lanzo.slice(0, 4)) * 12 + (+lanzoP.slice(5, 7) - +X.lanzo.slice(5, 7))) / 12);
+    const hoyD = today();
+    // lo que compró en las comparables, lo que llevaba a esta misma fecha, y qué botas compra
+    let u = 0, alDia = 0, mixTot = 0; const mix = {};
+    for (const X of C) {
+      const corte = `${+hoyD.slice(0, 4) - aniosAtras(X)}${hoyD.slice(4)}`;
+      for (const l of X.lineas) { if (l.cli !== cli) continue; u += l.u; if (l.fecha <= corte) alDia += l.u; if (l.bota) { mix[l.bota] = (mix[l.bota] || 0) + l.u; mixTot += l.u; } }
+    }
+    const meta = u / C.length, alDiaP = alDia / C.length;
+    const ya = {}; let lleva = 0;
+    for (const l of P.lineas) if (l.cli === cli) { lleva += l.u; ya[l.base] = (ya[l.base] || 0) + l.u; }
+    const pct = meta ? Math.round(lleva / meta * 100) : null, r = v => fmt(Math.round(v));
+    const dec = (k, t, clr, x) => ({ k, t, clr, x });
+    const D = !lleva ? (alDiaP > 0
+        ? dec('llamar', 'Llamar hoy', 'er', `Todavía no pide la T${T} y a esta fecha, en ${sg}, ya llevaba ${r(alDiaP)} en promedio.`)
+        : dec('ofrecer', 'Ofrecerle', 'ac', `Todavía no pide la T${T}: en ${sg} pedía más adelante. Compra unas ${r(meta)} por temporada.`))
+      : lleva >= meta ? dec('cumplio', 'Cumplió', 'ok', `Ya pidió ${fmt(lleva)}, lo que compra en toda una temporada (${r(meta)}): ofrecerle reposición o lo nuevo.`)
+      : lleva < alDiaP * 0.75 ? dec('empujar', 'Empujar', 'wa', `Lleva ${fmt(lleva)} y a esta fecha solía llevar ${r(alDiaP)}: va atrasado. Le faltan ${r(meta - lleva)} para lo de una temporada.`)
+      : dec('bien', 'Va bien', 'ok', `Lleva ${fmt(lleva)}${alDiaP > 0 ? ` y a esta fecha solía llevar ${r(alDiaP)}` : ': pidió antes que otras temporadas'}. Le faltan ${r(meta - lleva)} para lo de una temporada.`);
+    // qué ofrecerle: un modelo de la nueva por cada bota que más compra, sin repetir lo que ya pidió (como en el Plan)
+    const pedidoP = {}; for (const l of P.lineas) pedidoP[l.base] = (pedidoP[l.base] || 0) + l.u;
+    const catT = plan.cat[T] || {};
+    const botaDe = m => ((plan.attr || {})[T + '|' + m] || {}).bota || (catT[m] || {}).bota || '';
+    const modelosNueva = [...new Set([...Object.keys(catT).filter(m => (catT[m].prog || 0) > 0 || (catT[m].cort || 0) > 0), ...Object.keys(pedidoP)])];
+    const topNueva = new Set(Object.entries(pedidoP).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([m]) => m));
+    const disp = m => { const b = catT[m] || {}; return b.cort >= 20 ? `cortado ${fmt(b.cort)}` : b.prog ? 'programado' : 'sin programar'; };
+    const dispRango = m => { const b = catT[m] || {}; return b.cort >= 20 ? 0 : b.prog ? 1 : 2; };
+    const botas = Object.entries(mix).map(([k, n]) => ({ k, pct: Math.round(n / mixTot * 100) })).filter(x => x.pct >= 10).sort((a, b) => b.pct - a.pct).slice(0, 4);
+    const porBota = botas.map(x => modelosNueva.filter(m => !ya[m] && botaDe(m) === x.k)
+      .map(m => ({ m, bota: x.k, pct: x.pct, top: topNueva.has(m), ped: pedidoP[m] || 0, disp: dispRango(m) }))
+      .sort((a, b) => (b.top - a.top) || (a.disp - b.disp) || (b.ped - a.ped)));
+    const modelos = [];
+    for (let v = 0; v < 2; v++) for (const ms of porBota) if (ms[v] && modelos.length < 4) modelos.push(ms[v]);
+    CV_CAMPCLI = { T, sg, modelos };
+    const kpi = (v, l) => `<div class="cv-ckpi"><b>${v}</b><span>${l}</span></div>`;
+    const yaL = Object.entries(ya).sort((a, b) => b[1] - a[1]);
+    cont.innerHTML = `<div class="cv-sub">Campaña T${T} · contra ${sg} a esta misma fecha</div>
+      <div class="cv-dec" style="border-color:var(--${D.clr});background:var(--${D.clr}10)"><b style="color:var(--${D.clr})">${D.t}</b><span>${esc(D.x)}</span></div>
+      <div class="cv-ckpis">${kpi(r(meta), `Meta T${T}: su promedio en ${sg}`)}${kpi(`${fmt(lleva)}<em style="color:var(--${pct == null ? 'tx3' : pct >= 100 ? 'ok' : pct >= 60 ? 'wa' : 'er'})">${pct == null ? '—' : pct + '%'}</em>`, `Lleva de la T${T}`)}${kpi(r(alDiaP), 'A esta fecha solía llevar')}${kpi(r(Math.max(0, meta - lleva)), 'Le falta para su meta')}</div>
+      ${modelos.length ? `<div class="cv-sub">Qué ofrecerle de la T${T}</div>${modelos.map((x, i) => `<div class="cv-caso cv-pick" data-cvpick="c${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje"><b>${esc(x.m)}</b> · ${esc(x.bota)} · ${x.pct}% de lo que compra${x.top ? ' · <b style="color:var(--ac)">top</b>' : ''} <span class="cv-etapa">${esc(disp(x.m))}</span></div>`).join('')}`
+        : `<div class="td-dim cv-fuente">La T${T} todavía no tiene modelos de sus botas con pedidos o en producción.</div>`}
+      ${yaL.length ? `<div class="td-dim cv-fuente">Ya pidió de la T${T}: ${yaL.map(([m, n]) => `${esc(m)} ${fmt(n)}`).join(' · ')}</div>` : ''}
+      ${botas.length ? `<div class="td-dim cv-fuente">Compra ${botas.map(x => `${esc(x.k)} ${x.pct}%`).join(' · ')}</div>` : ''}`;
+    document.getElementById('cvDet')?._cvPick?.(cont);
+  } catch (e) { console.error('cvCampanaCliente', e); cont.innerHTML = ''; }
+};
+
 function cvRender(d) {
   if (!d.ok) return `<div class="cv-vacio cv-er">${cvEsc(d.mensaje || 'No se pudo abrir.')}</div>`;
   const L = d.lead, ag = cvEsc(L.agente);
@@ -4855,8 +4933,11 @@ function cvRender(d) {
       ${x.produccion ? `<div class="td-dim">Viene en producción: <span class="cv-etapa">${cvEsc(x.produccion.etapa)}</span></div>` : ''}
       ${r ? `<div class="cv-reemp cv-pick" data-cvpick="r${i}" role="button" tabindex="0" title="Tócalo para ofrecérselo en el mensaje">↳ ${x.estado === 'sin' ? 'Cambiar todo' : `Cambiar ${cvEsc(noAlcanzaTxt(x))}`} por <b>${cvEsc(r.codigo)} ${cvEsc(r.nombre)}</b> · ${cvEsc(r.estilo)}${(r.tallas_que_tiene || []).length < (x.faltan_tallas || []).length ? ` · tiene la ${cvEsc((r.tallas_que_tiene || []).join(', '))}` : ''}</div>` : ''}</div>`;
   }).join('');
+  /* sus pedidos del último año, en una línea (Manu, 29-10-2026: "cuánto le llevamos despachado y cuánto le debemos") */
+  const PE = O.pedidos_erp || [], peU = PE.reduce((a, p) => a + (p.unidades || 0), 0), peD = PE.reduce((a, p) => a + (p.despachado || 0), 0);
+  const despachoHtml = peU ? `<div class="cv-avance"><div class="cv-av-l1"><span>Sus pedidos del último año</span><b>${fmt(peU)}</b></div><div class="td-dim cv-av-l2"><b>${fmt(peD)}</b> despachadas (${Math.round(peD / peU * 100)}%) · <b style="color:var(--${peU - peD > 0 ? 'wa' : 'ok'})">${fmt(Math.max(0, peU - peD))}</b> le debemos${O.cumplir ? `: ${fmt(O.cumplir.hoy)} hay en bodega${O.cumplir.produccion ? `, ${fmt(O.cumplir.produccion)} en producción` : ''}${O.cumplir.sin ? `, ${fmt(O.cumplir.sin)} sin stock` : ''}` : ''}</div></div>` : '';
   const pedidosHtml = O.tipo === 'mayorista' ? sec('📦', 'Pedidos', A && A.pct != null ? chipS(`${A.pct}% de la ${cvEsc(A.ref_cole)}`, colorPct(A.pct)) : '',
-      [avanceHtml,
+      [avanceHtml, '<div id="cvCamp"></div>', despachoHtml,
        faltaHtml ? `<div class="cv-sub">Falta despachar</div>${O.cumplir ? `<div class="cv-avance"><div class="cv-av-l1"><span>Se le puede despachar hoy</span><b style="color:var(--${O.cumplir.completo ? 'ok' : O.cumplir.pct >= 50 ? 'wa' : 'er'})">${O.cumplir.pct}%</b></div><div class="cv-barra"><i style="width:${O.cumplir.pct}%;background:var(--${O.cumplir.completo ? 'ok' : O.cumplir.pct >= 50 ? 'wa' : 'er'})"></i></div><div class="td-dim cv-av-l2">${O.cumplir.completo ? `Todo: hay las ${fmt(O.cumplir.falta)} prendas que faltan.` : `${fmt(O.cumplir.hoy)} de ${fmt(O.cumplir.falta)} prendas hay${O.cumplir.produccion ? ` · ${fmt(O.cumplir.produccion)} en producción` : ''}${O.cumplir.sin ? ` · <b class="cv-er">${fmt(O.cumplir.sin)} sin stock</b>` : ''}`}</div></div>` : ''}${faltaHtml}<div class="td-dim cv-fuente">Últimos 180 días · 44: Excel de Pato (ERP en rojo si no calza) · 40-43: ERP</div>` : '',
        pedErp ? `<div class="cv-sub">Sus últimos pedidos</div>${pedErp}` : '',
        R ? `<div class="td-dim cv-fuente">12 meses: ${fmt(R.unidades_12m)} prendas${R.facturado_12m ? ` · ${fmtCLP(R.facturado_12m)}` : ''}${(R.estilos || []).length ? ` · ${cvEsc(R.estilos.join(', '))}` : ''}</div>` : ''].join('')) : '';
@@ -4970,7 +5051,8 @@ async function cvAbrir(id, { silencio = false } = {}) {
       .filter((m, i, xs) => xs.findIndex(x => x.codigo === m.codigo) === i);   // el mismo modelo tocado en las dos listas va una vez
     const vs = [...us.filter(u => u.estado !== 'disponible').map(u => ({ ...u, etapa: '' })), ...ks.filter(k => k[0] === 'v').map(k => (O.viene || [])[+k.slice(1)]).filter(Boolean)];
     const rs = ks.filter(k => k[0] === 'r').map(k => (O.por_despachar || [])[+k.slice(1)]).filter(x => x && x.reemplazo);
-    if (!ms.length && !vs.length && !rs.length) return '';
+    const cs = ks.filter(k => k[0] === 'c').map(k => ((CV_CAMPCLI && CV_CAMPCLI.modelos) || [])[+k.slice(1)]).filter(Boolean);   // los de la campaña
+    if (!ms.length && !vs.length && !rs.length && !cs.length) return '';
     if (O.tipo !== 'mayorista') return `Hola ${pila}, te recomiendo estos que quedan${O.talla ? ` en tu talla ${O.talla}` : ''}:\n${ms.map(m => `• ${m.nombre}${m.link ? ' ' + m.link : ''}`).join('\n')}\n¿Te ayudo con alguno?`;
     const ETQ = { 'Corte': 'en corte', 'Costura': 'en costura', 'Taller externo': 'en taller', 'Limpiado': 'en terminaciones', 'Lavandería': 'en lavandería', 'Terminación': 'en la última etapa', 'Programado': 'programado para cortar' };
     const partes = [`Hola ${pila}, ¿cómo estás?`];
@@ -4980,10 +5062,12 @@ async function cvAbrir(id, { silencio = false } = {}) {
         : `De tu pedido, el ${x.codigo}${x.nombre ? ' ' + x.nombre : ''} te lo despachamos, menos ${tl}${n ? ` (${n} ${n === 1 ? 'prenda' : 'prendas'})` : ''}, que no nos queda. En su lugar te puedo mandar el ${x.reemplazo.codigo} ${x.reemplazo.nombre} (${x.reemplazo.estilo}) en ${tl}, ${x.reemplazo.precio}.`; }).join('\n') + '\n¿Te sirve el cambio?');
     if (ms.length) partes.push(`Te cuento que tenemos con despacho inmediato:\n${ms.map(m => `• ${m.codigo}${m.nombre ? ' ' + m.nombre : ''} (${m.estilo}), ${m.precio}${m.suyo ? ', de los que más llevas' : ''}`).join('\n')}`);
     if (vs.length) partes.push(`${ms.length ? 'Y v' : 'V'}iene en camino${vs.every(v => v.cole === vs[0].cole) ? ` de la colección ${vs[0].cole}` : ''}:\n${vs.map(v => `• ${v.codigo}${v.nombre ? ' ' + v.nombre : ''}${v.estilo ? ` (${v.estilo})` : ''}${v.precio ? ', ' + v.precio : ''}: ya está en producción, ${ETQ[v.etapa] || 'en proceso'}`).join('\n')}`);
-    if (ms.length || vs.length) partes.push(ms.length ? '¿Te mando las fotos y las tallas?' : '¿Te aviso apenas llegue a bodega?');
+    if (cs.length) partes.push(`${ms.length || vs.length ? 'Y d' : 'D'}e la colección nueva, la T${CV_CAMPCLI.T}, de lo que más vendes te recomiendo:\n${cs.map(x => `• ${x.m} (${x.bota})`).join('\n')}`);
+    if (ms.length || vs.length || cs.length) partes.push(ms.length || cs.length ? '¿Te mando las fotos y las tallas?' : '¿Te aviso apenas llegue a bodega?');
     return partes.join('\n\n');
   };
-  det.querySelectorAll('[data-cvpick]').forEach(el => {
+  const engancharPick = root => root.querySelectorAll('[data-cvpick]').forEach(el => {
+    if (el._cvPick) return; el._cvPick = true;
     const tocar = () => {
       const k = el.dataset.cvpick;
       elegidos.has(k) ? elegidos.delete(k) : elegidos.add(k);
@@ -4997,9 +5081,11 @@ async function cvAbrir(id, { silencio = false } = {}) {
     el.addEventListener('click', tocar);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tocar(); } });
   });
+  engancharPick(det); det._cvPick = engancharPick;
+  cvCampanaCliente(d);   // la campaña del cliente se calcula con los datos del tablero y se pinta cuando está
   det.querySelector('[data-cvplantilla]')?.addEventListener('click', async e => {
     const O = d.ofrecer || {}, msg = document.getElementById('cvMsg') || e.target.parentNode;
-    const cods = [...elegidos].map(k => k[0] === 's' ? ((O.sugeridos || [])[+k.slice(1)] || {}).codigo : k[0] === 'u' ? ((O.suele || [])[+k.slice(1)] || {}).codigo : k[0] === 'r' ? (((O.por_despachar || [])[+k.slice(1)] || {}).reemplazo || {}).codigo : null).filter(Boolean);
+    const cods = [...elegidos].map(k => k[0] === 's' ? ((O.sugeridos || [])[+k.slice(1)] || {}).codigo : k[0] === 'u' ? ((O.suele || [])[+k.slice(1)] || {}).codigo : k[0] === 'r' ? (((O.por_despachar || [])[+k.slice(1)] || {}).reemplazo || {}).codigo : k[0] === 'c' ? (((CV_CAMPCLI && CV_CAMPCLI.modelos) || [])[+k.slice(1)] || {}).m : null).filter(Boolean);
     if (!cods.length) { e.target.insertAdjacentHTML('afterend', '<div class="cv-er" style="font-size:12px;margin-top:4px">Toca primero los modelos en Qué mandarle.</div>'); return; }
     if (!confirm(`¿Mandarle la plantilla de seguimiento con ${cods.slice(0, 3).join(', ')}? Cuesta ~US$0,09.`)) return;
     e.target.disabled = true; e.target.textContent = 'Enviando…';
