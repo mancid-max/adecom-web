@@ -776,6 +776,10 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Conversaciones
     </button>
+    <button class="nav-item" data-sec="reporte-atencion" data-ttl="Reporte de Atención" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
+      Reporte
+    </button>
 
     <div class="sb-grp" data-admin-only>Cobranza</div>
     <button class="nav-item" data-sec="deudas" data-ttl="Deudas" data-admin-only>
@@ -4453,12 +4457,34 @@ async function secConversaciones() {
       </div>
     </div>`;
   }).join('');
+  /* las que requieren una persona, como alerta arriba y con su contexto (28-10, Manu: "que salga como alerta y siempre con el
+     contexto, para que los vendedores sepan que requiere una persona"): qué pide, qué le dijo la agente y hace cuánto espera */
+  const alertas = reales.filter(c => grupo(c) === 'necesita');
+  const alertasHtml = alertas.length ? `<div class="cv-alertas" role="alert">
+    <div class="cv-al-hd">⚠️ ${fmt(alertas.length)} ${alertas.length === 1 ? 'conversación requiere' : 'conversaciones requieren'} una persona</div>
+    <div class="cv-al-fila">${alertas.map(c => { const x = c.contexto || {}, esp = x.espera_desde || (c.ultimo && c.ultimo.en) || c.actividad; return `<button class="cv-al" data-cval="${cvEsc(c.id)}">
+      <div class="cv-al-l1">${cvAvatar(c.nombre, c.agente, c.canal, 26)}<b>${cvEsc(c.nombre)}</b><span class="cv-al-hace">espera hace ${cvHace(esp)}</span></div>
+      <div class="cv-al-mot">${tiene(c, 'persona') ? 'Pidió una persona' : 'Quedó sin respuesta'} · ${cvEsc(c.agente)}${c.erp ? ' · mayorista del ERP' : ''}</div>
+      ${x.pide ? `<div class="cv-al-pide">«${cvEsc(x.pide)}»</div>` : ''}
+      ${x.agente_dijo ? `<div class="cv-al-dijo">${cvEsc(c.agente)}: «${cvEsc(x.agente_dijo)}»</div>` : ''}
+    </button>`; }).join('')}</div></div>` : '';
   const stat = (k, lbl, col) => `<button class="cv-stat" data-cvs="${k}" title="Ver cuáles"><b style="color:var(${col})">${fmt(n(k))}</b> ${lbl}</button>`;
   const chip = (f, lbl) => `<button class="seg${f === 'all' ? ' on' : ''}" data-f="${f}">${lbl} <span class="db-n">${fmt(n(f))}</span></button>`;
   return `
   <style>
     #content:has(.cv-app){padding-bottom:12px}
     .cv-stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    .cv-alertas{border:1px solid var(--er);background:var(--er10);border-radius:var(--r);padding:10px 12px;margin-bottom:10px}
+    .cv-al-hd{font-weight:700;color:var(--er);font-size:14px;margin-bottom:8px}
+    .cv-al-fila{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px}
+    .cv-al{flex:0 0 300px;text-align:left;font:inherit;background:var(--sf);border:1px solid var(--bd);border-left:3px solid var(--er);border-radius:var(--rsm);padding:9px 11px;cursor:pointer;color:var(--tx1);display:flex;flex-direction:column;gap:4px}
+    .cv-al:hover{border-color:var(--er)}
+    .cv-al-l1{display:flex;align-items:center;gap:8px;font-size:13.5px}.cv-al-l1 b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cv-al-hace{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--er)}
+    .cv-al-mot{font-size:11.5px;color:var(--tx2);font-weight:600}
+    .cv-al-pide{font-size:12.5px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .cv-al-dijo{font-size:11.5px;color:var(--tx3);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    @media(max-width:760px){.cv-al{flex-basis:82%}}
     .cv-camp{margin-top:14px;border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:14px 16px}
     .cv-camp-hd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}.cv-camp-hd b{font-size:15px}.cv-camp-hd span{font-size:12px;color:var(--tx3)}
     .cv-camp-ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -4569,13 +4595,14 @@ async function secConversaciones() {
       .cv-det.cv-ver-ctx .cv-ctxcol{width:100%}.cv-chathd{flex-wrap:wrap;row-gap:6px}.cv-btns{flex-wrap:wrap;width:100%}}
   </style>
   <div class="cv-stats">
-    ${stat('necesita', 'necesitan una persona', '--er')}${stat('caso', 'con caso abierto', '--wa')}${stat('tomada', 'las atiende el equipo', '--ac')}${stat('all', `en los últimos ${fmt(d.dias || 30)} días`, '--tx2')}
+    ${stat('necesita', 'requieren una persona', '--er')}${stat('caso', 'con caso abierto', '--wa')}${stat('tomada', 'las atiende el equipo', '--ac')}${stat('all', `en los últimos ${fmt(d.dias || 30)} días`, '--tx2')}
   </div>
+  ${alertasHtml}
   <div class="cv-app" id="cvApp">
     <aside class="cv-col-lista">
       <div class="cv-lhead">
         <input id="cvSearch" class="finput" placeholder="🔍 Buscar nombre, mensaje o n° de caso…">
-        <div class="segs" id="cvVerSegs">${chip('all', 'Todas')}${chip('necesita', 'Una persona')}${chip('caso', 'Caso')}${chip('tomada', 'Equipo')}</div>
+        <div class="segs" id="cvVerSegs">${chip('all', 'Todas')}${chip('necesita', 'Requiere una persona')}${chip('caso', 'Caso')}${chip('tomada', 'Equipo')}</div>
         <div class="cv-lsel">
           <select id="cvAgSel" title="Agente"><option value="all">Sofía y Valentina</option><option value="Valentina">Valentina</option><option value="Sofía">Sofía</option><option value="erp">Mayoristas del ERP (${fmt(cs.filter(c => c.erp).length)})</option></select>
           <select id="cvCanalSel" title="Canal"><option value="all">Todos los canales</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option></select>
@@ -4584,11 +4611,115 @@ async function secConversaciones() {
       </div>
       <div class="cv-lista" id="cvBody">${filas}
         <div id="cvNada" class="td-dim" style="${cs.length ? 'display:none;' : ''}text-align:center;padding:26px">${cs.length ? 'Ninguna coincide con los filtros' : 'No hay conversaciones en los últimos días'}</div></div>
-      <div class="cv-lfoot"><span id="cvCount">${fmt(cs.length)}</span> conversaciones · Nexor en vivo, al ${cvEsc(cvHora(d.generado))}. Rojo: necesita una persona · naranjo: caso con la tienda · azul: la atiende el equipo.</div>
+      <div class="cv-lfoot"><span id="cvCount">${fmt(cs.length)}</span> conversaciones · Nexor en vivo, al ${cvEsc(cvHora(d.generado))}. Rojo: requiere una persona · naranjo: caso con la tienda · azul: la atiende el equipo.</div>
     </aside>
     <section class="cv-det" id="cvDet"><div class="cv-vacio">Elige una conversación para verla y responder</div></section>
   </div>
   <div class="cv-camp" id="cvCamp"><div class="td-dim">Leyendo el reporte de la campaña…</div></div>`;
+}
+
+/* Reporte de Atención (29-10, Manu: "en esa misma sección de Atención deja una de reporte: cuántas personas hablaron, cuántas
+   necesitan una persona, cuánto concretó Valentina en venta y Sofía"). Lo calcula la página (reporte-atencion-background,
+   ~1,5 min, cada 15 min como máximo); acá se muestra el último. */
+let RA_DATA = null, RA_PER = 'd7', RA_TIMER = null;
+async function secReporteAtencion() {
+  const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
+  const d = await cvFetch('?reporte=1');
+  if (!d.ok) return makePH(ICO, 'Reporte de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
+  RA_DATA = d;
+  return `<style>
+    .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .ra-hd .td-dim{font-size:12px}
+    .ra-ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .ra-k{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:14px 16px;min-width:0}
+    .ra-n{font-size:30px;font-weight:700;line-height:1.1}.ra-t{font-size:13.5px;font-weight:600;margin-top:3px}.ra-s{font-size:12px;color:var(--tx3);margin-top:6px;line-height:1.45}
+    .ra-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+    .ra-col{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:12px 14px;min-width:0}
+    .ra-ct{font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+    .ra-f{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:8px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);align-items:baseline}
+    .ra-f span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ra-f small{color:var(--tx3)}
+    .ra-sub{font-size:11.5px;font-weight:700;color:var(--tx3);margin:12px 0 4px}
+    .ra-m{display:grid;grid-template-columns:minmax(0,1fr) 190px 150px;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12.5px;cursor:pointer}
+    .ra-m:hover{background:var(--sf2)}.ra-m-n{display:flex;align-items:center;gap:7px;min-width:0}.ra-m-n b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    @media(max-width:700px){.ra-m{grid-template-columns:1fr}}
+    .ra-pie{font-size:11px;color:var(--tx3);margin-top:12px;line-height:1.5}
+    .ra-link{border:0;background:none;color:var(--ac);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;margin-top:6px}
+    @media(max-width:1000px){.ra-ks{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-cols{grid-template-columns:1fr}}
+    @media(max-width:520px){.ra-ks{grid-template-columns:1fr}}
+  </style><div id="raBody">${raRender()}</div>`;
+}
+function raRender() {
+  const d = RA_DATA || {};
+  if (d.vacio) return '<div class="cv-vacio">Calculando el primer reporte: tarda como 2 minutos. Se muestra solo cuando esté.</div>';
+  const P = RA_PER, ini = Date.parse((d.inicios || {})[P] || 0);
+  const H = (d.hablaron || {})[P] || {}, R = d.requieren || {}, V = d.valentina || {}, S = d.sofia || {};
+  const vr = (V.resumen || {})[P] || {}, vp = (V.resumen_probables || {})[P] || {}, sr = (S.resumen || {})[P] || {};
+  const per = { hoy: 'hoy', d7: 'los últimos 7 días', d30: 'los últimos 30 días' }[P];
+  const seg = (k, l) => `<button class="seg${P === k ? ' on' : ''}" data-raper="${k}">${l}</button>`;
+  const k = (n, t, sub, color, extra = '') => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div><div class="ra-s">${sub}</div>${extra}</div>`;
+  const fF = f => { const x = new Date(f); return `${String(x.getDate()).padStart(2, '0')}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
+  const fila = (o, monto) => `<div class="ra-f"><small>${fF(o.fecha)}</small><span title="${cvEsc(o.via || '')}">${cvEsc(o.nombre || '—')} <small>· ${cvEsc(o.via || '')}</small></span><b>${monto}</b></div>`;
+  const enPer = xs => (xs || []).filter(o => Date.parse(o.fecha) >= ini);
+  const vC = enPer(V.confirmadas), vP = enPer(V.probables), sP = enPer(S.pedidos);
+  const web = sP.filter(o => o.via !== 'ERP').length;
+  return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
+      <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
+    <div class="ra-ks">
+      ${k(fmt(H.total), `personas hablaron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)}<br>WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
+      ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta<br>El equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
+      ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? `<br>+ ${fmt(vp.pedidos)} probables por ${fmtM(vp.monto)}` : ''}`, '--ok')}
+      ${k(fmtM(sr.monto || 0), `pidieron los mayoristas de Sofía ${per}`, `${fmt(sr.pedidos)} ${sr.pedidos === 1 ? 'pedido' : 'pedidos'}${sr.unidades ? ` · ${fmt(sr.unidades)} prendas` : ''}, neto${web ? `<br>${fmt(web)} por la página, sin monto todavía` : ''}`, '--ac')}
+    </div>
+    <div class="ra-cols">
+      <div class="ra-col"><div class="ra-ct">Ventas de Valentina</div>
+        ${vC.length ? vC.map(o => fila(o, fmtCLP(o.total))).join('') : '<div class="td-dim">Sin ventas confirmadas en el período</div>'}
+        ${vP.length ? `<div class="ra-sub">Probables (abrió su link y compró otra cuenta, o el mismo nombre)</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
+      </div>
+      <div class="ra-col"><div class="ra-ct">Pedidos de los mayoristas de Sofía</div>
+        ${sP.length ? sP.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Ningún mayorista que habló con Sofía hizo un pedido en el período</div>'}
+      </div>
+    </div>
+    ${raMayoristas(S.mayoristas, ini, per)}
+    <div class="ra-pie">Hablaron: personas que escribieron al menos un mensaje por WhatsApp o Instagram (sin pruebas ni el chat de la tienda), de las ${fmt(d.conversaciones)} conversaciones de los últimos 30 días.
+      Valentina: compras en mohicano.cl con el mismo celular del chat después de conversar, o entrando por un link suyo; las probables van aparte y no suman.
+      Sofía: pedidos del ERP (bi/pedidos.json) y de la página de los mayoristas que le escribieron, hasta 14 días después de un mensaje suyo; el RUT sale del celular, así que uno que escribe desde otro número no se cruza.</div>`;
+}
+/* por mayorista (29-10, Manu: "¿y por mayorista?"): cada uno que le escribió a Sofía en el período */
+function raMayoristas(ms, ini, per) {
+  const xs = (ms || []).filter(m => (m.escribio || []).some(t => t >= ini));
+  const fF = t => { const x = new Date(t); return `${String(x.getDate()).padStart(2, '0')}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
+  const filas = xs.map(m => {
+    const n = m.escribio.filter(t => t >= ini).length, ult = m.escribio[m.escribio.length - 1];
+    const ps = (m.pedidos || []).filter(o => Date.parse(o.fecha) >= ini);
+    const monto = ps.reduce((t, o) => t + (o.total || 0), 0), uds = ps.reduce((t, o) => t + (o.unidades || 0), 0);
+    return `<div class="ra-m" role="button" tabindex="0" data-ralead="${cvEsc(m.id)}">
+      <span class="ra-m-n">${cvAvatar(m.nombre, 'Sofía', m.canal, 24)}<b>${cvEsc(m.nombre)}</b>${m.erp ? '<span class="cv-tag" style="background:var(--ac10);color:var(--ac)">Cliente del ERP</span>' : '<span class="cv-tag" style="background:var(--sf2);color:var(--tx2)">Nuevo</span>'}${m.requiere ? '<span class="cv-tag" style="background:var(--er10);color:var(--er)">Requiere una persona</span>' : ''}</span>
+      <span class="td-dim">${fmt(n)} ${n === 1 ? 'mensaje' : 'mensajes'} · último ${fF(ult)}</span>
+      <span>${ps.length ? `<b>${monto ? fmtCLP(monto) : fmt(uds) + ' u.'}</b> <small class="td-dim">${ps.length === 1 ? '1 pedido' : ps.length + ' pedidos'}</small>` : '<span class="td-dim">sin pedido</span>'}</span>
+    </div>`;
+  }).join('');
+  const conPed = xs.filter(m => (m.pedidos || []).some(o => Date.parse(o.fecha) >= ini)).length;
+  return `<div class="ra-col" style="margin-top:14px"><div class="ra-ct">Mayoristas que hablaron con Sofía ${per} · ${fmt(xs.length)}${xs.length ? ` · ${fmt(xs.filter(m => m.erp).length)} clientes del ERP · ${fmt(conPed)} pidieron` : ''}</div>
+    ${filas || '<div class="td-dim">Ningún mayorista le escribió a Sofía en el período</div>'}</div>`;
+}
+function raMontar() {
+  const body = document.getElementById('raBody'); if (!body) return;
+  body.querySelectorAll('[data-raper]').forEach(b => b.addEventListener('click', () => { RA_PER = b.dataset.raper; body.innerHTML = raRender(); raMontar(); }));
+  body.querySelector('[data-raconv]')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
+  body.querySelectorAll('[data-ralead]').forEach(r => r.addEventListener('click', () => { CV_SEL = r.dataset.ralead; go('conversaciones', 'Conversaciones'); }));
+  body.querySelector('[data-raact]')?.addEventListener('click', async () => { const r = await cvFetch('?reporte=1&forzar=1'); if (r.ok) { RA_DATA = { ...RA_DATA, actualizando: true }; body.innerHTML = raRender(); raMontar(); raEsperar(); } });
+  if (RA_DATA && (RA_DATA.vacio || RA_DATA.actualizando)) raEsperar();
+}
+/* mientras se calcula uno nuevo, se vuelve a mirar cada 30 s (hasta 5 min) */
+function raEsperar() {
+  clearInterval(RA_TIMER);
+  const antes = RA_DATA && RA_DATA.generado;
+  let vueltas = 0;
+  RA_TIMER = setInterval(async () => {
+    if (!document.getElementById('raBody') || ++vueltas > 10) { clearInterval(RA_TIMER); return; }
+    const r = await cvFetch('?reporte=1');
+    if (r.ok && r.generado && r.generado !== antes) { clearInterval(RA_TIMER); RA_DATA = { ...r, actualizando: false }; const b = document.getElementById('raBody'); if (b) { b.innerHTML = raRender(); raMontar(); } }
+  }, 30000);
 }
 
 /* Reporte de la campaña de despacho inmediato, abajo de la bandeja (28-10, Manu: "a cuántos les llegó el mensaje y el correo,
@@ -9365,6 +9496,7 @@ const SECS = {
   'cajas':          () => secCajas(),
   'fotos':          () => secFotos(),
   'conversaciones': () => secConversaciones(),
+  'reporte-atencion': () => secReporteAtencion(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
   'metas':          () => secMetas(),
@@ -10268,7 +10400,7 @@ async function go(secId, title) {
   document.getElementById('hdTitle').textContent = title;
   /* 28-10 (Manu: "que el menú de la izquierda quede escondido mientras trabajo en esa sección, como en el celular con
      las 3 rayas"): en Conversaciones el menú se esconde y se abre con ☰; en las demás secciones se ve como siempre */
-  document.body.classList.toggle('menu-oculto', secId === 'conversaciones');
+  document.body.classList.toggle('menu-oculto', secId === 'conversaciones' || secId === 'reporte-atencion');   // 29-10: también en el Reporte de Atención
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
   menuActualizar();   // el grupo de la sección abierta se despliega
@@ -12309,6 +12441,7 @@ function bindContent(secId) {
   }
 
   // Conversaciones (Agente → Humano): la bandeja
+  if (secId === 'reporte-atencion' && document.getElementById('raBody')) raMontar();
   if (secId === 'conversaciones' && document.getElementById('cvBody')) {
     const filasCv = [...document.querySelectorAll('#cvBody .cv-row')];
     function applyCv() {
@@ -12334,8 +12467,13 @@ function bindContent(secId) {
     ['cvAgSel', 'cvCanalSel'].forEach(id => document.getElementById(id)?.addEventListener('change', applyCv));
     document.getElementById('cvSearch')?.addEventListener('input', applyCv);
     document.querySelectorAll('[data-cvs]').forEach(b => b.addEventListener('click', () => document.querySelector(`#cvVerSegs .seg[data-f="${b.dataset.cvs}"]`)?.click()));
+    const abrirConCtx = (id, necesita) => { if (necesita) document.getElementById('cvDet')?.classList.add('cv-ver-ctx'); cvAbrir(id); };
+    document.querySelectorAll('[data-cval]').forEach(b => b.addEventListener('click', () => {
+      abrirConCtx(b.dataset.cval, true);
+      document.getElementById('cvApp')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
     filasCv.forEach(row => {
-      row.addEventListener('click', () => cvAbrir(row.dataset.id));
+      row.addEventListener('click', () => abrirConCtx(row.dataset.id, row.dataset.g === 'necesita'));
       row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cvAbrir(row.dataset.id); } });
     });
     document.getElementById('cvRecargar')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
@@ -13379,7 +13517,12 @@ async function init(role) {
     esBodega ? Promise.resolve([]) : load('docs_venta.json'),
     load('meta.json').catch(() => null),
   ]);
-  PEDS_ART = pa; DOCS = dv;
+  PEDS_ART = pa;
+  /* Facturas especiales (cobros sin prendas) que el ERP exportó con bodega 01 "Stock Perú" (28-10-2026: dos a Multitiendas
+     Robinson, por $10.000.000 y $3.451.777). Son de la venta mayorista y siempre se mostraron en San Gerardo como
+     ESPECIAL; como no mueven stock, su bodega no dice nada, así que van a San Gerardo. Manu, 29-10-2026: "súbelas como
+     pagos especiales como la dejamos siempre". Con esto la vista San Gerardo cuadra con el reporte por local del ERP. */
+  DOCS = (dv || []).map(d => (d && d.esp && d.bod === '01') ? { ...d, bod: BOD_SG, bodOriginal: d.bod } : d);
   const pill = document.getElementById('hdTemp');
   if (pill) pill.innerHTML = `<div class="hd-dot"></div>T${TEMP_ACTIVA} activa`;
   const tsEl = document.getElementById('hdTs');
@@ -14122,7 +14265,7 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
 const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy']);
 /* Atención (Manu, 27-10-2026: "debería verse aparte de todo eso"): una vista solo con lo de las agentes de Nexor
    (Conversaciones; después el CRM tienda, los casos y las campañas). Esas secciones no salen en las otras vistas. */
-const VISTA_ATENCION = new Set(['conversaciones']);
+const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion']);
 const VISTAS = ['ambos', 'sg', 'k', 'at'];
 const leerVista = () => { try { const v = localStorage.getItem('adecom_vista'); return VISTAS.includes(v) ? v : 'ambos'; } catch (e) { return 'ambos'; } };
 const vistaInicio = () => ({ k: ['venta-kennedy', 'Venta Kennedy'], at: ['conversaciones', 'Conversaciones'] })[leerVista()] || ['resumen', 'Resumen General'];
