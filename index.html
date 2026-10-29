@@ -4398,7 +4398,7 @@ async function secFotos() {
    los botones Tomar, Responder (WhatsApp, dentro de las 24 h) y Devolver a la agente. Por Instagram la API de Nexor
    no manda mensajes: se responde desde la bandeja de Nexor. */
 const CV_URL = 'https://mohicanojeans.netlify.app/.netlify/functions/conversaciones';
-const CV_MOT = { persona: ['Pidió una persona', '--er', '--er10'], sin_respuesta: ['Sin respuesta', '--er', '--er10'], tomada: ['La atiende una persona', '--ac', '--ac10'] };
+const CV_MOT = { persona: ['Pidió una persona', '--er', '--er10'], sin_respuesta: ['Sin respuesta', '--er', '--er10'], tomada: ['La atiende una persona', '--ac', '--ac10'], baja: ['Se dio de baja', '--tx2', '--sf2'] };
 let CV_SEL = null, CV_TIMER = null;
 const cvEsc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const cvHora = t => t ? new Date(t).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
@@ -4444,6 +4444,7 @@ async function secConversaciones() {
       c.prueba ? '<span class="cv-tag" style="background:var(--sf2);color:var(--tx2)">Prueba</span>' : '',
       tiene(c, 'persona') ? cvTag('persona') : '',
       tiene(c, 'sin_respuesta') ? cvTag('sin_respuesta') : '',
+      tiene(c, 'baja') ? cvTag('baja') : '',
       c.caso ? `<span class="cv-tag" style="background:var(--wa10);color:var(--wa)" title="Caso abierto con la tienda">Caso ${cvEsc(c.caso.numero)} · ${c.caso.dias === 0 ? 'hoy' : c.caso.dias === 1 ? '1 día' : c.caso.dias + ' días'}</span>` : '',
       tiene(c, 'tomada') ? `<span class="cv-tag" style="background:var(--ac10);color:var(--ac)" title="Desde el ${cvEsc(cvHora(c.tomada_en))}">La atiende una persona</span>` : '',
     ].filter(Boolean).join(' ');
@@ -4744,7 +4745,7 @@ async function cvCampana() {
   el.innerHTML = hd(`desde el ${cvEsc(cvHora(d.desde))} · al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''}`) + `
     <div class="cv-camp-ks">
       ${k(fmt(d.recibieron), 'les llegó', `WhatsApp: ${fmt(w.llegaron)} de ${fmt(w.enviados)}, ${fmt(w.leyeron)} lo leyeron · Correo: ${fmt(c.enviados)}, ${fmt(c.abrieron)} lo abrieron`, '--tx1')}
-      ${k(fmt(d.conversando), 'conversan con Sofía', `le escribieron después del aviso${pct(d.conversando, d.recibieron)}`, '--ac')}
+      ${k(fmt(d.conversando), 'conversan con Sofía', `le escribieron después del aviso${pct(d.conversando, d.recibieron)}${d.bajas ? ` · ${fmt(d.bajas)} pidieron no recibir más` : ''}`, '--ac')}
       ${k(fmt(v.clientes), 'compraron', v.clientes ? `${fmt(v.unidades)} prendas · ${fmtM(v.valor)} neto en el ERP${v.web ? ` · ${fmt(v.web)} pedidos por la página` : ''}` : 'pedidos del ERP y de la página después del aviso', '--ok')}
       ${k(fmt((d.tibios || []).length), 'para seguir', 'abrieron o tocaron el botón y no escribieron', '--wa')}
     </div>
