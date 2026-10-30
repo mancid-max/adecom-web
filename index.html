@@ -5041,7 +5041,7 @@ function cpTexto() {
   const hoy = new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const ids = CP_SEL === 'todas' ? CAMPANAS.map(x => x.id) : [CP_SEL];
   const L = [`*Campañas Mohicano Jeans* · al ${hoy}`, ''];
-  L.push(`💰 *Ventas de las campañas*`);
+  L.push(`*Ventas de las campañas*`);
   for (const x of CAMPANAS) if (ids.includes(x.id) || CP_SEL === 'todas') L.push(`• ${x.nombre}: ${plata((A[x.id] || {}).valor)}${(A[x.id] || {}).pedidos ? ` (${A[x.id].pedidos} ${A[x.id].pedidos === 1 ? 'pedido' : 'pedidos'})` : ''}`);
   if (CP_SEL === 'todas') L.push(`• *Total: ${plata(A.total.valor)}*`);
   for (const id of ids) {
@@ -5050,14 +5050,14 @@ function cpTexto() {
     const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, R = c.respuestas || {};
     const resp = Object.entries(R).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
     L.push('', `*${(CP_OPC[id] || {}).titulo || x.nombre}* · salió el ${cvHora(c.desde)}`);
-    L.push(`📲 WhatsApp: se mandó a ${w.enviados}, les llegó a ${w.llegaron} (${pct(w.llegaron, w.enviados)}), lo leyeron ${w.leyeron}`);
-    if (co.enviados) L.push(`📧 Correo: ${co.enviados} enviados, lo abrieron ${co.abrieron} (${pct(co.abrieron, co.enviados)})`);
-    L.push(`💬 Respondieron ${resp} (${pct(resp, w.llegaron)} de los que les llegó) · conversan con Sofía ${c.conversando_ahora || 0} · no recibir más ${c.bajas || 0}`);
+    L.push(`*WhatsApp:* se mandó a ${w.enviados}, les llegó a ${w.llegaron} (${pct(w.llegaron, w.enviados)}), lo leyeron ${w.leyeron}`);
+    if (co.enviados) L.push(`*Correo:* ${co.enviados} enviados, lo abrieron ${co.abrieron} (${pct(co.abrieron, co.enviados)})`);
+    L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó) · conversan con Sofía ${c.conversando_ahora || 0} · no recibir más ${c.bajas || 0}`);
     const det = (v.detalle || []).map(o => `   - ${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} · ${o.via}${o.promo === 0 ? ' · entró por el aviso y compró otros modelos' : o.promo ? ` · ${o.promo} en oferta` : ''}`);
-    L.push(`🛍️ Compraron ${v.clientes || 0} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'}: ${plata(v.valor)}`, ...det);
+    L.push(`*Compraron:* ${v.clientes || 0} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'}: ${plata(v.valor)}`, ...det);
     /* los pedidos por vendedor no van en el texto: no son de la campaña y un mismo pedido sale en las dos (se ven en el dashboard) */
     const nl = (c.no_llego || []).slice(0, 3).map(([m, n]) => `${m} ${n}`).join(' · ');
-    if (nl) L.push(`⚠️ No les llegó: ${nl}`);
+    if (nl) L.push(`*No les llegó:* ${nl}`);
   }
   L.push('', 'Detalle: dashboard de Adecom → Atención → Campañas');
   return L.join('\n');
