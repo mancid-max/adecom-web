@@ -453,8 +453,12 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .pl th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
 .pl th .si{color:var(--ac);white-space:nowrap}
 .pl .pl-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+#cjArtTable th[data-ord]{cursor:pointer;user-select:none}
+#cjArtTable th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
+#cjArtTable th .si{color:var(--ac);white-space:nowrap}
 @media(max-width:700px){
   .pl .pl-sec{display:none}
+  .cj-sec{display:none}
   .pl .segs{overflow:visible;flex-wrap:wrap}
   .pl .pl-acc{flex-wrap:wrap;gap:6px 12px;padding:12px 14px}
   .pl .pl-acc-t{width:auto;flex:1}
@@ -4074,6 +4078,11 @@ async function secCajas() {
       <button class="seg" data-est="salio">Despachadas</button>
       <button class="seg" data-est="all">Todas</button>
     </div></div>
+    <div class="fgrp"><span class="flbl">Ver</span>
+    <div class="segs" id="cjVerSegs">
+      <button class="seg on" data-v="cajas">Por caja</button>
+      <button class="seg" data-v="arts" title="Cuántas prendas hay en caja de cada artículo, talla por talla">Por artículo y talla</button>
+    </div></div>
     </div>
 
     <div class="fbar-row">
@@ -4111,7 +4120,7 @@ async function secCajas() {
       <div><div class="kpi-val" id="cjKViejas">—</div><div class="kpi-lbl">Un mes o más</div><div class="db-k-ver">Ver cuáles ›</div></div>
     </div>
   </div>
-  <div class="tbl-card">
+  <div class="tbl-card" id="cjCajasCard">
     <div class="tbl-head xl-head" style="gap:8px">
       <div class="xl-izq"><div class="card-ttl" style="margin:0">Cajas armadas — toca una fila para ver el contenido</div></div>
       ${btnExcel()}
@@ -4134,6 +4143,17 @@ async function secCajas() {
         <tbody id="cjBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="cjFoot"></div>
+    </div>
+  </div>
+  <div class="tbl-card" id="cjArtCard" style="display:none">
+    <div class="tbl-head xl-head" style="gap:8px">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Prendas en caja por artículo y talla — toca una fila para ver en qué cajas están</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim" id="cjArtN"></span></div>
+    </div>
+    <div class="tbl-scroll">
+      <table id="cjArtTable" data-ord-col="5" data-ord-dir="-1" data-ord-num="1"><thead></thead><tbody id="cjArtBody"></tbody></table>
+      <div class="tbl-foot" id="cjArtFoot"></div>
     </div>
   </div>`;
 }
@@ -4744,6 +4764,8 @@ function raRender() {
   const P = RA_PER, ini = Date.parse((d.inicios || {})[P] || 0);
   const H = (d.hablaron || {})[P] || {}, R = d.requieren || {}, V = d.valentina || {}, S = d.sofia || {};
   const vr = (V.resumen || {})[P] || {}, vp = (V.resumen_probables || {})[P] || {}, sr = (S.resumen || {})[P] || {};
+  /* 30-10 (Manu: "en Valentina deberían salir los casos que ayudó a resolver y cuánto influye en dinero") */
+  const VC = V.casos || null, vc = VC ? ((VC.resumen || {})[P] || {}) : {};
   const per = { hoy: 'hoy', d7: 'en 7 días', d30: 'en 30 días' }[P];
   const seg = (k, l) => `<button class="seg${P === k ? ' on' : ''}" data-raper="${k}">${l}</button>`;
   const k = (n, t, sub, color, extra = '') => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${extra}</div>`;
@@ -4758,7 +4780,7 @@ function raRender() {
       <div class="ra-ks">
         ${k(fmt(H.total), `personas escribieron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)} · WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
         ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta · el equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
-        ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? ` · ${fmt(vp.pedidos)} probables más (${fmtM(vp.monto)})` : ''}`, '--ok')}
+        ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? ` · ${fmt(vp.pedidos)} probables más (${fmtM(vp.monto)})` : ''}${VC ? `<br><b>Casos con la tienda:</b> ${fmt(vc.resueltos || 0)} resueltos ${per} (${fmtM(vc.monto_resuelto || 0)} en pedidos que no se perdieron) · ${fmt(VC.pendientes || 0)} pendientes${VC.pendientes ? ` (${fmtM(VC.monto_pendiente || 0)})` : ''}` : ''}`, '--ok')}
         ${k(fmtM(sr.monto || 0), `pidieron los mayoristas de Sofía ${per}`, `${fmt(sr.pedidos)} ${sr.pedidos === 1 ? 'pedido' : 'pedidos'}${sr.unidades ? ` · ${fmt(sr.unidades)} prendas` : ''}, neto${web ? ` · ${fmt(web)} por la página` : ''}`, '--ac')}
       </div>
       <div class="ra-g2">
@@ -4985,13 +5007,43 @@ const CP_OPC = {
   halloween: { titulo: 'Halloween · Descuento de miedo', sub: '4455 Riviera y 4007, el 30 y 31-10', correoNota: 'salió el mismo día que el WhatsApp; primero los que más compran', boton: 'tocaron "Lo quiero"' },
   despacho: {},
 };
+/* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
+   la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
+function cpAsignar() {
+  const camp = CAMPANAS.map(x => ({ id: x.id, nombre: x.nombre, desde: (CP_DATA[x.id] || {}).desde || '', d: CP_DATA[x.id] })).filter(x => x.d && x.d.ok && x.d.hay);
+  const vistos = new Map();
+  for (const c of camp) for (const o of ((c.d.ventas || {}).detalle || [])) {
+    const k = `${String(o.cliente || '').toUpperCase().replace(/\W/g, '').slice(0, 12)}|${String(o.fecha || '').slice(0, 10)}|${o.unidades}`;
+    const cand = vistos.get(k);
+    /* gana la campaña que salió más tarde pero antes del pedido */
+    if (!cand || (c.desde > cand.desde && (!o.fecha || c.desde <= o.fecha))) vistos.set(k, { ...o, campana: c.id, desde: c.desde });
+  }
+  const por = {}; for (const c of camp) por[c.id] = [];
+  for (const o of vistos.values()) por[o.campana].push(o);
+  const suma = (xs) => ({ pedidos: xs.length, valor: xs.reduce((t, o) => t + Number(o.valor || 0), 0), unidades: xs.reduce((t, o) => t + Number(o.unidades || 0), 0),
+    clientes: new Set(xs.map(o => String(o.cliente || '').toUpperCase())).size, detalle: xs });
+  const res = {}; for (const c of camp) res[c.id] = suma(por[c.id]);
+  res.total = suma([...vistos.values()]);
+  return res;
+}
+/* el reporte de una campaña con sus ventas ya asignadas (sin repetir pedidos de otra campaña) */
+function cpConVentas(d, v) {
+  if (!d || !v) return d;
+  return { ...d, ventas: { ...(d.ventas || {}), pedidos: v.pedidos, valor: v.valor, unidades: v.unidades, clientes: v.clientes, detalle: v.detalle } };
+}
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
   const tabs = `<div class="segs" style="margin:0 0 14px"><button class="seg${CP_SEL === 'todas' ? ' on' : ''}" data-cptab="todas">Todas</button>${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
+  const A = cpAsignar();
+  const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo}</div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'todavía sin ventas'}${extra || ''}</div></div>`;
+  const tarjetas = `<div class="ra-ks" style="grid-template-columns:repeat(${CAMPANAS.length + 1},minmax(0,1fr));margin-bottom:14px">
+    ${CAMPANAS.map(x => tarjeta(cvEsc(x.nombre), A[x.id], '', x.id)).join('')}
+    ${tarjeta('Total de las campañas', A.total, '<br>neto · por Sofía, la página o después de responder el aviso', 'todas')}</div>`;
+  const CPD = Object.fromEntries(CAMPANAS.map(x => [x.id, cpConVentas(CP_DATA[x.id], A[x.id])]));
   let det;
   if (CP_SEL === 'todas') {
-    RA_CAMP = cpMezclar(CAMPANAS.map(x => [x.nombre, CP_DATA[x.id]]));
-    const filas = CAMPANAS.map(x => ({ ...x, r: cpResumen(x.id, CP_DATA[x.id]) })).filter(f => f.r);
+    RA_CAMP = cpMezclar(CAMPANAS.map(x => [x.nombre, CPD[x.id]]));
+    const filas = CAMPANAS.map(x => ({ ...x, r: cpResumen(x.id, CPD[x.id]) })).filter(f => f.r);
     /* cómo le fue a cada una, para ver qué mejorar: tasas comparables */
     const comp = filas.length ? `<section class="ra-bloque"><div class="ra-bt"><h3>Cómo le fue a cada una</h3><span>para comparar y mejorar la próxima</span></div>
       <div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Lo leyeron</th><th class="hw-num">Respondieron</th><th class="hw-num">No recibir más</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Compraron</th></tr>
@@ -4999,10 +5051,10 @@ function cpRender() {
       </table><div class="hw-pie">Les llegó: sobre los WhatsApp mandados · lo leyeron y respondieron: sobre los que les llegó · abrieron: sobre los correos enviados · compraron: por Sofía, la página o después de responder el aviso (los pedidos que el vendedor ingresa directo al ERP van aparte). Toca una campaña para ver su detalle.</div></div></section>` : '';
     det = raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
   } else {
-    RA_CAMP = CP_DATA[CP_SEL] && CP_DATA[CP_SEL].ok ? CP_DATA[CP_SEL] : null;
-    det = raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CP_DATA.halloween) : '');
+    RA_CAMP = CPD[CP_SEL] && CPD[CP_SEL].ok ? CPD[CP_SEL] : null;
+    det = raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
   }
-  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir</span></div>${tabs}<div id="cpDet">${det}</div>`;
+  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir</span></div>${tarjetas}${tabs}<div id="cpDet">${det}</div>`;
 }
 async function secCampanas() {
   const rs = await Promise.all(CAMPANAS.map(x => cvFetch(x.fuente).catch(() => null)));
@@ -5039,9 +5091,9 @@ function hwExtras(c) {
     const col = /Tocó|Lo quiero|Pidió|Lo leyó|Le llegó/i.test(txt) ? '--ok' : /No le llegó|No salió|No recibir/i.test(txt) ? '--er' : /Pendiente|Sin correo|Sin celular/i.test(txt) ? '--tx3' : '--tx1';
     return txt ? `<span class="hw-chip" style="color:var(${col})">${cvEsc(txt)}</span>` : '<span class="td-dim">—</span>';
   };
-  const filaV = (o) => `<tr><td>${cvEsc(o.cliente)}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmtM(o.valor || 0)}</td></tr>`;
-  return `<section class="ra-bloque"><div class="ra-bt"><h3>Ventas con la promoción</h3><span>pedidos con la 4455 Riviera o el 4007</span></div>
-    <div class="hw-col">${(v.detalle || []).length ? `<table class="hw-tabla"><tr><th>Mayorista</th><th>Cuándo</th><th>Por</th><th class="hw-num">Prendas</th><th class="hw-num">Neto</th></tr>${v.detalle.map(filaV).join('')}</table>` : '<div class="td-dim">Todavía ningún pedido con la Riviera o el 4007 por Sofía, la página o de alguien que respondió el aviso.</div>'}
+  const filaV = (o) => `<tr><td>${cvEsc(o.cliente)}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmt(o.promo || 0)}</td><td class="hw-num">${fmtM(o.valor || 0)}</td></tr>`;
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Ventas de la campaña</h3><span>por Sofía, la página o después de responder el aviso · en promoción: prendas de la 4455 Riviera o el 4007</span></div>
+    <div class="hw-col">${(v.detalle || []).length ? `<table class="hw-tabla"><tr><th>Mayorista</th><th>Cuándo</th><th>Por</th><th class="hw-num">Prendas</th><th class="hw-num">En promoción</th><th class="hw-num">Neto</th></tr>${v.detalle.map(filaV).join('')}</table>` : '<div class="td-dim">Todavía ninguna venta de esta campaña.</div>'}
     ${(pv.detalle || []).length ? `<div class="hw-pie" style="margin-top:10px"><b>Aparte, por vendedor (no cuentan para la campaña):</b> ${pv.detalle.map(o => `${cvEsc(o.cliente)} · ${fmt(o.unidades)} prendas · ${cvEsc(o.via)}`).join(' · ')}</div>` : ''}</div></section>
   <section class="ra-bloque"><div class="ra-bt"><h3>Los mejores mayoristas</h3><span>por lo comprado en 12 meses, con su nombre del ERP</span></div>
   <div class="hw-col"><table class="hw-tabla"><tr><th>Mayorista</th><th class="hw-num">Compró 12 meses</th><th>Correo</th><th>WhatsApp</th><th>Respondió</th><th>Pidió</th></tr>
@@ -5077,7 +5129,13 @@ async function cvFormularios(forzar) {
   const sin = fs.filter(f => !f.tomado);
   n.innerHTML = `${fmt(sin.length)} sin tomar · ${fmt(fs.length)} desde agosto`;
   const body = document.getElementById('cvFormBody'); if (!body || body.hidden) return;
-  const fF = t => { const x = String(t || ''); return x.slice(8, 10) + '-' + x.slice(5, 7); };
+  /* 30-10 (Manu: "que salga de qué fecha es y si presiono, los detalles de la persona"): fecha con año y hora */
+  const fF = t => { const x = String(t || ''); return `${x.slice(8, 10)}-${x.slice(5, 7)}-${x.slice(0, 4)}<div style="font-size:11px">${x.slice(11, 16)}</div>`; };
+  const det = (f) => {
+    const fila = (l, v) => v ? `<div style="display:grid;grid-template-columns:130px 1fr;gap:8px;padding:3px 0"><span class="td-dim">${l}</span><span>${v}</span></div>` : '';
+    const wa = String(f.whatsapp || '').replace(/\D/g, '');
+    return `<div style="padding:6px 4px 10px">${fila('Nombre', cvEsc(f.nombre))}${fila('Negocio', cvEsc(f.negocio))}${fila('RUT', cvEsc(f.rut))}${fila('Correo', f.email ? `<a href="mailto:${cvEsc(f.email)}" style="color:var(--ac)">${cvEsc(f.email)}</a>` : '')}${fila('WhatsApp', wa ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:var(--ac)">${cvEsc(f.whatsapp)}</a>` : '<span class="td-dim">no lo dejó (el formulario no lo guarda todavía)</span>')}${fila('Tipo', cvEsc(f.tipo))}${fila('Tienda física', cvEsc(f.tienda_fisica))}${fila('Cuánto compraría', cvEsc(f.cantidad))}${fila('Dónde', cvEsc([f.ciudad, f.region].filter(Boolean).join(', ')))}${fila('Web o redes', cvEsc(f.web))}${fila('Mensaje', f.mensaje ? `«${cvEsc(f.mensaje)}»` : '')}${fila('Otros', cvEsc((f.otros || []).join(' · ')))}${fila('Quiere catálogo', f.quiere_catalogo ? 'Sí' : '')}${fila('Cuenta en la tienda', `N° ${cvEsc(f.ps_id)} · ${f.aprobada ? 'aprobada como mayorista' : 'sin aprobar'}${f.activa === false ? ' · desactivada' : ''}`)}${fila('Pedidos', (f.pedidos || []).length ? cvEsc(f.pedidos.map(x => x.ref || x.id || x).join(', ')) : '')}${fila('Lo tomó', f.tomado ? cvEsc(`${f.tomado.por || ''}${f.tomado.fecha ? ' · ' + String(f.tomado.fecha).slice(0, 10) : ''}`) : '')}${fila('Nota completa', f.nota ? `<span style="white-space:pre-wrap">${cvEsc(f.nota)}</span>` : '')}</div>`;
+  };
   const xs = CV_FORM_VER === 'sin_tomar' ? sin : fs;
   const tag = (t, c, b) => `<span class="cv-tag" style="color:var(${c});background:var(${b})">${t}</span>`;
   body.innerHTML = `<div class="segs" style="margin:2px 0 8px"><button class="seg${CV_FORM_VER === 'sin_tomar' ? ' on' : ''}" data-cvfver="sin_tomar">Sin tomar (${fmt(sin.length)})</button><button class="seg${CV_FORM_VER === 'todos' ? ' on' : ''}" data-cvfver="todos">Todos (${fmt(fs.length)})</button></div>
@@ -5085,15 +5143,16 @@ async function cvFormularios(forzar) {
       const wa = String(f.whatsapp || '').replace(/\D/g, '');
       const lead = f.lead && (f.lead.id || f.lead);
       const saludo = encodeURIComponent(`Hola ${String(f.nombre || '').split(' ')[0]}, te escribo de Mohicano Jeans por tu solicitud para comprar por mayor. ¿Te mando el catálogo con lo que tenemos con despacho inmediato?`);
-      return `<tr>
+      return `<tr data-cvfdet="${f.ps_id}" style="cursor:pointer" title="Toca para ver los datos">
         <td class="td-dim">${fF(f.fecha)}</td>
         <td><b>${cvEsc(f.nombre || '—')}</b>${f.negocio ? `<div class="td-dim">${cvEsc(f.negocio)}</div>` : ''}${f.mensaje ? `<div class="td-dim">«${cvEsc(String(f.mensaje).slice(0, 120))}»</div>` : ''}</td>
         <td class="td-dim">${cvEsc([f.ciudad, f.region].filter(Boolean).join(', ') || '—')}${f.cantidad ? `<div>${cvEsc(f.cantidad)}</div>` : ''}${f.tienda_fisica ? `<div>Tienda física: ${cvEsc(f.tienda_fisica)}</div>` : ''}</td>
         <td>${f.tomado ? tag('Tomado por ' + cvEsc(String(f.tomado.por || '').split('@')[0]), '--ac', '--ac10') : tag('Sin tomar', '--er', '--er10')}${f.aprobada ? tag('Aprobada', '--ok', '--ok10') : ''}${lead ? tag('Le escribió a ' + cvEsc(f.lead.agente || 'Sofía'), '--ok', '--ok10') : ''}${(f.pedidos || []).length ? tag('Hizo pedido', '--ok', '--ok10') : ''}${!wa ? tag('Sin WhatsApp en el formulario', '--tx3', '--sf2') : ''}</td>
         <td>${!f.tomado ? `<button class="cv-fbtn pri" data-cvftomar="${f.ps_id}">🙋 Lo tomo yo</button>` : ''}${lead ? `<button class="cv-fbtn" data-cvfconv="${cvEsc(lead)}">Ver conversación</button>` : ''}${wa ? `<a class="cv-fbtn" href="https://wa.me/${wa}?text=${saludo}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${f.email ? `<a class="cv-fbtn" href="mailto:${cvEsc(f.email)}?subject=${encodeURIComponent('Tu solicitud mayorista en Mohicano Jeans')}">Correo</a>` : ''}</td>
-      </tr>`; }).join('')}</tbody></table>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
+      </tr><tr data-cvfpanel="${f.ps_id}" hidden><td></td><td colspan="4">${det(f)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
     <div class="td-dim" style="font-size:11px;margin-top:8px">Fuente: las cuentas que crea el formulario de mohicano.cl/mayorista (PrestaShop). El WhatsApp y las otras respuestas llegan cuando el módulo nuevo las deje disponibles; "Le escribió" = tiene conversación con Sofía o Valentina por su celular o correo.</div>`;
   body.querySelectorAll('[data-cvfver]').forEach(b => b.addEventListener('click', () => { CV_FORM_VER = b.dataset.cvfver; cvFormularios(); }));
+  body.querySelectorAll('[data-cvfdet]').forEach(r => r.addEventListener('click', (e) => { if (e.target.closest('button,a')) return; const pnl = body.querySelector(`[data-cvfpanel="${r.dataset.cvfdet}"]`); if (pnl) { pnl.hidden = !pnl.hidden; r.style.background = pnl.hidden ? '' : 'var(--sf2)'; } }));
   body.querySelectorAll('[data-cvfconv]').forEach(b => b.addEventListener('click', () => { CV_SEL = b.dataset.cvfconv; go('conversaciones', 'Conversaciones'); }));
   body.querySelectorAll('[data-cvftomar]').forEach(b => b.addEventListener('click', async () => {
     b.disabled = true; b.textContent = 'Guardando…';
@@ -5706,7 +5765,7 @@ const TALLA_ORDEN = (x, y) => (isNaN(+x) || isNaN(+y) ? String(x).localeCompare(
 function chipsTalla(lbl, obj, opts = {}) {
   const tt = Object.entries(obj || {}).filter(([, n]) => n > 0).sort((a, b) => TALLA_ORDEN(a[0], b[0]));
   if (!tt.length) return '';
-  return `<div class="pvc-ts"><span class="pvc-ts-l"${opts.color ? ` style="color:${opts.color}"` : ''}>${lbl}</span>${tt.map(([tl, n]) =>
+  return `<div class="pvc-ts">${lbl ? `<span class="pvc-ts-l"${opts.color ? ` style="color:${opts.color}"` : ''}>${lbl}</span>` : ''}${tt.map(([tl, n]) =>
     `<span class="pvc-t ${opts.cls || ''}"${opts.tit ? ` title="${opts.tit(tl, n)}"` : ''}><i>${tl}</i><b>${fmt(n)}</b></span>`).join('')}</div>`;
 }
 
@@ -12230,6 +12289,77 @@ function bindContent(secId) {
 
   // Cajas en Bodega — filtros + expandir contenido
   if (secId === 'cajas') {
+    /* Vista por artículo y talla (Manu, 30-10-2026: "por artículo cuánto tenemos por talla… cuánto tenemos en caja por cada
+       artículo"): suma las cajas que pasan los filtros de arriba, artículo por artículo y talla por talla. Tocar una fila
+       abre en qué cajas está. Si lo buscado es un artículo, queda solo ese. */
+    let CJ_VER = 'cajas', CJ_ARTS = [];
+    const cajasAll = (!Array.isArray(CACHE['cajas.json']) && CACHE['cajas.json']?.cajas) || [];
+    const TALLAS_CJ = ['36', '38', '40', '42', '44', '46', '48', '50', '52'];
+    function pintarCjArts(visibles, q) {
+      const porArt = new Map();
+      for (const c of cajasAll) {
+        if (!visibles.has(c.caja)) continue;
+        for (const l of (c.lineas || [])) {
+          const a = porArt.get(l.art) || { art: l.art, prendas: 0, cajas: new Set(), tallas: {}, lista: new Map() };
+          a.prendas += l.cant || 0; a.cajas.add(c.caja); a.tallas[l.talla] = (a.tallas[l.talla] || 0) + (l.cant || 0);
+          const e = a.lista.get(c.caja) || { c, n: 0, tallas: {} };
+          e.n += l.cant || 0; e.tallas[l.talla] = (e.tallas[l.talla] || 0) + (l.cant || 0); a.lista.set(c.caja, e);
+          porArt.set(l.art, a);
+        }
+      }
+      let arts = [...porArt.values()];
+      if (q && arts.some(a => a.art.includes(q))) arts = arts.filter(a => a.art.includes(q));
+      arts.sort((x, y) => y.prendas - x.prendas || x.art.localeCompare(y.art));
+      const extra = [...new Set(arts.flatMap(a => Object.keys(a.tallas)).filter(tl => !TALLAS_CJ.includes(tl)))].sort(TALLA_ORDEN);
+      const cols = [...TALLAS_CJ.filter(tl => arts.some(a => a.tallas[tl])), ...extra];
+      CJ_ARTS = arts;
+      const tabla = document.getElementById('cjArtTable'); if (!tabla) return;
+      tabla.querySelector('thead').innerHTML = `<tr><th data-ord="t">Artículo</th><th class="cj-sec" data-ord="t">Temp</th><th class="cj-sec" data-ord="t">Modelo</th><th class="cj-sec" data-ord="t">Color</th><th class="r cj-sec" data-ord="n">Cajas</th><th class="r" data-ord="n">Prendas</th>${cols.map(tl => `<th class="r" data-ord="n" title="Prendas talla ${tl}">${tl}</th>`).join('')}</tr>`;
+      const totT = cols.map(tl => arts.reduce((s, a) => s + (a.tallas[tl] || 0), 0));
+      const totP = arts.reduce((s, a) => s + a.prendas, 0);
+      document.getElementById('cjArtBody').innerHTML = arts.length ? arts.map((a, i) => `<tr class="cj-art" data-i="${i}" title="Toca para ver en qué cajas está" style="cursor:pointer">
+        <td data-v="${a.art}"><span class="td-code">${a.art}</span></td>
+        <td class="td-dim cj-sec" data-v="${a.art.slice(2, 4)}">T${a.art.slice(2, 4)}</td>
+        <td class="cj-sec" data-v="${a.art.slice(2, 6)}">${a.art.slice(2, 6)}</td>
+        <td class="td-dim cj-sec" data-v="${a.art.slice(6, 8)}">${a.art.slice(6, 8)}</td>
+        <td class="r td-num cj-sec" data-v="${a.cajas.size}">${a.cajas.size}</td>
+        <td class="r td-num" data-v="${a.prendas}" style="font-weight:700">${fmt(a.prendas)}</td>
+        ${cols.map(tl => `<td class="r td-num" data-v="${a.tallas[tl] || 0}">${a.tallas[tl] ? fmt(a.tallas[tl]) : '<span class="td-dim">·</span>'}</td>`).join('')}</tr>`).join('')
+        + `<tr class="pl-total no-click" style="font-weight:800;background:var(--sf2)"><td>Total</td><td class="cj-sec"></td><td class="cj-sec"></td><td class="cj-sec"></td><td class="r td-num cj-sec">${visibles.size}</td><td class="r td-num">${fmt(totP)}</td>${totT.map(n => `<td class="r td-num">${n ? fmt(n) : '<span class="td-dim">·</span>'}</td>`).join('')}</tr>`
+        : `<tr class="no-click"><td colspan="${6 + cols.length}" style="text-align:center;padding:20px;color:var(--tx3)">Ninguna caja con esos filtros</td></tr>`;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('cjArtN', `${arts.length} artículo${arts.length === 1 ? '' : 's'}`);
+      set('cjArtFoot', arts.length ? `${arts.length} artículos · ${fmt(totP)} prendas en ${visibles.size} caja${visibles.size === 1 ? '' : 's'} · cada columna es una talla; el punto es que no hay de esa talla` : '');
+      planOrdenable(tabla); tabla._ordenar();
+    }
+    document.querySelectorAll('#cjVerSegs .seg').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#cjVerSegs .seg').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); CJ_VER = b.dataset.v || 'cajas';
+      const art = document.getElementById('cjArtCard'), caj = document.getElementById('cjCajasCard');
+      if (art) art.style.display = CJ_VER === 'arts' ? '' : 'none';
+      if (caj) caj.style.display = CJ_VER === 'arts' ? 'none' : '';
+      applyCjFilters();
+    }));
+    // Tocar un artículo: en qué cajas está, cuántas prendas y de qué tallas en cada una
+    document.getElementById('cjArtBody')?.addEventListener('click', ev => {
+      const tr = ev.target.closest('tr.cj-art'); const a = tr && CJ_ARTS[+tr.dataset.i]; if (!a) return;
+      const cajas = [...a.lista.values()].sort((x, y) => (y.c.dias || 0) - (x.c.dias || 0));
+      const th = (s, r) => `<th style="padding:7px 10px;text-align:${r ? 'right' : 'left'};font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">${s}</th>`;
+      const html = `<div style="padding:10px 16px 4px">${chipsTalla('Por talla', a.tallas)}</div>
+        <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--sf2)">${th('CAJA')}${th('CLIENTE')}${th('PEDIDO')}${th('FECHA')}${th('DÍAS', 1)}${th('PRENDAS', 1)}${th('TALLAS')}${th('ESTADO')}</tr></thead>
+        <tbody>${cajas.map(e => `<tr>
+          <td style="padding:6px 10px"><span class="td-code">${String(e.c.caja).replace(/^0+/, '')}</span></td>
+          <td style="padding:6px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${e.c.cliente}<div class="td-dim" style="font-size:10px">${e.c.ciudad || ''}</div></td>
+          <td style="padding:6px 10px"><span class="td-code">${e.c.pedido}</span></td>
+          <td class="td-dim" style="padding:6px 10px;white-space:nowrap">${e.c.fecha}</td>
+          <td class="r td-num" style="padding:6px 10px;color:${cajasDiasClr(e.c.dias)};font-weight:700">${e.c.dias}</td>
+          <td class="r td-num" style="padding:6px 10px;font-weight:700">${fmt(e.n)}</td>
+          <td style="padding:4px 10px">${chipsTalla('', e.tallas)}</td>
+          <td style="padding:6px 10px;text-align:center">${cajasEstadoBadge(e.c.estado)}</td>
+        </tr>`).join('')}</tbody></table>
+        <div class="td-dim" style="font-size:11px;padding:8px 16px 10px">${fmt(a.prendas)} prendas de este artículo en ${a.cajas.size} caja${a.cajas.size === 1 ? '' : 's'}, con los filtros de arriba.</div>`;
+      vkAbrir(`Artículo ${a.art} en caja`, html);
+    });
     function applyCjFilters() {
       const est  = document.querySelector('#cjEstadoSegs .seg.on')?.dataset.est || 'bodega';
       const temp = document.querySelector('#cjTempSegs .seg.on')?.dataset.t || 'all';
@@ -12237,7 +12367,7 @@ function bindContent(secId) {
       const minD = meses ? Math.round(meses * 30.44) : (parseInt(document.querySelector('#cjDiasSegs .seg.on')?.dataset.d || '0') || 0);
       const vend = document.getElementById('cjVend')?.value || '';
       const q    = (document.getElementById('cjSearch')?.value || '').trim().toLowerCase();
-      let n = 0, prendas = 0, valor = 0, viejas = 0;
+      let n = 0, prendas = 0, valor = 0, viejas = 0; const visibles = new Set();
       document.querySelectorAll('#cjBody tr.cj-row').forEach(row => {
         const e = row.dataset.estado, d = parseInt(row.dataset.dias) || 0;
         const okE = est === 'all' || (est === 'bodega' ? e === 'bodega' : e !== 'bodega');
@@ -12247,11 +12377,12 @@ function bindContent(secId) {
         let sib = row.nextElementSibling;
         while (sib && sib.classList.contains('cj-line')) { sib.style.display = 'none'; sib = sib.nextElementSibling; }
         const chv = row.querySelector('.chv'); if (chv) chv.textContent = '▸';
-        if (ok) { n++; prendas += parseInt(row.dataset.prendas) || 0; valor += parseInt(row.dataset.valor) || 0; if (d >= 30) viejas++; }   // igual que el botón "+1 mes" 
+        if (ok) { n++; prendas += parseInt(row.dataset.prendas) || 0; valor += parseInt(row.dataset.valor) || 0; if (d >= 30) viejas++; visibles.add(row.dataset.caja); }   // igual que el botón "+1 mes" 
       });
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       set('cjKN', n); set('cjKPrendas', fmt(prendas)); set('cjKValor', fmtM(valor)); set('cjKViejas', viejas);
       set('cjFoot', `${n} cajas · ${fmt(prendas)} prendas · ${fmtCLP(valor)} neto`);
+      if (CJ_VER === 'arts') pintarCjArts(visibles, q);
     }
     // Ordenar por cualquier columna. Cada caja arrastra consigo sus filas de contenido (.cj-line).
     let cjSortCol = null, cjSortDir = 1;
