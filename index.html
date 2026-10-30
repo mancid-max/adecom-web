@@ -5193,10 +5193,28 @@ async function cvFormularios(forzar) {
         <td class="td-dim">${cvEsc([f.ciudad, f.region].filter(Boolean).join(', ') || '—')}${f.cantidad ? `<div>${cvEsc(f.cantidad)}</div>` : ''}${f.tienda_fisica ? `<div>Tienda física: ${cvEsc(f.tienda_fisica)}</div>` : ''}</td>
         <td>${f.tomado ? tag('Tomado por ' + cvEsc(String(f.tomado.por || '').split('@')[0]), '--ac', '--ac10') : tag('Sin tomar', '--er', '--er10')}${f.aprobada ? tag('Aprobada', '--ok', '--ok10') : ''}${lead ? tag('Le escribió a ' + cvEsc(f.lead.agente || 'Sofía'), '--ok', '--ok10') : ''}${(f.pedidos || []).length ? tag('Hizo pedido', '--ok', '--ok10') : ''}${!wa ? tag('Sin WhatsApp en el formulario', '--tx3', '--sf2') : ''}</td>
         <td>${!f.tomado ? `<button class="cv-fbtn pri" data-cvftomar="${f.ps_id}">🙋 Lo tomo yo</button>` : ''}${lead ? `<button class="cv-fbtn" data-cvfconv="${cvEsc(lead)}">Ver conversación</button>` : ''}${wa ? `<a class="cv-fbtn" href="https://wa.me/${wa}?text=${saludo}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${f.email ? `<a class="cv-fbtn" href="mailto:${cvEsc(f.email)}?subject=${encodeURIComponent('Tu solicitud mayorista en Mohicano Jeans')}">Correo</a>` : ''}</td>
-      </tr><tr data-cvfpanel="${f.ps_id}" hidden><td></td><td colspan="4">${det(f)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
+      </tr>`; }).join('')}</tbody></table>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
     <div class="td-dim" style="font-size:11px;margin-top:8px">Fuente: las cuentas que crea el formulario de mohicano.cl/mayorista (PrestaShop). El WhatsApp y las otras respuestas llegan cuando el módulo nuevo las deje disponibles; "Le escribió" = tiene conversación con Sofía o Valentina por su celular o correo.</div>`;
   body.querySelectorAll('[data-cvfver]').forEach(b => b.addEventListener('click', () => { CV_FORM_VER = b.dataset.cvfver; cvFormularios(); }));
-  body.querySelectorAll('[data-cvfdet]').forEach(r => r.addEventListener('click', (e) => { if (e.target.closest('button,a')) return; const pnl = body.querySelector(`[data-cvfpanel="${r.dataset.cvfdet}"]`); if (pnl) { pnl.hidden = !pnl.hidden; r.style.background = pnl.hidden ? '' : 'var(--sf2)'; } }));
+  /* 30-10 (Manu: "que salga una ventana emergente, no abajo de cada formulario") */
+  body.querySelectorAll('[data-cvfdet]').forEach(r => r.addEventListener('click', (e) => {
+    if (e.target.closest('button,a')) return;
+    const f = xs.find(x => String(x.ps_id) === r.dataset.cvfdet); if (!f) return;
+    document.getElementById('cvFormModal')?.remove();
+    const m = document.createElement('div');
+    m.id = 'cvFormModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.innerHTML = `<div style="background:var(--sf);color:var(--tx1);border-radius:14px;max-width:640px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--sf)">
+        <div><b style="font-size:16px">${cvEsc(f.nombre || '—')}</b><div class="td-dim" style="font-size:12px">Formulario del ${cvEsc(String(f.fecha || '').slice(8, 10) + '-' + String(f.fecha || '').slice(5, 7) + '-' + String(f.fecha || '').slice(0, 4) + ' ' + String(f.fecha || '').slice(11, 16))}</div></div>
+        <button class="cv-fbtn" data-cerrar style="font-size:16px;padding:2px 12px">×</button></div>
+      <div style="padding:6px 18px 16px">${det(f)}</div></div>`;
+    const cerrar = () => { m.remove(); document.removeEventListener('keydown', esc); };
+    const esc = (ev) => { if (ev.key === 'Escape') cerrar(); };
+    m.addEventListener('click', (ev) => { if (ev.target === m || ev.target.closest('[data-cerrar]')) cerrar(); });
+    document.addEventListener('keydown', esc);
+    document.body.appendChild(m);
+  }));
   body.querySelectorAll('[data-cvfconv]').forEach(b => b.addEventListener('click', () => { CV_SEL = b.dataset.cvfconv; go('conversaciones', 'Conversaciones'); }));
   body.querySelectorAll('[data-cvftomar]').forEach(b => b.addEventListener('click', async () => {
     b.disabled = true; b.textContent = 'Guardando…';
