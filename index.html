@@ -5035,9 +5035,13 @@ function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
   const tabs = `<div class="segs" style="margin:0 0 14px"><button class="seg${CP_SEL === 'todas' ? ' on' : ''}" data-cptab="todas">Todas</button>${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
   const A = cpAsignar();
+  /* 30-10 (Manu: "ponle específico que no compró los dos artículos con oferta pero sí entró por el llamado de esa campaña") */
+  const notaPromo = (id) => { const xs = (A[id] && A[id].detalle) || []; if (!xs.length || !xs.some(o => o.promo != null)) return '';
+    const con = xs.filter(o => o.promo > 0).length, sin = xs.length - con;
+    return `<br>${con ? `${fmt(con)} con los modelos en oferta` : ''}${con && sin ? ' · ' : ''}${sin ? `${fmt(sin)} ${sin === 1 ? 'entró' : 'entraron'} por el aviso y ${sin === 1 ? 'compró' : 'compraron'} otros modelos` : ''}`; };
   const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo}</div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'todavía sin ventas'}${extra || ''}</div></div>`;
   const tarjetas = `<div class="ra-ks" style="grid-template-columns:repeat(${CAMPANAS.length + 1},minmax(0,1fr));margin-bottom:14px">
-    ${CAMPANAS.map(x => tarjeta(cvEsc(x.nombre), A[x.id], '', x.id)).join('')}
+    ${CAMPANAS.map(x => tarjeta(cvEsc(x.nombre), A[x.id], notaPromo(x.id), x.id)).join('')}
     ${tarjeta('Total de las campañas', A.total, '<br>neto · por Sofía, la página o después de responder el aviso', 'todas')}</div>`;
   const CPD = Object.fromEntries(CAMPANAS.map(x => [x.id, cpConVentas(CP_DATA[x.id], A[x.id])]));
   let det;
@@ -5091,7 +5095,7 @@ function hwExtras(c) {
     const col = /Tocó|Lo quiero|Pidió|Lo leyó|Le llegó/i.test(txt) ? '--ok' : /No le llegó|No salió|No recibir/i.test(txt) ? '--er' : /Pendiente|Sin correo|Sin celular/i.test(txt) ? '--tx3' : '--tx1';
     return txt ? `<span class="hw-chip" style="color:var(${col})">${cvEsc(txt)}</span>` : '<span class="td-dim">—</span>';
   };
-  const filaV = (o) => `<tr><td>${cvEsc(o.cliente)}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmt(o.promo || 0)}</td><td class="hw-num">${fmtM(o.valor || 0)}</td></tr>`;
+  const filaV = (o) => `<tr><td>${cvEsc(o.cliente)}${!o.promo ? '<div class="td-dim" style="font-size:11.5px">Entró por el aviso de Halloween, pero no compró la Riviera ni el 4007</div>' : ''}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmt(o.promo || 0)}</td><td class="hw-num">${fmtM(o.valor || 0)}</td></tr>`;
   return `<section class="ra-bloque"><div class="ra-bt"><h3>Ventas de la campaña</h3><span>por Sofía, la página o después de responder el aviso · en promoción: prendas de la 4455 Riviera o el 4007</span></div>
     <div class="hw-col">${(v.detalle || []).length ? `<table class="hw-tabla"><tr><th>Mayorista</th><th>Cuándo</th><th>Por</th><th class="hw-num">Prendas</th><th class="hw-num">En promoción</th><th class="hw-num">Neto</th></tr>${v.detalle.map(filaV).join('')}</table>` : '<div class="td-dim">Todavía ninguna venta de esta campaña.</div>'}
     ${(pv.detalle || []).length ? `<div class="hw-pie" style="margin-top:10px"><b>Aparte, por vendedor (no cuentan para la campaña):</b> ${pv.detalle.map(o => `${cvEsc(o.cliente)} · ${fmt(o.unidades)} prendas · ${cvEsc(o.via)}`).join(' · ')}</div>` : ''}</div></section>
