@@ -12329,7 +12329,7 @@ function bindContent(secId) {
         : `<tr class="no-click"><td colspan="${6 + cols.length}" style="text-align:center;padding:20px;color:var(--tx3)">Ninguna caja con esos filtros</td></tr>`;
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       set('cjArtN', `${arts.length} artículo${arts.length === 1 ? '' : 's'}`);
-      set('cjArtFoot', arts.length ? `${arts.length} artículos · ${fmt(totP)} prendas en ${visibles.size} caja${visibles.size === 1 ? '' : 's'} · cada columna es una talla; el punto es que no hay de esa talla` : '');
+      set('cjArtFoot', arts.length ? `${arts.length} artículo${arts.length === 1 ? '' : 's'} · ${fmt(totP)} prendas en ${visibles.size} caja${visibles.size === 1 ? '' : 's'} · cada columna es una talla; un punto es que no hay de esa talla` : '');
       planOrdenable(tabla); tabla._ordenar();
     }
     document.querySelectorAll('#cjVerSegs .seg').forEach(b => b.addEventListener('click', () => {
