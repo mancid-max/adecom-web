@@ -784,6 +784,14 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
       Reporte
     </button>
+    <button class="nav-item" data-sec="campanas-atencion" data-ttl="Campañas" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-5 0-8 3-8 7.5S7 21 12 21s8-3 8-7.5S17 6 12 6z"/><path d="M12 6c0-1.5.5-3 2-3.5"/><path d="M9 12l1.5 1.5L12 12l1.5 1.5L15 12"/></svg>
+      Campañas
+    </button>
+    <button class="nav-item" data-sec="formularios-atencion" data-ttl="Formularios de mini-mayoristas" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+      Formularios
+    </button>
 
     <div class="sb-grp" data-admin-only>Cobranza</div>
     <button class="nav-item" data-sec="deudas" data-ttl="Deudas" data-admin-only>
@@ -4661,7 +4669,6 @@ async function secConversaciones() {
     ${stat('necesita', 'requieren una persona', '--er')}${stat('caso', 'con caso abierto', '--wa')}${stat('tomada', 'las atiende el equipo', '--ac')}${stat('all', `en los últimos ${fmt(d.dias || 30)} días`, '--tx2')}
   </div>
   ${alertasHtml}
-  <div class="cv-form" id="cvForm"><button class="cv-form-hd" data-cvform><span>📝 Formularios de mini-mayoristas</span><span id="cvFormN" class="td-dim">cargando…</span><span class="cv-form-fl">▾</span></button><div id="cvFormBody" hidden></div></div>
   <div class="cv-app" id="cvApp">
     <aside class="cv-col-lista">
       <div class="cv-lhead">
@@ -4686,12 +4693,7 @@ async function secConversaciones() {
    necesitan una persona, cuánto concretó Valentina en venta y Sofía"). Lo calcula la página (reporte-atencion-background,
    ~1,5 min, cada 15 min como máximo); acá se muestra el último. */
 let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_PER = 'd7', RA_TIMER = null;
-async function secReporteAtencion() {
-  const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
-  const [d, c, f] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1')]);
-  if (!d.ok) return makePH(ICO, 'Reporte de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
-  RA_DATA = d; RA_CAMP = c && c.ok ? c : null; RA_FORM = f && f.ok ? f : null;
-  return `<style>
+const RA_ESTILO = `
     .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .ra-hd .td-dim{font-size:12px}
     .ra-bloque{margin-bottom:22px}
@@ -4724,7 +4726,13 @@ async function secReporteAtencion() {
     @media(max-width:1200px){.ra-ks.ra-7{grid-template-columns:repeat(4,minmax(0,1fr))}}
     @media(max-width:1000px){.ra-ks{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-g2,.ra-g11{grid-template-columns:1fr}}
     @media(max-width:700px){.ra-ks.ra-7{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-tabla .ra-ocultar{display:none}}
-  </style><div id="raBody">${raRender()}</div>`;
+  `;
+async function secReporteAtencion() {
+  const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
+  const [d, c, f] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1')]);
+  if (!d.ok) return makePH(ICO, 'Reporte de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
+  RA_DATA = d; RA_CAMP = c && c.ok ? c : null; RA_FORM = f && f.ok ? f : null;
+  return `<style>${RA_ESTILO}</style><div id="raBody">${raRender()}</div>`;
 }
 const RA_EST = { conversando: ['Conversando', '--ok', '--ok10'], requiere: ['Requiere una persona', '--er', '--er10'], pausa: ['En pausa', '--tx2', '--sf2'], baja: ['Se dio de baja', '--tx3', '--sf2'] };
 const raChip = (txt, col, bg) => `<span class="ra-chip" style="color:var(${col});background:var(${bg})">${txt}</span>`;
@@ -4759,7 +4767,7 @@ function raRender() {
       </div>
     </section>
 
-    ${raCampana()}
+    <section class="ra-bloque"><div class="ra-col" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· cada campaña tiene su reporte y se comparan entre ellas</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div></section>
 
     ${raFormularios(ini, per)}
 
@@ -4828,7 +4836,7 @@ function raCampana() {
 /* los formularios de mini-mayoristas de mohicano.cl/mayorista (29-10): cuántos llegan y qué pasó con ellos */
 function raFormularios(ini, per) {
   const F = RA_FORM;
-  if (!F) return '';
+  if (!F || !Array.isArray(F.formularios)) return `<section class="ra-bloque"><div class="ra-bt"><h3>Formularios de mini-mayoristas</h3><span>mohicano.cl/mayorista</span></div><div class="ra-col td-dim">Todavía no disponibles: la función que los entrega no está publicada (Netlify sin créditos hasta el 7 de noviembre).</div></section>`;
   const fecha = f => Date.parse(String(f.fecha).replace(' ', 'T') + '-03:00');
   const xs = (F.formularios || []).filter(f => fecha(f) >= ini);
   const n = fn => xs.filter(fn).length;
@@ -4879,12 +4887,15 @@ function raGraficos() {
   const hs = d.por_hora || [];
   barras('raHoras', hs.map((_, h) => String(h).padStart(2, '0')), [{ label: 'Mensajes', data: hs, backgroundColor: rgba(color('--ac'), .75), borderRadius: 3 }], null,
     { horizontal: false, apiladas: false, leyenda: false, sufijo: ' mensajes', eje: raEnteros }).catch(() => {});
-  if (RA_FORM) {
+  if (RA_FORM && Array.isArray(RA_FORM.formularios)) {
     const ini = Date.parse((d.inicios || {})[P] || 0), dias = {};
     for (const f of RA_FORM.formularios || []) { const t = String(f.fecha).slice(0, 10); if (Date.parse(t + 'T12:00:00-03:00') >= ini - 864e5) dias[t] = (dias[t] || 0) + 1; }
     const ks = Object.keys(dias).sort();
     barras('raForm', ks.map(t => t.slice(8, 10) + '-' + t.slice(5, 7)), [{ label: 'Formularios', data: ks.map(t => dias[t]), backgroundColor: rgba(color('--ac'), .8), borderRadius: 3 }], null, { horizontal: false, apiladas: false, leyenda: false, sufijo: ' formularios', eje: raEnteros }).catch(() => {});
   }
+  raGraficosCampana();
+}
+function raGraficosCampana() {
   const c = RA_CAMP;
   if (c && c.hay) {
     const w = c.whatsapp || {}, resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
@@ -4904,6 +4915,7 @@ function raMontar() {
   const body = document.getElementById('raBody'); if (!body) return;
   body.querySelectorAll('[data-raper]').forEach(b => b.addEventListener('click', () => { RA_PER = b.dataset.raper; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); }));
   body.querySelector('[data-raconv]')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
+  body.querySelector('[data-racamp]')?.addEventListener('click', () => go('campanas-atencion', 'Campañas'));
   body.querySelectorAll('[data-ralead]').forEach(r => r.addEventListener('click', () => { CV_SEL = r.dataset.ralead; go('conversaciones', 'Conversaciones'); }));
   body.querySelector('[data-raact]')?.addEventListener('click', async () => { const r = await cvFetch('?reporte=1&forzar=1'); cvFetch('?campana=1'); if (r.ok) { RA_DATA = { ...RA_DATA, actualizando: true }; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); raEsperar(); } });
   raGraficos();
@@ -4927,11 +4939,130 @@ function raEsperar() {
 /* Formularios de mini-mayoristas de mohicano.cl/mayorista (29-10, Manu: "en Conversaciones también, son los formularios que
    caen de la página para ser mayorista, bueno mini-mayoristas"): quién los tomó, si le escribió a Sofía, si pidió */
 let CV_FORM = null, CV_FORM_VER = 'sin_tomar';
+/* 29-10 (Manu: "debería salir en esa parte izquierda"): sección propia en el menú de Atención */
+/* Campañas (30-10, Manu: "todas estas cosas deberían verse diferentes para ver cómo nos va en cada campaña"): arriba la
+   comparación entre campañas; abajo, una pestaña con el reporte de cada una. Para sumar una campaña nueva, agregarla a
+   CAMPANAS (si sale por campana-correo, su fuente es ?campana_correo=<nombre> y se ve con hwRender o uno propio). */
+const CAMPANAS = [
+  { id: 'halloween', nombre: 'Halloween · descuento de miedo', fuente: '?campana_correo=halloween' },
+  { id: 'despacho', nombre: 'Despacho inmediato 44', fuente: '?campana=1' },
+];
+let CP_DATA = {}, CP_SEL = 'halloween';
+/* las mismas cifras de cada campaña, para compararlas */
+function cpResumen(id, c) {
+  if (!c || !c.ok || !c.hay) return null;
+  const R = c.respuestas || {}, resp = Object.entries(R).filter(([x]) => x !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
+  const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {};
+  if (id === 'despacho') return { desde: c.desde, wa: w.enviados || 0, llego: w.llegaron || 0, resp, correos: co.enviados || 0, abrieron: co.abrieron || 0, tocaron: co.tocaron || 0,
+    pedidos: v.pedidos || 0, compraron: v.clientes || 0, monto: v.valor || 0 };
+  return { desde: c.desde, wa: w.enviados || 0, llego: w.llegaron || 0, resp, correos: co.enviados || 0, abrieron: co.abrieron || 0, tocaron: co.tocaron || 0,
+    pedidos: v.pedidos || 0, compraron: v.clientes || 0, monto: (v.erp_valor || 0) + (v.monto_promo || 0) };
+}
+function cpRender() {
+  const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+  const filas = CAMPANAS.map(x => ({ ...x, r: cpResumen(x.id, CP_DATA[x.id]) }));
+  const tabla = `<div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Respondieron</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Tocaron el botón</th><th class="hw-num">Compraron</th><th class="hw-num">Pedidos</th></tr>
+    ${filas.map(f => f.r ? `<tr data-cpsel="${f.id}" style="cursor:pointer"><td><b>${cvEsc(f.nombre)}</b></td><td>${cvEsc(cvHora(f.r.desde))}</td><td class="hw-num">${fmt(f.r.wa)}</td><td class="hw-num">${fmt(f.r.llego)} <span class="td-dim">${pct(f.r.llego, f.r.wa)}</span></td><td class="hw-num">${fmt(f.r.resp)} <span class="td-dim">${pct(f.r.resp, f.r.wa)}</span></td><td class="hw-num">${fmt(f.r.correos)}</td><td class="hw-num">${fmt(f.r.abrieron)} <span class="td-dim">${pct(f.r.abrieron, f.r.correos)}</span></td><td class="hw-num">${fmt(f.r.tocaron)}</td><td class="hw-num">${fmt(f.r.compraron)}</td><td class="hw-num">${fmt(f.r.pedidos)}${f.r.monto ? ` <span class="td-dim">${fmtM(f.r.monto)}</span>` : ''}</td></tr>`
+      : `<tr><td><b>${cvEsc(f.nombre)}</b></td><td colspan="9" class="td-dim">Todavía no sale</td></tr>`).join('')}
+  </table><div class="hw-pie">Respondieron y les llegó: sobre los WhatsApp mandados · abrieron: sobre los correos enviados · compraron: mayoristas de la lista con un pedido desde que salió (ERP y página).</div></div>`;
+  const tabs = `<div class="segs" style="margin:18px 0 12px">${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
+  const det = CP_SEL === 'despacho' ? (RA_CAMP = CP_DATA.despacho && CP_DATA.despacho.ok ? CP_DATA.despacho : null, raCampana()) : hwRender(CP_DATA[CP_SEL]);
+  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir</span></div>${tabla}${tabs}<div id="cpDet">${det}</div>`;
+}
+async function secCampanas() {
+  const rs = await Promise.all(CAMPANAS.map(x => cvFetch(x.fuente).catch(() => null)));
+  CP_DATA = {}; CAMPANAS.forEach((x, i) => { CP_DATA[x.id] = rs[i]; });
+  CP_DATA._actualizando = rs.some(r => r && r.actualizando);
+  return `<style>${RA_ESTILO}${HW_ESTILO}</style><div id="cpBody">${cpRender()}</div>`;
+}
+function cpMontar() {
+  const body = document.getElementById('cpBody'); if (!body) return;
+  const pintar = () => { cerrarGraficos(); body.innerHTML = cpRender(); cpMontar(); };
+  body.querySelectorAll('[data-cptab]').forEach(b => b.addEventListener('click', () => { CP_SEL = b.dataset.cptab; pintar(); }));
+  body.querySelectorAll('[data-cpsel]').forEach(r => r.addEventListener('click', () => { CP_SEL = r.dataset.cpsel; pintar(); }));
+  if (CP_SEL === 'despacho') raGraficosCampana();
+}
+
+/* Campaña Halloween (30-10, Manu: "¿ese dato también está en el dashboard? déjalo como Halloween"): lo calcula
+   campana-correo-background (bi/panel/campana-halloween.json) y lo entrega conversaciones?campana_correo=halloween */
+const HW_ESTILO = `
+    .hw-hd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}.hw-hd h3{margin:0;font-size:17px}
+    .hw-bt{font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 8px}
+    .hw-ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .hw-k{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:13px 15px;min-width:0}
+    .hw-n{font-size:26px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}.hw-t{font-size:13px;font-weight:600;margin-top:3px}.hw-s{font-size:11.5px;color:var(--tx3);margin-top:5px;line-height:1.45}
+    .hw-col{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:12px 14px;overflow-x:auto}
+    .hw-tabla{width:100%;border-collapse:collapse;font-size:12.5px}.hw-tabla th{text-align:left;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+    .hw-tabla td{padding:8px;border-bottom:1px solid var(--bd)}.hw-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .hw-chip{font-size:12px;font-weight:600}.hw-pie{font-size:11px;color:var(--tx3);margin-top:10px;line-height:1.5}
+    @media(max-width:1000px){.hw-ks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+`;
+function hwRender(c) {
+  if (!c || !c.ok) return '<div class="hw-col td-dim">No se pudo leer el reporte de Halloween.</div>';
+  const k = (n, t, sub, color) => `<div class="hw-k"><div class="hw-n" style="color:var(${color})">${n}</div><div class="hw-t">${t}</div>${sub ? `<div class="hw-s">${sub}</div>` : ''}</div>`;
+  const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+  const co = c.correo || {}, w = c.whatsapp || {}, v = c.ventas || {}, R = c.respuestas || {};
+  const resp = Object.entries(R).filter(([x]) => x !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
+  const chip = (txt) => {
+    const col = /Tocó|Lo quiero|pidió|Lo leyó/i.test(txt) ? '--ok' : /No le llegó|No salió|No recibir/i.test(txt) ? '--er' : /Pendiente|Sin correo/i.test(txt) ? '--tx3' : '--tx1';
+    return txt ? `<span class="hw-chip" style="color:var(${col})">${cvEsc(txt)}</span>` : '<span class="td-dim">—</span>';
+  };
+  return `  <div class="hw-hd"><h3>🎃 Halloween · Descuento de miedo</h3><span class="td-dim">4455 Riviera y 4007, solo el 31-10${c.desde ? ` · salió el ${cvEsc(cvHora(c.desde))}` : ''} · al ${cvEsc(cvHora(c.generado))}${c.actualizando ? ' · actualizando…' : ''}</span></div>
+  ${!c.hay ? '<div class="hw-col td-dim">Todavía no sale. Se calcula apenas salgan los primeros correos o WhatsApp.</div>' : `
+  <div class="hw-bt">Correo</div>
+  <div class="hw-ks">
+    ${k(fmt(co.enviados), 'correos enviados', `de ${fmt(co.lista)} mayoristas con correo · faltan ${fmt(co.pendientes)}${co.fallaron ? ` · ${fmt(co.fallaron)} no salieron` : ''}`, '--tx1')}
+    ${k(fmt(co.abrieron), 'lo abrieron', pct(co.abrieron, co.enviados) + ' de los enviados', '--tx1')}
+    ${k(fmt(co.tocaron), 'tocaron "Lo quiero"', 'abrieron el WhatsApp de Sofía desde el correo', '--ac')}
+    ${k(fmt(co.pendientes), 'por mandar', 'Resend deja 100 al día: van primero los que más compran', '--tx3')}
+  </div>
+  <div class="hw-bt">WhatsApp</div>
+  <div class="hw-ks">
+    ${k(fmt(w.enviados), 'avisos mandados', w.lista ? `de ${fmt(w.lista)} con celular` : 'esperando que Meta apruebe la plantilla', '--tx1')}
+    ${k(fmt(w.llegaron), 'les llegó', pct(w.llegaron, w.enviados) + (w.no_llego ? ` · ${fmt(w.no_llego)} no les llegó` : ''), '--tx1')}
+    ${k(fmt(w.leyeron), 'lo leyeron', pct(w.leyeron, w.enviados), '--tx1')}
+    ${k(fmt(resp), 'respondieron', Object.entries(R).filter(([x]) => x !== 'Sin respuesta').map(([x, n]) => `${cvEsc(x)} ${fmt(n)}`).join(' · ') || '—', '--ac')}
+  </div>
+  <div class="hw-bt">Ventas</div>
+  <div class="hw-ks">
+    ${k(fmt(v.pedidos), 'pedidos', `${fmt(v.clientes)} mayoristas de la lista pidieron`, '--ok')}
+    ${k(fmt(v.unidades_promo), 'prendas en promoción', '4455 Riviera y 4007', '--ok')}
+    ${k(fmtM(v.monto_promo || 0), 'en la promoción', 'neto, con el precio especial', '--ok')}
+    ${k(fmtM(v.erp_valor || 0), 'pedidos en el ERP', 'de los mayoristas de la lista, desde que salió (neto)', '--tx1')}
+  </div>
+  ${(v.detalle || []).length ? `<div class="hw-col" style="margin-top:12px"><table class="hw-tabla"><tr><th>Pedido</th><th>Cuándo</th><th>Por</th><th class="hw-num">Prendas</th><th class="hw-num">En promoción</th></tr>
+    ${v.detalle.map(o => `<tr><td>${cvEsc(o.cliente)}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmt(o.promo)}</td></tr>`).join('')}</table></div>` : ''}
+  <div class="hw-bt">Los mejores mayoristas <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--tx3)">· por lo comprado en 12 meses</span></div>
+  <div class="hw-col"><table class="hw-tabla"><tr><th>Mayorista</th><th class="hw-num">Compró 12 meses</th><th>Correo</th><th>WhatsApp</th><th>Respondió</th><th>Pidió</th></tr>
+    ${(c.mejores || []).map(m => `<tr><td><b>${cvEsc(m.nombre || '—')}</b></td><td class="hw-num">${fmtM(m.compras || 0)}</td><td>${chip(m.correo)}</td><td>${chip(m.whatsapp)}</td><td>${chip(m.respondio)}</td><td>${m.pidio ? chip('Sí, pidió') : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
+  </table></div>`}
+  <div class="hw-pie">Fuentes: correos enviados (Resend) y abiertos (píxel), clics en "Lo quiero" (ir-sofia), estado del WhatsApp y respuestas en Nexor, pedidos de la página (Supabase) y del ERP (bi/pedidos.json). Sin bloqueados ni bajas. Se recalcula cada 10 minutos al abrir.</div>`;
+}
+async function secFormularios() {
+  setTimeout(() => cvFormularios(true), 0);
+  return `<style>${document.querySelector('style[data-cvform]') ? '' : ''}
+    .cv-form{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf)}
+    .cv-form-hd{width:100%;display:flex;gap:10px;align-items:center;border:0;background:none;font:inherit;font-size:15px;font-weight:700;color:var(--tx1);padding:12px 14px;text-align:left}
+    .cv-form-hd .td-dim{font-weight:500;font-size:12.5px}
+    #cvFormBody{padding:0 14px 14px}
+    .cv-ft{width:100%;border-collapse:collapse;font-size:12.5px}.cv-ft th{text-align:left;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;padding:6px;border-bottom:1px solid var(--bd);white-space:nowrap}
+    .cv-ft td{padding:8px 6px;border-bottom:1px solid var(--bd);vertical-align:top}.cv-ft .cv-tag{margin:0 3px 3px 0}
+    .cv-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}
+    .cv-fbtn{border:1px solid var(--bd);background:var(--sf);border-radius:999px;font:inherit;font-size:11.5px;font-weight:600;padding:3px 10px;cursor:pointer;color:var(--tx1);text-decoration:none;display:inline-block;margin:0 4px 4px 0;white-space:nowrap}
+    .cv-fbtn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+  </style>
+  <div class="cv-form"><div class="cv-form-hd"><span>📝 Formularios de mini-mayoristas</span><span id="cvFormN" class="td-dim">cargando…</span></div><div id="cvFormBody"></div></div>`;
+}
 async function cvFormularios(forzar) {
   const n = document.getElementById('cvFormN'); if (!n) return;
   if (!CV_FORM || forzar) CV_FORM = await cvFetch('?formularios=1');
   const d = CV_FORM;
   if (!d || !d.ok) { n.textContent = (d && d.mensaje) || 'no pude leerlos'; return; }
+  if (!Array.isArray(d.formularios)) {
+    n.textContent = 'todavía no disponibles';
+    const b0 = document.getElementById('cvFormBody'); if (b0) b0.innerHTML = '<div class="td-dim" style="padding:6px 0">La función que entrega los formularios todavía no está publicada en la página: Netlify no publica cambios hasta que se renueven los créditos (ciclo del 7 al 7) o se compren más. Apenas se publique, aparecen acá.</div>';
+    CV_FORM = null; return;
+  }
   const fs = (d.formularios || []).slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   const sin = fs.filter(f => !f.tomado);
   n.innerHTML = `${fmt(sin.length)} sin tomar · ${fmt(fs.length)} desde agosto`;
@@ -4953,7 +5084,7 @@ async function cvFormularios(forzar) {
       </tr>`; }).join('')}</tbody></table>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
     <div class="td-dim" style="font-size:11px;margin-top:8px">Fuente: las cuentas que crea el formulario de mohicano.cl/mayorista (PrestaShop). El WhatsApp y las otras respuestas llegan cuando el módulo nuevo las deje disponibles; "Le escribió" = tiene conversación con Sofía o Valentina por su celular o correo.</div>`;
   body.querySelectorAll('[data-cvfver]').forEach(b => b.addEventListener('click', () => { CV_FORM_VER = b.dataset.cvfver; cvFormularios(); }));
-  body.querySelectorAll('[data-cvfconv]').forEach(b => b.addEventListener('click', () => { cvAbrir(b.dataset.cvfconv); document.getElementById('cvApp')?.scrollIntoView({ behavior: 'smooth' }); }));
+  body.querySelectorAll('[data-cvfconv]').forEach(b => b.addEventListener('click', () => { CV_SEL = b.dataset.cvfconv; go('conversaciones', 'Conversaciones'); }));
   body.querySelectorAll('[data-cvftomar]').forEach(b => b.addEventListener('click', async () => {
     b.disabled = true; b.textContent = 'Guardando…';
     const r = await cvFetch('', { accion: 'tomar_formulario', ps_id: b.dataset.cvftomar });
@@ -9822,6 +9953,8 @@ const SECS = {
   'fotos':          () => secFotos(),
   'conversaciones': () => secConversaciones(),
   'reporte-atencion': () => secReporteAtencion(),
+  'formularios-atencion': () => secFormularios(),
+  'campanas-atencion': () => secCampanas(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
   'metas':          () => secMetas(),
@@ -10726,7 +10859,7 @@ async function go(secId, title) {
   document.getElementById('hdTitle').textContent = title;
   /* 28-10 (Manu: "que el menú de la izquierda quede escondido mientras trabajo en esa sección, como en el celular con
      las 3 rayas"): en Conversaciones el menú se esconde y se abre con ☰; en las demás secciones se ve como siempre */
-  document.body.classList.toggle('menu-oculto', secId === 'conversaciones' || secId === 'reporte-atencion');   // 29-10: también en el Reporte de Atención
+  document.body.classList.toggle('menu-oculto', secId === 'conversaciones' || secId === 'reporte-atencion' || secId === 'formularios-atencion' || secId === 'campanas-atencion');   // 29-10: también en el Reporte de Atención
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx2)">Cargando…</div>';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
   menuActualizar();   // el grupo de la sección abierta se despliega
@@ -12788,6 +12921,7 @@ function bindContent(secId) {
 
   // Conversaciones (Agente → Humano): la bandeja
   if (secId === 'reporte-atencion' && document.getElementById('raBody')) raMontar();
+  if (secId === 'campanas-atencion' && document.getElementById('cpBody')) cpMontar();
   if (secId === 'conversaciones' && document.getElementById('cvBody')) {
     const filasCv = [...document.querySelectorAll('#cvBody .cv-row')];
     function applyCv() {
@@ -12825,8 +12959,6 @@ function bindContent(secId) {
     document.getElementById('cvRecargar')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
     applyCv();
     cvCampana();
-    cvFormularios();
-    document.querySelector('[data-cvform]')?.addEventListener('click', () => { const b = document.getElementById('cvFormBody'); b.hidden = !b.hidden; document.querySelector('.cv-form-fl').textContent = b.hidden ? '▾' : '▴'; if (!b.hidden) cvFormularios(); });
     if (CV_SEL) cvAbrir(CV_SEL);   // al volver a armar la lista (después de tomar o devolver) sigue abierta la misma
     /* mientras la sección esté abierta (28-10, Manu: "se demora mucho en mostrar los mensajes"): cada 4 s una consulta liviana
        mira si llegó o se leyó un mensaje y, solo entonces, se recarga la conversación; además, todo cada 60 s. No se recarga
@@ -14613,7 +14745,7 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
 const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy']);
 /* Atención (Manu, 27-10-2026: "debería verse aparte de todo eso"): una vista solo con lo de las agentes de Nexor
    (Conversaciones; después el CRM tienda, los casos y las campañas). Esas secciones no salen en las otras vistas. */
-const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion']);
+const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion', 'formularios-atencion', 'campanas-atencion']);
 const VISTAS = ['ambos', 'sg', 'k', 'at'];
 const leerVista = () => { try { const v = localStorage.getItem('adecom_vista'); return VISTAS.includes(v) ? v : 'ambos'; } catch (e) { return 'ambos'; } };
 const vistaInicio = () => ({ k: ['venta-kennedy', 'Venta Kennedy'], at: ['conversaciones', 'Conversaciones'] })[leerVista()] || ['resumen', 'Resumen General'];
