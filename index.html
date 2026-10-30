@@ -4789,22 +4789,23 @@ function raRender() {
 }
 /* la campaña de despacho inmediato (29-10, Manu: "el reporte para saber cómo nos va a ir en la campaña y cómo mejorarla"):
    desde que salió, no depende del período */
-function raCampana() {
-  const c = RA_CAMP;
-  if (!c || !c.hay) return `<section class="ra-bloque"><div class="ra-bt"><h3>Campaña despacho inmediato</h3><span>Dolce Vita 44</span></div>
+/* 30-10: la misma vista para cualquier campaña (o = título, subtítulo y textos propios) y para "Todas" mezcladas */
+function raCampana(c = RA_CAMP, o = {}) {
+  const TIT = o.titulo || 'Campaña despacho inmediato', SUB = o.sub || 'Dolce Vita 44';
+  if (!c || !c.hay) return `<section class="ra-bloque"><div class="ra-bt"><h3>${cvEsc(TIT)}</h3><span>${cvEsc(SUB)}</span></div>
     <div class="ra-col td-dim">Todavía no sale. ${c && c.lista ? `En la lista: ${fmt(c.lista.clientes)} mayoristas (${fmt(c.lista.con_celular)} con celular, ${fmt(c.lista.con_correo)} con correo; sin bloqueados).` : ''}</div></section>`;
   const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, L = c.lista || {};
   const resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
   const k = (n, t, sub, color) => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${n}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div>`;
-  return `<section class="ra-bloque"><div class="ra-bt"><h3>Campaña despacho inmediato</h3><span>Dolce Vita 44 · desde el ${cvEsc(cvHora(c.desde))} · al ${cvEsc(cvHora(c.generado))}</span></div>
-    ${c.alcance ? `<div class="ra-col" style="margin-bottom:12px;display:flex;gap:18px;flex-wrap:wrap;align-items:baseline"><span style="font-size:15px"><b style="font-size:22px">${fmt(c.alcance.whatsapp + c.alcance.solo_correo)}</b> de ${fmt(c.alcance.total)} mayoristas recibieron el aviso</span><span class="td-dim">${fmt(c.alcance.whatsapp)} por WhatsApp · ${fmt(c.alcance.solo_correo)} solo por correo · ${fmt(c.alcance.ninguno)} por ningún lado${c.bloqueados ? ` · ${fmt(c.bloqueados)} bloqueados, fuera de la campaña` : ''}</span></div>` : ''}
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>${cvEsc(TIT)}</h3><span>${cvEsc(SUB)}${c.desde ? ` · desde el ${cvEsc(cvHora(c.desde))}` : ''}${c.generado ? ` · al ${cvEsc(cvHora(c.generado))}` : ''}</span></div>
+    ${c.alcance ? `<div class="ra-col" style="margin-bottom:12px;display:flex;gap:18px;flex-wrap:wrap;align-items:baseline"><span style="font-size:15px"><b style="font-size:22px">${fmt(c.alcance.whatsapp + c.alcance.solo_correo)}</b> de ${fmt(c.alcance.total)} ${o.alcanceTxt || 'mayoristas recibieron el aviso'}</span><span class="td-dim">${fmt(c.alcance.whatsapp)} por WhatsApp · ${fmt(c.alcance.solo_correo)} solo por correo · ${fmt(c.alcance.ninguno)} por ningún lado${c.bloqueados ? ` · ${fmt(c.bloqueados)} bloqueados, fuera de la campaña` : ''}</span></div>` : ''}
     <div class="ra-ks ra-7">
       ${k(fmt(w.enviados), 'se les mandó', `de ${fmt(L.con_celular)} con celular${c.pendientes_wa ? ` · faltan ${fmt(c.pendientes_wa)}` : ''}`, '--tx1')}
       ${k(fmt(w.llegaron), 'les llegó', raPct(w.llegaron, w.enviados) + (w.fallaron ? ` · ${fmt(w.fallaron)} fallaron` : ''), '--tx1')}
       ${k(fmt(w.leyeron), 'lo leyeron', raPct(w.leyeron, w.enviados), '--tx1')}
       ${k(fmt(respondieron), 'respondieron', raPct(respondieron, w.enviados), '--ac')}
       ${k(fmt(c.conversando_ahora), 'conversan con Sofía', 'escribieron en las últimas 72 h', '--ok')}
-      ${k(fmt(v.clientes), 'compraron', v.clientes ? `${fmtM(v.valor)} neto · ${fmt(v.unidades)} prendas` : 'pedidos después del aviso', '--ok')}
+      ${k(fmt(v.clientes), 'compraron', (v.clientes ? `${fmtM(v.valor)} neto · ${fmt(v.unidades)} prendas` : 'por Sofía, la página, o después de responder') + (v.por_vendedor && v.por_vendedor.pedidos ? ` · aparte ${fmt(v.por_vendedor.pedidos)} por vendedor (${fmtM(v.por_vendedor.valor)})` : ''), '--ok')}
       ${k(fmt(c.bajas), 'no recibir más', raPct(c.bajas, w.enviados) + ' de los avisos', c.bajas ? '--er' : '--tx2')}
     </div>
     <div class="ra-g11">
@@ -4820,15 +4821,15 @@ function raCampana() {
       </div>
     </div>
     <div class="ra-g11">
-      <div class="ra-col"><div class="ra-ct">Correo <small>sale 3 días después del WhatsApp, a los que no respondieron ni compraron</small></div>
+      <div class="ra-col"><div class="ra-ct">Correo <small>${cvEsc(o.correoNota || 'sale 3 días después del WhatsApp, a los que no respondieron ni compraron')}</small></div>
         <div class="ra-ks" style="grid-template-columns:repeat(4,minmax(0,1fr))">
           ${k(fmt(co.enviados), 'enviados', [co.pendientes ? `${fmt(co.pendientes)} por mandar` : '', co.fallaron ? `${fmt(co.fallaron)} no salieron: ${(co.fallas || []).map(f => cvEsc(f.cliente) + ' (' + cvEsc(f.motivo) + ')').join(', ')}` : ''].filter(Boolean).join(' · '), '--tx1')}
           ${k(fmt(co.abrieron), 'lo abrieron', raPct(co.abrieron, co.enviados), '--tx1')}
-          ${k(fmt(co.tocaron), 'tocaron "Sofía"', raPct(co.tocaron, co.enviados), '--ac')}
+          ${k(fmt(co.tocaron), o.boton || 'tocaron "Sofía"', raPct(co.tocaron, co.enviados), '--ac')}
           ${k(fmt(co.visitaron), 'entraron al catálogo', raPct(co.visitaron, co.enviados), '--ac')}
         </div></div>
       <div class="ra-col"><div class="ra-ct">Para seguir <small>abrieron o tocaron y no escribieron</small></div>
-        ${(c.tibios || []).length ? c.tibios.map(x => `<div class="ra-f"><small>${x.grupo === 1 ? '44' : '40-43'}</small><span>${cvEsc(x.cliente)}</span><small>${x.toco ? 'tocó el botón' : 'abrió el correo'}</small></div>`).join('') : '<div class="td-dim">Nadie por ahora</div>'}
+        ${(c.tibios || []).length ? c.tibios.map(x => `<div class="ra-f"><small>${x.etiqueta != null ? cvEsc(x.etiqueta) : x.grupo === 1 ? '44' : '40-43'}</small><span>${cvEsc(x.cliente)}</span><small>${x.toco ? 'tocó el botón' : 'abrió el correo'}</small></div>`).join('') : '<div class="td-dim">Nadie por ahora</div>'}
       </div>
     </div>
   </section>`;
@@ -4903,10 +4904,10 @@ function raGraficosCampana() {
     barras('raEmbudo', pasos.map(p => p[0]), [{ label: 'Mayoristas', data: pasos.map(p => p[1] || 0), backgroundColor: pasos.map((_, i) => rgba(color('--ac'), 1 - i * .12)), borderRadius: 4 }], null,
       { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros, extra: i => w.enviados ? `${Math.round((pasos[i][1] || 0) / w.enviados * 100)}% de los que se les mandó` : '' }).catch(() => {});
     const nl = c.no_llego || [];
-    const COLNL = { 'Su número no tiene WhatsApp': color('--er'), 'Meta lo frenó (límite de avisos)': color('--wa'), 'Otro error de WhatsApp': color('--er'), 'Problema de pago de Meta': color('--er'), 'Sin celular en el ERP': color('--tx3'), 'Lo atiende alguien del equipo': color('--ac'), 'No se alcanzó a mandar': color('--tx3') };
+    const COLNL = { 'Su número no tiene WhatsApp': color('--er'), 'Meta lo frenó (límite de avisos)': color('--wa'), 'Otro error de WhatsApp': color('--er'), 'Problema de pago de Meta': color('--er'), 'Sin celular en el ERP': color('--tx3'), 'Lo atiende alguien del equipo': color('--ac'), 'No se alcanzó a mandar': color('--tx3') , 'En pausa: un aviso anterior no le llegó': color('--tx3'), 'Pidió no recibir más': color('--er'), 'Número en un experimento de Meta': color('--wa')};
     barras('raNoLlego', nl.map(x => x[0]), [{ label: 'Mayoristas', data: nl.map(x => x[1]), backgroundColor: nl.map(x => COLNL[x[0]] || color('--tx3')), borderRadius: 4 }], null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
-    const orden = ['Sí, mándamelas', 'El catálogo completo', 'Escribió otra cosa', 'Ahora no', 'No recibir más', 'Sin respuesta'];
-    const COL = { 'Sí, mándamelas': color('--ok'), 'El catálogo completo': color('--ac'), 'Escribió otra cosa': color('--ac'), 'Ahora no': color('--wa'), 'No recibir más': color('--er'), 'Sin respuesta': color('--tx3') };
+    const orden = ['Sí, mándamelas', '¡Lo quiero!', 'Ver más modelos', 'El catálogo completo', 'Escribió otra cosa', 'Ahora no', 'No recibir más', 'Sin respuesta'];
+    const COL = { '¡Lo quiero!': color('--ok'), 'Ver más modelos': color('--ac'), 'Sí, mándamelas': color('--ok'), 'El catálogo completo': color('--ac'), 'Escribió otra cosa': color('--ac'), 'Ahora no': color('--wa'), 'No recibir más': color('--er'), 'Sin respuesta': color('--tx3') };
     const ks = orden.filter(x => resp[x]);
     barras('raResp', ks, [{ label: 'Mayoristas', data: ks.map(x => resp[x]), backgroundColor: ks.map(x => COL[x]), borderRadius: 4 }], null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
   }
@@ -4942,32 +4943,66 @@ let CV_FORM = null, CV_FORM_VER = 'sin_tomar';
 /* 29-10 (Manu: "debería salir en esa parte izquierda"): sección propia en el menú de Atención */
 /* Campañas (30-10, Manu: "todas estas cosas deberían verse diferentes para ver cómo nos va en cada campaña"): arriba la
    comparación entre campañas; abajo, una pestaña con el reporte de cada una. Para sumar una campaña nueva, agregarla a
-   CAMPANAS (si sale por campana-correo, su fuente es ?campana_correo=<nombre> y se ve con hwRender o uno propio). */
+   CAMPANAS (si sale por campana-correo, su fuente es ?campana_correo=<nombre> y se ve con raCampana y sus opciones en CP_OPC). */
 const CAMPANAS = [
-  { id: 'halloween', nombre: 'Halloween · descuento de miedo', fuente: '?campana_correo=halloween' },
+  { id: 'halloween', nombre: 'Halloween', fuente: '?campana_correo=halloween' },
   { id: 'despacho', nombre: 'Despacho inmediato 44', fuente: '?campana=1' },
 ];
-let CP_DATA = {}, CP_SEL = 'halloween';
+let CP_DATA = {}, CP_SEL = 'todas';
 /* las mismas cifras de cada campaña, para compararlas */
 function cpResumen(id, c) {
   if (!c || !c.ok || !c.hay) return null;
   const R = c.respuestas || {}, resp = Object.entries(R).filter(([x]) => x !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
   const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {};
-  if (id === 'despacho') return { desde: c.desde, wa: w.enviados || 0, llego: w.llegaron || 0, resp, correos: co.enviados || 0, abrieron: co.abrieron || 0, tocaron: co.tocaron || 0,
-    pedidos: v.pedidos || 0, compraron: v.clientes || 0, monto: v.valor || 0 };
-  return { desde: c.desde, wa: w.enviados || 0, llego: w.llegaron || 0, resp, correos: co.enviados || 0, abrieron: co.abrieron || 0, tocaron: co.tocaron || 0,
-    pedidos: v.pedidos || 0, compraron: v.clientes || 0, monto: (v.erp_valor || 0) + (v.monto_promo || 0) };
+  return { desde: c.desde, wa: w.enviados || 0, llego: w.llegaron || 0, leyeron: w.leyeron || 0, resp, conv: c.conversando_ahora || 0, bajas: c.bajas || 0,
+    correos: co.enviados || 0, abrieron: co.abrieron || 0, tocaron: co.tocaron || 0, pedidos: v.pedidos || 0, compraron: v.clientes || 0, monto: v.valor || 0 };
 }
+/* "Todas" (30-10, Manu: "un filtro para mezclar todas las campañas, los datos para ver cómo mejorar las campañas"): suma los
+   reportes de cada campaña en el mismo formato */
+function cpMezclar(ds) {
+  const m = { ok: true, hay: false, alcance: { total: 0, whatsapp: 0, solo_correo: 0, ninguno: 0 }, bloqueados: 0, whatsapp: { enviados: 0, llegaron: 0, leyeron: 0, fallaron: 0 },
+    respuestas: {}, conversando_ahora: 0, bajas: 0, no_llego: {}, sin_aviso: [], correo: { enviados: 0, abrieron: 0, tocaron: 0, visitaron: 0, pendientes: 0, fallaron: 0, fallas: [] },
+    ventas: { clientes: 0, pedidos: 0, unidades: 0, valor: 0, por_vendedor: { pedidos: 0, unidades: 0, valor: 0 } }, tibios: [], lista: { clientes: 0, con_celular: 0, con_correo: 0 }, pendientes_wa: 0 };
+  for (const [nombre, c] of ds) {
+    if (!c || !c.ok || !c.hay) continue;
+    m.hay = true;
+    if (!m.desde || c.desde < m.desde) m.desde = c.desde;
+    if (!m.generado || c.generado > m.generado) m.generado = c.generado;
+    for (const g of ['alcance', 'whatsapp', 'correo', 'lista']) for (const [k, v] of Object.entries(c[g] || {})) if (typeof v === 'number') m[g][k] = (m[g][k] || 0) + v;
+    for (const k of ['bloqueados', 'conversando_ahora', 'bajas', 'pendientes_wa']) m[k] += Number(c[k] || 0);
+    for (const [k, n] of Object.entries(c.respuestas || {})) m.respuestas[k] = (m.respuestas[k] || 0) + n;
+    for (const [k, n] of c.no_llego || []) m.no_llego[k] = (m.no_llego[k] || 0) + n;
+    m.sin_aviso.push(...(c.sin_aviso || []).map(x => ({ ...x, motivo: `${x.motivo} · ${nombre}` })));
+    const v = c.ventas || {};
+    for (const k of ['clientes', 'pedidos', 'unidades', 'valor']) m.ventas[k] += Number(v[k] || 0);
+    for (const k of ['pedidos', 'unidades', 'valor']) m.ventas.por_vendedor[k] += Number((v.por_vendedor || {})[k] || 0);
+    m.tibios.push(...(c.tibios || []).map(x => ({ ...x, etiqueta: nombre.split(' ')[0] })));
+  }
+  m.no_llego = Object.entries(m.no_llego).sort((a, b) => b[1] - a[1]);
+  return m;
+}
+const CP_OPC = {
+  halloween: { titulo: 'Halloween · Descuento de miedo', sub: '4455 Riviera y 4007, el 30 y 31-10', correoNota: 'salió el mismo día que el WhatsApp; primero los que más compran', boton: 'tocaron "Lo quiero"' },
+  despacho: {},
+};
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
-  const filas = CAMPANAS.map(x => ({ ...x, r: cpResumen(x.id, CP_DATA[x.id]) }));
-  const tabla = `<div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Respondieron</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Tocaron el botón</th><th class="hw-num">Compraron</th><th class="hw-num">Pedidos</th></tr>
-    ${filas.map(f => f.r ? `<tr data-cpsel="${f.id}" style="cursor:pointer"><td><b>${cvEsc(f.nombre)}</b></td><td>${cvEsc(cvHora(f.r.desde))}</td><td class="hw-num">${fmt(f.r.wa)}</td><td class="hw-num">${fmt(f.r.llego)} <span class="td-dim">${pct(f.r.llego, f.r.wa)}</span></td><td class="hw-num">${fmt(f.r.resp)} <span class="td-dim">${pct(f.r.resp, f.r.wa)}</span></td><td class="hw-num">${fmt(f.r.correos)}</td><td class="hw-num">${fmt(f.r.abrieron)} <span class="td-dim">${pct(f.r.abrieron, f.r.correos)}</span></td><td class="hw-num">${fmt(f.r.tocaron)}</td><td class="hw-num">${fmt(f.r.compraron)}</td><td class="hw-num">${fmt(f.r.pedidos)}${f.r.monto ? ` <span class="td-dim">${fmtM(f.r.monto)}</span>` : ''}</td></tr>`
-      : `<tr><td><b>${cvEsc(f.nombre)}</b></td><td colspan="9" class="td-dim">Todavía no sale</td></tr>`).join('')}
-  </table><div class="hw-pie">Respondieron y les llegó: sobre los WhatsApp mandados · abrieron: sobre los correos enviados · compraron: mayoristas de la lista con un pedido desde que salió (ERP y página).</div></div>`;
-  const tabs = `<div class="segs" style="margin:18px 0 12px">${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
-  const det = CP_SEL === 'despacho' ? (RA_CAMP = CP_DATA.despacho && CP_DATA.despacho.ok ? CP_DATA.despacho : null, raCampana()) : hwRender(CP_DATA[CP_SEL]);
-  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir</span></div>${tabla}${tabs}<div id="cpDet">${det}</div>`;
+  const tabs = `<div class="segs" style="margin:0 0 14px"><button class="seg${CP_SEL === 'todas' ? ' on' : ''}" data-cptab="todas">Todas</button>${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
+  let det;
+  if (CP_SEL === 'todas') {
+    RA_CAMP = cpMezclar(CAMPANAS.map(x => [x.nombre, CP_DATA[x.id]]));
+    const filas = CAMPANAS.map(x => ({ ...x, r: cpResumen(x.id, CP_DATA[x.id]) })).filter(f => f.r);
+    /* cómo le fue a cada una, para ver qué mejorar: tasas comparables */
+    const comp = filas.length ? `<section class="ra-bloque"><div class="ra-bt"><h3>Cómo le fue a cada una</h3><span>para comparar y mejorar la próxima</span></div>
+      <div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Lo leyeron</th><th class="hw-num">Respondieron</th><th class="hw-num">No recibir más</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Compraron</th></tr>
+      ${filas.map(f => `<tr data-cpsel="${f.id}" style="cursor:pointer"><td><b>${cvEsc(f.nombre)}</b></td><td>${cvEsc(cvHora(f.r.desde))}</td><td class="hw-num">${fmt(f.r.wa)}</td><td class="hw-num">${pct(f.r.llego, f.r.wa)}</td><td class="hw-num">${pct(f.r.leyeron, f.r.llego)}</td><td class="hw-num">${fmt(f.r.resp)} <span class="td-dim">${pct(f.r.resp, f.r.llego)}</span></td><td class="hw-num">${fmt(f.r.bajas)}</td><td class="hw-num">${fmt(f.r.correos)}</td><td class="hw-num">${pct(f.r.abrieron, f.r.correos)}</td><td class="hw-num">${fmt(f.r.compraron)}${f.r.monto ? ` <span class="td-dim">${fmtM(f.r.monto)}</span>` : ''}</td></tr>`).join('')}
+      </table><div class="hw-pie">Les llegó: sobre los WhatsApp mandados · lo leyeron y respondieron: sobre los que les llegó · abrieron: sobre los correos enviados · compraron: por Sofía, la página o después de responder el aviso (los pedidos que el vendedor ingresa directo al ERP van aparte). Toca una campaña para ver su detalle.</div></div></section>` : '';
+    det = raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
+  } else {
+    RA_CAMP = CP_DATA[CP_SEL] && CP_DATA[CP_SEL].ok ? CP_DATA[CP_SEL] : null;
+    det = raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CP_DATA.halloween) : '');
+  }
+  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir</span></div>${tabs}<div id="cpDet">${det}</div>`;
 }
 async function secCampanas() {
   const rs = await Promise.all(CAMPANAS.map(x => cvFetch(x.fuente).catch(() => null)));
@@ -4980,7 +5015,7 @@ function cpMontar() {
   const pintar = () => { cerrarGraficos(); body.innerHTML = cpRender(); cpMontar(); };
   body.querySelectorAll('[data-cptab]').forEach(b => b.addEventListener('click', () => { CP_SEL = b.dataset.cptab; pintar(); }));
   body.querySelectorAll('[data-cpsel]').forEach(r => r.addEventListener('click', () => { CP_SEL = r.dataset.cpsel; pintar(); }));
-  if (CP_SEL === 'despacho') raGraficosCampana();
+  raGraficosCampana();
 }
 
 /* Campaña Halloween (30-10, Manu: "¿ese dato también está en el dashboard? déjalo como Halloween"): lo calcula
@@ -4997,46 +5032,21 @@ const HW_ESTILO = `
     .hw-chip{font-size:12px;font-weight:600}.hw-pie{font-size:11px;color:var(--tx3);margin-top:10px;line-height:1.5}
     @media(max-width:1000px){.hw-ks{grid-template-columns:repeat(2,minmax(0,1fr))}}
 `;
-function hwRender(c) {
-  if (!c || !c.ok) return '<div class="hw-col td-dim">No se pudo leer el reporte de Halloween.</div>';
-  const k = (n, t, sub, color) => `<div class="hw-k"><div class="hw-n" style="color:var(${color})">${n}</div><div class="hw-t">${t}</div>${sub ? `<div class="hw-s">${sub}</div>` : ''}</div>`;
-  const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
-  const co = c.correo || {}, w = c.whatsapp || {}, v = c.ventas || {}, R = c.respuestas || {};
-  const resp = Object.entries(R).filter(([x]) => x !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
+function hwExtras(c) {
+  if (!c || !c.ok || !c.hay) return '';
+  const v = c.ventas || {}, pv = v.por_vendedor || {};
   const chip = (txt) => {
-    const col = /Tocó|Lo quiero|pidió|Lo leyó/i.test(txt) ? '--ok' : /No le llegó|No salió|No recibir/i.test(txt) ? '--er' : /Pendiente|Sin correo/i.test(txt) ? '--tx3' : '--tx1';
+    const col = /Tocó|Lo quiero|Pidió|Lo leyó|Le llegó/i.test(txt) ? '--ok' : /No le llegó|No salió|No recibir/i.test(txt) ? '--er' : /Pendiente|Sin correo|Sin celular/i.test(txt) ? '--tx3' : '--tx1';
     return txt ? `<span class="hw-chip" style="color:var(${col})">${cvEsc(txt)}</span>` : '<span class="td-dim">—</span>';
   };
-  return `  <div class="hw-hd"><h3>🎃 Halloween · Descuento de miedo</h3><span class="td-dim">4455 Riviera y 4007, solo el 31-10${c.desde ? ` · salió el ${cvEsc(cvHora(c.desde))}` : ''} · al ${cvEsc(cvHora(c.generado))}${c.actualizando ? ' · actualizando…' : ''}</span></div>
-  ${!c.hay ? '<div class="hw-col td-dim">Todavía no sale. Se calcula apenas salgan los primeros correos o WhatsApp.</div>' : `
-  <div class="hw-bt">Correo</div>
-  <div class="hw-ks">
-    ${k(fmt(co.enviados), 'correos enviados', `de ${fmt(co.lista)} mayoristas con correo · faltan ${fmt(co.pendientes)}${co.fallaron ? ` · ${fmt(co.fallaron)} no salieron` : ''}`, '--tx1')}
-    ${k(fmt(co.abrieron), 'lo abrieron', pct(co.abrieron, co.enviados) + ' de los enviados', '--tx1')}
-    ${k(fmt(co.tocaron), 'tocaron "Lo quiero"', 'abrieron el WhatsApp de Sofía desde el correo', '--ac')}
-    ${k(fmt(co.pendientes), 'por mandar', 'Resend deja 100 al día: van primero los que más compran', '--tx3')}
-  </div>
-  <div class="hw-bt">WhatsApp</div>
-  <div class="hw-ks">
-    ${k(fmt(w.enviados), 'avisos mandados', w.lista ? `de ${fmt(w.lista)} con celular` : 'esperando que Meta apruebe la plantilla', '--tx1')}
-    ${k(fmt(w.llegaron), 'les llegó', pct(w.llegaron, w.enviados) + (w.no_llego ? ` · ${fmt(w.no_llego)} no les llegó` : ''), '--tx1')}
-    ${k(fmt(w.leyeron), 'lo leyeron', pct(w.leyeron, w.enviados), '--tx1')}
-    ${k(fmt(resp), 'respondieron', Object.entries(R).filter(([x]) => x !== 'Sin respuesta').map(([x, n]) => `${cvEsc(x)} ${fmt(n)}`).join(' · ') || '—', '--ac')}
-  </div>
-  <div class="hw-bt">Ventas</div>
-  <div class="hw-ks">
-    ${k(fmt(v.pedidos), 'pedidos', `${fmt(v.clientes)} mayoristas de la lista pidieron`, '--ok')}
-    ${k(fmt(v.unidades_promo), 'prendas en promoción', '4455 Riviera y 4007', '--ok')}
-    ${k(fmtM(v.monto_promo || 0), 'en la promoción', 'neto, con el precio especial', '--ok')}
-    ${k(fmtM(v.erp_valor || 0), 'pedidos en el ERP', 'de los mayoristas de la lista, desde que salió (neto)', '--tx1')}
-  </div>
-  ${(v.detalle || []).length ? `<div class="hw-col" style="margin-top:12px"><table class="hw-tabla"><tr><th>Pedido</th><th>Cuándo</th><th>Por</th><th class="hw-num">Prendas</th><th class="hw-num">En promoción</th></tr>
-    ${v.detalle.map(o => `<tr><td>${cvEsc(o.cliente)}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmt(o.promo)}</td></tr>`).join('')}</table></div>` : ''}
-  <div class="hw-bt">Los mejores mayoristas <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--tx3)">· por lo comprado en 12 meses</span></div>
+  const filaV = (o) => `<tr><td>${cvEsc(o.cliente)}</td><td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via)}</td><td class="hw-num">${fmt(o.unidades)}</td><td class="hw-num">${fmtM(o.valor || 0)}</td></tr>`;
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Ventas con la promoción</h3><span>pedidos con la 4455 Riviera o el 4007</span></div>
+    <div class="hw-col">${(v.detalle || []).length ? `<table class="hw-tabla"><tr><th>Mayorista</th><th>Cuándo</th><th>Por</th><th class="hw-num">Prendas</th><th class="hw-num">Neto</th></tr>${v.detalle.map(filaV).join('')}</table>` : '<div class="td-dim">Todavía ningún pedido con la Riviera o el 4007 por Sofía, la página o de alguien que respondió el aviso.</div>'}
+    ${(pv.detalle || []).length ? `<div class="hw-pie" style="margin-top:10px"><b>Aparte, por vendedor (no cuentan para la campaña):</b> ${pv.detalle.map(o => `${cvEsc(o.cliente)} · ${fmt(o.unidades)} prendas · ${cvEsc(o.via)}`).join(' · ')}</div>` : ''}</div></section>
+  <section class="ra-bloque"><div class="ra-bt"><h3>Los mejores mayoristas</h3><span>por lo comprado en 12 meses, con su nombre del ERP</span></div>
   <div class="hw-col"><table class="hw-tabla"><tr><th>Mayorista</th><th class="hw-num">Compró 12 meses</th><th>Correo</th><th>WhatsApp</th><th>Respondió</th><th>Pidió</th></tr>
-    ${(c.mejores || []).map(m => `<tr><td><b>${cvEsc(m.nombre || '—')}</b></td><td class="hw-num">${fmtM(m.compras || 0)}</td><td>${chip(m.correo)}</td><td>${chip(m.whatsapp)}</td><td>${chip(m.respondio)}</td><td>${m.pidio ? chip('Sí, pidió') : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
-  </table></div>`}
-  <div class="hw-pie">Fuentes: correos enviados (Resend) y abiertos (píxel), clics en "Lo quiero" (ir-sofia), estado del WhatsApp y respuestas en Nexor, pedidos de la página (Supabase) y del ERP (bi/pedidos.json). Sin bloqueados ni bajas. Se recalcula cada 10 minutos al abrir.</div>`;
+    ${(c.mejores || []).map(m => `<tr><td><b>${cvEsc(m.nombre || '—')}</b></td><td class="hw-num">${fmtM(m.compras || 0)}</td><td>${chip(m.correo)}</td><td>${chip(m.whatsapp)}</td><td>${chip(m.respondio)}</td><td>${m.pidio ? chip('Pidió la promoción') : m.vendedor ? '<span class="hw-chip" style="color:var(--tx2)">Por vendedor</span>' : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
+  </table></div></section>`;
 }
 async function secFormularios() {
   setTimeout(() => cvFormularios(true), 0);
