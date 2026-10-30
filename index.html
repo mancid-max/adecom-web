@@ -1849,12 +1849,12 @@ function secDetalleColor() {
     return sorted.map(item => {
       const variantRows = (item.modelos || []).map(v => {
         const a = dcArt(t, item.base, v.mod);
-        return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+        return `<tr class="variant-row dc-color" data-art="${a}" title="Toca para ver lo pedido por talla y por cliente" style="display:none;background:var(--sf2);cursor:pointer">
           <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
           <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${v.tela}</span>` : ''}</td>
           <td></td>
           <td class="r td-num td-dim">${fmt(v.qty)}</td>
-          <td class="r td-dim">—</td>
+          <td class="r" style="white-space:nowrap"><span style="color:var(--ac);font-size:11px;font-weight:600">Tallas ›</span></td>
         </tr>`;
       }).join('');
       const bota = item.bota || '', tiro = item.tiro || '';
@@ -5678,6 +5678,118 @@ function buildPVCRows(t, ftMap, exMap) {
 }
 
 /* Pedido vs Corte: tocar un cliente en el detalle abre o cierra lo que se le debe por talla (Manu, 23-10-2026) */
+/* Abre la ventana emergente genérica (#vkOv) con título y contenido. El cierre (✕ y clic afuera) se engancha una sola vez. */
+function vkAbrir(ttl, html) {
+  const ov = document.getElementById('vkOv');
+  document.getElementById('vkOvTtl').textContent = ttl;
+  document.getElementById('vkOvBody').innerHTML = html;
+  if (!ov.dataset.cierre) {
+    ov.dataset.cierre = '1';
+    document.getElementById('vkOvClose').addEventListener('click', () => ov.classList.remove('open'));
+    ov.addEventListener('click', e => { if (e.target === e.currentTarget) ov.classList.remove('open'); });
+  }
+  ov.classList.add('open');
+}
+
+/* Chips de tallas: {talla: n} → 36 · 38 · 40… con el número debajo. opts: color del rótulo, cls del chip (ok, ac, er, cj), tit(talla, n) */
+const TALLA_ORDEN = (x, y) => (isNaN(+x) || isNaN(+y) ? String(x).localeCompare(String(y)) : +x - +y);
+function chipsTalla(lbl, obj, opts = {}) {
+  const tt = Object.entries(obj || {}).filter(([, n]) => n > 0).sort((a, b) => TALLA_ORDEN(a[0], b[0]));
+  if (!tt.length) return '';
+  return `<div class="pvc-ts"><span class="pvc-ts-l"${opts.color ? ` style="color:${opts.color}"` : ''}>${lbl}</span>${tt.map(([tl, n]) =>
+    `<span class="pvc-t ${opts.cls || ''}"${opts.tit ? ` title="${opts.tit(tl, n)}"` : ''}><i>${tl}</i><b>${fmt(n)}</b></span>`).join('')}</div>`;
+}
+
+/* Las tallas de una línea del pedido de un cliente (Manu, 30-10-2026: "por cliente igual cuánto pidió por talla"): lo pedido
+   (pt), lo despachado (dt) y lo que se le debe (st). Los datos de antes del build del 30-10 solo traen st: se avisa. */
+/* Lo pedido (pt), despachado (dt) y lo que se debe (st) por talla de una línea de pedido. El build no repite lo que se
+   deduce: sin pt, lo pedido es lo que se debe cuando no se despachó nada; sin dt, con despacho y sin saldo, se despachó
+   todo lo pedido. Devuelve null si la línea no trae lo pedido por talla (datos de antes del 30-10-2026 con despacho). */
+function tallasLinea(l) {
+  const pt = l.pt || (l.st && !(l.desp > 0) ? l.st : null);
+  if (!pt) return null;
+  return { pt, dt: l.dt || (l.desp > 0 && !(l.sal > 0) ? pt : {}), st: l.st || {} };
+}
+function vdTallasLinea(l) {
+  const tl = tallasLinea(l);
+  if (!tl && !l.st) return '<span class="td-dim" style="font-size:12px">Este pedido no trae el detalle por talla.</span>';
+  if (!tl) return chipsTalla('Se le debe', l.st, { color: 'var(--wa)' })
+    + '<div class="td-dim" style="font-size:11px;margin-top:4px">Lo pedido y lo despachado por talla aparecen con la próxima actualización de datos.</div>';
+  return chipsTalla('Pedido', tl.pt)
+    + chipsTalla('Despachado', tl.dt, { color: 'var(--ok)', cls: 'ok' })
+    + (chipsTalla('Se le debe', tl.st, { color: 'var(--wa)' }) || '<div class="td-dim" style="font-size:11px;margin-top:2px">Sin saldo: todo despachado.</div>');
+}
+function vdTallasToggle(tr) {
+  const sub = tr.nextElementSibling;
+  if (!sub || !sub.classList.contains('vd-art-t')) return;
+  sub.style.display = sub.style.display === 'none' ? '' : 'none';
+}
+
+/* Un color en Detalle Pedido Color (Manu, 30-10-2026: "cuando presionen en el color… ver por talla cuánto se pidió y por
+   cliente igual cuánto pidió por talla"): por talla lo pedido, despachado, saldo, cortado y en bodega; abajo, cada cliente
+   con lo que pidió talla por talla. Lo pedido y despachado por talla sale del build del 30-10 (tv/td por artículo, pt/dt por
+   línea de pedido): hasta que el ThinkPad reconstruya con ese código, se avisa en vez de mostrar ceros. */
+async function dcTallas(art) {
+  const t = art.slice(2, 4), base = art.slice(2, 6), color = art.slice(6, 8);
+  const ttl = `${base} color ${color} · T${t}`;
+  vkAbrir(ttl, '<div class="td-dim" style="padding:16px">Cargando…</div>');
+  const [peds, sb] = await Promise.all([load('pedidos.json'), load('saldos_bodega.json')]);
+  const item = (PEDS_ART || []).find(p => p.temp === t && p.base === base) || {};
+  const m = (item.modelos || []).find(v => String(v.mod).padStart(2, '0') === color) || {};
+  const bod = (sb || []).find(r => r.art === art);
+  const TALLAS = ['36', '38', '40', '42', '44', '46', '48', '50', '52'];
+  const arr = (a, i) => (Array.isArray(a) && a[i]) || 0;
+  const hayTv = Array.isArray(m.tv) && m.tv.length > 0;
+  // Por cliente: sus líneas de este artículo, en todos sus pedidos
+  const porCli = new Map();
+  for (const p of (peds || [])) for (const l of (p.lineas || [])) {
+    if (l.art !== art) continue;
+    const k = vdKey(p);
+    const c = porCli.get(k) || { nombre: p.nombre || p.rut || '', ciudad: p.ciudad || '', sol: 0, desp: 0, sal: 0, pt: {}, dt: {}, st: {}, hayPt: false, pedidos: new Set() };
+    c.sol += l.sol || 0; c.desp += l.desp || 0; c.sal += l.sal || 0; c.pedidos.add(p.pedido);
+    const tl = tallasLinea(l);
+    if (tl) c.hayPt = true;
+    for (const [k2, srcT] of [['pt', tl?.pt], ['dt', tl?.dt], ['st', l.st]]) for (const [tl2, n] of Object.entries(srcT || {})) c[k2][tl2] = (c[k2][tl2] || 0) + n;
+    porCli.set(k, c);
+  }
+  const clientes = [...porCli.values()].sort((a, b) => b.sol - a.sol);
+  const hayPt = clientes.some(c => c.hayPt);
+  // Por talla: las 9 del ERP más las raras que traigan los pedidos o la bodega (S, M, L)
+  const extra = new Set();
+  clientes.forEach(c => Object.keys(c.pt).concat(Object.keys(c.st)).forEach(x => { if (!TALLAS.includes(x)) extra.add(x); }));
+  Object.keys(bod?.tallas || {}).forEach(x => { if (!TALLAS.includes(x)) extra.add(x); });
+  const sumCli = (k, tl) => clientes.reduce((a, c) => a + (c[k][tl] || 0), 0);
+  const filas = [...TALLAS.map((tl, i) => ({ tl, ped: hayTv ? arr(m.tv, i) : (hayPt ? sumCli('pt', tl) : null), desp: hayTv ? arr(m.td, i) : (hayPt ? sumCli('dt', tl) : null),
+                                              sal: arr(m.ts, i), cort: Array.isArray(m.tc) ? arr(m.tc, i) : null, bod: bod?.tallas?.[tl] || 0 })),
+                 ...[...extra].sort(TALLA_ORDEN).map(tl => ({ tl, ped: hayPt ? sumCli('pt', tl) : null, desp: hayPt ? sumCli('dt', tl) : null, sal: sumCli('st', tl), cort: null, bod: bod?.tallas?.[tl] || 0 }))]
+    .filter(f => f.ped || f.desp || f.sal || f.cort || f.bod);
+  const th = (s, r) => `<th style="padding:7px 10px;text-align:${r ? 'right' : 'left'};font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">${s}</th>`;
+  const td = (v, clr) => `<td class="r td-num" style="padding:6px 10px${clr ? `;color:${clr}` : ''}">${v == null ? '<span class="td-dim">—</span>' : (v ? fmt(v) : '<span class="td-dim">0</span>')}</td>`;
+  const tot = k => filas.reduce((a, f) => a + (f[k] || 0), 0);
+  const tag = (txt, bg, fg) => txt ? `<span style="background:${bg};color:${fg};border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap">${txt}</span>` : '';
+  const cab = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px 6px">${artImg(art)}<span class="td-code" style="font-weight:800">${art}</span>
+    ${tag(item.bota, 'var(--ac10)', 'var(--ac)')}${tag(item.tiro, 'var(--sf2)', 'var(--tx2)')}${tag(m.tela, '#fef3c7', '#92400e')}
+    <span class="td-dim" style="font-size:12px;margin-left:auto"><b class="td-num" style="color:var(--tx1)">${fmt(m.qty || 0)}</b> pedidas · <b class="td-num" style="color:var(--ok)">${fmt(m.desp || 0)}</b> despachadas · <b class="td-num" style="color:${(m.sal || 0) > 0 ? 'var(--wa)' : 'var(--tx3)'}">${fmt(m.sal || 0)}</b> saldo</span></div>`;
+  const aviso = hayTv ? '' : '<div class="td-dim" style="font-size:11px;padding:0 16px 6px">Lo pedido y lo despachado por talla aparecen con la próxima actualización de datos.</div>';
+  const tabla = `<div style="padding:4px 16px 4px;font-size:11px;font-weight:700">Por talla</div>${aviso}
+    <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--sf2)">${th('TALLA')}${th('PEDIDO', 1)}${th('DESPACHADO', 1)}${th('SALDO', 1)}${th('CORTADO', 1)}${th('EN BODEGA', 1)}</tr></thead>
+    <tbody>${filas.length ? filas.map(f => `<tr><td style="padding:6px 10px;font-weight:700">${f.tl}</td>${td(f.ped)}${td(f.desp, 'var(--ok)')}${td(f.sal, f.sal > 0 ? 'var(--wa)' : '')}${td(f.cort)}${td(f.bod)}</tr>`).join('')
+      + `<tr style="border-top:2px solid var(--bd);font-weight:800"><td style="padding:6px 10px">Total</td>${td(hayTv || hayPt ? tot('ped') : null)}${td(hayTv || hayPt ? tot('desp') : null, 'var(--ok)')}${td(tot('sal'), tot('sal') > 0 ? 'var(--wa)' : '')}${td(Array.isArray(m.tc) ? tot('cort') : null)}${td(tot('bod'))}</tr>`
+      : '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--tx3)">Sin detalle por talla para este color</td></tr>'}</tbody></table>
+    <div class="td-dim" style="font-size:11px;padding:6px 16px 10px">Cortado = todas las órdenes de corte del artículo (— si el ERP no lo informa). En bodega = stock físico en todas las bodegas.</div>`;
+  const tit = c => (tl, n) => `Talla ${tl}: pidió ${fmt(n)}${c.dt[tl] ? `, despachadas ${fmt(c.dt[tl])}` : ''}${c.st[tl] ? `, se le deben ${fmt(c.st[tl])}` : ''}`;
+  const cli = `<div style="padding:10px 16px 4px;font-size:11px;font-weight:700">Por cliente</div>
+    ${clientes.length ? `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--sf2)">${th('CLIENTE')}${th('PEDIDO', 1)}${th('DESPACHADO', 1)}${th('SALDO', 1)}${th('POR TALLA')}</tr></thead>
+    <tbody>${clientes.map(c => `<tr>
+      <td style="padding:6px 10px;max-width:220px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${c.nombre}</div><div class="td-dim" style="font-size:10px">${c.ciudad || ''}${c.pedidos.size > 1 ? ` · ${c.pedidos.size} pedidos` : ''}</div></td>
+      ${td(c.sol)}${td(c.desp, 'var(--ok)')}${td(c.sal, c.sal > 0 ? 'var(--wa)' : '')}
+      <td style="padding:4px 10px">${c.hayPt ? chipsTalla('Pidió', c.pt, { tit: tit(c) }) : (chipsTalla('Se le debe', c.st, { color: 'var(--wa)' }) || '<span class="td-dim" style="font-size:11px">Sin detalle por talla</span>')}</td>
+    </tr>`).join('')}</tbody></table>
+    <div class="td-dim" style="font-size:11px;padding:6px 16px 10px">${hayPt ? 'Pasa el mouse o deja el dedo en una talla para ver lo despachado y lo que se le debe en esa talla.' : 'Por ahora solo se ve lo que se le debe por talla; lo pedido por talla aparece con la próxima actualización de datos.'}</div>`
+    : '<div class="td-dim" style="padding:6px 16px 14px">Ningún cliente tiene pedido de este color.</div>'}`;
+  vkAbrir(ttl, cab + tabla + cli);
+}
+
 function pvcVerTallas(tr) {
   const sub = tr.nextElementSibling;
   if (!sub || !sub.classList.contains('pvc-cli-t')) return;
@@ -11035,6 +11147,11 @@ function bindContent(secId) {
       card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
     });
 
+    // Tocar un color: lo pedido, despachado, saldo, cortado y en bodega por talla, y quién lo pidió (Manu, 30-10-2026)
+    document.getElementById('dcBody')?.addEventListener('click', ev => {
+      const tr = ev.target.closest('tr.dc-color');
+      if (tr?.dataset.art) dcTallas(tr.dataset.art);
+    });
     bindExpandRows();
     dcMolde();
   }
@@ -12022,7 +12139,7 @@ function bindContent(secId) {
                   : pr?.term > 0 ? 4
                   : pr ? 10 - (ETAPA_RANK[pr.top] ?? 0)
                   : 20;
-          const html = `<tr>
+          const html = `<tr class="vd-art" onclick="vdTallasToggle(this)" title="Toca para ver lo pedido por talla" style="cursor:pointer">
             <td class="td-code" style="padding:8px 12px">${l.art}</td>
             <td class="td-dim" style="padding:8px 8px">${l.modelo}</td>
             <td class="td-dim" style="padding:8px 8px">${l.color}</td>
@@ -12030,7 +12147,7 @@ function bindContent(secId) {
             <td class="r td-num" style="padding:8px 12px;color:var(--ok);white-space:nowrap">${l.desp > 0 ? fmt(l.desp) : '—'}${ec ? ` <span title="En caja armada, pendiente de despacho" style="color:var(--ac);font-size:11px;font-weight:600">(+${fmt(Math.min(ec, l.sal))} en caja)</span>` : ''}</td>
             <td class="r td-num" style="padding:8px 12px;color:${l.sal < 0 ? 'var(--ac)' : clr}">${l.sal !== 0 ? fmt(l.sal) : '—'}</td>
             <td style="padding:8px 12px">${estado}</td>
-          </tr>`;
+          </tr><tr class="vd-art-t" style="display:none"><td colspan="7" style="padding:4px 12px 10px;background:var(--sf2)">${vdTallasLinea(l)}</td></tr>`;
           return { k, sal: l.sal, art: l.art, html };
         });
         const rowsHtml = filasDet
@@ -12048,7 +12165,7 @@ function bindContent(secId) {
               <th style="padding:8px 12px;font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em">ESTADO</th>
             </tr></thead>
             <tbody>${rowsHtml || `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx3)">Sin artículos T${TEMP_SEL}</td></tr>`}</tbody>
-          </table>`;
+          </table><div class="td-dim" style="font-size:11px;padding:8px 12px 2px">Toca un artículo para ver lo pedido, lo despachado y lo que se le debe por talla.</div>`;
     };
 
     // Click en una caja (en cualquier ventana) → ventana de la caja
@@ -13931,12 +14048,12 @@ function buildColorRowsForTemp(byTemp, t) {
   return info.items.slice().sort((a,b) => b.total-a.total).map(item => {
     const variantRows = (item.modelos || []).map(v => {
       const a = art(item.base, v.mod);
-      return `<tr class="no-click variant-row" style="display:none;background:var(--sf2)">
+      return `<tr class="variant-row dc-color" data-art="${a}" title="Toca para ver lo pedido por talla y por cliente" style="display:none;background:var(--sf2);cursor:pointer">
         <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
         <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${v.tela}</span>` : ''}</td>
         <td></td>
         <td class="r td-num td-dim">${fmt(v.qty)}</td>
-        <td class="r td-dim">—</td>
+        <td class="r" style="white-space:nowrap"><span style="color:var(--ac);font-size:11px;font-weight:600">Tallas ›</span></td>
       </tr>`;
     }).join('');
     const bota = item.bota || '', tiro = item.tiro || '';
