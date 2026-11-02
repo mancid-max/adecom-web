@@ -5768,13 +5768,13 @@ function buildFtMap(ft) {
   const m = {};
   for (const r of ft) {
     const a = (r.articulo||'').trim();
-    if (!m[a]) m[a] = { corte:0, bodega:0, pend:0, etapas:{}, ocs:[], prog:0, progOcs:[] };
+    if (!m[a]) m[a] = { corte:0, bodega:0, pend:0, etapas:{}, ocs:[], prog:0, progOcs:[], porCortar:0, porCortarOcs:[] };
     m[a].corte  += r.proceso||0;
     m[a].bodega += r.bodega||0;
     m[a].pend   += Math.max(0, r.saldo||0);   // cortado que todavía NO llega a bodega
     const et = getEtapa(r);
     // Guardar cada OC individual para mostrar en filas expandibles
-    m[a].ocs.push({ oc: (r.corte||'').trim(), unidades: r.proceso||0, saldo: r.saldo||0, etapa: et });
+    m[a].ocs.push({ oc: (r.corte||'').trim(), unidades: r.proceso||0, saldo: r.saldo||0, programa: r.programa||0, etapa: et });
     /* Programado y todavía sin cortar (Manu, 23-10-2026: "que me diga programado para apurar el corte"): órdenes de
        producción con programa y nada cortado. Solo las de los últimos 180 días: las más viejas quedaron sin hacerse
        (el 23-10 había de marzo de 2025). Las muestras y los sets no cuentan, ni las de menos de 10 prendas: son muestras
@@ -5784,6 +5784,18 @@ function buildFtMap(ft) {
       if (dias !== null && dias <= 180) {
         m[a].prog += r.programa;
         m[a].progOcs.push({ oc: (r.corte||'').trim().replace(/^0+/, ''), programa: r.programa, fecha: r.fecha || '', dias });
+      }
+    }
+    /* Órdenes que ya partieron pero no se cortaron enteras (Manu, 02-11-2026: "a veces tenemos programado 500 pero
+       salieron a producción 250… en producción debería ser el completo"): lo que les falta cortar también viene en
+       camino, y Pedido vs Corte lo suma a "En prod." (porCortar). Misma regla de edad y tamaño que lo programado: una
+       orden de más de 180 días que quedó a medias no se va a terminar, y una diferencia de menos de 10 prendas es
+       tolerancia del corte (502 programadas, 498 cortadas), no prendas que falten. */
+    if (r.tipo === 'Producción' && (r.programa||0) >= 10 && (r.proceso||0) > 0 && (r.programa||0) - (r.proceso||0) >= 10) {
+      const dias = r.fecha_iso ? Math.floor((Date.now() - Date.parse(r.fecha_iso + 'T12:00:00')) / 864e5) : null;
+      if (dias !== null && dias <= 180) {
+        m[a].porCortar += r.programa - r.proceso;
+        m[a].porCortarOcs.push({ oc: (r.corte||'').trim().replace(/^0+/, ''), programa: r.programa, cortado: r.proceso, resto: r.programa - r.proceso, fecha: r.fecha || '', dias });
       }
     }
     if (et !== 'Bodega' && et !== 'Sin movimiento') {
@@ -5848,9 +5860,12 @@ function pvcFilasDe(t, ftMap, exMap, sinMagic = PVC_SIN_MAGIC) {
       const cj = CAJAS_MAP[art] || { total: 0, s04: 0 };
       const enCaja = Math.min(salTot, cj.total), sal = salTot - enCaja;
       const stkErp = STOCK_MAP[art] || 0, stk = Math.max(0, stkErp - cj.s04);
-      const pro = ftr.pend || 0;
+      /* En producción = lo que viene de las órdenes que ya partieron: lo cortado que no llega a bodega más lo que a esas
+         órdenes les falta cortar (Manu, 02-11-2026: "programado 500 pero salieron a producción 250… debería ser el
+         completo"). Lo programado y todavía sin cortar sigue aparte (prog: apurar el corte). */
+      const cortadas = ftr.pend || 0, porCortar = ftr.porCortar || 0, pro = cortadas + porCortar;
       if (mg && !ped && !stk && !pro) continue;     // solo lo pidió Magic y no hay nada físico
-      filas.push({ art, base: item.base, mod, ped, desp, sal, enCaja, stk, stkErp, pro, prog: ftr.prog || 0, progOcs: ftr.progOcs || [], ts: v.ts || null, tc: v.tc || null,
+      filas.push({ art, base: item.base, mod, ped, desp, sal, enCaja, stk, stkErp, pro, cortadas, porCortar, porCortarOcs: ftr.porCortarOcs || [], prog: ftr.prog || 0, progOcs: ftr.progOcs || [], ts: v.ts || null, tc: v.tc || null,
                    diff: stk + pro - sal, ocs: ftr.ocs || [], etapas: ftr.etapas || {},
                    ex: exMap ? exMap[item.base] : null, bota: item.bota, tiro: item.tiro, tela: v.tela || '' });
     }
@@ -5882,6 +5897,7 @@ function buildPVCRows(t, ftMap, exMap) {
     const falta = Math.max(0, -f.diff), apurar = Math.min(f.prog, falta), cortarMas = falta - apurar;
     const estadoKey = f.diff > 0 ? 'ofrecer' : cortarMas > 0 ? 'cortar' : f.diff < 0 ? 'apurar' : 'ok';
     const progTit = f.progOcs.map(o => `OC ${o.oc}: ${fmt(o.programa)} programadas el ${o.fecha} (hace ${o.dias} días)`).join(' · ');
+    const porCortarTit = f.porCortarOcs.map(o => `OC ${o.oc}: ${fmt(o.programa)} programadas, ${fmt(o.cortado)} cortadas, faltan ${fmt(o.resto)} por cortar (hace ${o.dias} días)`).join(' · ');
     const apurarHtml = apurar ? `<span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">⏱ Apurar corte${cortarMas ? ` ${fmt(apurar)}` : ''}</span>` : '';
     const estadoHtml = f.diff < 0 && apurar
       ? (cortarMas ? `<span style="background:var(--er10);color:var(--er);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">▼ Cortar ${fmt(cortarMas)}</span><div style="margin-top:4px">${apurarHtml}</div>`
@@ -5923,7 +5939,7 @@ function buildPVCRows(t, ftMap, exMap) {
       <td class="r td-num" data-v="${f.sal}" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}${f.enCaja ? `<div class="td-dim" style="font-size:10px;font-weight:400">+${fmt(f.enCaja)} en cajas</div>` : ''}</td>
       <td class="r td-num" data-v="${f.stkErp < 0 ? f.stkErp : f.stk}"${f.stkErp < 0 ? ' title="El ERP muestra stock negativo: se despachó más de lo que entró a bodega. Para cortar cuenta como 0."' : ''}>${f.stkErp < 0
         ? `<span style="color:var(--er)">${fmt(f.stkErp)}</span><div class="td-dim" style="font-size:10px;font-weight:400">cuenta 0</div>` : f.stk ? fmt(f.stk) : '—'}</td>
-      <td class="r td-num" data-v="${f.pro}" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
+      <td class="r td-num" data-v="${f.pro}" style="color:var(--ac)"${f.porCortar ? ` title="${porCortarTit}"` : ''}>${f.pro ? fmt(f.pro) : '—'}${f.porCortar ? `<div class="td-dim" style="font-size:10px;font-weight:400;white-space:nowrap">${fmt(f.cortadas)} cortadas · ${fmt(f.porCortar)} por cortar</div>` : ''}</td>
       <td class="r td-num" data-v="${f.diff}" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
       <td data-v="${falta}" style="text-align:center">${estadoHtml}</td>
       <td data-v="${f.ex?.ex_base || ''}" style="white-space:nowrap">${exHtml}${vaHtml}</td>
@@ -6185,6 +6201,7 @@ function pvcDetalle(art) {
          ...(f.enCaja ? [['Ya en cajas', fmt(f.enCaja), 'var(--ok)']] : []),
          ['En bodega', fmt(f.stk), f.stk > 0 ? 'var(--ok)' : 'var(--tx3)'],
          ['En producción', fmt(f.pro), f.pro ? 'var(--ac)' : 'var(--tx3)'],
+         ...(f.porCortar ? [['De eso, por cortar', fmt(f.porCortar), 'var(--ac)']] : []),
          ...(f.prog ? [['Programado sin cortar', fmt(f.prog), '#6d28d9']] : []),
          ['Hay que cortar', fmt(falta), falta ? 'var(--er)' : 'var(--tx3)']]
         .map(([l, v, c]) => `<div style="background:var(--sf2);border-radius:8px;padding:8px 12px;min-width:92px">
@@ -6302,7 +6319,7 @@ async function secPVC() {
       totalSal += item.saldo ?? item.total;
       for (const v of (item.modelos||[])) {
         const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-        totalProg += (ftMap[art]?.pend || 0) + Math.max(0, STOCK_MAP[art] || 0);
+        totalProg += (ftMap[art]?.pend || 0) + (ftMap[art]?.porCortar || 0) + Math.max(0, STOCK_MAP[art] || 0);
       }
     }
     return { totalPed, totalSal, totalProg, diff: totalProg - totalSal };
@@ -6401,7 +6418,7 @@ async function secPVC() {
            menor"): planOrdenable con el data-v de cada celda. Sin tocar nada queda el orden de siempre (lo que más falta
            primero); al cambiar de temporada o de Magic se vuelve a aplicar el orden elegido. El total vive en #pvcTot. -->
       <table id="pvcTable">
-        <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Ya despachado">Desp.</th><th class="r" data-ord="n" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" data-ord="n" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" data-ord="n" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" data-ord="n" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center" data-ord="n" title="Ordena por lo que falta cortar">Estado</th><th data-ord="t">EX</th><th class="r" data-ord="n" title="Saldo del modelo EX">Cant.</th><th data-ord="t">Dónde</th></tr></thead>
+        <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Ya despachado">Desp.</th><th class="r" data-ord="n" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" data-ord="n" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" data-ord="n" title="Lo que viene de las órdenes que ya partieron: cortado que aún no llega a bodega, más lo que a esas órdenes les falta cortar">En prod.</th><th class="r" data-ord="n" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center" data-ord="n" title="Ordena por lo que falta cortar">Estado</th><th data-ord="t">EX</th><th class="r" data-ord="n" title="Saldo del modelo EX">Cant.</th><th data-ord="t">Dónde</th></tr></thead>
         <tbody id="pvcBody" class="tbl-compacta">${buildPVCRows(defT, ftMap, exMap)}</tbody>
         <tbody id="pvcTot" class="tbl-compacta"></tbody>
       </table>
@@ -14352,7 +14369,7 @@ function bindContent(secId) {
         totalSal += item.saldo ?? item.total;
         for (const v of (item.modelos||[])) {
           const art = `01${t}${suffix}${v.mod.padStart(2,'0')}`;
-          totalProg += (ftMap[art]?.pend || 0) + Math.max(0, STOCK_MAP[art] || 0);
+          totalProg += (ftMap[art]?.pend || 0) + (ftMap[art]?.porCortar || 0) + Math.max(0, STOCK_MAP[art] || 0);
         }
       }
       const diff = totalProg - totalSal;
