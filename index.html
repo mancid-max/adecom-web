@@ -455,6 +455,8 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .pl .pl-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
 #cjArtTable th[data-ord]{cursor:pointer;user-select:none}
 #cjArtTable th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
+#pvcTable th[data-ord]{cursor:pointer;user-select:none;white-space:nowrap}
+#pvcTable th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
 #cjArtTable th .si{color:var(--ac);white-space:nowrap}
 @media(max-width:700px){
   .pl .pl-sec{display:none}
@@ -5882,18 +5884,18 @@ function buildPVCRows(t, ftMap, exMap) {
     const botaTiro = [f.bota, f.tiro, f.tela].filter(Boolean).join(' · ');
 
     return `<tr data-expandable data-art="${f.art}" data-estado="${estadoKey}" data-prog="${f.prog}" data-etapa="${domEtapa}" data-etapas="${etapaEntries.map(([e]) => e).join('|')}" data-ped="${f.ped}" data-desp="${f.desp}" data-sal="${f.sal}" data-stk="${f.stk}" data-prod="${f.pro}" data-cort="${f.stk + f.pro}" data-ocs="${f.ocs.length}" data-q="${q}" style="font-weight:600">
-      <td style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}${telaChip(f.tela)}</div>` : ''}${f.prog ? `<div style="margin-top:3px"><span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">📋 ${fmt(f.prog)} programado · OC ${f.progOcs.map(o => o.oc).join(', ')}</span></div>` : ''}</div></div></td>
-      <td class="r td-num">${fmt(f.ped)}</td>
-      <td class="r td-num" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
-      <td class="r td-num" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}${f.enCaja ? `<div class="td-dim" style="font-size:10px;font-weight:400">+${fmt(f.enCaja)} en cajas</div>` : ''}</td>
-      <td class="r td-num"${f.stkErp < 0 ? ' title="El ERP muestra stock negativo: se despachó más de lo que entró a bodega. Para cortar cuenta como 0."' : ''}>${f.stkErp < 0
+      <td data-v="${f.base}-${f.mod}" style="white-space:nowrap"><div style="display:flex;align-items:center">${artImg(f.art)}<div><span class="td-code">${f.base}-${f.mod}</span>${f.ocs.length ? `<span class="td-dim" style="font-size:10px;margin-left:6px;font-weight:400">${f.ocs.length} corte${f.ocs.length===1?'':'s'}</span>` : ''}${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}${telaChip(f.tela)}</div>` : ''}${f.prog ? `<div style="margin-top:3px"><span title="${progTit}" style="background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">📋 ${fmt(f.prog)} programado · OC ${f.progOcs.map(o => o.oc).join(', ')}</span></div>` : ''}</div></div></td>
+      <td class="r td-num" data-v="${f.ped}">${fmt(f.ped)}</td>
+      <td class="r td-num" data-v="${f.desp}" style="color:var(--ok)">${f.desp ? fmt(f.desp) : '—'}</td>
+      <td class="r td-num" data-v="${f.sal}" style="color:${f.sal>0?'var(--wa)':'var(--tx3)'}">${f.sal ? fmt(f.sal) : '—'}${f.enCaja ? `<div class="td-dim" style="font-size:10px;font-weight:400">+${fmt(f.enCaja)} en cajas</div>` : ''}</td>
+      <td class="r td-num" data-v="${f.stkErp < 0 ? f.stkErp : f.stk}"${f.stkErp < 0 ? ' title="El ERP muestra stock negativo: se despachó más de lo que entró a bodega. Para cortar cuenta como 0."' : ''}>${f.stkErp < 0
         ? `<span style="color:var(--er)">${fmt(f.stkErp)}</span><div class="td-dim" style="font-size:10px;font-weight:400">cuenta 0</div>` : f.stk ? fmt(f.stk) : '—'}</td>
-      <td class="r td-num" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
-      <td class="r td-num" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
-      <td style="text-align:center">${estadoHtml}</td>
-      <td style="white-space:nowrap">${exHtml}${vaHtml}</td>
-      <td class="r">${cantExHtml}</td>
-      <td style="padding-left:4px;white-space:normal">${modelEtapaHtml}</td>
+      <td class="r td-num" data-v="${f.pro}" style="color:var(--ac)">${f.pro ? fmt(f.pro) : '—'}</td>
+      <td class="r td-num" data-v="${f.diff}" style="color:${cls}">${f.diff > 0 ? '+' : ''}${f.diff ? fmt(f.diff) : '—'}</td>
+      <td data-v="${falta}" style="text-align:center">${estadoHtml}</td>
+      <td data-v="${f.ex?.ex_base || ''}" style="white-space:nowrap">${exHtml}${vaHtml}</td>
+      <td class="r" data-v="${f.ex?.ex_saldo > 0 ? f.ex.ex_saldo : ''}">${cantExHtml}</td>
+      <td data-v="${domEtapa === '—' ? (f.prog ? 'Programado' : '') : domEtapa}" style="padding-left:4px;white-space:normal">${modelEtapaHtml}</td>
     </tr>`;
   }).join('');
 }
@@ -6260,8 +6262,11 @@ async function secPVC() {
       <div class="xl-der"><input id="pvcSearch" class="finput fsearch" placeholder="Modelo, bota, OC o EX…" style="width:200px"></div>
     </div>
     <div class="tbl-scroll">
-      <table>
-        <thead><tr><th>Artículo</th><th class="r">Pedido</th><th class="r" title="Ya despachado">Desp.</th><th class="r" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center">Estado</th><th>EX</th><th class="r" title="Saldo del modelo EX">Cant.</th><th>Dónde</th></tr></thead>
+      <!-- Ordenable desde los encabezados (Manu, 02-11-2026: "no tengo los filtros en los encabezados para ver de mayor a
+           menor"): planOrdenable con el data-v de cada celda. Sin tocar nada queda el orden de siempre (lo que más falta
+           primero); al cambiar de temporada o de Magic se vuelve a aplicar el orden elegido. El total vive en #pvcTot. -->
+      <table id="pvcTable">
+        <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Ya despachado">Desp.</th><th class="r" data-ord="n" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" data-ord="n" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" data-ord="n" title="Cortado que aún no llega a bodega">En prod.</th><th class="r" data-ord="n" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center" data-ord="n" title="Ordena por lo que falta cortar">Estado</th><th data-ord="t">EX</th><th class="r" data-ord="n" title="Saldo del modelo EX">Cant.</th><th data-ord="t">Dónde</th></tr></thead>
         <tbody id="pvcBody" class="tbl-compacta">${buildPVCRows(defT, ftMap, exMap)}</tbody>
         <tbody id="pvcTot" class="tbl-compacta"></tbody>
       </table>
@@ -14155,6 +14160,10 @@ function bindContent(secId) {
       });
     }
     bindPvcClick();
+    /* Ordenar desde los encabezados (Manu, 02-11-2026). El orden de siempre queda hasta que se toca uno; después se
+       mantiene aunque se cambie de temporada o de Magic (las filas se rearman y se vuelve a ordenar). */
+    const pvcTabla = document.getElementById('pvcTable');
+    if (pvcTabla) planOrdenable(pvcTabla);
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
@@ -14169,6 +14178,7 @@ function bindContent(secId) {
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || TEMP_SEL;
       document.getElementById('pvcBody').innerHTML = buildPVCRows(t, buildFtMap(CACHE['full_table.json'] || []), CACHE['pvc_ex.json'] || {});
       bindPvcClick();
+      pvcTabla?._ordenar?.();
       applyPvcFilter();
     }));
 
@@ -14212,6 +14222,7 @@ function bindContent(secId) {
       const allEtapaBtn = document.querySelector('#pvcEtapaSegs .seg[data-etapa="all"]');
       if (allEtapaBtn) allEtapaBtn.classList.add('on');
       bindPvcClick();      // las filas son nuevas: hay que volver a engancharlas
+      pvcTabla?._ordenar?.();
       applyPvcFilter();
     }));
     applyPvcFilter();
