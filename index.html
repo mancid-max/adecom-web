@@ -5313,6 +5313,40 @@ function cpConversaciones(xs, conCampana) {
     <div class="hw-col"><table class="hw-tabla"><tr><th>Cliente</th>${conCampana ? '<th>Campaña</th>' : ''}<th>Qué respondió primero</th><th>Último mensaje suyo</th><th class="hw-num">Mensajes</th><th></th></tr>${filas}</table>
     <div class="hw-pie">"Ver conversación" abre el chat completo con Sofía en Atención → Conversaciones, donde también se puede responder.</div></div></section>`;
 }
+/* 02-11 (Tamara, Marketing: "¿hay manera de ver los que apretaron 'No recibir más'? ese dato nos sirve harto… o los que
+   ignoran"): cliente por cliente, juntando las campañas (por_cliente de cada reporte) */
+let CP_BAJAS_TXT = '';
+function cpBajasIgnoran(ids) {
+  const fecha = t => t ? String(t).slice(0, 10).split('-').reverse().join('-') : '—';
+  const por = new Map();
+  for (const id of ids) {
+    const nom = (CAMPANAS.find(x => x.id === id) || {}).nombre || id;
+    for (const c of ((CP_DATA[id] || {}).por_cliente || [])) {
+      const k = String(c.rut || c.cliente);
+      const x = por.get(k) || { ...c, campanas: [], leyo: false, respondio: '', baja: false, compro: false };
+      x.campanas.push(nom); if (c.wa === 'Lo leyó') x.leyo = true; if (c.respondio) x.respondio = c.respondio;
+      if (c.baja) { x.baja = true; x.baja_en = c.baja_en; x.baja_campana = nom; }
+      if (c.compro) x.compro = true;
+      por.set(k, x);
+    }
+  }
+  const xs = [...por.values()];
+  const bajas = xs.filter(x => x.baja).sort((a, b) => String(b.baja_en).localeCompare(String(a.baja_en)));
+  const ign = xs.filter(x => !x.baja && !x.respondio && !x.compro && x.wa !== 'No le llegó')
+    .sort((a, b) => b.campanas.length - a.campanas.length || (b.leyo - a.leyo) || String(b.ultima_compra).localeCompare(String(a.ultima_compra)));
+  const leyeron = ign.filter(x => x.leyo), noAbrieron = ign.filter(x => !x.leyo);
+  const fila = (x, extra) => `<tr><td><b>${cvEsc(x.cliente)}</b></td><td>${cvEsc(x.ciudad || '—')}</td>${extra}<td>${fecha(x.ultima_compra)}</td><td class="td-dim">${cvEsc(x.vendedor || '—')}</td><td>${cpVerConv(x.lead)}</td></tr>`;
+  const tabla = (titulo, sub, cab, filas) => `<section class="ra-bloque"><div class="ra-bt"><h3>${titulo}</h3><span>${sub}</span></div><div class="hw-col">${filas.length ? `<table class="hw-tabla"><tr><th>Cliente (ERP)</th><th>Ciudad</th>${cab}<th>Última compra</th><th>Vendedor</th><th></th></tr>${filas.join('')}</table>` : '<div class="td-dim">Nadie por ahora.</div>'}</div></section>`;
+  const txt = (titulo, ys, f) => ys.length ? [titulo, ...ys.map(f)].join('\n') : '';
+  CP_BAJAS_TXT = [txt('PIDIERON NO RECIBIR MÁS', bajas, x => `${x.cliente} · ${x.ciudad || '—'} · ${x.baja_campana} ${fecha(x.baja_en)} · última compra ${fecha(x.ultima_compra)} · ${x.vendedor || '—'}`),
+    txt('LO LEYERON Y NO RESPONDIERON', leyeron, x => `${x.cliente} · ${x.ciudad || '—'} · ${x.campanas.length} ${x.campanas.length === 1 ? 'campaña' : 'campañas'} · última compra ${fecha(x.ultima_compra)} · ${x.vendedor || '—'}`),
+    txt('LES LLEGÓ Y NO LO ABRIERON', noAbrieron, x => `${x.cliente} · ${x.ciudad || '—'} · ${x.campanas.length} ${x.campanas.length === 1 ? 'campaña' : 'campañas'} · última compra ${fecha(x.ultima_compra)} · ${x.vendedor || '—'}`)].filter(Boolean).join('\n\n');
+  if (!xs.length) return '';
+  return `<div class="hw-hd" style="margin-top:18px"><h3>Bajas y los que no responden</h3><span class="td-dim">${fmt(bajas.length)} pidieron no recibir más · ${fmt(leyeron.length)} lo leyeron y no respondieron · ${fmt(noAbrieron.length)} no lo abrieron · <button class="cv-fbtn" data-cpbajas>📋 Copiar las listas</button></span></div>`
+    + tabla('Pidieron "No recibir más"', 'no se les vuelve a escribir por WhatsApp; conviene que los llame su vendedor para saber por qué', '<th>Campaña</th><th>Cuándo</th>', bajas.map(x => fila(x, `<td>${cvEsc(x.baja_campana)}</td><td>${fecha(x.baja_en)}</td>`)))
+    + tabla('Lo leyeron y no respondieron', 'ordenados por cuántas campañas seguidas ignoraron: para que los llame un vendedor', '<th class="hw-num">Campañas</th>', leyeron.map(x => fila(x, `<td class="hw-num">${fmt(x.campanas.length)}</td>`)))
+    + tabla('Les llegó y no lo abrieron', 'probablemente no miran ese WhatsApp: probar por correo o una llamada', '<th class="hw-num">Campañas</th>', noAbrieron.map(x => fila(x, `<td class="hw-num">${fmt(x.campanas.length)}</td>`)));
+}
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
   const tabs = `<div class="segs" style="margin:0 0 14px"><button class="seg${CP_SEL === 'todas' ? ' on' : ''}" data-cptab="todas">Todas</button>${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
@@ -5341,11 +5375,12 @@ function cpRender() {
       <div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Lo leyeron</th><th class="hw-num">Respondieron</th><th class="hw-num">No recibir más</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Compraron</th></tr>
       ${filas.map(f => `<tr data-cpsel="${f.id}" style="cursor:pointer"><td><b>${cvEsc(f.nombre)}</b></td><td>${cvEsc(cvHora(f.r.desde))}</td><td class="hw-num">${fmt(f.r.wa)}</td><td class="hw-num">${pct(f.r.llego, f.r.wa)}</td><td class="hw-num">${pct(f.r.leyeron, f.r.llego)}</td><td class="hw-num">${fmt(f.r.resp)} <span class="td-dim">${pct(f.r.resp, f.r.llego)}</span></td><td class="hw-num">${fmt(f.r.bajas)}</td><td class="hw-num">${fmt(f.r.correos)}</td><td class="hw-num">${pct(f.r.abrieron, f.r.correos)}</td><td class="hw-num">${fmt(f.r.compraron)}${f.r.monto ? ` <span class="td-dim">${fmtM(f.r.monto)}</span>` : ''}</td></tr>`).join('')}
       </table><div class="hw-pie">Les llegó: sobre los WhatsApp mandados · lo leyeron y respondieron: sobre los que les llegó · abrieron: sobre los correos enviados · compraron: por Sofía, la página o después de responder el aviso (los pedidos que el vendedor ingresa directo al ERP van aparte). Toca una campaña para ver su detalle.</div></div></section>` : '';
+    const extraBI = () => cpBajasIgnoran(CAMPANAS.map(x => x.id));
     const convs = CAMPANAS.flatMap(x => ((CP_DATA[x.id] || {}).conversaciones || []).map(o => ({ ...o, campana: x.nombre }))).sort((a, b) => String(b.ultimo).localeCompare(String(a.ultimo)));
-    det = cpCompras(A.total.detalle || [], true) + cpConversaciones(convs, true) + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
+    det = cpCompras(A.total.detalle || [], true) + cpConversaciones(convs, true) + extraBI() + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
   } else {
     RA_CAMP = CPD[CP_SEL] && CPD[CP_SEL].ok ? CPD[CP_SEL] : null;
-    det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + cpConversaciones((CP_DATA[CP_SEL] || {}).conversaciones || [], false) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
+    det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + cpConversaciones((CP_DATA[CP_SEL] || {}).conversaciones || [], false) + cpBajasIgnoran([CP_SEL]) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
   }
   return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${tabs}<div id="cpDet">${det}</div>`;
 }
@@ -5367,6 +5402,7 @@ function cpMontar() {
     setTimeout(() => { e.target.textContent = '📋 Copiar para WhatsApp'; }, 2500);
   });
   body.querySelector('[data-cpwa]')?.addEventListener('click', () => window.open('https://wa.me/?text=' + encodeURIComponent(cpTexto()), '_blank', 'noopener'));
+  body.querySelector('[data-cpbajas]')?.addEventListener('click', async e => { try { await navigator.clipboard.writeText(CP_BAJAS_TXT); e.target.textContent = '✔ Copiado'; } catch (_) { alert(CP_BAJAS_TXT); } });
   /* "Ver conversación": abre Conversaciones con ese chat (la sección abre CV_SEL al armarse) */
   body.querySelectorAll('[data-cpconv]').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); CV_SEL = b.dataset.cpconv; go('conversaciones', 'Conversaciones'); }));
   body.querySelectorAll('[data-cpfila]').forEach(r => r.addEventListener('click', () => {
