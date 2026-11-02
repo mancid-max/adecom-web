@@ -4776,6 +4776,16 @@ function raRender() {
   const enPer = xs => (xs || []).filter(o => Date.parse(o.fecha) >= ini);
   const vC = enPer(V.confirmadas), vP = enPer(V.probables), sP = enPer(S.pedidos);
   const web = sP.filter(o => o.via !== 'ERP').length;
+  /* 02-11 (Manu: "esa venta debería salir arriba en una tarjeta y el total entre ambos en otra… y todas las que salgan con
+     posible, todas"): confirmado = Valentina con el mismo celular o su link, Sofía por la página o por ella; posible = lo
+     "probable" de Valentina (abrió su link y compró otra cuenta) y los pedidos que el vendedor ingresó al ERP (Opalo). El
+     total va en neto: lo de Valentina viene con IVA y se divide por 1,19 */
+  const suma = xs => xs.reduce((t, o) => t + Number(o.total || 0), 0);
+  const sConf = sP.filter(o => o.via !== 'ERP'), sPos = sP.filter(o => o.via === 'ERP');
+  const vConfM = vr.monto || 0, vPosM = vp.monto || 0, sConfM = suma(sConf), sPosM = suma(sPos);
+  const neto = n => Math.round(n / 1.19);
+  const confNeto = neto(vConfM) + sConfM, posNeto = neto(vPosM) + sPosM;
+  const nConf = (vr.pedidos || 0) + sConf.length, nPos = (vp.pedidos || 0) + sPos.length;
   return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
       <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
 
@@ -4783,9 +4793,14 @@ function raRender() {
       <div class="ra-ks">
         ${k(fmt(H.total), `personas escribieron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)} · WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
         ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta · el equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
-        ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? ` · ${fmt(vp.pedidos)} probables más (${fmtM(vp.monto)})` : ''}${VC ? `<br><b>Casos con la tienda:</b> ${fmt(vc.resueltos || 0)} resueltos ${per} (${fmtM(vc.monto_resuelto || 0)} en pedidos que no se perdieron) · ${fmt(VC.pendientes || 0)} pendientes${VC.pendientes ? ` (${fmtM(VC.monto_pendiente || 0)})` : ''}` : ''}`, '--ok')}
-        ${k(fmtM(sr.monto || 0), `pidieron los mayoristas de Sofía ${per}`, `${fmt(sr.pedidos)} ${sr.pedidos === 1 ? 'pedido' : 'pedidos'}${sr.unidades ? ` · ${fmt(sr.unidades)} prendas` : ''}, neto${web ? ` · ${fmt(web)} por la página` : ''}`, '--ac')}
+        ${k(fmtM(confNeto), `ventas confirmadas ${per}`, `${fmt(nConf)} ${nConf === 1 ? 'pedido' : 'pedidos'}, neto<br>Valentina ${fmtM(vConfM)} con IVA (${fmt(vr.pedidos || 0)}) · Sofía ${fmtM(sConfM)} neto (${fmt(sConf.length)})`, '--ok')}
+        ${k(fmtM(posNeto), `ventas posibles ${per}`, `${fmt(nPos)} ${nPos === 1 ? 'pedido' : 'pedidos'}, neto · pueden ser por las agentes o no<br>Valentina ${fmtM(vPosM)} con IVA (${fmt(vp.pedidos || 0)}: abrió su link y compró otra cuenta) · Sofía ${fmtM(sPosM)} neto (${fmt(sPos.length)}: pedidos del vendedor de quien le escribió)`, '--wa')}
       </div>
+      <div class="ra-k" style="margin:12px 0;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:20px 24px">
+        <div><div class="ra-t" style="font-size:14px">Total ${per} · confirmado + posible</div><div class="ra-n" style="font-size:44px;line-height:1.1;color:var(--ok)">${fmtM(confNeto + posNeto)}</div><div class="ra-s">${fmt(nConf + nPos)} pedidos · neto (lo de mohicano.cl sin IVA)</div></div>
+        <div style="font-size:15px;line-height:1.7"><div><b style="color:var(--ok)">${fmtM(confNeto)}</b> confirmado</div><div><b style="color:var(--wa)">${fmtM(posNeto)}</b> posible</div></div>
+      </div>
+      ${VC ? `<div class="td-dim" style="margin:-4px 0 12px">Valentina además pasó casos a la tienda: <b>${fmt(vc.resueltos || 0)} resueltos ${per}</b> (${fmtM(vc.monto_resuelto || 0)} en pedidos que no se perdieron) · ${fmt(VC.pendientes || 0)} pendientes${VC.pendientes ? ` (${fmtM(VC.monto_pendiente || 0)})` : ''}</div>` : ''}
       <div class="ra-g2">
         <div class="ra-col"><div class="ra-ct">Personas que escribieron cada día <small>${P === 'd30' ? 'últimos 30 días' : 'últimos 7 días'}</small></div><div class="ra-chart"><canvas id="raDias"></canvas></div></div>
         <div class="ra-col"><div class="ra-ct">A qué hora escriben <small>mensajes de clientes, 30 días</small></div><div class="ra-chart"><canvas id="raHoras"></canvas></div></div>
@@ -4800,10 +4815,11 @@ function raRender() {
       <div class="ra-g11">
         <div class="ra-col"><div class="ra-ct">Valentina · mohicano.cl <small>${fmt(vC.length)} confirmadas</small></div>
           ${vC.length ? vC.map(o => fila(o, fmtCLP(o.total))).join('') : '<div class="td-dim">Sin ventas confirmadas en el período</div>'}
-          ${vP.length ? `<div class="ra-sub">Probables (abrió su link y compró otra cuenta, o el mismo nombre) · no suman</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
+          ${vP.length ? `<div class="ra-sub">Posibles (abrió su link y compró otra cuenta, o el mismo nombre) · van aparte, en "ventas posibles"</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
         </div>
         <div class="ra-col"><div class="ra-ct">Mayoristas de Sofía <small>pedido hasta 14 días después de escribirle</small></div>
-          ${sP.length ? sP.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Ningún mayorista que habló con Sofía hizo un pedido en el período</div>'}
+          ${sConf.length ? sConf.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Sin pedidos confirmados en el período</div>'}
+          ${sPos.length ? `<div class="ra-sub">Posibles (los ingresó el vendedor al ERP; el cliente había hablado con Sofía) · van aparte</div>${sPos.map(o => fila(o, `<span class="td-dim">${o.total ? fmtCLP(o.total) : fmt(o.unidades) + ' u.'}</span>`)).join('')}` : ''}
         </div>
       </div>
     </section>
@@ -4863,7 +4879,8 @@ function raCampana(c = RA_CAMP, o = {}) {
 function raFormularios(ini, per) {
   const F = RA_FORM;
   if (!F || !Array.isArray(F.formularios)) return `<section class="ra-bloque"><div class="ra-bt"><h3>Formularios de mini-mayoristas</h3><span>mohicano.cl/mayorista</span></div><div class="ra-col td-dim">Todavía no disponibles: la función que los entrega no está publicada (Netlify sin créditos hasta el 7 de noviembre).</div></section>`;
-  const fecha = f => Date.parse(String(f.fecha).replace(' ', 'T') + '-03:00');
+  /* 02-11: las solicitudes del webservice traen la fecha con hora y zona; las cuentas de la tienda, sin zona */
+  const fecha = f => { let t = String(f.fecha || '').trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(t)) t += ' 12:00:00'; return /T|Z$|[+-]\d\d:?\d\d$/.test(t) ? Date.parse(t) : Date.parse(t.replace(' ', 'T') + '-03:00'); };
   const xs = (F.formularios || []).filter(f => fecha(f) >= ini);
   const n = fn => xs.filter(fn).length;
   const k = (v, t, sub, color) => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${v}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div>`;
