@@ -4530,10 +4530,10 @@ function cvTPanel(abrir) {
 function cvTFiltrar(T) {
   const q = (document.getElementById('cvTq')?.value || '').trim().toLowerCase();
   const tag = document.getElementById('cvTtag')?.value || '', resp = document.getElementById('cvTresp')?.value || '';
-  const canal = document.getElementById('cvTcanal')?.value || '', paus = document.getElementById('cvTpaus')?.checked, erp = document.getElementById('cvTerp')?.checked;
+  const canal = document.getElementById('cvTcanal')?.value || '', paus = document.getElementById('cvTpaus')?.checked, erp = document.getElementById('cvTerp')?.checked, comp = document.getElementById('cvTcomp')?.checked;
   return T.leads.filter(l => (!q || [l.nombre, l.razon, l.celular, ...Object.values(l.campos || {}), ...(l.tags || [])].join(' ').toLowerCase().includes(q))
     && (!tag || (l.tags || []).includes(tag)) && (!resp || (resp === '-' ? !l.asignado_id : l.asignado_id === resp))
-    && (!canal || l.canal === canal) && (!paus || l.pausada) && (!erp || l.erp));
+    && (!canal || l.canal === canal) && (!paus || l.pausada) && (!erp || l.erp) && (!comp || l.compro || l.pidio_vendedor));
 }
 function cvTCard(l, T) {
   const campos = Object.values(l.campos || {}).filter(v => v && !/^(no_llamar|si|no)$/i.test(v));
@@ -4541,6 +4541,7 @@ function cvTCard(l, T) {
     <div class="cv-tc1"><div><b>${cvEsc(l.nombre)}</b>${l.razon && l.razon.toUpperCase() !== String(l.nombre).toUpperCase() ? `<div class="td-dim">${cvEsc(l.razon)}</div>` : ''}</div>
       <span class="cv-tico">${l.pausada ? '<span class="cv-tpausa" title="La agente está en pausa: no le responde">❚❚</span>' : ''}${cvIcono(l.canal, 14)}</span></div>
     <div class="td-dim">Hace ${cvEsc(cvHace(l.actividad))}${l.celular ? ' · ' + cvEsc(l.celular) : ''}</div>
+    ${l.compro || l.pidio_vendedor || l.bloqueado ? `<div class="cv-tchips">${l.compro ? `<span class="cv-tchip" style="background:rgba(16,185,129,.14);color:var(--ok)" title="Pedido por Sofía o la página">🛒 Compró ${fmt(l.compro.unidades)} u · ${cvEsc(String(l.compro.fecha).slice(8, 10) + '-' + String(l.compro.fecha).slice(5, 7))}</span>` : ''}${l.pidio_vendedor ? `<span class="cv-tchip" style="background:rgba(183,121,31,.15);color:#b7791f" title="Pedido que ingresó ${cvEsc(l.pidio_vendedor.vendedor || 'el vendedor')} al ERP">Pidió al vendedor ${fmt(l.pidio_vendedor.u)} u · ${cvEsc(String(l.pidio_vendedor.fecha).slice(8, 10) + '-' + String(l.pidio_vendedor.fecha).slice(5, 7))}</span>` : ''}${l.bloqueado ? '<span class="cv-tchip" style="background:rgba(240,68,56,.12);color:var(--er)">Bloqueado en el ERP</span>' : ''}</div>` : ''}
     ${campos.length || l.erp || l.equipo ? `<div class="cv-tchips">${l.erp ? '<span class="cv-tchip" style="color:var(--ac)">Mayorista ERP</span>' : ''}${l.equipo ? '<span class="cv-tchip" style="color:var(--ac)">La atiende el equipo</span>' : ''}${campos.map(v => `<span class="cv-tchip" title="${cvEsc(v)}">${cvEsc(v)}</span>`).join('')}</div>` : ''}
     <div class="cv-tchips">${(l.tags || []).map(t => `<span class="cv-ttag">${cvEsc(t)}<button data-tquita="${cvEsc(t)}" title="Sacar la etiqueta">×</button></span>`).join('')}<button class="cv-tadd" data-tadd>+ Añadir</button></div>
     <button class="cv-tresp" data-tresp title="Responsable">👤 ${cvEsc(l.asignado || 'Sin responsable')}</button></div>`;
@@ -4563,7 +4564,7 @@ function cvTBarra(T) {
     <select id="cvTtag">${opt('', 'Todas las etiquetas')}${(T.etiquetas || []).map(t => opt(t, t)).join('')}</select>
     <select id="cvTresp">${opt('', 'Todos los responsables')}${opt('-', 'Sin responsable')}${(T.equipo || []).map(m => opt(m.id, m.nombre)).join('')}</select>
     <select id="cvTcanal">${opt('', 'Todos los canales')}${opt('whatsapp', 'WhatsApp')}${opt('instagram', 'Instagram')}</select>
-    <label><input type="checkbox" id="cvTpaus"> En pausa</label><label><input type="checkbox" id="cvTerp"> Mayoristas del ERP</label>
+    <label><input type="checkbox" id="cvTcomp"> Compraron</label><label><input type="checkbox" id="cvTpaus"> En pausa</label><label><input type="checkbox" id="cvTerp"> Mayoristas del ERP</label>
     <span class="td-dim" style="margin-left:auto">${cvEsc(T.agente)} · ${fmt(T.leads.length)} conversaciones${T.detalle_faltan ? ` · cargando datos de ${fmt(T.detalle_faltan)}…` : ''} · <button class="cv-linkbtn" data-trec>↻ Actualizar</button></span></div>`;
 }
 async function cvTablero(ag, { silencio = false } = {}) {
@@ -4572,14 +4573,14 @@ async function cvTablero(ag, { silencio = false } = {}) {
   if (!silencio) cont.innerHTML = '<div class="cv-vacio">Cargando el tablero…</div>';
   CV_TAB = await cvFetch('?tablero=' + ag);
   if (!CV_TAB || !CV_TAB.ok) { cont.innerHTML = cvTableroHtml(CV_TAB); return; }
-  const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
+  const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
   const abierto = document.getElementById('cvTWrap')?.classList.contains('abierto');
   cvTPanel(false);
   cont.innerHTML = cvTBarra(CV_TAB) + `<div class="cv-twrap" id="cvTWrap"><div id="cvTBoard" style="min-height:0">${cvTableroHtml(CV_TAB)}</div><div class="cv-tpanel" id="cvTPanel"><button class="cv-tcerrar" data-tcerrar title="Cerrar el chat">×</button></div></div>`;
   for (const [id, v] of filtros) { const e = document.getElementById(id); if (e && v != null) e.type === 'checkbox' ? (e.checked = v) : (e.value = v); }
   if (abierto && CV_SEL) cvTPanel(true);
   const repintar = () => { const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } };
-  ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp'].forEach(id => document.getElementById(id)?.addEventListener(id === 'cvTq' ? 'input' : 'change', repintar));
+  ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp'].forEach(id => document.getElementById(id)?.addEventListener(id === 'cvTq' ? 'input' : 'change', repintar));
   cont.querySelector('[data-trec]')?.addEventListener('click', () => cvTablero(ag));
   cont.querySelector('[data-tcerrar]')?.addEventListener('click', () => { cvTPanel(false); CV_SEL = null; });
   cvTEventos(ag);
@@ -5013,7 +5014,7 @@ function raCampana(c = RA_CAMP, o = {}) {
     </div>
     <div class="ra-g11">
       <div class="ra-col"><div class="ra-ct">Embudo del aviso por WhatsApp <small>% sobre los que se les mandó</small></div><div class="ra-chart alto"><canvas id="raEmbudo"></canvas></div></div>
-      <div class="ra-col"><div class="ra-ct">Qué respondieron <small>su primer mensaje después del aviso</small></div><div class="ra-chart alto"><canvas id="raResp"></canvas></div></div>
+      <div class="ra-col"><div class="ra-ct">Qué respondieron <small>su primer mensaje después del aviso · toca una barra para ver los nombres</small></div><div class="ra-chart alto"><canvas id="raResp"></canvas></div></div>
     </div>
     <div class="ra-g11">
       <div class="ra-col"><div class="ra-ct">Por qué no les llegó el aviso <small>${fmt(c.sin_aviso ? c.sin_aviso.length : 0)} mayoristas${c.bloqueados ? ` · además ${fmt(c.bloqueados)} bloqueados en el ERP, fuera de la campaña` : ''}</small></div><div class="ra-chart"><canvas id="raNoLlego"></canvas></div></div>
@@ -5098,9 +5099,12 @@ function raGraficos() {
     const ks = Object.keys(dias).sort();
     barras('raForm', ks.map(t => t.slice(8, 10) + '-' + t.slice(5, 7)), [{ label: 'Formularios', data: ks.map(t => dias[t]), backgroundColor: rgba(color('--ac'), .8), borderRadius: 3 }], null, { horizontal: false, apiladas: false, leyenda: false, sufijo: ' formularios', eje: raEnteros }).catch(() => {});
   }
-  raGraficosCampana();
+  raGraficosCampana(true);
+  /* tocar las cifras abre la lista con los nombres (02-11) */
+  const TOCA = { 'no recibir más': 'bajas', 'lo leyeron': 'leyeron', 'respondieron': 'respondieron' };
+  body.querySelectorAll('.ra-k').forEach(card => { const t = (card.querySelector('.ra-t')?.textContent || '').trim(); if (TOCA[t]) { card.style.cursor = 'pointer'; card.title = 'Toca para ver los nombres'; card.addEventListener('click', () => cpVerLista(TOCA[t])); } });
 }
-function raGraficosCampana() {
+function raGraficosCampana(conClic = false) {
   const c = RA_CAMP;
   if (c && c.hay) {
     const w = c.whatsapp || {}, resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
@@ -5113,7 +5117,7 @@ function raGraficosCampana() {
     const orden = ['Sí, mándamelas', '¡Lo quiero!', 'Ver más modelos', 'El catálogo completo', 'Escribió otra cosa', 'Ahora no', 'No recibir más', 'Sin respuesta'];
     const COL = { '¡Lo quiero!': color('--ok'), 'Ver más modelos': color('--ac'), 'Sí, mándamelas': color('--ok'), 'El catálogo completo': color('--ac'), 'Escribió otra cosa': color('--ac'), 'Ahora no': color('--wa'), 'No recibir más': color('--er'), 'Sin respuesta': color('--tx3') };
     const ks = orden.filter(x => resp[x]);
-    barras('raResp', ks, [{ label: 'Mayoristas', data: ks.map(x => resp[x]), backgroundColor: ks.map(x => COL[x]), borderRadius: 4 }], null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
+    barras('raResp', ks, [{ label: 'Mayoristas', data: ks.map(x => resp[x]), backgroundColor: ks.map(x => COL[x]), borderRadius: 4 }], conClic ? (i => cpVerLista('resp:' + ks[i])) : null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
   }
 }
 function raMontar() {
@@ -5346,6 +5350,44 @@ function cpBajasIgnoran(ids) {
     + tabla('Pidieron "No recibir más"', 'no se les vuelve a escribir por WhatsApp; conviene que los llame su vendedor para saber por qué', '<th>Campaña</th><th>Cuándo</th>', bajas.map(x => fila(x, `<td>${cvEsc(x.baja_campana)}</td><td>${fecha(x.baja_en)}</td>`)))
     + tabla('Lo leyeron y no respondieron', 'ordenados por cuántas campañas seguidas ignoraron: para que los llame un vendedor', '<th class="hw-num">Campañas</th>', leyeron.map(x => fila(x, `<td class="hw-num">${fmt(x.campanas.length)}</td>`)))
     + tabla('Les llegó y no lo abrieron', 'probablemente no miran ese WhatsApp: probar por correo o una llamada', '<th class="hw-num">Campañas</th>', noAbrieron.map(x => fila(x, `<td class="hw-num">${fmt(x.campanas.length)}</td>`)));
+}
+/* 02-11 (Manu: "no se desglosa cuando lo aprieto; la idea es saber qué nombre tienen y a qué competencia se fueron"):
+   tocar "no recibir más", "lo leyeron", "respondieron" o una barra de "Qué respondieron" abre la lista con los nombres, lo que
+   escribieron y un campo para anotar el motivo o a quién le compran (se guarda en el CRM: crm_interacciones_v2) */
+let CP_MOTIVOS = null;
+async function cpVerLista(tipo) {
+  const ids = typeof CP_SEL !== 'undefined' && CP_SEL && CP_SEL !== 'todas' && CP_DATA[CP_SEL] ? [CP_SEL] : CAMPANAS.map(x => x.id);
+  const filas = [];
+  for (const id of ids) { const nom = (CAMPANAS.find(x => x.id === id) || {}).nombre || id; for (const c of ((CP_DATA[id] || {}).por_cliente || [])) filas.push({ ...c, campana: nom }); }
+  if (!filas.length) return alert('Abre Atención → Campañas y espera a que el reporte se recalcule para ver la lista.');
+  const sel = filas.filter(c => tipo === 'bajas' ? c.baja : tipo === 'leyeron' ? (c.wa === 'Lo leyó' && !c.respondio && !c.baja) : tipo === 'noabrieron' ? (c.wa !== 'Lo leyó' && !c.respondio && !c.baja)
+    : tipo === 'respondieron' ? (c.respondio && !c.baja) : tipo.startsWith('resp:') ? (tipo === 'resp:Sin respuesta' ? (!c.respondio && !c.baja) : c.respondio === tipo.slice(5)) : false);
+  const titulo = { bajas: 'Pidieron "No recibir más"', leyeron: 'Lo leyeron y no respondieron', noabrieron: 'Les llegó y no lo abrieron', respondieron: 'Respondieron' }[tipo] || `Respondieron "${tipo.slice(5)}"`;
+  if (!CP_MOTIVOS) { const r = await cvFetch('?motivos=1'); CP_MOTIVOS = (r && r.motivos) || {}; }
+  const rN = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, '').replace(/^0+/, '');
+  const fecha = t => t ? String(t).slice(0, 10).split('-').reverse().join('-') : '—';
+  const html = sel.sort((a, b) => String(b.ultima_compra).localeCompare(String(a.ultima_compra))).map((c, i) => { const mo = CP_MOTIVOS[rN(c.rut)];
+    return `<tr><td><b>${cvEsc(c.cliente)}</b><div class="td-dim">${cvEsc(c.ciudad || '—')} · ${cvEsc(c.vendedor || 'sin vendedor')} · última compra ${fecha(c.ultima_compra)}</div></td>
+      <td>${cvEsc(c.campana)}${c.baja_en ? `<div class="td-dim">${fecha(c.baja_en)}</div>` : ''}</td><td>${c.texto ? `“${cvEsc(c.texto)}”` : `<span class="td-dim">${cvEsc(c.respondio || (c.wa === 'Lo leyó' ? 'Lo leyó, no escribió' : c.wa || '—'))}</span>`}</td>
+      <td style="min-width:230px">${mo ? `<div style="font-size:12px;margin-bottom:4px">${cvEsc(mo.texto)} <span class="td-dim">${fecha(mo.fecha)}</span></div>` : ''}<div style="display:flex;gap:4px"><input class="finput" style="font-size:12px;padding:4px 6px" placeholder="Motivo o a quién le compra" data-cpmot="${i}"><button class="cv-fbtn" data-cpmotg="${i}">Guardar</button></div></td>
+      <td>${cpVerConv(c.lead)}</td></tr>`; }).join('');
+  document.getElementById('cpModal')?.remove();
+  const m = document.createElement('div'); m.id = 'cpModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
+  m.innerHTML = `<div style="background:var(--sf);border-radius:14px;max-width:1100px;width:100%;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><h3 style="margin:0">${cvEsc(titulo)} <span class="td-dim" style="font-size:14px">${fmt(sel.length)}</span></h3><button class="cv-fbtn" data-cpcerrar>Cerrar ✕</button></div>
+    <div class="td-dim" style="margin-bottom:10px">A quién le compran no lo registra Nexor ni el ERP: si lo dijeron, sale en lo que escribieron; si no, pregúntalo al llamar y anótalo acá (queda guardado para todos).</div>
+    ${sel.length ? `<div class="hw-col"><table class="hw-tabla"><tr><th>Cliente (ERP)</th><th>Campaña</th><th>Lo que escribió</th><th>Motivo / a quién le compra</th><th></th></tr>${html}</table></div>` : '<div class="td-dim">Nadie en esta lista.</div>'}</div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-cpcerrar]')) m.remove(); });
+  m.querySelectorAll('[data-cpconv]').forEach(b => b.addEventListener('click', () => { m.remove(); CV_SEL = b.dataset.cpconv; go('conversaciones', 'Conversaciones'); }));
+  m.querySelectorAll('[data-cpmotg]').forEach(b => b.addEventListener('click', async () => {
+    const i = +b.dataset.cpmotg, inp = m.querySelector(`[data-cpmot="${i}"]`), c = sel[i];
+    if (!inp.value.trim()) return;
+    const r = await cvFetch('', { accion: 'motivo', rut: c.rut, nota: inp.value.trim() });
+    if (!r.ok) return alert(r.mensaje || 'No se pudo');
+    CP_MOTIVOS[rN(c.rut)] = { texto: inp.value.trim(), fecha: new Date().toISOString() }; b.textContent = '✔'; inp.disabled = true;
+  }));
 }
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
