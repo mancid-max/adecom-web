@@ -5009,6 +5009,7 @@ const CP_OPC = {
 };
 /* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
    la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
+function cpSeguro(o) { return o.seguro != null ? !!o.seguro : !/^ERP/.test(String(o.via || '')); }
 function cpAsignar() {
   const camp = CAMPANAS.map(x => ({ id: x.id, nombre: x.nombre, desde: (CP_DATA[x.id] || {}).desde || '', d: CP_DATA[x.id] })).filter(x => x.d && x.d.ok && x.d.hay);
   const vistos = new Map();
@@ -5020,8 +5021,11 @@ function cpAsignar() {
   }
   const por = {}; for (const c of camp) por[c.id] = [];
   for (const o of vistos.values()) por[o.campana].push(o);
-  const suma = (xs) => ({ pedidos: xs.length, valor: xs.reduce((t, o) => t + Number(o.valor || 0), 0), unidades: xs.reduce((t, o) => t + Number(o.unidades || 0), 0),
-    clientes: new Set(xs.map(o => String(o.cliente || '').toUpperCase())).size, detalle: xs });
+  /* 02-11 (Manu: "déjalo como supuesto, ese dato puede ser y no puede ser… todos los datos que no estés seguro"): los montos
+     cuentan solo lo confirmado; lo posible (pedidos del vendedor de clientes que respondieron el aviso) va aparte */
+  const base = (xs) => ({ pedidos: xs.length, valor: xs.reduce((t, o) => t + Number(o.valor || 0), 0), unidades: xs.reduce((t, o) => t + Number(o.unidades || 0), 0),
+    clientes: new Set(xs.map(o => String(o.cliente || '').toUpperCase())).size });
+  const suma = (xs) => ({ ...base(xs.filter(cpSeguro)), posible: base(xs.filter(o => !cpSeguro(o))), detalle: xs });
   const res = {}; for (const c of camp) res[c.id] = suma(por[c.id]);
   res.total = suma([...vistos.values()]);
   return res;
@@ -5049,9 +5053,10 @@ function cpTexto() {
   };
   const L = [`*Informe de campañas · Mohicano Jeans*`, `al ${hoy}`, ''];
   L.push('*1. Ventas*');
-  for (const x of CAMPANAS) if (ids.includes(x.id)) { const a = A[x.id] || {}; L.push(`• ${x.nombre}: *${plata(a.valor)}* neto${a.pedidos ? ` · ${a.pedidos} ${a.pedidos === 1 ? 'pedido' : 'pedidos'} · ${a.unidades} prendas` : ' · sin ventas todavía'}`); }
-  if (CP_SEL === 'todas') L.push(`• *Total: ${plata(A.total.valor)}* neto · ${A.total.pedidos} ${A.total.pedidos === 1 ? 'pedido' : 'pedidos'} · ${A.total.unidades} prendas`);
-  L.push('_Cuenta los pedidos hechos con Sofía o en la página después del aviso, y los del ERP si el cliente respondió el aviso antes. Un pedido cuenta para una sola campaña (la del último aviso). Las respuestas automáticas no cuentan._');
+  const posTxt = (a) => a && a.posible && a.posible.pedidos ? ` · _posible: ${plata(a.posible.valor)} (${a.posible.pedidos} ${a.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor)_` : '';
+  for (const x of CAMPANAS) if (ids.includes(x.id)) { const a = A[x.id] || {}; L.push(`• ${x.nombre}: *${plata(a.valor)}* confirmado${a.pedidos ? ` · ${a.pedidos} ${a.pedidos === 1 ? 'pedido' : 'pedidos'} · ${a.unidades} prendas` : ''}${posTxt(a)}`); }
+  if (CP_SEL === 'todas') L.push(`• *Total confirmado: ${plata(A.total.valor)}* neto · ${A.total.pedidos} ${A.total.pedidos === 1 ? 'pedido' : 'pedidos'} · ${A.total.unidades} prendas${posTxt(A.total)}`);
+  L.push('_Confirmado: pedidos hechos con Sofía después del aviso o de los modelos en oferta. Posible: pedidos que ingresó un vendedor de clientes que habían respondido el aviso; pueden ser por la campaña o no, y no suman al confirmado. Un pedido cuenta para una sola campaña (la del último aviso). Las respuestas automáticas no cuentan._');
   const vend = new Map();
   ids.forEach((id, n) => {
     const c = CPD[id], x = CAMPANAS.find(y => y.id === id);
@@ -5069,10 +5074,11 @@ function cpTexto() {
     L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó el WhatsApp)`);
     for (const [k, m] of Object.entries(R).filter(([k]) => k !== 'Sin respuesta').sort((a, b) => b[1] - a[1])) L.push(`   - ${k}: ${m}`);
     L.push(`*Conversaron con Sofía:* ${c.conversando || 0} · siguen conversando (últimas 72 h): ${c.conversando_ahora || 0} · pidieron no recibir más: ${c.bajas || 0}`);
-    const det = (v.detalle || []).map(o => `   - ${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} neto · ${dia(o.fecha)} · ${o.via}${o.promo === 0 ? ' · compró otros modelos, no los de la oferta' : o.promo ? ` · ${o.promo} prendas en oferta` : ''}`);
+    const det = (v.detalle || []).map(o => `   - ${cpSeguro(o) ? '' : '_(POSIBLE)_ '}${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} neto · ${dia(o.fecha)} · ${o.via}${cpSeguro(o) ? '' : ` · ${o.por_que || 'pedido del vendedor: no se sabe si fue por la campaña'}`}${o.promo === 0 ? ' · compró otros modelos, no los de la oferta' : o.promo ? ` · ${o.promo} prendas en oferta` : ''}`);
     const det2 = [];
     for (const [k, o] of (v.detalle || []).entries()) { det2.push(det[k]); for (const l of (o.lineas || [])) det2.push(`      · ${l.codigo}: ${l.unidades} u × ${plata(l.precio)} = ${plata(l.subtotal)}${cpTallas(l.tallas) ? ` (${cpTallas(l.tallas)})` : ''}`); }
-    L.push(`*Compraron:* ${v.clientes || 0} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${plata(v.valor)} neto`, ...det2);
+    const vp = (A[id] || {}).posible || {};
+    L.push(`*Compraron:* ${v.clientes || 0} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} confirmado · ${plata(v.valor)} neto${vp.pedidos ? ` · posible: ${vp.clientes} · ${plata(vp.valor)}` : ''}`, ...det2);
     for (const o of ((v.por_vendedor || {}).detalle || [])) { const k = `${String(o.cliente).toUpperCase().replace(/\W/g, '').slice(0, 12)}|${String(o.fecha).slice(0, 10)}|${o.unidades}`; if (!vend.has(k)) vend.set(k, o); }
     const mej = (c.mejores || []).slice(0, 6).map(m => `   - ${m.nombre}: WhatsApp ${String(m.whatsapp || '—').toLowerCase()} · correo ${String(m.correo || '—').toLowerCase()}${m.respondio ? ` · respondió "${m.respondio}"` : ''}${m.pidio ? ' · PIDIÓ' : m.vendedor ? ' · pidió con vendedor' : ''}`);
     if (mej.length) L.push('*Los que más compran (12 meses) y qué pasó con cada uno:*', ...mej);
@@ -5099,12 +5105,13 @@ function cpCompras(xs, conCampana) {
   const filas = xs.slice().sort((a, b) => (b.valor || 0) - (a.valor || 0)).map(o => {
     const camp = conCampana ? ((CAMPANAS.find(x => x.id === o.campana) || {}).nombre || '') : '';
     const lin = (o.lineas || []).map(l => `<tr class="cp-lin"><td style="padding-left:22px">${cvEsc(l.codigo)}</td><td colspan="${conCampana ? 3 : 2}" class="td-dim">${cvEsc(cpTallas(l.tallas) || 'sin tallas en el ERP')}</td><td class="hw-num">${fmt(l.unidades)}</td><td class="hw-num td-dim">${plata(l.precio)}</td><td class="hw-num">${plata(l.subtotal)}</td></tr>`).join('');
-    return `<tr><td><b>${cvEsc(o.cliente)}</b>${o.ref ? ` <span class="td-dim">#${cvEsc(o.ref)}</span>` : ''}</td>${conCampana ? `<td>${cvEsc(camp)}</td>` : ''}<td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via || '')}${o.promo === 0 ? '<br><span class="td-dim">compró otros modelos, no los de la oferta</span>' : o.promo ? `<br><span class="td-dim">${fmt(o.promo)} prendas en oferta</span>` : ''}</td><td class="hw-num"><b>${fmt(o.unidades)}</b></td><td></td><td class="hw-num"><b>${plata(o.valor)}</b></td></tr>${lin}`;
+    const pos = !cpSeguro(o);
+    return `<tr${pos ? ' style="background:rgba(183,121,31,.06)"' : ''}><td><b>${cvEsc(o.cliente)}</b>${o.ref ? ` <span class="td-dim">#${cvEsc(o.ref)}</span>` : ''}${pos ? `<br><span class="cv-tag" style="background:rgba(183,121,31,.15);color:#b7791f">Posible</span> <span class="td-dim">${cvEsc(o.por_que || 'pedido del vendedor: no se sabe si fue por la campaña')}</span>` : '<br><span class="cv-tag" style="background:rgba(16,185,129,.12);color:var(--ok)">Confirmado</span>'}</td>${conCampana ? `<td>${cvEsc(camp)}</td>` : ''}<td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via || '')}${o.promo === 0 ? '<br><span class="td-dim">compró otros modelos, no los de la oferta</span>' : o.promo ? `<br><span class="td-dim">${fmt(o.promo)} prendas en oferta</span>` : ''}</td><td class="hw-num"><b>${fmt(o.unidades)}</b></td><td></td><td class="hw-num"><b>${plata(o.valor)}</b></td></tr>${lin}`;
   }).join('');
-  const tot = xs.reduce((t, o) => t + Number(o.valor || 0), 0), u = xs.reduce((t, o) => t + Number(o.unidades || 0), 0);
-  return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>${fmt(xs.length)} ${xs.length === 1 ? 'pedido' : 'pedidos'} · ${fmt(u)} prendas · ${plata(tot)} neto</span></div>
+  const seg = xs.filter(cpSeguro), pos = xs.filter(o => !cpSeguro(o)), tot = (ys) => ys.reduce((t, o) => t + Number(o.valor || 0), 0);
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>confirmado: ${fmt(seg.length)} ${seg.length === 1 ? 'pedido' : 'pedidos'} · ${plata(tot(seg))} neto${pos.length ? ` · posible: ${fmt(pos.length)} · ${plata(tot(pos))}` : ''}</span></div>
     <div class="hw-col"><table class="hw-tabla"><tr><th>Cliente</th>${conCampana ? '<th>Campaña</th>' : ''}<th>Fecha</th><th>Por dónde</th><th class="hw-num">Prendas</th><th class="hw-num">Precio</th><th class="hw-num">Monto neto</th></tr>${filas}</table>
-    <div class="hw-pie">Debajo de cada cliente, cada artículo con sus tallas, unidades, precio neto y subtotal. Pedidos de Sofía o de la página: precio de lista con la promoción a la fecha del pedido; del ERP: el precio del pedido. Las tallas de algunos pedidos del ERP no vienen en el BI.</div></div></section>`;
+    <div class="hw-pie">Debajo de cada cliente, cada artículo con sus tallas, unidades, precio neto y subtotal. Pedidos de Sofía o de la página: precio de lista con la promoción a la fecha del pedido; del ERP: el precio del pedido. Las tallas de algunos pedidos del ERP no vienen en el BI. <b>Confirmado</b>: lo pidió con Sofía después del aviso o compró los modelos en oferta. <b>Posible</b>: lo ingresó un vendedor y el cliente había respondido el aviso; puede ser por la campaña o no, y no suma al monto confirmado.</div></div></section>`;
 }
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
@@ -5114,7 +5121,7 @@ function cpRender() {
   const notaPromo = (id) => { const xs = (A[id] && A[id].detalle) || []; if (!xs.length || !xs.some(o => o.promo != null)) return '';
     const con = xs.filter(o => o.promo > 0).length, sin = xs.length - con;
     return `<br>${con ? `${fmt(con)} con los modelos en oferta` : ''}${con && sin ? ' · ' : ''}${sin ? `${fmt(sin)} ${sin === 1 ? 'entró' : 'entraron'} por el aviso y ${sin === 1 ? 'compró' : 'compraron'} otros modelos` : ''}`; };
-  const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo}</div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'todavía sin ventas'}${extra || ''}</div></div>`;
+  const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo} <span class="td-dim" style="font-weight:400">confirmado</span></div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'sin ventas confirmadas'}${v && v.posible && v.posible.pedidos ? `<br><b style="color:var(--warn,#b7791f)">+ ${fmtM(v.posible.valor)} posible</b> · ${fmt(v.posible.pedidos)} ${v.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor, no se sabe si fue por la campaña` : ''}${extra || ''}</div></div>`;
   const tarjetas = `<div class="ra-ks" style="grid-template-columns:repeat(${CAMPANAS.length + 1},minmax(0,1fr));margin-bottom:14px">
     ${CAMPANAS.map(x => tarjeta(cvEsc(x.nombre), A[x.id], notaPromo(x.id), x.id)).join('')}
     ${tarjeta('Total de las campañas', A.total, '<br>neto · por Sofía, la página o después de responder el aviso', 'todas')}</div>`;
