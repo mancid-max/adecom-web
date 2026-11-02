@@ -5034,33 +5034,77 @@ function cpConVentas(d, v) {
 /* 30-10 (Manu: "un copiar todo para mandárselo al jefe por WhatsApp y que lo pueda leer"): el reporte de lo que se está
    viendo (Todas o una campaña) en texto corto, con *negritas* de WhatsApp */
 function cpTexto() {
+  /* 02-11 (jefe: "necesito el reporte lo más detallado posible"): qué se ofreció, a quién, cómo llegó, qué respondieron,
+     quién compró y por dónde, los pedidos de vendedores aparte y a quién seguir. Sin emojis fuera del BMP (se rompían en wa.me) */
   const A = cpAsignar();
   const CPD = Object.fromEntries(CAMPANAS.map(x => [x.id, cpConVentas(CP_DATA[x.id], A[x.id])]));
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
   const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-CL');
+  const dia = (f) => f ? new Date(f).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }) : '';
   const hoy = new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const ids = CP_SEL === 'todas' ? CAMPANAS.map(x => x.id) : [CP_SEL];
-  const L = [`*Campañas Mohicano Jeans* · al ${hoy}`, ''];
-  L.push(`*Ventas de las campañas*`);
-  for (const x of CAMPANAS) if (ids.includes(x.id) || CP_SEL === 'todas') L.push(`• ${x.nombre}: ${plata((A[x.id] || {}).valor)}${(A[x.id] || {}).pedidos ? ` (${A[x.id].pedidos} ${A[x.id].pedidos === 1 ? 'pedido' : 'pedidos'})` : ''}`);
-  if (CP_SEL === 'todas') L.push(`• *Total: ${plata(A.total.valor)}*`);
-  for (const id of ids) {
+  const QUE = {
+    halloween: '5% de descuento en el 4455 Riviera (palazzo tiro alto) y el 4007 (pitillo tiro alto), con despacho inmediato, el 30 y 31-10. WhatsApp con foto y correo con botón a Sofía',
+    despacho: 'Modelos de la Dolce Vita 44 con despacho inmediato, 3 elegidos para cada mayorista según lo que compra. WhatsApp con foto y, 3 días después, correo a los que no respondieron',
+  };
+  const L = [`*Informe de campañas · Mohicano Jeans*`, `al ${hoy}`, ''];
+  L.push('*1. Ventas*');
+  for (const x of CAMPANAS) if (ids.includes(x.id)) { const a = A[x.id] || {}; L.push(`• ${x.nombre}: *${plata(a.valor)}* neto${a.pedidos ? ` · ${a.pedidos} ${a.pedidos === 1 ? 'pedido' : 'pedidos'} · ${a.unidades} prendas` : ' · sin ventas todavía'}`); }
+  if (CP_SEL === 'todas') L.push(`• *Total: ${plata(A.total.valor)}* neto · ${A.total.pedidos} ${A.total.pedidos === 1 ? 'pedido' : 'pedidos'} · ${A.total.unidades} prendas`);
+  L.push('_Cuenta los pedidos hechos con Sofía o en la página después del aviso, y los del ERP si el cliente respondió el aviso antes. Un pedido cuenta para una sola campaña (la del último aviso). Las respuestas automáticas no cuentan._');
+  const vend = new Map();
+  ids.forEach((id, n) => {
     const c = CPD[id], x = CAMPANAS.find(y => y.id === id);
-    if (!c || !c.ok || !c.hay) { L.push('', `*${x.nombre}*: todavía no sale`); continue; }
-    const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, R = c.respuestas || {};
-    const resp = Object.entries(R).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
-    L.push('', `*${(CP_OPC[id] || {}).titulo || x.nombre}* · salió el ${cvHora(c.desde)}`);
-    L.push(`*WhatsApp:* se mandó a ${w.enviados}, les llegó a ${w.llegaron} (${pct(w.llegaron, w.enviados)}), lo leyeron ${w.leyeron}`);
-    if (co.enviados) L.push(`*Correo:* ${co.enviados} enviados, lo abrieron ${co.abrieron} (${pct(co.abrieron, co.enviados)})`);
-    L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó) · conversan con Sofía ${c.conversando_ahora || 0} · no recibir más ${c.bajas || 0}`);
-    const det = (v.detalle || []).map(o => `   - ${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} · ${o.via}${o.promo === 0 ? ' · entró por el aviso y compró otros modelos' : o.promo ? ` · ${o.promo} en oferta` : ''}`);
-    L.push(`*Compraron:* ${v.clientes || 0} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'}: ${plata(v.valor)}`, ...det);
-    /* los pedidos por vendedor no van en el texto: no son de la campaña y un mismo pedido sale en las dos (se ven en el dashboard) */
-    const nl = (c.no_llego || []).slice(0, 3).map(([m, n]) => `${m} ${n}`).join(' · ');
-    if (nl) L.push(`*No les llegó:* ${nl}`);
+    if (!c || !c.ok || !c.hay) { L.push('', `*${n + 2}. ${x.nombre}*: todavía no sale`); return; }
+    const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, R = c.respuestas || {}, li = c.lista || {}, al = c.alcance || {};
+    const resp = Object.entries(R).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, k]) => t + k, 0);
+    L.push('', `*${n + 2}. ${(CP_OPC[id] || {}).titulo || x.nombre}* · salió el ${cvHora(c.desde)}`);
+    if (QUE[id]) L.push(`*Qué se ofreció:* ${QUE[id]}`);
+    L.push(`*A quién:* ${li.clientes || al.total || 0} mayoristas del ERP (${li.con_celular || 0} con celular, ${li.con_correo || 0} con correo). Fuera por bloqueo en el ERP: ${c.bloqueados || 0}`);
+    L.push(`*Alcance:* les llegó a ${(al.whatsapp || 0) + (al.solo_correo || 0)} de ${al.total || 0}: ${al.whatsapp || 0} por WhatsApp, ${al.solo_correo || 0} solo por correo, ${al.ninguno || 0} por ningún lado`);
+    L.push(`*WhatsApp:* se mandó a ${w.enviados || 0} · les llegó a ${w.llegaron || 0} (${pct(w.llegaron, w.enviados)}) · lo leyeron ${w.leyeron || 0} (${pct(w.leyeron, w.llegaron)}) · fallaron ${w.fallaron || 0}`);
+    const nl = (c.no_llego || []).map(([m, k]) => `   - ${m}: ${k}`);
+    if (nl.length) L.push('*Por qué no les llegó el WhatsApp:*', ...nl);
+    if (co.enviados || co.lista) L.push(`*Correo:* ${co.enviados || 0} enviados${co.pendientes ? ` (${co.pendientes} sin mandar)` : ''} · lo abrieron ${co.abrieron || 0} (${pct(co.abrieron, co.enviados)}) · tocaron el botón ${co.tocaron || 0}${co.fallaron ? ` · fallaron ${co.fallaron}` : ''}`);
+    L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó el WhatsApp)`);
+    for (const [k, m] of Object.entries(R).filter(([k]) => k !== 'Sin respuesta').sort((a, b) => b[1] - a[1])) L.push(`   - ${k}: ${m}`);
+    L.push(`*Conversaron con Sofía:* ${c.conversando || 0} · siguen conversando (últimas 72 h): ${c.conversando_ahora || 0} · pidieron no recibir más: ${c.bajas || 0}`);
+    const det = (v.detalle || []).map(o => `   - ${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} neto · ${dia(o.fecha)} · ${o.via}${o.promo === 0 ? ' · compró otros modelos, no los de la oferta' : o.promo ? ` · ${o.promo} prendas en oferta` : ''}`);
+    const det2 = [];
+    for (const [k, o] of (v.detalle || []).entries()) { det2.push(det[k]); for (const l of (o.lineas || [])) det2.push(`      · ${l.codigo}: ${l.unidades} u × ${plata(l.precio)} = ${plata(l.subtotal)}${cpTallas(l.tallas) ? ` (${cpTallas(l.tallas)})` : ''}`); }
+    L.push(`*Compraron:* ${v.clientes || 0} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${plata(v.valor)} neto`, ...det2);
+    for (const o of ((v.por_vendedor || {}).detalle || [])) { const k = `${String(o.cliente).toUpperCase().replace(/\W/g, '').slice(0, 12)}|${String(o.fecha).slice(0, 10)}|${o.unidades}`; if (!vend.has(k)) vend.set(k, o); }
+    const mej = (c.mejores || []).slice(0, 6).map(m => `   - ${m.nombre}: WhatsApp ${String(m.whatsapp || '—').toLowerCase()} · correo ${String(m.correo || '—').toLowerCase()}${m.respondio ? ` · respondió "${m.respondio}"` : ''}${m.pidio ? ' · PIDIÓ' : m.vendedor ? ' · pidió con vendedor' : ''}`);
+    if (mej.length) L.push('*Los que más compran (12 meses) y qué pasó con cada uno:*', ...mej);
+    const tib = (c.tibios || []).slice(0, 8).map(t => t.cliente);
+    if (tib.length) L.push(`*Para llamar o seguir (abrieron el correo o tocaron el botón y no escribieron):* ${tib.join(', ')}`);
+  });
+  /* un pedido que una campaña sí cuenta (Opalo en Halloween) no va en la lista de vendedores de la otra */
+  const clave = (o) => `${String(o.cliente).toUpperCase().replace(/\W/g, '').slice(0, 12)}|${String(o.fecha).slice(0, 10)}|${o.unidades}`;
+  for (const o of (A.total.detalle || [])) vend.delete(clave(o));
+  if (vend.size) {
+    const vs = [...vend.values()];
+    L.push('', `*Pedidos ingresados por vendedores en esos días (NO cuentan como venta de la campaña):* ${vs.length} · ${plata(vs.reduce((t, o) => t + Number(o.valor || 0), 0))} neto`);
+    for (const o of vs.sort((a, b) => b.valor - a.valor).slice(0, 8)) L.push(`   - ${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} · ${dia(o.fecha)} · ${String(o.via || '').replace(/^ERP · /, '')}`);
   }
-  L.push('', 'Detalle: dashboard de Adecom → Atención → Campañas');
+  L.push('', '_Fuente: WhatsApp de Sofía (Nexor), correos (Resend), pedidos de la página y de Sofía (Supabase) y pedidos del ERP (BI). Detalle en el dashboard de Adecom → Atención → Campañas._');
   return L.join('\n');
+}
+/* 02-11 (Manu: "aquí debería salir quién compró, qué cliente fue y cuánto, detallando el artículo por tallas, en dinero"):
+   cada venta de las campañas con su detalle (lo arman los reportes: lineas de quote_items o del pedido del ERP) */
+function cpTallas(t) { return Object.entries(t || {}).filter(([, n]) => n).map(([k, n]) => `${k}: ${n}`).join(' · '); }
+function cpCompras(xs, conCampana) {
+  const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-CL');
+  if (!xs.length) return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>todavía nadie</span></div></section>`;
+  const filas = xs.slice().sort((a, b) => (b.valor || 0) - (a.valor || 0)).map(o => {
+    const camp = conCampana ? ((CAMPANAS.find(x => x.id === o.campana) || {}).nombre || '') : '';
+    const lin = (o.lineas || []).map(l => `<tr class="cp-lin"><td style="padding-left:22px">${cvEsc(l.codigo)}</td><td colspan="${conCampana ? 3 : 2}" class="td-dim">${cvEsc(cpTallas(l.tallas) || 'sin tallas en el ERP')}</td><td class="hw-num">${fmt(l.unidades)}</td><td class="hw-num td-dim">${plata(l.precio)}</td><td class="hw-num">${plata(l.subtotal)}</td></tr>`).join('');
+    return `<tr><td><b>${cvEsc(o.cliente)}</b>${o.ref ? ` <span class="td-dim">#${cvEsc(o.ref)}</span>` : ''}</td>${conCampana ? `<td>${cvEsc(camp)}</td>` : ''}<td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via || '')}${o.promo === 0 ? '<br><span class="td-dim">compró otros modelos, no los de la oferta</span>' : o.promo ? `<br><span class="td-dim">${fmt(o.promo)} prendas en oferta</span>` : ''}</td><td class="hw-num"><b>${fmt(o.unidades)}</b></td><td></td><td class="hw-num"><b>${plata(o.valor)}</b></td></tr>${lin}`;
+  }).join('');
+  const tot = xs.reduce((t, o) => t + Number(o.valor || 0), 0), u = xs.reduce((t, o) => t + Number(o.unidades || 0), 0);
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>${fmt(xs.length)} ${xs.length === 1 ? 'pedido' : 'pedidos'} · ${fmt(u)} prendas · ${plata(tot)} neto</span></div>
+    <div class="hw-col"><table class="hw-tabla"><tr><th>Cliente</th>${conCampana ? '<th>Campaña</th>' : ''}<th>Fecha</th><th>Por dónde</th><th class="hw-num">Prendas</th><th class="hw-num">Precio</th><th class="hw-num">Monto neto</th></tr>${filas}</table>
+    <div class="hw-pie">Debajo de cada cliente, cada artículo con sus tallas, unidades, precio neto y subtotal. Pedidos de Sofía o de la página: precio de lista con la promoción a la fecha del pedido; del ERP: el precio del pedido. Las tallas de algunos pedidos del ERP no vienen en el BI.</div></div></section>`;
 }
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
@@ -5084,10 +5128,10 @@ function cpRender() {
       <div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Lo leyeron</th><th class="hw-num">Respondieron</th><th class="hw-num">No recibir más</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Compraron</th></tr>
       ${filas.map(f => `<tr data-cpsel="${f.id}" style="cursor:pointer"><td><b>${cvEsc(f.nombre)}</b></td><td>${cvEsc(cvHora(f.r.desde))}</td><td class="hw-num">${fmt(f.r.wa)}</td><td class="hw-num">${pct(f.r.llego, f.r.wa)}</td><td class="hw-num">${pct(f.r.leyeron, f.r.llego)}</td><td class="hw-num">${fmt(f.r.resp)} <span class="td-dim">${pct(f.r.resp, f.r.llego)}</span></td><td class="hw-num">${fmt(f.r.bajas)}</td><td class="hw-num">${fmt(f.r.correos)}</td><td class="hw-num">${pct(f.r.abrieron, f.r.correos)}</td><td class="hw-num">${fmt(f.r.compraron)}${f.r.monto ? ` <span class="td-dim">${fmtM(f.r.monto)}</span>` : ''}</td></tr>`).join('')}
       </table><div class="hw-pie">Les llegó: sobre los WhatsApp mandados · lo leyeron y respondieron: sobre los que les llegó · abrieron: sobre los correos enviados · compraron: por Sofía, la página o después de responder el aviso (los pedidos que el vendedor ingresa directo al ERP van aparte). Toca una campaña para ver su detalle.</div></div></section>` : '';
-    det = raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
+    det = cpCompras(A.total.detalle || [], true) + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
   } else {
     RA_CAMP = CPD[CP_SEL] && CPD[CP_SEL].ok ? CPD[CP_SEL] : null;
-    det = raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
+    det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
   }
   return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${tabs}<div id="cpDet">${det}</div>`;
 }
