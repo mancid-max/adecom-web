@@ -457,6 +457,10 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 #cjArtTable th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
 #pvcTable th[data-ord]{cursor:pointer;user-select:none;white-space:nowrap}
 #pvcTable th[data-ord]:hover{color:var(--ac);background:var(--ac10)}
+#pvcTable tr.pvc-mod{cursor:pointer;background:var(--sf)}
+#pvcTable tr.pvc-mod td{font-weight:700;border-top:2px solid var(--bd)}
+#pvcTable tr.pvc-hija{background:var(--sf2)}
+#pvcTable tr.pvc-hija td:first-child{padding-left:28px}
 #cjArtTable th .si{color:var(--ac);white-space:nowrap}
 @media(max-width:700px){
   .pl .pl-sec{display:none}
@@ -5800,6 +5804,11 @@ let PVC_FILAS = {};   // articulo -> su fila, para armar el detalle al tocarla
    pedidos cuentan para cortar y a veces no: "Sin Magic" los descuenta artículo por artículo.
    El stock y lo que está en producción no cambian: son físicos, no de un cliente. */
 let PVC_SIN_MAGIC = false;
+/* Vista de la tabla (Manu, 02-11-2026: "ver por artículo y familia… el total que se vendió en 00-01-02… y otro filtro
+   de desglosar"): 'art' = una fila por artículo (modelo y color); 'mod' = una fila por modelo con la suma de todos sus
+   colores, que se abren al tocarlo o con el desglose puesto. */
+let PVC_VISTA = 'art', PVC_DESG = false;
+const PVC_ABIERTOS = new Set();   // modelos abiertos a mano en la vista por modelo
 const MAGIC_RUT = '762535491';
 const esMagic = p => vdKey(p) === MAGIC_RUT || /MAGIC WORLD/i.test(p.nombre || '');
 function pvcMagic() {           // artículo → lo que pidió Magic, lo que se le despachó y lo que se le debe
@@ -6037,6 +6046,98 @@ async function dcTallas(art) {
   vkAbrir(ttl, cab + tabla + cli);
 }
 
+/* Vista por modelo de Pedido vs Corte (Manu, 02-11-2026). Las filas de artículo siguen siendo las mismas (las arma
+   buildPVCRows y las filtra applyPvcFilter): acá se les pone delante una fila por modelo (.pvc-mod) con la suma de los
+   colores que pasan los filtros, y los colores quedan como hijas (.pvc-hija), escondidas salvo que el desglose esté
+   puesto o se toque el modelo. Lo que sobra de un color no cubre lo que falta de otro: Estado suma lo que falta cortar de
+   cada color, igual que la fila de total. pvcAgrupar deja cada modelo seguido de sus colores después de ordenar. */
+function pvcModeloDe(tr) { return tr.dataset.art.slice(0, 6); }
+function pvcArmarModelos() {
+  const tb = document.getElementById('pvcBody');
+  if (!tb) return;
+  tb.querySelectorAll('tr.pvc-mod').forEach(r => r.remove());
+  const arts = [...tb.querySelectorAll('tr[data-art]')];
+  arts.forEach(r => r.classList.toggle('pvc-hija', PVC_VISTA === 'mod'));
+  if (PVC_VISTA !== 'mod') return;
+  const grupos = new Map();
+  for (const r of arts) { const m = pvcModeloDe(r); if (!grupos.has(m)) grupos.set(m, []); grupos.get(m).push(r); }
+  for (const [m, hijas] of grupos) {
+    const tr = document.createElement('tr');
+    tr.className = 'pvc-mod'; tr.dataset.modelo = m; tr.title = 'Toca para abrir o cerrar sus colores';
+    tr.dataset.dif = hijas.reduce((a, h) => a + (+h.dataset.cort || 0) - (+h.dataset.sal || 0), 0);   // para el orden de siempre
+    tr.innerHTML = '<td colspan="11"></td>';
+    tb.insertBefore(tr, hijas[0]);
+    tr.addEventListener('click', () => { if (PVC_ABIERTOS.has(m)) PVC_ABIERTOS.delete(m); else PVC_ABIERTOS.add(m); pvcPintarModelos(); });
+  }
+}
+function pvcAgrupar() {
+  const tb = document.getElementById('pvcBody'), tabla = tb?.closest('table');
+  if (!tb || PVC_VISTA !== 'mod') return;
+  const mods = [...tb.querySelectorAll('tr.pvc-mod')];
+  if (tabla && tabla.dataset.ordCol == null) mods.sort((a, b) => {       // sin columna elegida: lo que más falta primero, como los artículos
+    const da = +a.dataset.dif, db = +b.dataset.dif;
+    if (da >= 0 && db >= 0) return db - da;
+    if (da < 0 && db < 0) return da - db;
+    return db >= 0 ? 1 : -1;
+  });
+  const hijas = new Map();
+  tb.querySelectorAll('tr[data-art]').forEach(r => { const m = pvcModeloDe(r); if (!hijas.has(m)) hijas.set(m, []); hijas.get(m).push(r); });
+  for (const tr of mods) { tb.appendChild(tr); (hijas.get(tr.dataset.modelo) || []).forEach(h => tb.appendChild(h)); }
+}
+function pvcPintarModelos() {
+  const tb = document.getElementById('pvcBody');
+  if (!tb) return;
+  const arts = [...tb.querySelectorAll('tr[data-art]')];
+  if (PVC_VISTA !== 'mod') { arts.forEach(r => { r.style.display = r.dataset.pasa ? '' : 'none'; }); return; }
+  const porMod = new Map();
+  for (const r of arts) { const m = pvcModeloDe(r); if (!porMod.has(m)) porMod.set(m, []); porMod.get(m).push(r); }
+  const chip = (txt, bg, fg, extra = '') => `<span style="background:${bg};color:${fg};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap${extra}">${txt}</span>`;
+  let nMod = 0;
+  for (const tr of tb.querySelectorAll('tr.pvc-mod')) {
+    const m = tr.dataset.modelo, hijas = porMod.get(m) || [], pasan = hijas.filter(h => h.dataset.pasa);
+    const abierto = PVC_DESG || PVC_ABIERTOS.has(m);
+    hijas.forEach(h => { h.style.display = h.dataset.pasa && abierto ? '' : 'none'; });
+    tr.style.display = pasan.length ? '' : 'none';
+    if (!pasan.length) continue;
+    nMod++;
+    let ped = 0, desp = 0, sal = 0, stk = 0, pro = 0, cortar = 0, apurar = 0, sobra = 0, prog = 0;
+    const etapas = new Set(), exs = new Set(); let va = false;
+    for (const h of pasan) {
+      const s = +h.dataset.stk || 0, p = +h.dataset.prod || 0, sa = +h.dataset.sal || 0, pg = +h.dataset.prog || 0;
+      ped += +h.dataset.ped || 0; desp += +h.dataset.desp || 0; sal += sa; stk += s; pro += p; prog += pg;
+      const d = s + p - sa;
+      if (d < 0) { apurar += Math.min(pg, -d); cortar += Math.max(0, -d - pg); } else sobra += d;
+      (h.dataset.etapas || '').split('|').filter(Boolean).forEach(e => etapas.add(e));
+      const f = PVC_FILAS[h.dataset.art] || {};
+      if (f.ex?.ex_base) exs.add(f.ex.ex_base);
+      if (f.ex?.va) va = true;
+    }
+    const f0 = PVC_FILAS[pasan[0].dataset.art] || {}, base = m.slice(2), dif = stk + pro - sal, falta = cortar + apurar;
+    const colores = pasan.map(h => h.dataset.art.slice(6, 8)).join(', ');
+    const botaTiro = [f0.bota, f0.tiro].filter(Boolean).join(' · ');
+    const estado = (cortar ? chip(`▼ Cortar ${fmt(cortar)}`, 'var(--er10)', 'var(--er)') : '')
+      + (apurar ? `${cortar ? '<div style="margin-top:4px">' : ''}${chip(`⏱ Apurar corte ${fmt(apurar)}`, '#ede9fe', '#6d28d9')}${cortar ? '</div>' : ''}` : '')
+      + (!falta ? chip(sobra ? '▲ Ofrecer' : '✓ OK', sobra ? 'var(--ok10)' : 'var(--sf2)', sobra ? 'var(--ok)' : 'var(--tx3)') : '')
+      + (falta && sobra ? `<div class="td-dim" style="font-size:10px;font-weight:600;margin-top:3px;white-space:normal;line-height:1.25">+${fmt(sobra)} para ofrecer en otros colores</div>` : '');
+    const donde = [...etapas].sort((a, b) => (ETAPA_RANK[b] ?? -2) - (ETAPA_RANK[a] ?? -2)).slice(0, 3).map(e =>
+        `<span style="display:inline-block;background:${etapaClr(e)}20;color:${etapaClr(e)};border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-right:2px;white-space:nowrap">${e}</span>`).join('')
+      + (prog ? `<span style="display:inline-block;background:#ede9fe;color:#6d28d9;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-right:2px;white-space:nowrap">Programado</span>` : '');
+    tr.innerHTML = `<td data-v="${base}" style="white-space:nowrap"><div style="display:flex;align-items:center"><span style="width:14px;color:var(--tx3);font-size:11px">${abierto ? '▾' : '▸'}</span>${artImg(pasan[0].dataset.art)}<div><span class="td-code">${base}</span> <span class="td-dim" style="font-size:10px;font-weight:400;margin-left:6px">${pasan.length} color${pasan.length === 1 ? '' : 'es'}: ${colores}</span>${botaTiro ? `<div class="td-dim" style="font-size:11px;font-weight:400;line-height:1.3;margin-top:1px;white-space:normal">${botaTiro}</div>` : ''}</div></div></td>
+      <td class="r td-num" data-v="${ped}">${fmt(ped)}</td>
+      <td class="r td-num" data-v="${desp}" style="color:var(--ok)">${desp ? fmt(desp) : '—'}</td>
+      <td class="r td-num" data-v="${sal}" style="color:${sal > 0 ? 'var(--wa)' : 'var(--tx3)'}">${sal ? fmt(sal) : '—'}</td>
+      <td class="r td-num" data-v="${stk}">${stk ? fmt(stk) : '—'}</td>
+      <td class="r td-num" data-v="${pro}" style="color:var(--ac)">${pro ? fmt(pro) : '—'}</td>
+      <td class="r td-num" data-v="${dif}" style="color:${dif > 0 ? 'var(--ok)' : dif < 0 ? 'var(--er)' : 'var(--tx3)'}">${dif > 0 ? '+' : ''}${dif ? fmt(dif) : '—'}</td>
+      <td data-v="${falta}" style="text-align:center">${estado}</td>
+      <td data-v="${[...exs][0] || ''}" style="white-space:nowrap">${[...exs].map(x => `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;margin-right:3px">${x}</span>`).join('') || '<span style="color:var(--tx3);font-size:11px">—</span>'}${va ? ' <span style="background:var(--ok10);color:var(--ok);border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;white-space:nowrap">Sí va</span>' : ''}</td>
+      <td class="r" data-v=""><span style="color:var(--bd2);font-size:12px">————</span></td>
+      <td data-v="${[...etapas][0] || (prog ? 'Programado' : '')}" style="padding-left:4px;white-space:normal">${donde || '<span style="color:var(--tx3);font-size:11px">—</span>'}</td>`;
+  }
+  const foot = document.getElementById('pvcFoot');
+  if (foot) foot.textContent += ` en ${nMod} modelo${nMod === 1 ? '' : 's'}`;
+}
+
 function pvcVerTallas(tr) {
   const sub = tr.nextElementSibling;
   if (!sub || !sub.classList.contains('pvc-cli-t')) return;
@@ -6214,6 +6315,16 @@ async function secPVC() {
     <div class="fgrp"><span class="flbl">Temporada</span>
     <div class="segs" id="pvcSegs">
       ${temps.map((t,i) => `<button class="seg${t===defT?' on':''}" data-t="${t}">T${t}</button>`).join('')}
+    </div></div>
+    <div class="fgrp"><span class="flbl">Ver</span>
+    <div class="segs" id="pvcVerSegs">
+      <button class="seg${PVC_VISTA === 'art' ? ' on' : ''}" data-v="art" title="Una fila por artículo: modelo y color">Por artículo</button>
+      <button class="seg${PVC_VISTA === 'mod' ? ' on' : ''}" data-v="mod" title="Una fila por modelo con el total de todos sus colores (00, 01, 02…). Toca un modelo para abrir sus colores">Por modelo</button>
+    </div></div>
+    <div class="fgrp" id="pvcDesgGrp" style="display:${PVC_VISTA === 'mod' ? '' : 'none'}"><span class="flbl">Desglose</span>
+    <div class="segs" id="pvcDesgSegs">
+      <button class="seg${PVC_DESG ? '' : ' on'}" data-d="no" title="Solo el total de cada modelo; toca uno para ver sus colores">Solo totales</button>
+      <button class="seg${PVC_DESG ? ' on' : ''}" data-d="si" title="Debajo de cada modelo, sus colores">Con sus colores</button>
     </div></div>
     <div class="fgrp"><span class="flbl">Magic</span>
     <div class="segs" id="pvcMagicSegs">
@@ -14065,6 +14176,7 @@ function bindContent(secId) {
                  || (w.length >= 8 && w.startsWith(q))            // código escrito de a poco
                  || (/^\d{8,}$/.test(w) && artMatch(w.slice(0, 8), q)))));
         const show = showEstado && showEtapa && showQ;
+        row.dataset.pasa = show ? '1' : '';
         row.style.display = show ? '' : 'none';
         let next = row.nextElementSibling;
         while (next && next.classList.contains('variant-row')) {
@@ -14145,6 +14257,7 @@ function bindContent(secId) {
           ? `<div style="margin-top:4px"><span style="background:#ede9fe;color:#6d28d9;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">⏱ Apurar ${fmt(aApurar)}</span></div>` : ''}${sobra
           ? `<div class="td-dim" style="font-size:10px;font-weight:600;margin-top:3px;white-space:normal;line-height:1.25">+${fmt(sobra)} para ofrecer</div>` : ''}</td>
         <td colspan="3"></td></tr>`;
+      pvcPintarModelos();   // en la vista por modelo: suma de los colores que pasan, y esconde o muestra los colores
     }
 
     document.querySelectorAll('#pvcEstadoSegs .seg').forEach(b => b.addEventListener('click', () => {
@@ -14188,6 +14301,22 @@ function bindContent(secId) {
        mantiene aunque se cambie de temporada o de Magic (las filas se rearman y se vuelve a ordenar). */
     const pvcTabla = document.getElementById('pvcTable');
     if (pvcTabla) planOrdenable(pvcTabla);
+    /* Por modelo: después de ordenar, cada modelo queda seguido de sus colores */
+    const pvcOrdenBase = pvcTabla?._ordenar;
+    if (pvcTabla) pvcTabla._ordenar = () => { pvcOrdenBase?.(); pvcAgrupar(); };
+    pvcArmarModelos();
+    document.querySelectorAll('#pvcVerSegs .seg').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.v === PVC_VISTA) return;
+      PVC_VISTA = b.dataset.v;
+      document.querySelectorAll('#pvcVerSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      const g = document.getElementById('pvcDesgGrp'); if (g) g.style.display = PVC_VISTA === 'mod' ? '' : 'none';
+      pvcArmarModelos(); applyPvcFilter(); pvcTabla?._ordenar?.();
+    }));
+    document.querySelectorAll('#pvcDesgSegs .seg').forEach(b => b.addEventListener('click', () => {
+      PVC_DESG = b.dataset.d === 'si';
+      document.querySelectorAll('#pvcDesgSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      applyPvcFilter();
+    }));
     document.getElementById('vkOvClose')?.addEventListener('click', () => document.getElementById('vkOv').classList.remove('open'));
     document.getElementById('vkOv')?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
@@ -14202,8 +14331,9 @@ function bindContent(secId) {
       const t = document.querySelector('#pvcSegs .seg.on')?.dataset.t || TEMP_SEL;
       document.getElementById('pvcBody').innerHTML = buildPVCRows(t, buildFtMap(CACHE['full_table.json'] || []), CACHE['pvc_ex.json'] || {});
       bindPvcClick();
-      pvcTabla?._ordenar?.();
+      pvcArmarModelos();
       applyPvcFilter();
+      pvcTabla?._ordenar?.();
     }));
 
     document.querySelectorAll('#pvcSegs .seg').forEach(b => b.addEventListener('click', () => {
@@ -14246,10 +14376,12 @@ function bindContent(secId) {
       const allEtapaBtn = document.querySelector('#pvcEtapaSegs .seg[data-etapa="all"]');
       if (allEtapaBtn) allEtapaBtn.classList.add('on');
       bindPvcClick();      // las filas son nuevas: hay que volver a engancharlas
-      pvcTabla?._ordenar?.();
+      pvcArmarModelos();
       applyPvcFilter();
+      pvcTabla?._ordenar?.();
     }));
     applyPvcFilter();
+    pvcTabla?._ordenar?.();   // por modelo: deja cada modelo con sus colores en el orden de siempre
   }
 
   // Reporte Venta section
