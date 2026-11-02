@@ -5610,7 +5610,9 @@ function cvRender(d) {
       <div class="cv-chathd">
         <button class="cv-btn cv-volver" data-cvback="1" title="Volver a la lista">←</button>
         ${cvAvatar(L.nombre, L.agente, L.canal, 40)}
-        <div class="cv-chathd-txt"><b>${cvEsc(L.nombre)}</b>
+        <div class="cv-chathd-txt"><b>${cvEsc(L.nombre)}</b>${(() => { /* 02-11 (Manu): la razón social del ERP al lado del nombre del chat */
+          const rz = String(((d.ofrecer || {}).cliente) || '').trim();
+          return rz && rz.toUpperCase() !== String(L.nombre || '').trim().toUpperCase() ? ` <span class="td-dim" style="font-weight:500">(${cvEsc(rz)})</span>` : ''; })()}
           <div class="cv-chathd-meta">${cvIcono(L.canal, 12)} ${L.canal === 'instagram' ? 'Instagram' : 'WhatsApp'}${L.celular ? ' · ' + cvEsc(L.celular) : ''} · ${ag}</div>
           <div class="cv-chathd-meta">${estado}</div></div>
         <div class="cv-btns">
