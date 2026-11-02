@@ -5155,6 +5155,8 @@ let CV_FORM = null, CV_FORM_VER = 'sin_tomar';
 const CAMPANAS = [
   { id: 'halloween', nombre: 'Halloween', fuente: '?campana_correo=halloween' },
   { id: 'despacho', nombre: 'Despacho inmediato 44', fuente: '?campana=1' },
+  /* 02-11 (Manu: "que siempre les lleguen correos… y siempre manteniendo el dato en el dashboard"): sale solo de lunes a sábado */
+  { id: 'diario', nombre: 'Correo diario', fuente: '?campana_correo=diario' },
 ];
 let CP_DATA = {}, CP_SEL = 'todas';
 /* las mismas cifras de cada campaña, para compararlas */
@@ -5192,6 +5194,7 @@ function cpMezclar(ds) {
 const CP_OPC = {
   halloween: { titulo: 'Halloween · Descuento de miedo', sub: '4455 Riviera y 4007, el 30 y 31-10', correoNota: 'salió el mismo día que el WhatsApp; primero los que más compran', boton: 'tocaron "Lo quiero"' },
   despacho: {},
+  diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00; cada mayorista como máximo un correo cada 7 días', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
 };
 /* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
    la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
@@ -5237,6 +5240,7 @@ function cpTexto() {
   const QUE = {
     halloween: '5% de descuento en el 4455 Riviera (palazzo tiro alto) y el 4007 (pitillo tiro alto), con despacho inmediato, el 30 y 31-10. WhatsApp con foto y correo con botón a Sofía',
     despacho: 'Modelos de la Dolce Vita 44 con despacho inmediato, 3 elegidos para cada mayorista según lo que compra. WhatsApp con foto y, 3 días después, correo a los que no respondieron',
+    diario: 'Correo de lunes a sábado con 3 modelos de la Dolce Vita 44 con despacho inmediato (primero los que compra cada uno), su curva y la reposición que viene. Cada mayorista recibe como máximo uno cada 7 días',
   };
   const L = [`*Informe de campañas · Mohicano Jeans*`, `al ${hoy}`, ''];
   L.push('*1. Ventas*');
@@ -5251,17 +5255,19 @@ function cpTexto() {
     if (!c || !c.ok || !c.hay) { L.push('', `*${n + 2}. ${x.nombre}*: todavía no sale`); return; }
     const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, R = c.respuestas || {}, li = c.lista || {}, al = c.alcance || {};
     const resp = Object.entries(R).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, k]) => t + k, 0);
-    L.push('', `*${n + 2}. ${(CP_OPC[id] || {}).titulo || x.nombre}* · salió el ${cvHora(c.desde)}`);
+    /* 02-11: el correo diario va solo por correo: sin las líneas de WhatsApp */
+    const soloCorreo = !w.enviados && !li.con_celular;
+    L.push('', `*${n + 2}. ${(CP_OPC[id] || {}).titulo || x.nombre}* · ${soloCorreo ? 'desde' : 'salió'} el ${cvHora(c.desde)}`);
     if (QUE[id]) L.push(`*Qué se ofreció:* ${QUE[id]}`);
-    L.push(`*A quién:* ${li.clientes || al.total || 0} mayoristas del ERP (${li.con_celular || 0} con celular, ${li.con_correo || 0} con correo). Fuera por bloqueo en el ERP: ${c.bloqueados || 0}`);
-    L.push(`*Alcance:* les llegó a ${(al.whatsapp || 0) + (al.solo_correo || 0)} de ${al.total || 0}: ${al.whatsapp || 0} por WhatsApp, ${al.solo_correo || 0} solo por correo, ${al.ninguno || 0} por ningún lado`);
-    L.push(`*WhatsApp:* se mandó a ${w.enviados || 0} · les llegó a ${w.llegaron || 0} (${pct(w.llegaron, w.enviados)}) · lo leyeron ${w.leyeron || 0} (${pct(w.leyeron, w.llegaron)}) · fallaron ${w.fallaron || 0}`);
+    L.push(soloCorreo ? `*A quién:* ${li.con_correo || 0} mayoristas del ERP con correo. Fuera por bloqueo en el ERP: ${c.bloqueados || 0}` : `*A quién:* ${li.clientes || al.total || 0} mayoristas del ERP (${li.con_celular || 0} con celular, ${li.con_correo || 0} con correo). Fuera por bloqueo en el ERP: ${c.bloqueados || 0}`);
+    if (!soloCorreo) L.push(`*Alcance:* les llegó a ${(al.whatsapp || 0) + (al.solo_correo || 0)} de ${al.total || 0}: ${al.whatsapp || 0} por WhatsApp, ${al.solo_correo || 0} solo por correo, ${al.ninguno || 0} por ningún lado`);
+    if (!soloCorreo) L.push(`*WhatsApp:* se mandó a ${w.enviados || 0} · les llegó a ${w.llegaron || 0} (${pct(w.llegaron, w.enviados)}) · lo leyeron ${w.leyeron || 0} (${pct(w.leyeron, w.llegaron)}) · fallaron ${w.fallaron || 0}`);
     const nl = (c.no_llego || []).map(([m, k]) => `   - ${m}: ${k}`);
     if (nl.length) L.push('*Por qué no les llegó el WhatsApp:*', ...nl);
     if (co.enviados || co.lista) L.push(`*Correo:* ${co.enviados || 0} enviados${co.pendientes ? ` (${co.pendientes} sin mandar)` : ''} · lo abrieron ${co.abrieron || 0} (${pct(co.abrieron, co.enviados)}) · tocaron el botón ${co.tocaron || 0}${co.fallaron ? ` · fallaron ${co.fallaron}` : ''}`);
-    L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó el WhatsApp)`);
+    if (!soloCorreo) L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó el WhatsApp)`);
     for (const [k, m] of Object.entries(R).filter(([k]) => k !== 'Sin respuesta').sort((a, b) => b[1] - a[1])) L.push(`   - ${k}: ${m}`);
-    L.push(`*Conversaron con Sofía:* ${c.conversando || 0} · siguen conversando (últimas 72 h): ${c.conversando_ahora || 0} · pidieron no recibir más: ${c.bajas || 0}`);
+    if (!soloCorreo) L.push(`*Conversaron con Sofía:* ${c.conversando || 0} · siguen conversando (últimas 72 h): ${c.conversando_ahora || 0} · pidieron no recibir más: ${c.bajas || 0}`);
     const det = (v.detalle || []).map(o => `   - ${cpSeguro(o) ? '' : '_(POSIBLE)_ '}${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} neto · ${dia(o.fecha)} · ${o.via}${cpSeguro(o) ? '' : ` · ${o.por_que || 'pedido del vendedor: no se sabe si fue por la campaña'}`}${o.promo === 0 ? ' · compró otros modelos, no los de la oferta' : o.promo ? ` · ${o.promo} prendas en oferta` : ''}`);
     const det2 = [];
     for (const [k, o] of (v.detalle || []).entries()) { det2.push(det[k]); for (const l of (o.lineas || [])) det2.push(`      · ${l.codigo}: ${l.unidades} u × ${plata(l.precio)} = ${plata(l.subtotal)}${cpTallas(l.tallas) ? ` (${cpTallas(l.tallas)})` : ''}`); }
