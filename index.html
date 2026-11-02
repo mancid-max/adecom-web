@@ -4515,6 +4515,127 @@ const cvAvatar = (nombre, agente, canal, t = 36) => `<div class="cv-av" style="w
 
 /* Bandeja (27-10, Manu: "siento que no está tomando la importancia el chat como debería"): como WhatsApp Web, el chat al
    centro y de alto completo, la lista angosta a la izquierda y el contexto a la derecha; las cifras en una franja. */
+/* 02-11 (Manu, mirando el tablero de Nexor: "¿podríamos replicar esto en Conversaciones? necesitamos tener ese CRM"):
+   las conversaciones de cada agente en columnas por etapa (conversaciones?tablero=sofia|valentina). Tocar una tarjeta abre el
+   chat; arrastrarla a otra columna la cambia de etapa en Nexor (no deja las que traspasan o cierran la conversación). */
+let CV_TAB = null, CV_TAB_AG = 'sofia';
+const CV_TCOLOR = { active: 'var(--tx3)', won: 'var(--ok)', lost: 'var(--er)', discarded: 'var(--er)', deferred: 'var(--wa)' };
+/* el chat al costado del tablero: se mueve el mismo panel de la lista (#cvDet) y se devuelve al cerrar */
+function cvTPanel(abrir) {
+  const det = document.getElementById('cvDet'), wrap = document.getElementById('cvTWrap'), panel = document.getElementById('cvTPanel'), app = document.getElementById('cvApp');
+  if (!det) return;
+  if (abrir && panel) { if (det.parentNode !== panel) panel.appendChild(det); wrap?.classList.add('abierto'); }
+  else { if (app && det.parentNode !== app) app.appendChild(det); wrap?.classList.remove('abierto'); document.querySelectorAll('.cv-tcard.sel').forEach(x => x.classList.remove('sel')); }
+}
+function cvTFiltrar(T) {
+  const q = (document.getElementById('cvTq')?.value || '').trim().toLowerCase();
+  const tag = document.getElementById('cvTtag')?.value || '', resp = document.getElementById('cvTresp')?.value || '';
+  const canal = document.getElementById('cvTcanal')?.value || '', paus = document.getElementById('cvTpaus')?.checked, erp = document.getElementById('cvTerp')?.checked;
+  return T.leads.filter(l => (!q || [l.nombre, l.razon, l.celular, ...Object.values(l.campos || {}), ...(l.tags || [])].join(' ').toLowerCase().includes(q))
+    && (!tag || (l.tags || []).includes(tag)) && (!resp || (resp === '-' ? !l.asignado_id : l.asignado_id === resp))
+    && (!canal || l.canal === canal) && (!paus || l.pausada) && (!erp || l.erp));
+}
+function cvTCard(l, T) {
+  const campos = Object.values(l.campos || {}).filter(v => v && !/^(no_llamar|si|no)$/i.test(v));
+  return `<div class="cv-tcard${l.id === CV_SEL ? ' sel' : ''}" draggable="true" data-tid="${cvEsc(l.id)}" title="Toca para abrir el chat · arrástrala para cambiarla de etapa">
+    <div class="cv-tc1"><div><b>${cvEsc(l.nombre)}</b>${l.razon && l.razon.toUpperCase() !== String(l.nombre).toUpperCase() ? `<div class="td-dim">${cvEsc(l.razon)}</div>` : ''}</div>
+      <span class="cv-tico">${l.pausada ? '<span class="cv-tpausa" title="La agente está en pausa: no le responde">❚❚</span>' : ''}${cvIcono(l.canal, 14)}</span></div>
+    <div class="td-dim">Hace ${cvEsc(cvHace(l.actividad))}${l.celular ? ' · ' + cvEsc(l.celular) : ''}</div>
+    ${campos.length || l.erp || l.equipo ? `<div class="cv-tchips">${l.erp ? '<span class="cv-tchip" style="color:var(--ac)">Mayorista ERP</span>' : ''}${l.equipo ? '<span class="cv-tchip" style="color:var(--ac)">La atiende el equipo</span>' : ''}${campos.map(v => `<span class="cv-tchip" title="${cvEsc(v)}">${cvEsc(v)}</span>`).join('')}</div>` : ''}
+    <div class="cv-tchips">${(l.tags || []).map(t => `<span class="cv-ttag">${cvEsc(t)}<button data-tquita="${cvEsc(t)}" title="Sacar la etiqueta">×</button></span>`).join('')}<button class="cv-tadd" data-tadd>+ Añadir</button></div>
+    <button class="cv-tresp" data-tresp title="Responsable">👤 ${cvEsc(l.asignado || 'Sin responsable')}</button></div>`;
+}
+function cvTableroHtml(T) {
+  if (!T || !T.ok) return `<div class="cv-vacio">${cvEsc((T && T.mensaje) || 'No pude leer el tablero.')}</div>`;
+  const xs = cvTFiltrar(T);
+  const por = {}; for (const l of xs) (por[l.etapa] = por[l.etapa] || []).push(l);
+  const col = e => { const ls = por[e.key] || []; return `<div class="cv-tcol" data-tetapa="${cvEsc(e.key)}" data-tmover="${e.mover ? 1 : 0}">
+      <h5><i style="background:${['necesita_ayuda', 'awaiting_human_response'].includes(e.key) ? 'var(--wa)' : CV_TCOLOR[e.categoria] || 'var(--tx3)'}"></i><span>${cvEsc(e.label)}</span><small>${fmt(ls.length)}</small></h5>
+      <div class="cv-tcards">${ls.map(l => cvTCard(l, T)).join('')}</div></div>`; };
+  const enProg = T.etapas.filter(e => !e.final), term = T.etapas.filter(e => e.final);
+  return `<div class="cv-tab">
+      <div class="cv-tgrupo"><span class="cv-tglabel">En progreso</span><div class="cv-tcols">${enProg.map(col).join('')}</div></div>
+      ${term.length ? `<div class="cv-tgrupo"><span class="cv-tglabel">Terminal</span><div class="cv-tcols">${term.map(col).join('')}</div></div>` : ''}</div>`;
+}
+function cvTBarra(T) {
+  const opt = (v, t, sel) => `<option value="${cvEsc(v)}"${sel ? ' selected' : ''}>${cvEsc(t)}</option>`;
+  return `<div class="cv-tbar"><input type="search" id="cvTq" class="finput" placeholder="🔍 Buscar nombre, razón social, celular, dato o etiqueta…">
+    <select id="cvTtag">${opt('', 'Todas las etiquetas')}${(T.etiquetas || []).map(t => opt(t, t)).join('')}</select>
+    <select id="cvTresp">${opt('', 'Todos los responsables')}${opt('-', 'Sin responsable')}${(T.equipo || []).map(m => opt(m.id, m.nombre)).join('')}</select>
+    <select id="cvTcanal">${opt('', 'Todos los canales')}${opt('whatsapp', 'WhatsApp')}${opt('instagram', 'Instagram')}</select>
+    <label><input type="checkbox" id="cvTpaus"> En pausa</label><label><input type="checkbox" id="cvTerp"> Mayoristas del ERP</label>
+    <span class="td-dim" style="margin-left:auto">${cvEsc(T.agente)} · ${fmt(T.leads.length)} conversaciones${T.detalle_faltan ? ` · cargando datos de ${fmt(T.detalle_faltan)}…` : ''} · <button class="cv-linkbtn" data-trec>↻ Actualizar</button></span></div>`;
+}
+async function cvTablero(ag, { silencio = false } = {}) {
+  CV_TAB_AG = ag;
+  const cont = document.getElementById('cvTablero'); if (!cont) return;
+  if (!silencio) cont.innerHTML = '<div class="cv-vacio">Cargando el tablero…</div>';
+  CV_TAB = await cvFetch('?tablero=' + ag);
+  if (!CV_TAB || !CV_TAB.ok) { cont.innerHTML = cvTableroHtml(CV_TAB); return; }
+  const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
+  const abierto = document.getElementById('cvTWrap')?.classList.contains('abierto');
+  cvTPanel(false);
+  cont.innerHTML = cvTBarra(CV_TAB) + `<div class="cv-twrap" id="cvTWrap"><div id="cvTBoard" style="min-height:0">${cvTableroHtml(CV_TAB)}</div><div class="cv-tpanel" id="cvTPanel"><button class="cv-tcerrar" data-tcerrar title="Cerrar el chat">×</button></div></div>`;
+  for (const [id, v] of filtros) { const e = document.getElementById(id); if (e && v != null) e.type === 'checkbox' ? (e.checked = v) : (e.value = v); }
+  if (abierto && CV_SEL) cvTPanel(true);
+  const repintar = () => { const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } };
+  ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp'].forEach(id => document.getElementById(id)?.addEventListener(id === 'cvTq' ? 'input' : 'change', repintar));
+  cont.querySelector('[data-trec]')?.addEventListener('click', () => cvTablero(ag));
+  cont.querySelector('[data-tcerrar]')?.addEventListener('click', () => { cvTPanel(false); CV_SEL = null; });
+  cvTEventos(ag);
+}
+function cvTEventos(ag) {
+  const cont = document.getElementById('cvTBoard'); if (!cont) return;
+  const lead = id => (CV_TAB.leads || []).find(x => x.id === id);
+  const guardarTags = async (l, tags) => {
+    const r = await cvFetch('', { accion: 'etiquetas', lead: l.id, tags });
+    if (!r.ok) return alert(r.mensaje || 'No se pudo');
+    l.tags = r.tags || tags; if (!CV_TAB.etiquetas.includes(...l.tags.slice(-1))) CV_TAB.etiquetas = [...new Set([...CV_TAB.etiquetas, ...l.tags])].sort();
+    const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); }
+  };
+  let arrastrada = null;
+  cont.querySelectorAll('.cv-tcard').forEach(c => {
+    const l = lead(c.dataset.tid); if (!l) return;
+    c.addEventListener('click', e => {
+      if (e.target.closest('button,input,select')) return;
+      cont.querySelectorAll('.cv-tcard.sel').forEach(x => x.classList.remove('sel')); c.classList.add('sel');
+      cvTPanel(true); cvAbrir(l.id);
+    });
+    c.addEventListener('dragstart', e => { arrastrada = l.id; e.dataTransfer.setData('text/plain', l.id); });
+    c.querySelectorAll('[data-tquita]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); guardarTags(l, (l.tags || []).filter(t => t !== b.dataset.tquita)); }));
+    c.querySelector('[data-tadd]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const b = e.currentTarget, dl = 'cvTdl' + Math.random().toString(36).slice(2, 7);
+      b.outerHTML = `<input list="${dl}" placeholder="Etiqueta y Enter" data-tnueva><datalist id="${dl}">${(CV_TAB.etiquetas || []).filter(t => !(l.tags || []).includes(t)).map(t => `<option value="${cvEsc(t)}">`).join('')}</datalist>`;
+      const inp = c.querySelector('[data-tnueva]'); inp.focus();
+      inp.addEventListener('keydown', ev => { if (ev.key === 'Enter' && inp.value.trim()) guardarTags(l, [...(l.tags || []), inp.value.trim()]); if (ev.key === 'Escape') { const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } });
+    });
+    c.querySelector('[data-tresp]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      e.currentTarget.outerHTML = `<select data-tsel><option value="">Sin responsable</option>${(CV_TAB.equipo || []).map(m => `<option value="${cvEsc(m.id)}"${m.id === l.asignado_id ? ' selected' : ''}>${cvEsc(m.nombre)}</option>`).join('')}</select>`;
+      const sel = c.querySelector('[data-tsel]'); sel.focus();
+      sel.addEventListener('change', async () => {
+        const r = await cvFetch('', { accion: 'asignar', lead: l.id, usuario: sel.value });
+        if (!r.ok) return alert(r.mensaje || 'No se pudo');
+        l.asignado_id = sel.value; l.asignado = ((CV_TAB.equipo || []).find(m => m.id === sel.value) || {}).nombre || '';
+        const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag);
+      });
+    });
+  });
+  cont.querySelectorAll('.cv-tcol').forEach(col => {
+    col.addEventListener('dragover', e => { if (col.dataset.tmover === '1') { e.preventDefault(); col.classList.add('sobre'); } });
+    col.addEventListener('dragleave', () => col.classList.remove('sobre'));
+    col.addEventListener('drop', async e => {
+      e.preventDefault(); col.classList.remove('sobre');
+      const l = lead(arrastrada || e.dataTransfer.getData('text/plain')), et = (CV_TAB.etapas || []).find(x => x.key === col.dataset.tetapa);
+      if (!l || !et || l.etapa === et.key) return;
+      if (!confirm(`¿Mover a ${l.nombre} a "${et.label}"? Se cambia también en Nexor.`)) return;
+      const r = await cvFetch('', { accion: 'mover', lead: l.id, etapa: et.key });
+      if (!r.ok) return alert(r.mensaje || 'No se pudo');
+      l.etapa = et.key; const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag);
+    });
+  });
+}
 async function secConversaciones() {
   const ICO = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
   const d = await cvFetch('?lista=1');
@@ -4684,6 +4805,41 @@ async function secConversaciones() {
     .cv-cx-pide{font-weight:600;color:var(--tx1)}
     .cv-caso{border:1px solid var(--bd);border-radius:var(--rsm);padding:8px 10px;font-size:12px;line-height:1.45;margin-bottom:6px}
     .cv-ok{color:var(--ok)}.cv-er{color:var(--er)}
+    .cv-vista{margin:0 0 12px}
+    .cv-tbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+    .cv-tbar input[type=search]{flex:1 1 220px;max-width:340px}
+    .cv-tbar select{max-width:200px}
+    .cv-tbar label{font-size:12.5px;color:var(--tx2);display:flex;gap:5px;align-items:center}
+    .cv-twrap{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;height:calc(100vh - 250px);min-height:520px}
+    .cv-twrap.abierto{grid-template-columns:minmax(0,1fr) minmax(420px,46%)}
+    .cv-tpanel{display:none;border:1px solid var(--bd);border-radius:var(--r,12px);overflow:hidden;background:var(--sf);position:relative;min-height:0}
+    .cv-twrap.abierto .cv-tpanel{display:block}
+    .cv-tpanel .cv-det{height:100%;grid-template-columns:minmax(0,1fr)}
+    .cv-tpanel .cv-ctxcol{display:none}
+    .cv-tcerrar{position:absolute;top:8px;right:10px;z-index:6;border:0;background:var(--sf2);border-radius:8px;padding:3px 9px;cursor:pointer;font-weight:700}
+    .cv-tab{display:flex;gap:12px;overflow:auto;align-items:stretch;min-height:0;height:100%;padding-bottom:6px}
+    .cv-tgrupo{display:flex;flex-direction:column;gap:6px;min-height:0}
+    .cv-tgrupo>.cv-tglabel{font-size:11.5px;font-weight:700;color:var(--tx2);background:var(--sf2);border-radius:9px;padding:2px 9px;align-self:flex-start}
+    .cv-tcols{display:flex;gap:12px;min-height:0;flex:1}
+    .cv-tcol{flex:0 0 270px;background:var(--sf2);border-radius:var(--r,12px);display:flex;flex-direction:column;min-height:0}
+    .cv-tcol.sobre{outline:2px dashed var(--ac);outline-offset:-2px}
+    .cv-tcol h5{margin:0;padding:10px 12px;font-size:12.5px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--bd)}
+    .cv-tcol h5 i{display:inline-block;width:3px;height:14px;border-radius:2px}
+    .cv-tcol h5 small{color:var(--tx3);font-weight:600}
+    .cv-tcards{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1}
+    .cv-tcard{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:9px 10px;cursor:pointer;font-size:12.5px;line-height:1.4}
+    .cv-tcard:hover,.cv-tcard.sel{border-color:var(--ac)}
+    .cv-tc1{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
+    .cv-tc1 b{font-size:13px}
+    .cv-tico{display:flex;gap:4px;align-items:center;flex:0 0 auto}
+    .cv-tpausa{color:var(--wa);font-weight:800;font-size:11px}
+    .cv-tchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .cv-tchip{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;background:var(--sf2);color:var(--tx2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cv-ttag{font-size:10.5px;font-weight:700;padding:1px 4px 1px 8px;border-radius:9px;background:rgba(16,185,129,.12);color:var(--ok);display:inline-flex;align-items:center;gap:2px}
+    .cv-ttag button,.cv-tadd,.cv-tresp{border:0;background:none;cursor:pointer;font:inherit;color:inherit;padding:0 3px}
+    .cv-tadd{font-size:11px;color:var(--tx3);font-weight:600}
+    .cv-tresp{font-size:11px;color:var(--tx2);font-weight:600;margin-top:5px}
+    .cv-tcard input,.cv-tcard select{font-size:11.5px;padding:2px 6px;border:1px solid var(--bd);border-radius:6px;max-width:100%}
     @media(max-width:1280px){.cv-det{grid-template-columns:minmax(0,1fr)}.cv-ctxcol{display:none}.cv-vctx{display:inline-block}.cv-ctx-cerrar{display:block}
       .cv-det.cv-ver-ctx .cv-ctxcol{display:block;position:absolute;right:0;top:0;bottom:0;width:min(320px,90%);box-shadow:-8px 0 24px rgba(0,0,0,.12);z-index:5}
       .cv-det{position:relative}}
@@ -4696,6 +4852,8 @@ async function secConversaciones() {
     ${stat('necesita', 'requieren una persona', '--er')}${stat('caso', 'con caso abierto', '--wa')}${stat('tomada', 'las atiende el equipo', '--ac')}${stat('all', `en los últimos ${fmt(d.dias || 30)} días`, '--tx2')}
   </div>
   ${alertasHtml}
+  <div class="segs cv-vista" id="cvVista"><button class="seg on" data-cvvista="lista">Lista</button><button class="seg" data-cvvista="sofia">Tablero de Sofía</button><button class="seg" data-cvvista="valentina">Tablero de Valentina</button></div>
+  <div id="cvTablero" style="display:none"></div>
   <div class="cv-app" id="cvApp">
     <aside class="cv-col-lista">
       <div class="cv-lhead">
@@ -13528,6 +13686,15 @@ function bindContent(secId) {
     document.getElementById('cvRecargar')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
     applyCv();
     cvCampana();
+    document.querySelectorAll('#cvVista [data-cvvista]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#cvVista .seg').forEach(x => x.classList.toggle('on', x === b));
+      const v = b.dataset.cvvista, lista = v === 'lista';
+      const app = document.getElementById('cvApp'), tab = document.getElementById('cvTablero');
+      if (lista) cvTPanel(false);
+      if (app) app.style.display = lista ? '' : 'none';
+      if (tab) tab.style.display = lista ? 'none' : '';
+      if (!lista) cvTablero(v);
+    }));
     if (CV_SEL) cvAbrir(CV_SEL);   // al volver a armar la lista (después de tomar o devolver) sigue abierta la misma
     /* mientras la sección esté abierta (28-10, Manu: "se demora mucho en mostrar los mensajes"): cada 4 s una consulta liviana
        mira si llegó o se leyó un mensaje y, solo entonces, se recarga la conversación; además, todo cada 60 s. No se recarga
