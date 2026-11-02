@@ -5319,7 +5319,34 @@ function cpConversaciones(xs, conCampana) {
 }
 /* 02-11 (Tamara, Marketing: "¿hay manera de ver los que apretaron 'No recibir más'? ese dato nos sirve harto… o los que
    ignoran"): cliente por cliente, juntando las campañas (por_cliente de cada reporte) */
-let CP_BAJAS_TXT = '';
+let CP_BAJAS_TXT = '', CP_BAJAS_DATOS = null;
+/* 02-11 (Manu: "está muy mal organizado el copiar esa lista, se ve muy desordenada cuando la pego en un chat"): el texto para
+   WhatsApp, por grupos y una línea por cliente, ordenado por lo que compra en el año; con el motivo anotado si hay */
+async function cpTextoBajas() {
+  const D = CP_BAJAS_DATOS; if (!D) return '';
+  if (!CP_MOTIVOS) { const r = await cvFetch('?motivos=1'); CP_MOTIVOS = (r && r.motivos) || {}; }
+  const rN = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, '').replace(/^0+/, '');
+  const dm = t => t ? String(t).slice(8, 10) + '-' + String(t).slice(5, 7) + (String(t).slice(0, 4) !== String(new Date().getFullYear()) ? '-' + String(t).slice(0, 4) : '') : '';
+  const cap = t => String(t || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+  const plata = n => n >= 1e6 ? '$' + (Math.round(n / 1e5) / 10).toLocaleString('es-CL') + ' M' : '$' + Math.round(n || 0).toLocaleString('es-CL');
+  const porCompra = (a, b) => (b.compras_12m || 0) - (a.compras_12m || 0);
+  const linea = x => {
+    const partes = [x.ciudad ? `(${cap(x.ciudad)})` : '', x.compras_12m ? `${plata(x.compras_12m)} al año` : '', x.ultima_compra ? `última compra ${dm(x.ultima_compra)}` : 'sin compras en el año', x.vendedor ? cap(x.vendedor) : ''].filter(Boolean);
+    const mo = CP_MOTIVOS[rN(x.rut)];
+    return `• *${x.cliente}* ${partes.join(' · ')}` + (mo ? `\n   Motivo: ${String(mo.texto).replace(/^[^·]*·\s*/, '')}` : '');
+  };
+  const hace45 = new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10);
+  const lejos = D.ign.filter(x => !x.ultima_compra || x.ultima_compra < hace45).sort(porCompra);
+  const cerca = D.ign.filter(x => x.ultima_compra && x.ultima_compra >= hace45).sort(porCompra);
+  const lista = (xs, max) => xs.slice(0, max).map(linea).concat(xs.length > max ? [`   …y ${xs.length - max} más en el dashboard`] : []);
+  const hoy = new Date();
+  const L = [`*Clientes que no responden las campañas*`, `al ${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getMonth() + 1).padStart(2, '0')} · ${D.campanas.join(' + ')}`, ''];
+  if (D.bajas.length) L.push(`*1. Pidieron "No recibir más"* (${D.bajas.length})`, `Ya no se les escribe por WhatsApp: que los llame su vendedor.`, ...lista([...D.bajas].sort(porCompra), 20), '');
+  if (lejos.length) L.push(`*2. No responden y llevan más de 45 días sin comprar* (${lejos.length})`, `Los que más preocupan: revisar a quién le compran.`, ...lista(lejos, 15), '');
+  if (cerca.length) L.push(`*3. No responden a Sofía, pero compraron en los últimos 45 días* (${cerca.length})`, `No se fueron: le compran a su vendedor.`, ...lista(cerca, 15), '');
+  L.push(`Detalle y para anotar el motivo: dashboard de Adecom → Atención → Campañas.`);
+  return L.join('\n');
+}
 function cpBajasIgnoran(ids) {
   const fecha = t => t ? String(t).slice(0, 10).split('-').reverse().join('-') : '—';
   const por = new Map();
@@ -5339,6 +5366,7 @@ function cpBajasIgnoran(ids) {
   const ign = xs.filter(x => !x.baja && !x.respondio && !x.compro && x.wa !== 'No le llegó')
     .sort((a, b) => b.campanas.length - a.campanas.length || (b.leyo - a.leyo) || String(b.ultima_compra).localeCompare(String(a.ultima_compra)));
   const leyeron = ign.filter(x => x.leyo), noAbrieron = ign.filter(x => !x.leyo);
+  CP_BAJAS_DATOS = { bajas, ign, campanas: ids.map(id => (CAMPANAS.find(x => x.id === id) || {}).nombre || id) };
   const fila = (x, extra) => `<tr><td><b>${cvEsc(x.cliente)}</b></td><td>${cvEsc(x.ciudad || '—')}</td>${extra}<td>${fecha(x.ultima_compra)}</td><td class="td-dim">${cvEsc(x.vendedor || '—')}</td><td>${cpVerConv(x.lead)}</td></tr>`;
   const tabla = (titulo, sub, cab, filas) => `<section class="ra-bloque"><div class="ra-bt"><h3>${titulo}</h3><span>${sub}</span></div><div class="hw-col">${filas.length ? `<table class="hw-tabla"><tr><th>Cliente (ERP)</th><th>Ciudad</th>${cab}<th>Última compra</th><th>Vendedor</th><th></th></tr>${filas.join('')}</table>` : '<div class="td-dim">Nadie por ahora.</div>'}</div></section>`;
   const txt = (titulo, ys, f) => ys.length ? [titulo, ...ys.map(f)].join('\n') : '';
@@ -5444,7 +5472,7 @@ function cpMontar() {
     setTimeout(() => { e.target.textContent = '📋 Copiar para WhatsApp'; }, 2500);
   });
   body.querySelector('[data-cpwa]')?.addEventListener('click', () => window.open('https://wa.me/?text=' + encodeURIComponent(cpTexto()), '_blank', 'noopener'));
-  body.querySelector('[data-cpbajas]')?.addEventListener('click', async e => { try { await navigator.clipboard.writeText(CP_BAJAS_TXT); e.target.textContent = '✔ Copiado'; } catch (_) { alert(CP_BAJAS_TXT); } });
+  body.querySelector('[data-cpbajas]')?.addEventListener('click', async e => { const t = await cpTextoBajas(); try { await navigator.clipboard.writeText(t); e.target.textContent = '✔ Copiado'; } catch (_) { alert(t); } });
   /* "Ver conversación": abre Conversaciones con ese chat (la sección abre CV_SEL al armarse) */
   body.querySelectorAll('[data-cpconv]').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); CV_SEL = b.dataset.cpconv; go('conversaciones', 'Conversaciones'); }));
   body.querySelectorAll('[data-cpfila]').forEach(r => r.addEventListener('click', () => {
