@@ -4500,7 +4500,7 @@ async function secFotos() {
    los botones Tomar, Responder (WhatsApp, dentro de las 24 h) y Devolver a la agente. Por Instagram la API de Nexor
    no manda mensajes: se responde desde la bandeja de Nexor. */
 const CV_URL = 'https://mohicanojeans.netlify.app/.netlify/functions/conversaciones';
-const CV_MOT = { persona: ['Pidió una persona', '--er', '--er10'], sin_respuesta: ['Sin respuesta', '--er', '--er10'], tomada: ['La atiende una persona', '--ac', '--ac10'], baja: ['Se dio de baja', '--tx2', '--sf2'] };
+const CV_MOT = { persona: ['Pidió una persona', '--er', '--er10'], sin_respuesta: ['Sin respuesta', '--er', '--er10'], contenido: ['Solo compartió contenido', '--tx2', '--sf2'], tomada: ['La atiende una persona', '--ac', '--ac10'], baja: ['Se dio de baja', '--tx2', '--sf2'] };
 let CV_SEL = null, CV_TIMER = null;
 const cvEsc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const cvHora = t => t ? new Date(t).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
@@ -4659,7 +4659,8 @@ async function secConversaciones() {
   if (!d.ok) return makePH(ICO, 'Conversaciones', cvEsc(d.mensaje || 'No se pudieron leer las conversaciones.'));
   const cs = d.conversaciones || [];
   const tiene = (c, k) => (c.motivos || []).includes(k);
-  const grupo = c => tiene(c, 'persona') || tiene(c, 'sin_respuesta') ? 'necesita' : tiene(c, 'caso') ? 'caso' : tiene(c, 'tomada') ? 'tomada' : 'agente';
+  /* 03-11 (Manu): lo que solo comparte contenido (reels, publicaciones, emojis) u ofrece servicios va aparte, no en "Requiere una persona" */
+  const grupo = c => tiene(c, 'persona') || tiene(c, 'sin_respuesta') ? 'necesita' : tiene(c, 'caso') ? 'caso' : tiene(c, 'tomada') ? 'tomada' : tiene(c, 'contenido') ? 'contenido' : 'agente';
   const reales = cs.filter(c => !c.prueba);   // las de prueba (el número de Manu) se ven pero no cuentan
   const n = k => k === 'all' ? reales.length : reales.filter(c => grupo(c) === k || (k !== 'agente' && tiene(c, k))).length;
   const filas = cs.map(c => {
@@ -4669,6 +4670,7 @@ async function secConversaciones() {
       tiene(c, 'persona') ? cvTag('persona') : '',
       tiene(c, 'sin_respuesta') ? cvTag('sin_respuesta') : '',
       tiene(c, 'baja') ? cvTag('baja') : '',
+      tiene(c, 'contenido') ? `<span class="cv-tag" style="background:var(--sf2);color:var(--tx2)" title="No espera respuesta: compartió un reel, una publicación o emojis, u ofrece servicios">${cvEsc(c.contenido === 'ofrece servicios' ? 'Ofrece servicios' : 'Solo compartió contenido')}</span>` : '',
       c.caso ? `<span class="cv-tag" style="background:var(--wa10);color:var(--wa)" title="Caso abierto con la tienda">Caso ${cvEsc(c.caso.numero)} · ${c.caso.dias === 0 ? 'hoy' : c.caso.dias === 1 ? '1 día' : c.caso.dias + ' días'}</span>` : '',
       tiene(c, 'tomada') ? `<span class="cv-tag" style="background:var(--ac10);color:var(--ac)" title="Desde el ${cvEsc(cvHora(c.tomada_en))}">La atiende una persona</span>` : '',
     ].filter(Boolean).join(' ');
@@ -4875,7 +4877,7 @@ async function secConversaciones() {
     <aside class="cv-col-lista">
       <div class="cv-lhead">
         <input id="cvSearch" class="finput" placeholder="🔍 Buscar nombre, mensaje o n° de caso…">
-        <div class="segs" id="cvVerSegs">${chip('all', 'Todas')}${chip('necesita', 'Requiere una persona')}${chip('caso', 'Caso')}${chip('tomada', 'Equipo')}</div>
+        <div class="segs" id="cvVerSegs">${chip('all', 'Todas')}${chip('necesita', 'Requiere una persona')}${chip('caso', 'Caso')}${chip('tomada', 'Equipo')}${chip('contenido', 'Solo compartió contenido')}</div>
         <div class="cv-lsel">
           <select id="cvAgSel" title="Agente"><option value="all">Sofía y Valentina</option><option value="Valentina">Valentina</option><option value="Sofía">Sofía</option><option value="erp">Mayoristas del ERP (${fmt(cs.filter(c => c.erp).length)})</option></select>
           <select id="cvCanalSel" title="Canal"><option value="all">Todos los canales</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option></select>
