@@ -21,7 +21,7 @@
 .login-err{font-size:12px;color:var(--er);min-height:16px}
 /* ═══ PLANTA ═══ */
 /* ── Planta Mohicano ─────────────────────────────────────────── */
-.pl-wrap{display:grid;gap:12px}
+.pla-wrap{display:grid;gap:12px}   /* pla-, no pl-: .pl-wrap ya es una celda de tabla en el resto del dashboard */
 .pl-barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;justify-content:space-between}
 .pl-tit{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--tx1)}
 .pl-tit b{color:#d8232c}
@@ -16152,7 +16152,7 @@ async function secPlanta() {
   const ref = datos.ref.split('-').reverse().join('-');
   setTimeout(() => plIniciar(datos), 0);   // go() pinta el HTML apenas esta función responde
   return `
-  <div class="pl-wrap">
+  <div class="pla-wrap">
     <div class="pl-barra">
       <div class="pl-tit"><b>Planta</b> Mohicano <span>el flujo del negocio, de Compras a Cobranza</span></div>
       <div class="pl-mandos">
