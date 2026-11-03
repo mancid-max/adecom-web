@@ -19,6 +19,109 @@
 .login-btn{padding:11px;background:var(--ac);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
 .login-btn:disabled{opacity:.6;cursor:default}
 .login-err{font-size:12px;color:var(--er);min-height:16px}
+/* ═══ PLANTA ═══ */
+/* ── Planta Mohicano ─────────────────────────────────────────── */
+.pl-wrap{display:grid;gap:12px}
+.pl-barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;justify-content:space-between}
+.pl-tit{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--tx1)}
+.pl-tit b{color:#d8232c}
+.pl-tit span{font-size:13px;font-weight:500;color:var(--tx2);margin-left:8px;letter-spacing:0}
+.pl-mandos{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pl-vel{display:flex;border:1px solid var(--bd2,var(--bd));border-radius:10px;overflow:hidden;background:var(--sf)}
+.pl-vel button{border:0;background:none;padding:7px 12px;font:600 13px Outfit,sans-serif;color:var(--tx2);cursor:pointer}
+.pl-vel button+button{border-left:1px solid var(--bd)}
+.pl-vel button.on{background:var(--ac);color:#fff}
+.pl-btn{border:1px solid var(--bd2,var(--bd));background:var(--sf);color:var(--tx1);border-radius:10px;padding:7px 13px;font:600 13px Outfit,sans-serif;cursor:pointer}
+.pl-btn:hover{border-color:var(--ac)}
+.pl-btn.on{background:var(--tx1);color:var(--sf);border-color:var(--tx1)}
+.pl-btn.pl-prim{background:#d8232c;border-color:#d8232c;color:#fff}
+.pl-nota{margin:0;font-size:12.5px;color:var(--tx2);background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:7px 12px}
+.pl-sala{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+.pl-escena{min-width:0;background:linear-gradient(180deg,#dce9f4,#c2d6e8);border-radius:16px;padding:10px 12px 12px}
+.pl-lienzo{position:relative;width:100%}
+.pl-lienzo canvas{display:block;width:100%;height:auto;cursor:pointer}
+.pl-capa{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pl-etq{position:absolute;transform:translate(-50%,-100%);font:600 11.5px/1.2 Outfit,sans-serif;color:#fff;background:#d8232c;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.pl-etq.sel{outline:2px solid #f2b632;outline-offset:1px}
+.pl-globo{position:absolute;transform:translate(-50%,-100%);font:500 12px/1.3 Outfit,sans-serif;color:#1c2a39;background:#fff;border:2px solid #1c2a39;border-radius:10px;padding:4px 9px;max-width:230px;width:max-content;text-align:center;box-shadow:2px 2px 0 #1c2a39}
+.pl-ticker{margin:8px 2px 0;font:500 13.5px/1.3 Outfit,sans-serif;color:#1c2a39;display:flex;gap:8px;min-height:18px}
+.pl-ticker time{color:#d8232c;font-variant-numeric:tabular-nums}
+.pl-leyenda{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 2px 0;font-size:11.5px;color:#41556b}
+.pl-leyenda span{display:inline-flex;align-items:center;gap:5px}
+.pl-leyenda i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.pl-cajon{background:var(--sf);border:1px solid var(--bd);border-radius:16px;position:sticky;top:12px;display:flex;flex-direction:column;max-height:calc(100vh - 40px);min-height:480px;overflow:hidden}
+.pl-cab{display:flex;gap:12px;align-items:center;padding:14px 16px 10px}
+.pl-cab canvas{width:40px;height:69px;image-rendering:pixelated;flex:0 0 auto;background:var(--sf2);border:1px solid var(--bd);border-radius:10px}
+.pl-icono{width:40px;height:69px;flex:0 0 auto;display:grid;place-items:center;font:800 12px Outfit,sans-serif;background:var(--tx1);color:var(--sf);border-radius:10px}
+.pl-cab h2{margin:2px 0 4px;font-size:19px;font-weight:700;color:var(--tx1);line-height:1.15}
+.pl-rol{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#d8232c}
+.pl-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border:1px solid var(--bd);border-radius:999px;padding:1px 9px;background:var(--sf2);color:var(--tx1);white-space:nowrap}
+.pl-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:#8b98a6}
+.pl-chip.verde::before{background:#2fa86a}.pl-chip.ambar::before{background:#f2b632}.pl-chip.rojo::before{background:#d8232c}
+.pl-tabs{display:flex;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.pl-tabs button{flex:1 1 auto;border:0;background:var(--sf2);padding:9px 10px;font:600 13px Outfit,sans-serif;color:var(--tx2);cursor:pointer}
+.pl-tabs button+button{border-left:1px solid var(--bd)}
+.pl-tabs button.on{background:var(--sf);color:var(--ac)}
+.pl-panel{flex:1;overflow:auto;padding:14px 16px;min-height:0;font-size:13px;color:var(--tx1)}
+.pl-panel p{margin:0 0 10px;line-height:1.5}
+.pl-panel h4{margin:14px 0 6px;font-size:14px;font-weight:700}
+.pl-panel h4:first-child{margin-top:0}
+.pl-dato{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;font-size:12.5px;padding:6px 0;border-top:1px dashed var(--bd)}
+.pl-dato b{color:var(--tx2);font-weight:500}
+.pl-ahora{display:flex;align-items:center;gap:8px;background:var(--sf2);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px}
+.pl-dim{color:var(--tx2);font-size:12px}
+.pl-aviso{background:var(--wa10,#fef0c7);border-radius:8px;padding:7px 10px;font-size:12.5px}
+.pl-ir{margin-top:10px}
+.pl-origen{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:1px 8px;border:1px solid var(--bd);color:var(--tx2)}
+.pl-origen.reunion{background:var(--tx1);color:var(--sf);border-color:var(--tx1)}
+.pl-cifras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.pl-cifra{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;display:grid;min-width:0}
+.pl-cifra b{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pl-cifra span{font-size:11.5px;color:var(--tx2);line-height:1.3}
+.pl-cifra.verde{background:var(--ok10)}.pl-cifra.ambar{background:var(--wa10,#fef0c7)}.pl-cifra.rojo{background:var(--er10,#fee4e2)}
+.pl-barra-av{height:10px;border-radius:6px;background:var(--sf2);border:1px solid var(--bd);overflow:hidden;margin:2px 0 8px;position:relative}
+.pl-barra-av i{display:block;height:100%;background:#2fa86a}
+.pl-barra-av.ambar i{background:#f2b632}.pl-barra-av.rojo i{background:#d8232c}.pl-barra-av.gris i{background:#8b98a6}
+.pl-barra-av u{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--tx1)}
+.pl-problemas{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.pl-problemas li{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;display:grid;gap:4px;background:var(--sf)}
+.pl-problemas p{margin:0}
+.pl-problemas small{color:var(--tx2);font-size:12px}
+.pl-tipo{justify-self:start;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:1px 8px;color:#fff}
+.pl-tipo.regla{background:#7a4fb5}.pl-tipo.rol{background:#2f5687}.pl-tipo.control{background:#d8232c}.pl-tipo.medicion{background:#b77d0a}.pl-tipo.registro{background:#2fa86a}
+.pl-rapido{font-size:12px;background:var(--ok10);border-radius:7px;padding:4px 8px}
+.pl-param{display:grid;grid-template-columns:minmax(0,1fr) 84px;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--bd)}
+.pl-param small{display:block;color:var(--tx2);font-size:11.5px}
+.pl-param input,.pl-simctl input{width:100%;border:1px solid var(--bd2,var(--bd));border-radius:8px;padding:4px 8px;font:600 14px Outfit,sans-serif;text-align:right;background:var(--sf);color:var(--tx1)}
+.pl-simctl input{width:56px}
+.pl-tabla{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.pl-tabla th{text-align:left;font-size:10.5px;font-weight:600;color:var(--tx3,var(--tx2));text-transform:uppercase;letter-spacing:.06em;background:var(--sf2);padding:6px 8px}
+.pl-tabla td{border-bottom:1px solid var(--bd);padding:6px 8px}
+.pl-tabla td:last-child,.pl-tabla th:last-child{text-align:right}
+.pl-sug{background:var(--wa10,#fef0c7);border-radius:10px;padding:9px 11px;margin:0 0 10px;display:grid;gap:8px;justify-items:start}
+.pl-sug p{margin:0}
+.pl-simfila{border:1px solid var(--bd);border-radius:10px;padding:8px 10px 6px;margin-top:8px;transition:box-shadow .3s}
+.pl-simfila.cuello{background:var(--er10,#fee4e2)}
+.pl-simfila.foco{box-shadow:0 0 0 3px #f2b632}
+.pl-simfila small{display:block;color:var(--tx2);font-size:11.5px;margin-bottom:6px}
+.pl-simcab{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.pl-simcab b{font-size:13px}
+.pl-simctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--tx2);margin-bottom:6px}
+.pl-stepper{display:flex;border:1px solid var(--bd2,var(--bd));border-radius:8px;overflow:hidden}
+.pl-stepper button{border:0;background:var(--sf2);width:28px;font:600 16px Outfit,sans-serif;cursor:pointer;color:var(--tx1)}
+.pl-stepper output{min-width:34px;text-align:center;font:600 14px/26px Outfit,sans-serif;color:var(--tx1);border-inline:1px solid var(--bd)}
+.pl-plantel{overflow-x:auto;display:flex;gap:10px;padding:2px 2px 8px}
+.pl-tarjeta{display:flex;gap:9px;align-items:center;flex:0 0 auto;width:196px;text-align:left;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:8px 10px;cursor:pointer;color:var(--tx1)}
+.pl-tarjeta.on{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac10)}
+.pl-tarjeta canvas{width:28px;height:48px;image-rendering:pixelated;flex:0 0 auto}
+.pl-tarjeta div{display:grid;gap:2px;min-width:0}
+.pl-tarjeta b{font-size:13px}
+.pl-tarjeta span{font-size:11.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-tarjeta .pl-chip{justify-self:start;color:var(--tx1)}
+.pl-icono-ch{width:28px;height:48px;display:grid;place-items:center;font:800 9.5px Outfit,sans-serif;background:var(--tx1);color:var(--sf);border-radius:7px;flex:0 0 auto}
+@media (max-width:1100px){.pl-sala{grid-template-columns:1fr}.pl-cajon{position:static;max-height:none;min-height:0}.pl-panel{max-height:560px}}
+@media (max-width:640px){.pl-escena{overflow-x:auto}.pl-lienzo{width:760px}}
+/* ═══ FIN PLANTA ═══ */
 </style>
 <style>
 /* ── TOKENS ──────────────────────────────────────────────────── */
@@ -334,6 +437,12 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .pl .db-t2 i{font-style:normal;font-size:10px;font-weight:600;opacity:.75}
 .pl .db-t2 b{font-size:13px;font-weight:800}
 .pl .db-movil{display:none}
+.pl .db-tot-t{margin:0 0 12px;padding:10px 12px;background:var(--sf2);border-radius:10px}
+.pl .db-tot-t .db-tallas{margin-top:0}
+.pl .db-tot-t .db-tallas+.db-tallas{margin-top:6px}
+.pl .db-tot-t .db-t2{min-width:40px;padding:3px 7px;background:var(--sf)}
+.pl .db-tot-t .db-t2 b{font-size:15px}
+.pl .db-tot-t .db-t2 i{font-size:11px}
 @media(max-width:700px){.pl .db-movil{display:block}}
 .pl .db-aviso{font-size:12px;color:var(--tx2);background:var(--sf2);border-radius:8px;padding:8px 12px}
 .pl .db-foto .art-thumb{width:64px;height:84px;margin:0}
@@ -730,6 +839,10 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
     </button>
 
     <div class="sb-grp">Producción</div>
+    <button class="nav-item" data-sec="planta" data-ttl="Planta · Flujo del negocio" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l6 4V9l6 4V5l6 4v12z"/><path d="M7 17h2M11 17h2M15 17h2"/></svg>
+      Planta (flujo)
+    </button>
     <button class="nav-item" data-sec="tabla" data-ttl="Trazabilidad">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       Trazabilidad
@@ -10460,6 +10573,18 @@ function debDetalle(c) {
   const suma = ests => items.filter(x => ests.includes(x.est)).reduce((a, x) => a + Math.max(0, x.debe), 0);
   const kpi = (v, lbl, sub) => `<div class="pc-kpi"><b>${v}</b><span>${lbl}</span><i>${sub}</i></div>`;
   const conTallas = items.some(x => x.it.hayST);
+  /* Total por talla sumando todos sus artículos (Manu, 03-11-2026: "un total de lo que le debemos por talla, ejemplo
+     de la 36 le debemos 100"). Igual que la tarjeta "Le debemos": cuenta lo que ya está en su caja, y eso se dice aparte. */
+  const totT = {}, cajT = {};
+  for (const { it } of items) {
+    for (const [t, n] of Object.entries(it.st)) if (n > 0) totT[t] = (totT[t] || 0) + n;
+    for (const [t, n] of Object.entries(it.cajaT)) if (n > 0) cajT[t] = (cajT[t] || 0) + n;
+  }
+  const chipsT = o => Object.entries(o).sort((a, b) => +a[0] - +b[0]).map(([t, n]) => `<span class="db-t db-t2"><i>${t}</i><b>${fmt(n)}</b></span>`).join('');
+  const totTallas = conTallas && Object.keys(totT).length ? `<div class="db-tot-t">
+        <div class="db-tallas"><span class="db-tl">Le debemos por talla</span>${chipsT(totT)}</div>
+        ${Object.keys(cajT).length ? `<div class="db-tallas"><span class="db-tl" style="color:var(--ok)">📦 de eso, ya en su caja</span>${chipsT(cajT)}</div>` : ''}
+        <span class="pl-sub" style="margin-top:4px">Sumando todos sus artículos${items.length > 1 ? ` (${items.length})` : ''}</span></div>` : '';
   const filas = items.map(({ it, f, debe, est, tallas }) => {
     const [lbl, clr] = DEB_EST[est];
     const et = Object.entries(D.etapas[it.art] || {}).sort((a, b) => (ETAPA_RANK[b[0]] ?? -2) - (ETAPA_RANK[a[0]] ?? -2));
@@ -10498,6 +10623,7 @@ function debDetalle(c) {
         ${kpi(fmt(suma(['parcial', 'cortar'])), 'Falta cortar', 'ofrecerle otro modelo')}
       </div>
       ${conTallas ? '' : '<div class="db-aviso">Por talla: los pedidos de hoy todavía no traen la talla. Aparece con la próxima actualización de datos.</div>'}
+      ${totTallas}
       <div class="segs db-segs">${segs}</div></div>
     <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Artículo</th><th class="pl-sec" data-ord="n" title="Días desde el pedido más antiguo que todavía lo debe">Esperando</th><th data-ord="n">Le debemos${conTallas ? '<span class="pl-sub">por talla</span>' : ''}</th><th data-ord="n">Dónde está</th></tr></thead>
@@ -15801,6 +15927,761 @@ async function authInit() {
   );
 }
 authInit();
+</script>
+<script id="planta-js">
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   PLANTA MOHICANO · el flujo del negocio con monos (Manu, 03-11-2026)
+   Don Richard pidió la arquitectura de la empresa "con monos": un flujo con un KPI en cada etapa, abierto en un link.
+   Esta sección dibuja la planta completa (de Compras a Cobranza) y le pone a cada mono los datos que ya baja el
+   dashboard: no tiene datos propios ni toca el build. Las metas de producción son las mismas de Metas de Producción
+   (mtMetas), los días hábiles los mismos (con feriados), los atrasos los mismos de Lo urgente (trzAtrasos).
+   Lo que ADECOM no trae (la prueba de calce, cuánta gente hay en cada etapa) se dice en la ficha y no se inventa.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* La cascada desde 10.000. Valores de la reunión del 03-11-2026; validados con ADECOM: mediana 508 unidades por
+   modelo y unas 3,4 pruebas por modelo aprobado (modelos que entraron a muestra en 2025). Se pueden cambiar en la
+   pestaña Cascada y quedan en este navegador. */
+const PL_BASE = { meta: 10000, upm: 500, ppm: 3, clientes: 110, diasVenta: 5 };
+function plPar() {
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem('planta_par') || 'null'); } catch (e) { g = null; }
+  return { ...PL_BASE, ...(g || {}), meta: 10000 };
+}
+function plCascada(par) {
+  const modelos = Math.ceil(par.meta / par.upm), pruebas = modelos * par.ppm;
+  return { modelos, pruebas, calceSemana: pruebas / 20 * 5, contactosDia: par.clientes / par.diasVenta };
+}
+
+/* Días hábiles del mes hasta la fecha de los datos (no hasta hoy: si el ERP no exportó, el esperado no corre solo). */
+function plJornada(mes, ref) {
+  let habiles = 0, corridos = 0;
+  for (let i = 1; i <= mtDiasMes(mes); i++) {
+    const iso = mes + '-' + String(i).padStart(2, '0');
+    if (!mtHabil(iso, false)) continue;
+    habiles++;
+    if (iso <= ref) corridos++;
+  }
+  return { mes, habiles, corridos, frac: habiles ? corridos / habiles : 1 };
+}
+const plMesAnterior = m => { const y = +m.slice(0, 4), n = +m.slice(5, 7); return n === 1 ? `${y - 1}-12` : `${y}-${String(n - 1).padStart(2, '0')}`; };
+const plIso = s => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+const plEstado = r => (r >= 1 ? 'verde' : r >= 0.85 ? 'ambar' : 'rojo');
+const plEstadoConteo = (n, amarillo) => (n <= 0 ? 'verde' : n <= amarillo ? 'ambar' : 'rojo');
+const plN = n => fmt(Math.round(n || 0));
+
+/* Las etapas de la planta. Arriba van de izquierda a derecha (1 a 6), abajo vuelven (7 a 12). Las seis de producción
+   usan los mismos nombres de etapa que Metas de Producción (MT_ET) y Trazabilidad (TRZ_ESTANDAR). */
+const PL_ETAPAS = [
+  { id: 'compras', corto: 'Compras', nombre: 'Compras e insumos', color: '#2f5687', piso: '#e3e8ef', ir: ['telas', 'Telas'],
+    entra: 'Los modelos aprobados y lo programado para cortar.', entrega: 'Tela, avíos e insumos en bodega, listos para que Corte no espere.',
+    sistema: 'ADECOM: stock de telas (SALDOSXLOCAL) y consumo por orden (CONSUMOS-OP)', cae: 'Telas en negativo o que no alcanzan para lo que hay que cortar. ADECOM no exporta las órdenes de compra.',
+    problemas: [{ tipo: 'medicion', txt: 'Las compras tienen que ir alineadas con los modelos del mes (lo pidió Don Richard para Administración).', quien: 'Don Richard define, Manuel lo mide' }] },
+  { id: 'modelaje', corto: 'Modelaje', nombre: 'Diseño y modelaje (M1-M3)', color: '#b35c13', piso: '#f6e3cf', ir: ['tabla', 'Trazabilidad'],
+    entra: 'El diseño del modelo y los insumos de la muestra; también vuelven las pruebas que Calce devuelve con correcciones.', entrega: 'Las pruebas M1, M2 y M3 para la prueba de calce.',
+    sistema: 'ADECOM: órdenes de tipo MUESTRAS con su M (se anota desde abril de 2026)', cae: 'Muestras que se pierden, modelistas sin meta y artículos mal ingresados en la producción de muestras.',
+    problemas: [
+      { tipo: 'control', txt: 'Las muestras se pierden o se extravían; los modelistas trabajan sin control.', quien: 'Manuel (sistema) y jefe de modelaje' },
+      { tipo: 'medicion', txt: 'Los modelistas no tienen meta.', quien: 'Don Richard define la meta, Manuel la mide' },
+      { tipo: 'control', txt: 'Se metieron 3 artículos en la producción de muestras y se pierde el correlativo.', quien: 'Manuel y Carlos (ADECOM)', rapido: 'Warning con doble confirmación en ADECOM y correlativo fijo.' }] },
+  { id: 'calce', corto: 'Calce', nombre: 'Prueba de calce', color: '#c01f28', piso: '#f6dad8', ir: ['tabla', 'Trazabilidad'],
+    entra: 'Las pruebas M1, M2 y M3 que salen de Modelaje.', entrega: 'El modelo aprobado con sus instrucciones, o la prueba de vuelta a Modelaje.',
+    sistema: 'Hoy de palabra: ADECOM no registra la prueba de calce. Se mide por su resultado: el modelo que pasa a producción', cae: 'Pruebas que no se hacen porque falta alguien sin aviso, e instrucciones que se dan de palabra y se olvidan.',
+    problemas: [
+      { tipo: 'regla', txt: 'Los permisos se piden sin aviso de 48 horas: el caso del médico arruinó la prueba de calce.', quien: 'Angélica (RRHH)', rapido: 'Protocolo de permisos con aviso de 48 horas.' },
+      { tipo: 'registro', txt: 'Las instrucciones de calce se dan de palabra y no quedan registradas (lo de la bota con Omar).', quien: 'Manuel (herramienta) y jefes (hábito)', rapido: 'Registro de calce: foto y nota por modelo, o un campo en ADECOM.' }] },
+  { id: 'corte', corto: 'Corte', nombre: 'Corte', mt: 'Corte', trz: 'Corte', color: '#5e4a9c', piso: '#e7e1f3', ir: ['programado', 'Programado sin cortar'],
+    entra: 'El modelo aprobado, la orden de corte y la tela.', entrega: 'Paquetes cortados por talla para los talleres.',
+    sistema: 'ADECOM: orden de corte (TRAZABILIDAD2)', cae: 'Órdenes programadas que no se cortan, corte del día sin cerrar y un colchón de artículos que no respeta la sincronía.',
+    problemas: [
+      { tipo: 'registro', txt: 'Cerrar el corte diario (Marcela) como parte de cerrar la cadena completa.', quien: 'Manuel (herramienta) y jefes (hábito)' },
+      { tipo: 'control', txt: 'Colchón de 10 artículos: hay que respetar la sincronía.', quien: 'Por definir', nota: 'Etapa por confirmar.' }] },
+  { id: 'urrutia', corto: 'Urrutia', nombre: 'Taller Urrutia (costura propia)', mt: 'Costura', trz: 'Taller', color: '#23874f', piso: '#d3ecdb', ir: ['metas', 'Metas de Producción'],
+    entra: 'Paquetes cortados.', entrega: 'Prendas confeccionadas para Limpiado.',
+    sistema: 'ADECOM: etapa Taller', cae: 'Máquinas malas o arreglos que nadie reporta, y tarifados que no calzan con el volumen.',
+    problemas: [
+      { tipo: 'registro', txt: 'Las anomalías no se reportan en los grupos (máquinas malas, arreglos). Que nadie se salte pasos.', quien: 'Manuel (herramienta) y jefes (hábito)', rapido: 'Canal único para reportar anomalías (con Angélica).' },
+      { tipo: 'regla', txt: 'Con la baja de volumen no se proyectó que había que subir los tarifados (sindicato).', quien: 'Don Richard y Angélica (RRHH)' }] },
+  { id: 'tdf', corto: 'T. del Fuego', nombre: 'Taller Tierra del Fuego (taller externo)', mt: 'T.Externo', trz: 'Taller Ext', color: '#3f8f6e', piso: '#d8efe4', ir: ['metas', 'Metas de Producción'],
+    entra: 'Paquetes cortados.', entrega: 'Prendas confeccionadas para Limpiado.',
+    sistema: 'ADECOM: etapa Taller externo', cae: 'Prendas que se quedan en el taller externo más que su estándar.',
+    problemas: [{ tipo: 'registro', txt: 'Las anomalías no se reportan en los grupos (máquinas malas, arreglos).', quien: 'Manuel (herramienta) y jefes (hábito)' }] },
+  { id: 'limpiado', corto: 'Limpiado', nombre: 'Limpiado', mt: 'Limpiado', trz: 'Limpiado', color: '#8a6d1f', piso: '#f3ecd5', ir: ['metas', 'Metas de Producción'],
+    entra: 'Prendas confeccionadas de los dos talleres.', entrega: 'Prendas listas para Lavandería.',
+    sistema: 'ADECOM: etapa Limpiado', cae: 'Lo que llega y no sale dentro del estándar.', problemas: [] },
+  { id: 'lavanderia', corto: 'Lavandería', nombre: 'Lavandería', mt: 'Lavandería', trz: 'Lavander', color: '#1f7a9c', piso: '#dbeef6', ir: ['metas', 'Metas de Producción'],
+    entra: 'Prendas limpias.', entrega: 'Prendas lavadas para Terminación.',
+    sistema: 'ADECOM: etapa Lavandería', cae: 'Lo que llega y no sale en el día: la regla de la reunión es sacar en el día lo que llega.', problemas: [] },
+  { id: 'terminacion', corto: 'Terminación', nombre: 'Terminación', mt: 'Terminación', trz: 'Terminacion', color: '#a8720b', piso: '#faecc0', ir: ['metas', 'Metas de Producción'],
+    entra: 'Prendas lavadas.', entrega: 'Prendas terminadas y revisadas que entran a Bodega.',
+    sistema: 'ADECOM: etapa Terminación', cae: 'Producción que llega a Bodega sin que nadie la haya revisado antes.',
+    problemas: [{ tipo: 'rol', txt: 'Jorge debería revisar la producción antes de que llegue.', quien: 'Angélica y los jefes', nota: 'Etapa por confirmar: puede ser al salir de Terminación o al entrar a Bodega.' }] },
+  { id: 'bodega', corto: 'Bodega', nombre: 'Bodega', color: '#465fff', piso: '#e6ebff', ir: ['cajas', 'Cajas en Bodega'],
+    entra: 'Prendas terminadas.', entrega: 'Stock por talla y cajas armadas para despachar.',
+    sistema: 'ADECOM: saldos por bodega y cajas (CAJAS)', cae: 'Inventario anotado a mano en vez de pistoleado, y cajas armadas que se quedan sin despachar.',
+    problemas: [{ tipo: 'control', txt: 'Lo de COLE 78 y 79 se anotó a mano en vez de separarlo por talla y pistolearlo (como en el supermercado).', quien: 'Manuel y Carlos (ADECOM)', rapido: 'Inventario pistoleado en vez de anotado a mano.' }] },
+  { id: 'venta', corto: 'Venta', nombre: 'Venta', color: '#23874f', piso: '#d3ecdb', ir: ['reporte-venta', 'Reporte Venta'],
+    entra: 'El stock disponible y los modelos nuevos.', entrega: 'Pedidos y facturas de los clientes.',
+    sistema: 'ADECOM: pedidos y documentos de venta; WhatsApp (Sofía)', cae: 'Llegar tarde a la sala del cliente: gana el que llega primero con producto.', problemas: [] },
+  { id: 'cobranza', corto: 'Cobranza', nombre: 'Facturación y cobranza', color: '#7a5228', piso: '#f0e3d0', ir: ['deudas', 'Deudas'],
+    entra: 'Facturas emitidas.', entrega: 'Facturas pagadas y un cierre contable rápido.',
+    sistema: 'ADECOM: ficha de crédito del cliente (CLIENTES)', cae: 'Clientes sobre su cupo y diferencias en las cartolas sin respaldo.',
+    problemas: [{ tipo: 'registro', txt: 'Conciliación post-hackeo: sacar un certificado con la fecha y lo que hicieron, para respaldar las diferencias en las cartolas.', quien: 'Administración' }] },
+];
+const PL_TRANSVERSAL = [
+  { tipo: 'rol', txt: 'El Seba tiene que moverse y entender el flujo.', quien: 'Angélica y los jefes' },
+  { tipo: 'registro', txt: 'Que nadie se salte pasos y que las anomalías se reporten.', quien: 'Manuel (herramienta) y jefes (hábito)' },
+  { tipo: 'registro', txt: 'La información no puede estar en una sola persona: tiene que estar abierta, en un link que cualquiera pueda revisar.', quien: 'Manuel' },
+  { tipo: 'medicion', txt: 'El volumen bajó a la mitad, pero la carga de trabajo sigue igual.', quien: 'Don Richard y jefes' },
+];
+
+/* Todo lo que la planta necesita, sacado de los JSON que ya baja el dashboard. */
+async function plDatos() {
+  const [toc, dv, peds, telas, meta, cajas] = await Promise.all(['traza_oc.json', 'docs_venta.json', 'pedidos.json', 'telas.json', 'meta.json', 'cajas.json'].map(f => load(f)));
+  const hoy = today();
+  let ref = String((meta && meta.erp_iso) || hoy).slice(0, 10);
+  if (ref > hoy) ref = hoy;
+  let mes = ref.slice(0, 7), jor = plJornada(mes, ref);
+  if (!jor.corridos) { mes = plMesAnterior(mes); jor = plJornada(mes, '9999-12-31'); }   // primer día del mes: se mira el anterior
+  const par = plPar(), cas = plCascada(par);
+  const lista = Array.isArray(toc) ? toc : [];
+  const mb = mtBase(lista), metas = mtMetas(), atr = trzAtrasos(lista);
+  const D = {};
+
+  /* Producción: lo que SALIÓ de cada etapa en el mes contra la meta esperada a la fecha (la cuenta de Metas de Producción) */
+  for (const et of PL_ETAPAS.filter(e => e.mt)) {
+    const hecho = (((mb.datos[mes] || {})[et.mt]) || {}).hecho || 0, m = metas[et.mt] || 0, esp = m * jor.frac;
+    const atrasadas = atr.lista.filter(x => /PRODUC/i.test(x.tipo || '') && x.etapa === et.trz);
+    D[et.id] = {
+      valor: hecho, meta: m, esp, r: esp ? hecho / esp : 0, estado: m ? plEstado(esp ? hecho / esp : 0) : 'gris',
+      corto: `${plN(hecho)}/${plN(m)}`, kpi: `Prendas que salieron de ${et.corto} en el mes`,
+      wip: mb.wip[et.mt] || 0, wipTxt: 'prendas detenidas en la etapa',
+      ritmo: jor.corridos ? hecho / jor.corridos : 0, unidad: 'prendas',
+      detalle: [['Esperado a la fecha', plN(esp)], ['Ritmo real', `${plN(jor.corridos ? hecho / jor.corridos : 0)} al día hábil`],
+        ['Prendas detenidas ahora', plN(mb.wip[et.mt] || 0)], ['Estándar de días', `${TRZ_ESTANDAR[et.trz]} días (mediana real ${atr.normal[et.trz] || 0})`],
+        ['Órdenes atrasadas', `${atrasadas.length} sobre su estándar`]],
+      atrasadas: atrasadas.length,
+      formula: `La meta de ${plN(m)} al mes es la de Metas de Producción${et.mt === 'Costura' || et.mt === 'T.Externo' ? ' (Urrutia y Tierra del Fuego se reparten las 10.000)' : ''}. Con ${jor.corridos} de ${jor.habiles} días hábiles, a la fecha deberían ir ${plN(esp)}.`,
+      origen: 'reunion' };
+  }
+
+  /* Modelaje: pruebas (órdenes de MUESTRAS) emitidas en el mes contra las que pide la cascada */
+  const muestras = lista.filter(o => /MUESTRA/i.test(o.tipo || '')).map(o => ({ o, iso: plIso(o.fecha) })).filter(x => x.iso && x.iso <= ref);
+  const delMes = muestras.filter(x => x.iso.slice(0, 7) === mes);
+  const hace7 = ymd(new Date(new Date(ref + 'T12:00:00').getTime() - 6 * 864e5));
+  const semana = muestras.filter(x => x.iso >= hace7).length;
+  const porM = {}; delMes.forEach(x => { const k = x.o.m || 'sin M'; porM[k] = (porM[k] || 0) + 1; });
+  { const m = cas.pruebas, esp = m * jor.frac;
+    D.modelaje = { valor: delMes.length, meta: m, esp, r: esp ? delMes.length / esp : 0, estado: plEstado(esp ? delMes.length / esp : 0),
+      corto: `${delMes.length}/${m}`, kpi: 'Pruebas (M1 a M5) hechas en el mes', wip: delMes.length, wipTxt: 'pruebas del mes', unidad: 'pruebas',
+      ritmo: jor.corridos ? delMes.length / jor.corridos : 0,
+      detalle: [['Esperado a la fecha', plN(esp)], ['Últimos 7 días', `${semana} pruebas (meta ${plN(cas.calceSemana)} a la semana)`],
+        ['Por nivel', Object.keys(porM).sort().map(k => `${k}: ${porM[k]}`).join(' · ') || 'sin pruebas']],
+      formula: `${cas.modelos} modelos × ${par.ppm} pruebas por modelo aprobado = ${cas.pruebas} pruebas al mes. Real en ADECOM: unas 3,4 pruebas por modelo aprobado.`, origen: 'reunion' };
+  }
+
+  /* Calce: ADECOM no registra la prueba. Se mide su resultado: modelos que entran a producción por primera vez */
+  const primera = {};
+  for (const o of lista) {
+    if (!/PRODUC/i.test(o.tipo || '') || (o.prog || 0) < 10) continue;
+    const b = (o.articulo || '').slice(2, 6), iso = plIso(o.fecha);
+    if (b && iso && (!primera[b] || iso < primera[b])) primera[b] = iso;
+  }
+  const aprob = Object.entries(primera).filter(([, iso]) => iso.slice(0, 7) === mes && iso <= ref).map(([b]) => b);
+  const devueltas = delMes.filter(x => /^M[2-9]/.test(x.o.m || '')).length;
+  { const m = cas.modelos, esp = m * jor.frac;
+    D.calce = { valor: aprob.length, meta: m, esp, r: esp ? aprob.length / esp : 0, estado: plEstado(esp ? aprob.length / esp : 0),
+      corto: `${aprob.length}/${m}`, kpi: 'Modelos que pasaron a producción en el mes', wip: devueltas, wipTxt: 'pruebas M2 o más (volvieron con correcciones)', unidad: 'modelos',
+      ritmo: jor.corridos ? aprob.length / jor.corridos : 0,
+      detalle: [['Esperado a la fecha', plN(esp)], ['Modelos aprobados', aprob.slice(0, 12).join(', ') + (aprob.length > 12 ? '…' : '') || 'ninguno aún'],
+        ['Pruebas que volvieron', `${devueltas} del mes son M2 o más`]],
+      formula: `10.000 ÷ ${par.upm} unidades por modelo = ${cas.modelos} modelos al mes. Un modelo cuenta el mes de su primera orden de producción (de 10 prendas o más).`, origen: 'reunion',
+      aviso: 'La prueba de calce no queda registrada en ADECOM: aquí se ve su resultado, no la prueba.' };
+  }
+
+  /* Compras: telas */
+  { const T = Array.isArray(telas) ? telas : [], neg = T.filter(t => (t.stock_total || 0) < 0);
+    const metros = T.reduce((s, t) => s + Math.max(0, t.stock_total || 0), 0);
+    const alcanza = T.reduce((s, t) => s + (t.m_prenda > 0 && t.stock_total > 0 ? t.stock_total / t.m_prenda : 0), 0);
+    D.compras = { valor: neg.length, meta: 0, estado: T.length ? plEstadoConteo(neg.length, 3) : 'gris', corto: `${neg.length} neg.`, kpi: 'Telas con stock negativo',
+      wip: Math.round(metros), wipTxt: 'metros de tela en bodega', unidad: 'telas',
+      detalle: [['Telas con stock', `${T.length - neg.length} de ${T.length}`], ['Metros en bodega', plN(metros)],
+        ['Alcanza para', alcanza ? `${plN(alcanza)} prendas (telas con consumo conocido)` : 'sin consumo por prenda aún']],
+      formula: 'Meta: ninguna tela en negativo. El negativo dice que se consumió más de lo que ADECOM tiene ingresado.', origen: 'propuesto' };
+  }
+
+  /* Bodega: cajas armadas sin despachar */
+  { const C = ((cajas && cajas.cajas) || []).filter(c => c.estado === 'bodega'), viejas = C.filter(c => (c.dias || 0) > 30);
+    D.bodega = { valor: viejas.length, meta: 0, estado: plEstadoConteo(viejas.length, 5), corto: `${viejas.length} +30 d`, kpi: 'Cajas armadas con más de 30 días sin despachar',
+      wip: C.length, wipTxt: 'cajas armadas en bodega', unidad: 'cajas',
+      detalle: [['Cajas en bodega', `${C.length} (${plN(C.reduce((s, c) => s + (c.prendas || 0), 0))} prendas)`], ['Con más de 30 días', String(viejas.length)],
+        ['Entraron a bodega en el mes', `${plN(D.terminacion.valor)} prendas (salida de Terminación)`]],
+      formula: 'Meta: ninguna caja con más de 30 días. Es el mismo límite de la sección Cajas en Bodega.', origen: 'propuesto' };
+  }
+
+  /* Venta: prendas vendidas (facturas y boletas menos notas de crédito) */
+  { const V = (Array.isArray(dv) ? dv : []).filter(d => (d.fecha_iso || '').slice(0, 7) === mes && d.fecha_iso <= ref && d.tipo !== 'Ndeb');
+    const prendas = V.reduce((s, d) => s + (d.tipo === 'N/cre' ? -1 : 1) * (d.prendas || 0), 0);
+    const clientes = new Set(V.filter(d => d.tipo === 'F/Elec' || d.tipo === 'FACT').map(d => d.rut)).size;
+    const m = par.meta, esp = m * jor.frac;
+    D.venta = { valor: prendas, meta: m, esp, r: esp ? prendas / esp : 0, estado: plEstado(esp ? prendas / esp : 0), corto: `${plN(prendas)}/${plN(m)}`,
+      kpi: 'Prendas vendidas en el mes', wip: clientes, wipTxt: 'clientes con factura en el mes', unidad: 'prendas', ritmo: jor.corridos ? prendas / jor.corridos : 0,
+      detalle: [['Esperado a la fecha', plN(esp)], ['Clientes con factura', `${clientes} en el mes`], ['Contactos que pide la cascada', `${plN(cas.contactosDia)} al día (${par.clientes} clientes ÷ ${par.diasVenta} días)`]],
+      formula: 'Propuesta: vender lo que se produce, 10.000 al mes. El dashboard no tiene una meta de venta.', origen: 'propuesto' };
+  }
+
+  /* Cobranza: ficha de crédito de cada cliente */
+  { const cli = {};
+    for (const p of (Array.isArray(peds) ? peds : [])) if (p.cli && p.rut) cli[p.rut] = p.cli;
+    const L = Object.values(cli), sobre = L.filter(c => c.credito > 0 && (c.deuda || 0) + (c.cheques || 0) > c.credito);
+    const deuda = L.reduce((s, c) => s + (c.deuda || 0), 0), bloq = L.filter(c => c.bloqueo_ficha === 'S').length;
+    D.cobranza = { valor: sobre.length, meta: 0, estado: L.length ? plEstadoConteo(sobre.length, 5) : 'gris', corto: `${sobre.length} s/cupo`, kpi: 'Clientes sobre su cupo de crédito',
+      wip: L.filter(c => (c.deuda || 0) > 0).length, wipTxt: 'clientes con deuda', unidad: 'clientes',
+      detalle: [['Deuda en cuenta corriente', fmtCLP(deuda)], ['Clientes con deuda', String(L.filter(c => (c.deuda || 0) > 0).length)], ['Bloqueados en ADECOM', String(bloq)]],
+      formula: 'Meta: ningún cliente sobre su cupo (deuda más cheques sobre el crédito). El detalle por vencimiento está en Deudas.', origen: 'propuesto' };
+  }
+
+  const prod = D.terminacion.valor, espMes = par.meta * jor.frac;
+  return { D, jor, ref, mes, par, cas, meta: meta || {}, prod, espMes, estadoMeta: plEstado(espMes ? prod / espMes : 0) };
+}
+
+/* ── Planta: dibujo, monos, panel y simulador ───────────────────────────────────────────────── */
+let PL = null;   // la planta abierta: si se sale de la sección, su bucle se detiene solo
+
+async function secPlanta() {
+  const datos = await plDatos();
+  const ref = datos.ref.split('-').reverse().join('-');
+  setTimeout(() => plIniciar(datos), 0);   // go() pinta el HTML apenas esta función responde
+  return `
+  <div class="pl-wrap">
+    <div class="pl-barra">
+      <div class="pl-tit"><b>Planta</b> Mohicano <span>el flujo del negocio, de Compras a Cobranza</span></div>
+      <div class="pl-mandos">
+        <div class="pl-vel" role="group" aria-label="Velocidad">
+          <button type="button" data-vel="0" title="Pausa">II</button><button type="button" data-vel="1" class="on">1x</button><button type="button" data-vel="2">2x</button>
+        </div>
+        <button type="button" class="pl-btn" id="plAtasco">¿Dónde se atasca?</button>
+        <button type="button" class="pl-btn" id="plSim">¿Qué pasa si…?</button>
+        <button type="button" class="pl-btn pl-prim" id="plMeta">La meta: 10.000</button>
+      </div>
+    </div>
+    <p class="pl-nota">Datos de ADECOM al ${ref} · ${mtMesTtl(datos.mes)}, ${datos.jor.corridos} de ${datos.jor.habiles} días hábiles. Cada número sale de los mismos datos del dashboard; las metas de producción son las de Metas de Producción.</p>
+    <div class="pl-sala">
+      <section class="pl-escena">
+        <div class="pl-lienzo" id="plLienzo"><canvas id="plCv" width="600" height="376" aria-label="Planta Mohicano en vista isométrica: doce etapas del flujo"></canvas></div>
+        <p class="pl-ticker" id="plTicker"></p>
+        <div class="pl-leyenda"><span><i style="background:#2fa86a"></i>En meta a la fecha</span><span><i style="background:#f2b632"></i>Ajustado (85 a 99 %)</span><span><i style="background:#d8232c"></i>Bajo la meta</span><span><i style="background:#8b98a6"></i>Sin meta</span><span>El número rojo sobre cada etapa es lo que está detenido ahí.</span></div>
+      </section>
+      <aside class="pl-cajon"><div class="pl-cab" id="plCab"></div><div class="pl-tabs" id="plTabs"></div><div class="pl-panel" id="plPanel"></div></aside>
+    </div>
+    <div class="pl-plantel" id="plPlantel"></div>
+  </div>`;
+}
+
+function plIniciar(datos) {
+  const cv = document.getElementById('plCv');
+  if (!cv) return;
+  if (PL && PL.raf) cancelAnimationFrame(PL.raf);
+  const S = 3, W = 600, H = 376, WALL = 64, COLS = 24, ROWS = 10;
+  cv.width = W * S; cv.height = H * S;
+  const ctx = cv.getContext('2d'), lienzo = document.getElementById('plLienzo');
+  const E = { ox: 184, oy: 84 };
+  const st = PL = { datos, raf: 0, sel: { tipo: 'etapa', id: 'calce' }, pestana: 'ficha', atasco: false, vel: 1, simMs: 0, ultimo: null };
+  try { const g = JSON.parse(localStorage.getItem('planta_sel') || 'null'); if (g && (g.tipo !== 'etapa' || PL_ETAPAS.some(e => e.id === g.id))) st.sel = g; } catch (e) {}
+  if (st.sel.tipo === 'meta') st.pestana = 'cascada'; else if (st.sel.tipo === 'sim') st.pestana = 'escenario';
+  const D = () => st.datos.D;
+  const COLOR = { verde: '#2fa86a', ambar: '#f2b632', rojo: '#d8232c', gris: '#8b98a6' };
+  const NOMBRE_EST = { verde: 'En meta a la fecha', ambar: 'Ajustado', rojo: 'Bajo la meta', gris: 'Sin meta' };
+
+  /* ---------- dibujo base (el mismo de la Oficina Mohicano) ---------- */
+  const P = (c, r, z = 0) => ({ x: E.ox + (c - r) * 16, y: E.oy + (c + r) * 8 - z });
+  const tono = (hex, k) => { const n = parseInt(hex.slice(1), 16), t = k < 0 ? 0 : 255, a = Math.abs(k), m = v => Math.round(v + (t - v) * a); return '#' + ((1 << 24) | (m(n >> 16) << 16) | (m((n >> 8) & 255) << 8) | m(n & 255)).toString(16).slice(1); };
+  const poly = (pts, fill, stroke) => { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); } };
+  const caja = (c, r, w, d, h, base, z0 = 0, cols) => { const top = cols ? cols[0] : base, izq = cols ? cols[1] : tono(base, -0.12), der = cols ? cols[2] : tono(base, -0.28), c1 = c + w, r1 = r + d;
+    poly([P(c, r1, z0 + h), P(c1, r1, z0 + h), P(c1, r1, z0), P(c, r1, z0)], izq); poly([P(c1, r, z0 + h), P(c1, r1, z0 + h), P(c1, r1, z0), P(c1, r, z0)], der); poly([P(c, r, z0 + h), P(c1, r, z0 + h), P(c1, r1, z0 + h), P(c, r1, z0 + h)], top); };
+  const enPlano = (tipo, o, fn) => { ctx.save(); ctx.setTransform(S, (tipo === 'der' ? 0.5 : -0.5) * S, 0, S, o.x * S, o.y * S); fn(); ctx.restore(); };
+  const R = (g, col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const FUENTE = px => `600 ${px}px Outfit, Rubik, system-ui, sans-serif`;
+  const texto = (t, x, y, col, px = 8) => { ctx.fillStyle = col; ctx.font = FUENTE(px); ctx.textBaseline = 'top'; ctx.fillText(t, x, y + 1); };
+  const ancho = (t, px = 8) => { ctx.font = FUENTE(px); return ctx.measureText(t).width; };
+
+  function figura(g, x, y, L, o = {}) {
+    const X = Math.round(x), Y0 = Math.round(y), sent = o.sentado, pasoN = o.paso || 0, bob = !sent && (pasoN === 1 || pasoN === 3) ? -1 : 0, Y = Y0 + (sent ? 5 : 0) + bob;
+    const f = (col, px, py, w, h) => R(g, col, X + px, Y + py, w, h), pant = L.pantalon || '#3d5f8f', m = o.frente ? (o.mira || 0) : 0;
+    g.fillStyle = 'rgba(28,42,57,.22)'; g.beginPath(); g.ellipse(X + 0.5, Y0 + 0.5, 7, 3, 0, 0, Math.PI * 2); g.fill();
+    if (!sent) { const a = pasoN === 1 ? 1 : 0, b = pasoN === 3 ? 1 : 0; f(pant, -4, -10, 4, 9 - a); f(pant, 1, -10, 4, 9 - b); f(tono(pant, 0.2), -3, -9, 1, 6 - a); f(tono(pant, 0.2), 2, -9, 1, 6 - b); f('#262a33', -4, -2 - a, 4, 2); f('#262a33', 1, -2 - b, 4, 2); }
+    f('#3a2a1e', -5, -11, 11, 1); f(L.polera, -5, -19, 11, 8); f(tono(L.polera, -0.2), 3, -19, 2, 8); f(tono(L.polera, 0.15), -5, -19, 1, 8);
+    if (L.delantal) f(L.delantal, -3, -18, 7, 8);
+    const sw = !sent && pasoN ? (pasoN === 1 ? 1 : pasoN === 3 ? -1 : 0) : 0, br = o.trabaja ? (Math.floor(o.t / 220) % 2) : 0;
+    f(L.polera, -7, -18 + sw - br, 2, 6); f(L.piel, -7, -12 + sw - br, 2, 2); f(tono(L.polera, -0.2), 6, -18 - sw + br, 2, 6); f(L.piel, 6, -12 - sw + br, 2, 2);
+    f(L.piel, -1, -20, 3, 1); f(L.piel, -4, -29, 9, 9);
+    const pe = L.pelo, est = L.estilo || 'corto';
+    if (o.frente) {
+      f(pe, -5, -31, 11, 3); f(pe, -4, -28, 4, 1);
+      if (est === 'largo') { f(pe, -5, -28, 2, 11); f(pe, 4, -28, 2, 11); } else if (est === 'melena') { f(pe, -5, -28, 2, 7); f(pe, 4, -28, 2, 7); f(pe, 0, -28, 4, 1); }
+      else if (est === 'tomate') { f(pe, -2, -34, 5, 3); f(pe, -5, -28, 1, 3); f(pe, 5, -28, 1, 3); } else if (est === 'calvo') { f(L.piel, -4, -31, 9, 2); f(pe, -5, -28, 1, 4); f(pe, 5, -28, 1, 4); } else { f(pe, -5, -28, 1, 4); f(pe, 5, -28, 1, 4); }
+      f('#1c2230', -2 + m, -25, 1, 2); f('#1c2230', 2 + m, -25, 1, 2); f('rgba(232,110,110,.5)', -3 + m, -23, 1, 1); f('rgba(232,110,110,.5)', 3 + m, -23, 1, 1);
+      f(o.habla ? '#7a2b2b' : '#b5675a', m, -22, o.habla ? 2 : 1, 1);
+      if (L.lentes) { f('#1c2230', -3 + m, -26, 3, 1); f('#1c2230', 1 + m, -26, 3, 1); f('#1c2230', m, -25, 1, 1); }
+    } else { f(pe, -5, -31, 11, 10); if (est === 'largo') f(pe, -5, -21, 11, 4); else if (est === 'tomate') f(pe, -2, -34, 5, 3); }
+  }
+
+  /* ---------- muebles ---------- */
+  const MADERA = '#c48a52';
+  const laptop = (c, r, tapa) => { caja(c, r + 0.35, 0.8, 0.42, 1.5, '#c3ccd6', 13); poly([P(c, r + 0.35, 14.5), P(c + 0.8, r + 0.35, 14.5), P(c + 0.8, r + 0.35, 24), P(c, r + 0.35, 24)], tapa); };
+  const mesa = (c, r, w = 2.64) => caja(c + 0.18, r + 0.12, w, 0.76, 13, MADERA);
+  const silla = t => { caja(t[0] + 0.28, t[1] + 0.3, 0.44, 0.44, 7, '#33404d'); caja(t[0] + 0.28, t[1] + 0.18, 0.44, 0.12, 12, '#33404d', 7); };
+  const papeles = (c, r) => { caja(c + 0.1, r + 0.3, 0.45, 0.35, 2, '#f4f7fa', 13); };
+  const planta = (c, r) => { caja(c + 0.3, r + 0.3, 0.4, 0.4, 7, '#b5643a'); const b = P(c + 0.5, r + 0.5, 14); for (const [dx, dy, rr, col] of [[0, -4, 6, '#3f8a5b'], [-4, 0, 4, '#357a4e'], [4, 0, 4, '#357a4e'], [0, -9, 4, '#56a873']]) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(b.x + dx, b.y + dy, rr, 0, Math.PI * 2); ctx.fill(); } };
+  const cajaCarton = (c, r, z = 0) => caja(c + 0.12, r + 0.12, 0.76, 0.76, 11, '#c79a62', z);
+  const estante = (c, r, h, rollos) => { caja(c + 0.08, r + 0.08, 0.84, 0.7, h, '#8a96a3', 0, ['#a3b0bd', '#7d8a96', '#66727e']); for (let z = 2, i = 0; z < h - 6; z += 11, i++) { if (rollos) for (let k = 0; k < 3; k++) caja(c + 0.12 + k * 0.25, r + 0.12, 0.22, 0.6, 7, ['#2f5687', '#4a6fa5', '#24406a', '#6d8fb8'][(i + k) % 4], z); else { caja(c + 0.15, r + 0.12, 0.32, 0.5, 8, '#c79a62', z); caja(c + 0.52, r + 0.12, 0.32, 0.5, 8, '#b98a55', z); } } };
+  const maniqui = (c, r) => { caja(c + 0.42, r + 0.42, 0.16, 0.16, 12, '#555f6a'); caja(c + 0.3, r + 0.35, 0.4, 0.3, 10, '#efe6da', 12); caja(c + 0.33, r + 0.38, 0.34, 0.24, 9, '#3d5f8f', 3); caja(c + 0.44, r + 0.44, 0.12, 0.12, 4, '#efe6da', 22); };
+  const perchero = (c, r, w, cols) => { caja(c + 0.1, r + 0.4, 0.08, 0.08, 26, '#555f6a'); caja(c + w - 0.18, r + 0.4, 0.08, 0.08, 26, '#555f6a'); caja(c + 0.1, r + 0.42, w - 0.2, 0.04, 1.5, '#555f6a', 26); const n = Math.floor((w - 0.3) / 0.22); for (let i = 0; i < n; i++) caja(c + 0.2 + i * 0.22, r + 0.32, 0.16, 0.24, 15, cols[i % cols.length], 10); };
+  const mesaCorte = (c, r, w) => { caja(c + 0.1, r + 0.1, w, 0.85, 12, MADERA); caja(c + 0.25, r + 0.18, w - 0.3, 0.68, 1.5, '#3d5f8f', 12); caja(c + 0.7, r + 0.3, 0.9, 0.45, 0.5, '#f4f7fa', 13.5); };
+  const mesaCoser = (c, r) => { caja(c + 0.12, r + 0.12, 1.7, 0.76, 13, MADERA); caja(c + 0.55, r + 0.3, 0.7, 0.32, 5, '#e9eef3', 13); caja(c + 1.05, r + 0.3, 0.2, 0.32, 9, '#e9eef3', 13); caja(c + 0.55, r + 0.3, 0.7, 0.32, 2, '#e9eef3', 20); caja(c + 1.4, r + 0.4, 0.18, 0.18, 2.5, '#d8232c', 13); };
+  const lavadora = (c, r, t, gira) => { caja(c + 0.1, r + 0.1, 1.3, 1.25, 24, '#c9d3dd', 0, ['#dfe6ec', '#c3ccd6', '#a3b0bd']); enPlano('der', P(c + 0.3, r + 1.35, 20), () => { ctx.fillStyle = '#1c2a39'; ctx.beginPath(); ctx.arc(9, 9, 8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#6fa7d8'; ctx.beginPath(); ctx.arc(9, 9, 6, 0, Math.PI * 2); ctx.fill(); if (gira) { const a = t / 180; ctx.fillStyle = '#2f5687'; ctx.beginPath(); ctx.arc(9 + Math.cos(a) * 3, 9 + Math.sin(a) * 3, 2.4, 0, Math.PI * 2); ctx.fill(); } }); };
+  const archivador = (c, r) => caja(c + 0.15, r + 0.15, 0.7, 0.6, 22, '#8b98a6', 0, ['#a3b0bd', '#7d8a96', '#66727e']);
+  const camion = (c, r) => { caja(c + 0.1, r + 0.2, 1.6, 0.7, 16, '#e9eef3', 0, ['#f4f7fa', '#dfe6ec', '#c3ccd6']); caja(c + 1.7, r + 0.3, 0.55, 0.6, 11, '#3f8f6e'); };
+
+  /* ---------- la planta: 12 etapas de 4 baldosas ---------- */
+  const Z = PL_ETAPAS.map((et, i) => { const arriba = i < 6, base = arriba ? i * 4 : (11 - i) * 4, r0 = arriba ? 0 : 6;
+    return { et, i, arriba, base, r0, c0: base + 0.12, c1: base + 3.88, r0v: r0 + (arriba ? 0.08 : 0.12), r1v: r0 + (arriba ? 3.88 : 3.9), est: arriba ? [base + 3.5, 3.5] : [base + 3.5, 6.5] }; });
+  const bloq = Array.from({ length: ROWS }, (_, r) => Array(COLS).fill(r !== 4 && r !== 5));
+  const estadoDe = i => { const d = D()[PL_ETAPAS[i].id]; return d ? d.estado : 'gris'; };
+  const datoDe = i => D()[PL_ETAPAS[i].id];
+
+  function piso() {
+    poly([P(0, 0), P(COLS, 0), P(COLS, ROWS), P(0, ROWS)], '#d6a56c');
+    for (let r = 0; r < ROWS; r++) if (r % 2) poly([P(0, r), P(COLS, r), P(COLS, r + 1), P(0, r + 1)], '#cf9d63');
+    poly([P(0, 4.1), P(COLS, 4.1), P(COLS, 5.9), P(0, 5.9)], '#c7cdd4');
+    poly([P(0, 4.1), P(COLS, 4.1), P(COLS, 4.25), P(0, 4.25)], '#f2b632'); poly([P(0, 5.75), P(COLS, 5.75), P(COLS, 5.9), P(0, 5.9)], '#f2b632');
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    const flecha = (c, r, dc, dr) => { const a = P(c + dc * 0.35, r + dr * 0.35), b = P(c - dc * 0.25 + dr * 0.18, r - dr * 0.25 + dc * 0.18), d = P(c - dc * 0.25 - dr * 0.18, r - dr * 0.25 - dc * 0.18); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); };
+    for (let c = 1.5; c < 23; c += 2) flecha(c, 4.6, 1, 0);
+    for (let c = 22.5; c > 1; c -= 2) flecha(c, 5.4, -1, 0);
+    flecha(23.6, 5, 0, 1);
+    for (const z of Z) {
+      const pts = [P(z.c0, z.r0v), P(z.c1, z.r0v), P(z.c1, z.r1v), P(z.c0, z.r1v)];
+      poly(pts, z.et.piso); ctx.save(); ctx.setLineDash([3, 3]); poly(pts, null, z.et.color); ctx.restore();
+      const marco = (col, w) => { ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.beginPath(); pts.forEach((p, k) => (k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); ctx.stroke(); ctx.restore(); };
+      if (st.sel.tipo === 'etapa' && st.sel.id === z.et.id) marco('#f2b632', 2);
+      if (st.sel.tipo === 'sim' && z.i === simProy().cuello) marco(`rgba(216,35,44,${0.55 + 0.45 * Math.sin(st.simMs / 250)})`, 2.5);
+      if (st.atasco) { ctx.globalAlpha = 0.28 + 0.12 * Math.sin(st.simMs / 300); poly(pts, COLOR[estadoDe(z.i)]); ctx.globalAlpha = 1; }
+    }
+  }
+  function muros() {
+    caja(-0.4, 0, 0.4, ROWS, WALL, null, 0, ['#5d84ad', '#dde6ee', '#e7eef4']);
+    caja(-0.4, -0.4, COLS + 0.4, 0.4, WALL, null, 0, ['#5d84ad', '#eef3f7', '#c9d6e2']);
+    poly([P(0, 0), P(0, ROWS), P(0, ROWS, 14), P(0, 0, 14)], '#3e6c9e'); poly([P(0, 0), P(COLS, 0), P(COLS, 0, 14), P(0, 0, 14)], '#4a78aa');
+  }
+  function pizarraMuro(z) {
+    const d = datoDe(z.i), w = 58, est = estadoDe(z.i), rot = st.sel.tipo === 'sim' ? 'CAPACIDAD' : ({ compras: 'TELAS EN NEGATIVO', modelaje: 'PRUEBAS DEL MES', calce: 'APROBADOS DEL MES', corte: 'CORTE DEL MES', urrutia: 'URRUTIA DEL MES', tdf: 'T. DEL FUEGO MES' })[z.et.id] || z.et.corto.toUpperCase();
+    enPlano('der', P(z.base + 0.25, 0, 61), () => {
+      R(ctx, '#1c2a39', -1, -1, w + 2, 24); R(ctx, '#24364a', 0, 0, w, 22);
+      let px = 7.5; while (px > 5.5 && ancho(rot, px) > w - 6) px -= 0.5; texto(rot, 3, 0, '#c7d3de', px);
+      R(ctx, COLOR[est], 2, 10, w - 4, 10);
+      const t = st.sel.tipo === 'sim' ? simPct(z.i) : (d ? d.corto : '—'); let p2 = 8.5; while (p2 > 6 && ancho(t, p2) > w - 6) p2 -= 0.5;
+      texto(t, Math.round((w - ancho(t, p2)) / 2), 10, est === 'ambar' ? '#1c2a39' : '#ffffff', p2);
+    });
+  }
+  function pizarraMeta() {
+    const dd = st.datos, sim = st.sel.tipo === 'sim', pr = sim ? simProy() : null, v = sim ? pr.v : dd.prod;
+    const est = sim ? plEstado(pr.v / dd.par.meta) : dd.estadoMeta, av = Math.min(1, v / dd.par.meta);
+    enPlano('izq', P(0, 7.7, 62), () => {
+      R(ctx, '#1c2a39', -1, -1, 74, 48); R(ctx, sim ? '#24364a' : '#d8232c', 0, 0, 72, 46);
+      texto(sim ? 'SALDRÍAN EN EL MES' : 'TERMINADAS EN EL MES', 4, 0, '#ffe8a3', 6.5);
+      texto(plN(v), 4, 8, '#ffffff', 15);
+      R(ctx, '#1c2a39', 4, 27, 64, 6); R(ctx, COLOR[est], 4, 27, Math.round(64 * av), 6);
+      if (!sim) R(ctx, '#ffffff', 4 + Math.round(64 * dd.jor.frac), 26, 1, 8);
+      texto('META 10.000', 4, 34, '#ffffff', 7);
+    });
+  }
+  const puerta = () => { enPlano('izq', P(0, 2.3, 34), () => { R(ctx, '#1c2a39', -1, -1, 18, 35); R(ctx, '#7a4a24', 0, 0, 16, 34); R(ctx, '#f2b632', 12, 17, 2, 2); }); enPlano('izq', P(0, 2.9, 46), () => { R(ctx, '#1c2a39', -1, -1, 40, 10); R(ctx, '#fffbe8', 0, 0, 38, 8); texto('PROVEEDOR', 3, -1, '#1c2a39', 7); }); };
+  function nombresZonas() {
+    ctx.textBaseline = 'middle';
+    for (const z of Z) {
+      const d = datoDe(z.i), est = estadoDe(z.i), nom = `${z.i + 1} · ${z.et.corto}`, val = st.sel.tipo === 'sim' ? simPct(z.i) : (d ? d.corto : '');
+      const p = P(z.c0 + 0.05, z.r1v + 0.06), x = Math.round(p.x) - 2, y = Math.round(p.y) + 1;
+      ctx.font = FUENTE(8.5); const w1 = Math.ceil(ctx.measureText(nom).width) + 8, w2 = val ? Math.ceil(ctx.measureText(val).width) + 8 : 0;
+      R(ctx, '#1c2a39', x - 1, y - 1, w1 + w2 + 2, 13); R(ctx, z.et.color, x, y, w1, 11); if (w2) R(ctx, COLOR[est], x + w1, y, w2, 11);
+      ctx.fillStyle = '#ffffff'; ctx.fillText(nom, x + 4, y + 6.5);
+      if (w2) { ctx.fillStyle = est === 'ambar' ? '#1c2a39' : '#ffffff'; ctx.fillText(val, x + w1 + 4, y + 6.5); }
+    }
+  }
+  function estaticos(t) {
+    const L = [], f = (k, fn) => L.push({ k, f: fn });
+    /* 1 Compras */ for (let c = 0; c <= 2; c++) f(c + 1 - 0.1, () => estante(c, 0, 36, true)); f(3, () => { mesa(0, 2); papeles(0.3, 2); laptop(1.1, 2, '#2f5687'); }); f(2.98, () => silla([1, 1])); f(4, () => { cajaCarton(3, 0); cajaCarton(3, 0, 11); });
+    /* 2 Modelaje */ f(5, () => perchero(4, 0, 1.9, ['#efe6da', '#4a6fa5', '#2f5687', '#6d8fb8'])); f(8, () => maniqui(7, 0)); f(7, () => { mesa(4, 2); papeles(4.4, 2); papeles(6.1, 2); laptop(5.1, 2, '#b35c13'); }); f(6.98, () => silla([5, 1]));
+    /* 3 Calce */ f(11, () => { mesa(8, 2); papeles(8.4, 2); laptop(9.1, 2, '#c01f28'); }); f(10.98, () => silla([9, 1])); f(9, () => maniqui(8, 0));
+    /* 4 Corte */ f(15.5, () => mesaCorte(12, 2, 2.9)); f(16, () => { for (let i = 0; i < 3; i++) caja(15.12, 0.1 + i * 0.27, 0.8, 0.22, 5, ['#2f5687', '#4a6fa5', '#24406a'][i]); });
+    /* 5 Urrutia */ f(19, () => mesaCoser(16, 2)); f(18.98, () => silla([16, 1])); f(21, () => mesaCoser(18, 2)); f(20.98, () => silla([18, 1])); f(20, () => cajaCarton(19, 0));
+    /* 6 Tierra del Fuego */ f(23, () => mesaCoser(20, 2)); f(22.98, () => silla([20, 1])); f(24.5, () => camion(21, 0));
+    /* 7 Limpiado */ f(28, () => { mesa(20, 7); caja(20.5, 7.3, 0.9, 0.45, 2, '#4a6fa5', 13); caja(21.6, 7.3, 0.9, 0.45, 2, '#6d8fb8', 13); }); f(27.98, () => silla([21, 6])); f(30, () => perchero(20, 9, 1.9, ['#4a6fa5', '#2f5687', '#6d8fb8']));
+    /* 8 Lavandería */ f(26, () => lavadora(16, 8, t, st.vel > 0)); f(27.5, () => lavadora(17.5, 8, t + 400, st.vel > 0));
+    /* 9 Terminación */ f(20, () => { mesa(12, 7); caja(12.8, 7.35, 0.45, 0.25, 2, '#d8232c', 13); papeles(13.9, 7); }); f(19.98, () => silla([13, 6])); f(22, () => perchero(12, 9, 1.9, ['#4a6fa5', '#2f5687', '#6d8fb8', '#24406a']));
+    /* 10 Bodega */ f(16, () => { mesa(8, 7); laptop(9.1, 7, '#465fff'); caja(8.5, 7.45, 0.25, 0.15, 3, '#f2b632', 13); }); f(15.98, () => silla([9, 6])); for (let c = 8; c <= 9; c++) f(c + 9.9, () => estante(c, 9, 25, false));
+    /* 11 Venta */ f(12, () => { mesa(4, 7); laptop(5.1, 7, '#25d366'); }); f(11.98, () => silla([5, 6])); f(14, () => perchero(4, 9, 1.9, ['#2f5687', '#efe6da', '#4a6fa5', '#d8232c']));
+    /* 12 Cobranza */ f(8, () => { mesa(0, 7); laptop(1.1, 7, '#7a5228'); papeles(2.1, 7); }); f(7.98, () => silla([1, 6])); f(10, () => archivador(0, 9)); f(10.98, () => planta(1, 9));
+    for (const z of Z) f(z.est[0] + z.est[1] + 0.6, () => monton(z));
+    return L;
+  }
+
+  /* ---------- el trabajo que se mueve ---------- */
+  const ENTRA = ['rollo', 'insumo', 'muestra', 'patron', 'paquete', 'paquete', 'prenda', 'prenda', 'lavada', 'terminada', 'caja', 'factura'];
+  function sprite(tipo, X, Y, extra) {
+    X = Math.round(X); Y = Math.round(Y); const f = (col, x, y, w, h) => R(ctx, col, X + x, Y + y, w, h);
+    ctx.fillStyle = 'rgba(28,42,57,.18)'; ctx.beginPath(); ctx.ellipse(X, Y + 1, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    if (tipo === 'rollo' || tipo === 'insumo') { f('#24406a', -5, -5, 10, 5); f('#4a6fa5', -5, -5, 10, 2); if (tipo === 'insumo') f('#d8232c', -2, -8, 4, 3); }
+    else if (tipo === 'muestra') { f('#3d5f8f', -3, -9, 7, 3); f('#3d5f8f', -3, -6, 3, 6); f('#3d5f8f', 1, -6, 3, 6); f('#ffffff', 4, -10, 3, 4); if (extra) { R(ctx, '#1c2a39', X - 8, Y - 16, 9, 6); ctx.fillStyle = '#fff'; ctx.font = FUENTE(5.5); ctx.textBaseline = 'top'; ctx.fillText('M' + extra, X - 7, Y - 15.5); } }
+    else if (tipo === 'patron') { f('#ffffff', -5, -4, 10, 4); f('#c48a52', -3, -3, 6, 1); f('#2fa86a', 2, -7, 3, 3); }
+    else if (tipo === 'paquete') { f('#24406a', -5, -6, 10, 6); f('#3d5f8f', -5, -6, 10, 2); f('#f4f7fa', -1, -6, 2, 6); }
+    else if (tipo === 'prenda' || tipo === 'lavada' || tipo === 'terminada') { const c = tipo === 'prenda' ? '#2f5687' : '#6d8fb8'; f(tono(c, -0.2), -5, -5, 10, 5); f(c, -5, -5, 10, 2); if (tipo === 'terminada') { f('#ffffff', 3, -7, 3, 3); f('#d8232c', 4, -6, 1, 1); } }
+    else if (tipo === 'caja') { f('#a87d48', -5, -7, 10, 7); f('#c79a62', -5, -7, 10, 2); f('#e9d6b0', -1, -7, 2, 7); }
+    else if (tipo === 'factura') { f('#ffffff', -4, -7, 8, 7); f('#d8232c', -3, -6, 6, 1); f('#9aa7b2', -3, -4, 4, 1); }
+    else if (tipo === 'plata') { ctx.fillStyle = '#f2b632'; ctx.beginPath(); ctx.arc(X, Y - 4, 4, 0, Math.PI * 2); ctx.fill(); }
+  }
+  /* El montón de cada etapa crece con lo que de verdad está detenido ahí; el número es el real */
+  const ESCALA = { compras: 4000, modelaje: 6, calce: 3, corte: 200, urrutia: 600, tdf: 300, limpiado: 300, lavanderia: 500, terminacion: 400, bodega: 8, venta: 12, cobranza: 15 };
+  function monton(z) {
+    const d = datoDe(z.i); if (!d) return;
+    const b = P(z.est[0], z.est[1]), n = Math.max(d.wip > 0 ? 1 : 0, Math.min(6, Math.round(d.wip / (ESCALA[z.et.id] || 100))));
+    for (let k = 0; k < n; k++) sprite(ENTRA[z.i], b.x + (k % 2 ? 3 : -2), b.y - k * 4, 0);
+    const prod = !!z.et.mt;
+    if (prod && d.wip > 0) { const t = plN(d.wip), w = Math.ceil(ancho(t, 7)) + 6, x = Math.round(b.x) + 6, y = Math.round(b.y) - n * 4 - 13; R(ctx, '#d8232c', x, y, w, 10); texto(t, x + 3, y, '#ffffff', 7); }
+  }
+  let viajes = [], vuelos = [];
+  const proximo = PL_ETAPAS.map((_, i) => 1200 + i * 450);
+  let proxFuente = 2000, ultAviso = 0;
+  const RITMO = { verde: 3400, ambar: 5000, rojo: 8400, gris: 5200 };
+  function camino(i, j) {
+    if (i < 0) return [[0.4, 2.2], [0.8, 3.4], Z[0].est];
+    const a = Z[i].est, b = Z[j].est; if (Z[i].arriba !== Z[j].arriba) return [a, [a[0], 5], [b[0], 5], b];
+    const carril = Z[i].arriba ? 4.6 : 5.4; return [a, [a[0], carril], [b[0], carril], b];
+  }
+  const largo = pts => pts.slice(1).reduce((s, p, k) => s + Math.hypot(p[0] - pts.at(k)[0], p[1] - pts.at(k)[1]), 0);
+  function posViaje(v) {
+    const k = Math.min(1, (st.simMs - v.ini) / v.dur), L = largo(v.pts) * k; let s = 0;
+    for (let n = 1; n < v.pts.length; n++) { const a = v.pts.at(n - 1), b = v.pts.at(n), d = Math.hypot(b[0] - a[0], b[1] - a[1]); if (s + d >= L) { const u = d ? (L - s) / d : 0; return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; } s += d; }
+    return v.pts.at(-1);
+  }
+  const enviar = (i, j, item) => { const pts = camino(i, j); viajes.push({ i, j, item, pts, ini: st.simMs, dur: Math.max(1400, largo(pts) * 240) }); };
+  const anotar = txt => { const tk = document.getElementById('plTicker'); if (!tk) return; tk.innerHTML = ''; const a = document.createElement('time'); a.textContent = new Date().toTimeString().slice(0, 5); const b = document.createElement('span'); b.textContent = txt; tk.append(a, b); };
+  const avisar = txt => { if (st.simMs - ultAviso > 2600) { ultAviso = st.simMs; anotar(txt); } };
+  function trabajar() {
+    if (st.simMs > proxFuente) { proxFuente = st.simMs + 4800; enviar(-1, 0, { tipo: 'rollo' }); }
+    for (let i = 0; i < PL_ETAPAS.length; i++) {
+      if (st.simMs < proximo[i]) continue;
+      const ritmo = st.sel.tipo === 'sim' && SIM_ETAPAS.includes(PL_ETAPAS[i].id) ? 3400 / Math.max(0.35, Math.min(1.8, simRatio(i))) : RITMO[estadoDe(i)];
+      proximo[i] = st.simMs + ritmo * (0.8 + Math.random() * 0.4);
+      for (const m of monos) if (m.zona === i) m.trabajando = st.simMs + 1600;
+      const et = PL_ETAPAS[i];
+      if (i === 11) { vuelos.push({ de: P(Z[11].est[0], Z[11].est[1], 6), a: P(0.2, 7.2, 40), ini: st.simMs, dur: 1400 }); continue; }
+      if (i === 2 && Math.random() < 0.5) { enviar(2, 1, { tipo: 'insumo' }); avisar('Calce devolvió una prueba a Modelaje con correcciones'); continue; }
+      let j = i + 1;
+      if (i === 3) j = Math.random() < 0.6 ? 4 : 5;     // Corte reparte 6.000 a Urrutia y 4.000 a Tierra del Fuego
+      if (i === 4) j = 6;                                // Urrutia salta a Limpiado
+      enviar(i, j, { tipo: ENTRA[j], prueba: i === 1 ? 1 + Math.floor(Math.random() * 3) : 0 });
+      avisar(`${et.corto} le pasó trabajo a ${PL_ETAPAS[j].corto}`);
+    }
+    viajes = viajes.filter(v => st.simMs - v.ini < v.dur);
+    vuelos = vuelos.filter(v => st.simMs - v.ini < v.dur);
+  }
+
+  /* ---------- monos ---------- */
+  const capa = document.createElement('div'); capa.className = 'pl-capa'; lienzo.appendChild(capa);
+  const LOOK = (polera, pelo, estilo, piel, extra) => ({ polera, pelo, estilo, piel, ...(extra || {}) });
+  const mono = (zona, tile, look, sentado, extra) => { const m = { zona, c: tile[0], r: tile[1], tile: tile.slice(), look, sentado, frente: true, mira: 0, dist: 0, tareas: [], camino: null, globo: null, trabajando: 0, proxFrase: 6000 + Math.random() * 16000, ...(extra || {}) };
+    m.bub = document.createElement('div'); m.bub.className = 'pl-globo'; m.bub.hidden = true; capa.appendChild(m.bub);
+    if (m.etiqueta) { m.tag = document.createElement('div'); m.tag.className = 'pl-etq'; m.tag.textContent = m.etiqueta; capa.appendChild(m.tag); }
+    return m; };
+  const monos = [
+    mono(0, [1, 1], LOOK('#2f5687', '#151515', 'corto', '#d19a72'), true),
+    mono(1, [5, 1], LOOK('#e8742c', '#6b3a1a', 'melena', '#f1c7a5'), true),
+    mono(2, [9, 1], LOOK('#c01f28', '#2b1d16', 'largo', '#e8b896', { lentes: true }), true),
+    mono(2, [11, 1], LOOK('#efe6da', '#151515', 'largo', '#d9a37c', { pantalon: '#2f5687' }), false, { mudo: true }),
+    mono(3, [13, 1], LOOK('#7a4fb5', '#3a2a1e', 'corto', '#d9a37c', { delantal: '#efe6da' }), false),
+    mono(4, [17, 1], LOOK('#23874f', '#b0864f', 'tomate', '#f4d0b0'), true, { ajuste: -0.5 }),
+    mono(4, [19, 1], LOOK('#3f8f6e', '#3a2a1e', 'melena', '#f1c7a5'), true, { ajuste: -0.5, mudo: true }),
+    mono(5, [21, 1], LOOK('#3f8f6e', '#151515', 'corto', '#b98563'), true, { ajuste: -0.5 }),
+    mono(6, [21, 6], LOOK('#8a6d1f', '#6b4a2b', 'tomate', '#e8b896'), true),
+    mono(7, [19, 7], LOOK('#1f7a9c', '#151515', 'corto', '#b98563', { delantal: '#cfe6f3' }), false),
+    mono(8, [13, 6], LOOK('#a8720b', '#8a3b1a', 'tomate', '#e8b896'), true),
+    mono(9, [9, 6], LOOK('#465fff', '#3a2a1e', 'corto', '#d19a72'), true),
+    mono(10, [5, 6], LOOK('#23874f', '#151515', 'largo', '#f1c7a5'), true),
+    mono(11, [1, 6], LOOK('#7a5228', '#6b4a2b', 'melena', '#e8b896', { lentes: true }), true),
+  ];
+  const gerencia = mono(-1, [12, 4], LOOK('#1c2a39', '#8d8d99', 'calvo', '#e8b896'), false, { etiqueta: 'Gerencia' });
+  monos.push(gerencia);
+  const monoDe = i => monos.find(m => m.zona === i && !m.mudo);
+  function ruta(de, a) {
+    const k = (c, r) => r * COLS + c, prev = new Map(), visto = new Set([k(de[0], de[1])]), q = [de];
+    while (q.length) { const p = q.shift(); if (p[0] === a[0] && p[1] === a[1]) break; for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = [p[0] + dc, p[1] + dr]; if (n[0] < 0 || n[1] < 0 || n[0] >= COLS || n[1] >= ROWS || bloq[n[1]][n[0]]) continue; const kk = k(n[0], n[1]); if (visto.has(kk)) continue; visto.add(kk); prev.set(kk, p); q.push(n); } }
+    if (!visto.has(k(a[0], a[1]))) return []; const out = []; let cur = a; while (!(cur[0] === de[0] && cur[1] === de[1])) { out.unshift(cur); cur = prev.get(k(cur[0], cur[1])); if (!cur) break; } return out;
+  }
+  function paso(p, dt) {
+    if (p.globo && st.simMs > p.globo.hasta) p.globo = null;
+    if (p.camino && p.camino.length) { const sig = p.camino[0], dc = sig[0] - p.c, dr = sig[1] - p.r, d = Math.hypot(dc, dr), v = 0.0022 * dt;
+      if (Math.abs(dc) > Math.abs(dr)) { p.frente = dc > 0; p.mira = dc > 0 ? 1 : -1; } else if (d > 1e-3) { p.frente = dr > 0; p.mira = 0; }
+      if (d <= v) { p.c = sig[0]; p.r = sig[1]; p.tile = p.camino.shift(); if (!p.camino.length) p.camino = null; } else { p.c += dc / d * v; p.r += dr / d * v; } p.dist += Math.min(v, d); return; }
+    const t = p.tareas[0]; if (!t) return;
+    if (t.t === 'ir') { if (p.tile[0] === t.a[0] && p.tile[1] === t.a[1]) { p.tareas.shift(); return; } p.camino = ruta(p.tile, t.a); if (!p.camino.length) { p.camino = null; p.tareas.shift(); } return; }
+    if (t.t === 'mirar') { p.frente = t.frente; p.mira = 0; p.tareas.shift(); return; }
+    if (t.t === 'decir') { if (!t.ini) { t.ini = st.simMs; p.globo = { txt: t.txt, hasta: st.simMs + t.ms }; } if (st.simMs - t.ini >= t.ms) p.tareas.shift(); }
+  }
+  function frase(i) {
+    const d = datoDe(i); if (!d) return '';
+    const et = PL_ETAPAS[i];
+    if (et.mt) return d.atrasadas ? `Tengo ${d.atrasadas === 1 ? 'una orden' : d.atrasadas + ' órdenes'} sobre el estándar de ${TRZ_ESTANDAR[et.trz]} días` : `Van ${plN(d.valor)} de ${plN(d.meta)} este mes`;
+    if (et.id === 'modelaje') return `Llevo ${d.valor} pruebas este mes; a la fecha deberían ir ${plN(d.esp)}`;
+    if (et.id === 'calce') return `${d.valor} modelos pasaron a producción este mes`;
+    if (et.id === 'compras') return d.valor ? `Hay ${d.valor} telas en negativo` : 'Ninguna tela en negativo';
+    if (et.id === 'bodega') return `Hay ${d.wip} cajas armadas en bodega`;
+    if (et.id === 'venta') return `Van ${plN(d.valor)} prendas vendidas este mes`;
+    if (et.id === 'cobranza') return (d.valor === 1 ? 'Un cliente está sobre su cupo' : `${d.valor} clientes están sobre su cupo`);
+    return '';
+  }
+  function vida(p) {
+    if (p === gerencia) {
+      if (!p.camino && !p.tareas.length && st.simMs > p.proxFrase) {
+        const orden = Z.filter(z => estadoDe(z.i) !== 'gris').map(z => ({ z, d: datoDe(z.i) })).sort((a, b) => (a.d.r ?? (a.d.estado === 'rojo' ? 0 : 1)) - (b.d.r ?? (b.d.estado === 'rojo' ? 0 : 1)));
+        const sim = st.sel.tipo === 'sim', pr = sim ? simProy() : null, z = sim ? Z[pr.cuello] : (Math.random() < 0.6 ? orden[0].z : azarDe(orden).z), d = datoDe(z.i);
+        const txt = sim ? `Aquí se nos va la meta: así llegamos a ${plN(pr.v)}` : d.estado === 'rojo' ? `¿Qué pasa en ${z.et.corto}? Vamos bajo la meta` : d.estado === 'ambar' ? `${z.et.corto}, ¿qué necesitan para llegar?` : `Bien ${z.et.corto}, así se llega a las 10.000`;
+        p.tareas = [{ t: 'ir', a: [Math.max(0, Math.min(COLS - 1, Math.round(z.base + 1.5))), z.arriba ? 4 : 5] }, { t: 'mirar', frente: !z.arriba }, { t: 'decir', txt, ms: 3400 }];
+        p.proxFrase = st.simMs + 9000 + Math.random() * 7000;
+      }
+      return;
+    }
+    if (p.mudo || st.simMs < p.proxFrase || p.globo) return;
+    p.proxFrase = st.simMs + 16000 + Math.random() * 22000;
+    if (monos.some(m => m.globo && m !== gerencia)) return;
+    const t = frase(p.zona); if (t) p.globo = { txt: t, hasta: st.simMs + 3400 };
+  }
+  const azarDe = a => a[Math.floor(Math.random() * a.length)];
+
+  /* ---------- simulador: el ritmo real de cada etapa × la gente que pongas ---------- */
+  const SIM_ETAPAS = ['modelaje', 'calce', 'corte', 'urrutia', 'tdf', 'limpiado', 'lavanderia', 'terminacion'];
+  const SIM_HOY = { modelaje: 2, calce: 1, corte: 2, urrutia: 12, tdf: 8, limpiado: 2, lavanderia: 2, terminacion: 3 };
+  let SIMG = {};
+  try { SIMG = JSON.parse(localStorage.getItem('planta_sim') || '{}') || {}; } catch (e) { SIMG = {}; }
+  SIM_ETAPAS.forEach(id => { SIMG[id] = SIMG[id] || { hoy: SIM_HOY[id], sim: SIM_HOY[id] }; });
+  const guardarSim = () => { try { localStorage.setItem('planta_sim', JSON.stringify(SIMG)); } catch (e) {} };
+  /* Prendas al mes que podría sacar cada etapa: su ritmo real por día hábil, escalado por la gente simulada */
+  function simMes(id, cfg = SIMG) {
+    const d = D()[id], dd = st.datos, g = cfg[id]; if (!d || !d.ritmo || !g.hoy) return null;
+    const ritmo = d.ritmo * g.sim / g.hoy, hab = dd.jor.habiles;
+    if (id === 'modelaje') return ritmo * hab / dd.par.ppm * dd.par.upm;
+    if (id === 'calce') return ritmo * hab * dd.par.upm;
+    return ritmo * hab;
+  }
+  /* Los dos talleres hacen el mismo paso en paralelo: para la cadena se suman, y cada uno se mide contra su parte (6.000 y 4.000) */
+  const simMeta = id => (id === 'urrutia' || id === 'tdf') ? (D()[id].meta || 1) : st.datos.par.meta;
+  function simProy(cfg = SIMG) {
+    let v = Infinity, cuello = -1;
+    const ver = (x, i) => { if (x != null && x < v) { v = x; cuello = i; } };
+    for (const id of SIM_ETAPAS) {
+      if (id === 'tdf') continue;
+      if (id === 'urrutia') {
+        const u = simMes('urrutia', cfg), t = simMes('tdf', cfg); if (u == null && t == null) continue;
+        const ru = u == null ? Infinity : u / simMeta('urrutia'), rt = t == null ? Infinity : t / simMeta('tdf');
+        ver((u || 0) + (t || 0), PL_ETAPAS.findIndex(e => e.id === (ru <= rt ? 'urrutia' : 'tdf'))); continue;
+      }
+      ver(simMes(id, cfg), PL_ETAPAS.findIndex(e => e.id === id));
+    }
+    return { v: isFinite(v) ? v : 0, cuello };
+  }
+  const simRatio = i => { const id = PL_ETAPAS[i].id, x = simMes(id); return x == null ? 1 : x / simMeta(id); };
+  const simPct = i => (SIM_ETAPAS.includes(PL_ETAPAS[i].id) && simMes(PL_ETAPAS[i].id) != null ? pct(simRatio(i)) : '—');
+  const pct = x => Math.round(x * 100) + ' %';
+
+  /* ---------- dibujar ---------- */
+  function dibujar(t) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.setTransform(S, 0, 0, S, 0, 0);
+    piso(); muros(); for (const z of Z) if (z.arriba) pizarraMuro(z); puerta(); pizarraMeta();
+    enPlano('izq', P(0, 9.6, 52), () => { R(ctx, '#ffffff', 0, 0, 34, 24); R(ctx, '#bfe2f5', 2, 2, 30, 20); R(ctx, '#ffffff', 16, 2, 2, 20); });
+    const lista = estaticos(t);
+    for (const p of monos) lista.push({ k: p.c + p.r + 1.05, f: () => { const b = P(p.c + 0.5 + (p.ajuste || 0), p.r + 0.5), pasoN = p.camino && p.camino.length ? Math.floor(p.dist * 4) % 4 : 0;
+      figura(ctx, b.x, b.y, p.look, { frente: p.frente, mira: p.mira, paso: pasoN, sentado: p.camino ? null : p.sentado, habla: !!p.globo && Math.floor(t / 160) % 2, trabaja: st.simMs < p.trabajando, t }); } });
+    for (const v of viajes) { const [c, r] = posViaje(v); lista.push({ k: c + r + 0.7, f: () => { const b = P(c, r); sprite(v.item.tipo, b.x, b.y - 2 - Math.abs(Math.sin(st.simMs / 120)) * 1.5, v.item.tipo === 'muestra' ? v.item.prueba : 0); } }); }
+    lista.sort((a, b) => a.k - b.k).forEach(d => d.f());
+    nombresZonas();
+    for (const v of vuelos) { const k = Math.min(1, (st.simMs - v.ini) / v.dur); sprite('plata', v.de.x + (v.a.x - v.de.x) * k, v.de.y + (v.a.y - v.de.y) * k - Math.sin(k * Math.PI) * 22); }
+  }
+  function capas() {
+    const k = cv.clientWidth / W, ancho_ = cv.clientWidth;
+    for (const p of monos) {
+      const b = P(p.c + 0.5 + (p.ajuste || 0), p.r + 0.5), y = (b.y - 34 + (p.sentado && !p.camino ? 5 : 0)) * k;
+      if (p.tag) { p.tag.style.left = b.x * k + 'px'; p.tag.style.top = (y - 4) + 'px'; p.tag.classList.toggle('sel', st.sel.tipo === 'meta'); }
+      if (p.globo) { p.bub.hidden = false; if (p.bub.textContent !== p.globo.txt) p.bub.textContent = p.globo.txt; const w = p.bub.offsetWidth; p.bub.style.left = Math.min(Math.max(b.x * k, w / 2 + 2), ancho_ - w / 2 - 2) + 'px'; p.bub.style.top = Math.max(0, y - (p.tag ? 26 : 8)) + 'px'; }
+      else p.bub.hidden = true;
+    }
+  }
+
+  /* ---------- panel ---------- */
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const dato = (a, b) => { const d = el('div', 'pl-dato'); d.append(el('b', null, a), el('span', null, b)); return d; };
+  const chip = (est, txt) => el('span', 'pl-chip ' + est, txt);
+  function avatar(canvas, look) { const g = canvas.getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, canvas.width, canvas.height); figura(g, canvas.width / 2, canvas.height - 3, look, { frente: true }); }
+  function seleccionar(s, tab) {
+    st.sel = s; st.pestana = tab || (s.tipo === 'meta' ? 'cascada' : s.tipo === 'sim' ? 'escenario' : 'ficha');
+    try { localStorage.setItem('planta_sel', JSON.stringify(s)); } catch (e) {}
+    document.getElementById('plSim')?.classList.toggle('on', s.tipo === 'sim');
+    pintarCajon(); pintarPlantel();
+  }
+  function pestanas() {
+    if (st.sel.tipo === 'meta') return [['cascada', 'Cascada'], ['mapa', 'Toda la planta']];
+    if (st.sel.tipo === 'sim') return [['escenario', 'Escenario']];
+    return [['ficha', 'Ficha'], ['kpi', 'KPI'], ['problemas', 'Problemas']];
+  }
+  function pintarCajon() {
+    const cab = document.getElementById('plCab'); if (!cab) return; cab.innerHTML = '';
+    const dd = st.datos;
+    if (st.sel.tipo === 'meta' || st.sel.tipo === 'sim') {
+      cab.append(el('div', 'pl-icono', st.sel.tipo === 'sim' ? '¿?' : 'META'));
+      const d = el('div'); const pr = simProy();
+      d.append(el('div', 'pl-rol', st.sel.tipo === 'sim' ? 'Simulador de escenarios' : 'Meta fija del mes'), el('h2', null, st.sel.tipo === 'sim' ? '¿Qué pasa si…?' : 'La meta: 10.000'),
+        st.sel.tipo === 'sim' ? chip(plEstado(pr.v / dd.par.meta), `Saldrían ${plN(pr.v)} al mes`) : chip(dd.estadoMeta, `${plN(dd.prod)} terminadas · esperado ${plN(dd.espMes)}`));
+      cab.append(d);
+    } else {
+      const i = PL_ETAPAS.findIndex(e => e.id === st.sel.id), et = PL_ETAPAS[i], d0 = D()[et.id];
+      const c = document.createElement('canvas'); c.width = 22; c.height = 38; avatar(c, monoDe(i).look); cab.append(c);
+      const d = el('div'); d.append(el('div', 'pl-rol', `Etapa ${i + 1} de 12`), el('h2', null, et.nombre), chip(d0.estado, `${d0.corto} · ${NOMBRE_EST[d0.estado]}`)); cab.append(d);
+    }
+    const tabs = document.getElementById('plTabs'); tabs.innerHTML = '';
+    for (const [id, nom] of pestanas()) { const b = el('button', null, nom); b.type = 'button'; b.classList.toggle('on', st.pestana === id); b.onclick = () => { st.pestana = id; pintarCajon(); }; tabs.append(b); }
+    pintarPanel();
+  }
+  function problemas(lista) {
+    const ul = el('ul', 'pl-problemas');
+    const FALTA = { regla: 'Falta una regla', rol: 'Falta un rol claro', control: 'Falta un control', medicion: 'Falta una medición', registro: 'Falta registro' };
+    for (const p of lista) { const li = el('li'); li.append(el('span', 'pl-tipo ' + p.tipo, FALTA[p.tipo]), el('p', null, p.txt), el('small', null, 'Lo resuelve: ' + p.quien)); if (p.rapido) li.append(el('div', 'pl-rapido', 'Avance rápido: ' + p.rapido)); if (p.nota) li.append(el('small', null, p.nota)); ul.append(li); }
+    return ul;
+  }
+  function barra(r, est, marca) { const b = el('div', 'pl-barra-av ' + est), i = el('i'); i.style.width = Math.min(100, r * 100) + '%'; b.append(i); if (marca != null) { const u = el('u'); u.style.left = Math.min(100, marca * 100) + '%'; b.append(u); } return b; }
+  function pintarPanel() {
+    const pn = document.getElementById('plPanel'); if (!pn) return; pn.innerHTML = ''; pn.scrollTop = 0;
+    if (st.sel.tipo === 'sim') return pintarSim(pn);
+    if (st.sel.tipo === 'meta') return st.pestana === 'mapa' ? pintarMapa(pn) : pintarCascada(pn);
+    const i = PL_ETAPAS.findIndex(e => e.id === st.sel.id), et = PL_ETAPAS[i], d = D()[et.id];
+    if (st.pestana === 'ficha') {
+      const ah = el('div', 'pl-ahora'); ah.append(chip(d.estado, NOMBRE_EST[d.estado]), el('span', null, `${d.kpi}: ${d.corto}`)); pn.append(ah);
+      pn.append(dato('Le entra', et.entra), dato('Entrega', et.entrega), dato('Responsable', 'Por confirmar'), dato('Sistema', et.sistema), dato('Dónde se cae', et.cae));
+      if (d.wip > 0 || et.mt) pn.append(dato('Ahora', `${plN(d.wip)} ${d.wipTxt}`));
+      const ir = el('button', 'pl-btn pl-ir', `Ver en ${et.ir[1]} ›`); ir.type = 'button'; ir.onclick = () => irA(et.ir[0], et.ir[1]); pn.append(ir);
+    } else if (st.pestana === 'kpi') {
+      pn.append(el('h4', null, d.kpi));
+      pn.append(el('span', 'pl-origen' + (d.origen === 'reunion' ? ' reunion' : ''), d.origen === 'reunion' ? 'Meta de la reunión o del dashboard' : 'Meta propuesta'));
+      const cf = el('div', 'pl-cifras'); const cifra = (v, l, c) => { const x = el('div', 'pl-cifra ' + (c || '')); x.append(el('b', null, v), el('span', null, l)); return x; };
+      if (d.esp != null) cf.append(cifra(plN(d.valor), 'Real del mes', d.estado), cifra(plN(d.esp), 'Esperado a la fecha'), cifra(plN(d.meta), 'Meta del mes'));
+      else cf.append(cifra(plN(d.valor), d.kpi, d.estado), cifra(plN(d.meta), 'Meta'), cifra(plN(d.wip), d.wipTxt));
+      pn.append(cf);
+      if (d.esp != null && d.meta) { pn.append(barra(d.valor / d.meta, d.estado, d.esp / d.meta)); pn.append(el('p', 'pl-dim', 'La raya marca lo esperado a la fecha según los días hábiles que ya pasaron.')); }
+      if (d.aviso) pn.append(el('p', 'pl-aviso', d.aviso));
+      pn.append(el('h4', null, 'Cómo se calcula'), el('p', null, d.formula));
+      for (const [a, b] of d.detalle) pn.append(dato(a, b));
+      const ir = el('button', 'pl-btn pl-ir', `Ver en ${et.ir[1]} ›`); ir.type = 'button'; ir.onclick = () => irA(et.ir[0], et.ir[1]); pn.append(ir);
+    } else {
+      if (!et.problemas.length) pn.append(el('p', 'pl-dim', 'En la reunión del 03-11-2026 no se anotaron problemas de esta etapa.'));
+      else pn.append(problemas(et.problemas));
+    }
+  }
+  function pintarCascada(pn) {
+    const dd = st.datos, par = dd.par, cas = dd.cas;
+    pn.append(el('p', null, 'Todo parte de la meta fija: 10.000 unidades al mes. Cambia los valores y se recalculan las metas de Modelaje, Calce y Venta. Las de producción son las de Metas de Producción.'));
+    const campos = [['upm', 'Unidades por modelo', 'Real en ADECOM: mediana 508'], ['ppm', 'Pruebas por modelo aprobado', 'Real en ADECOM: unas 3,4'], ['clientes', 'Clientes a contactar por semana', ''], ['diasVenta', 'Días de venta por semana', '']];
+    for (const [k, nom, ayuda] of campos) {
+      const d = el('label', 'pl-param'), t = el('span', null, nom); if (ayuda) t.append(el('small', null, ayuda));
+      const inp = document.createElement('input'); inp.type = 'number'; inp.min = '1'; inp.value = par[k];
+      inp.onchange = async () => { const p = plPar(); p[k] = Math.max(1, Math.round(+inp.value || PL_BASE[k])); try { localStorage.setItem('planta_par', JSON.stringify(p)); } catch (e) {} st.datos = await plDatos(); pintarCajon(); pintarPlantel(); };
+      d.append(t, inp); pn.append(d);
+    }
+    const tb = el('table', 'pl-tabla'); tb.innerHTML = '<thead><tr><th>Paso</th><th>Cálculo</th><th>Meta</th></tr></thead>';
+    const body = el('tbody'); const fila = (a, b, c) => { const tr = el('tr'); tr.append(el('td', null, a), el('td', null, b), el('td', null, c)); body.append(tr); };
+    fila('Meta global', 'Fija', '10.000 prendas'); fila('Modelos aprobados', `10.000 ÷ ${par.upm}`, `${cas.modelos} al mes`); fila('Pruebas M1-M3', `${cas.modelos} × ${par.ppm}`, `${cas.pruebas} al mes`);
+    fila('Prueba de calce', `${plN(cas.pruebas / 20)} al día × 5`, `${plN(cas.calceSemana)} pruebas por semana`);
+    fila('Urrutia y Tierra del Fuego', 'Reparto de la planilla', '6.000 y 4.000'); fila('Venta', `${par.clientes} ÷ ${par.diasVenta}`, `${plN(cas.contactosDia)} contactos al día`);
+    tb.append(body); pn.append(tb);
+  }
+  function pintarMapa(pn) {
+    pn.append(el('p', null, 'Los problemas de la reunión del 03-11-2026 están en la ficha de cada etapa. Estos tocan a toda la planta.'));
+    pn.append(problemas(PL_TRANSVERSAL));
+    pn.append(el('h4', null, 'Tono con la gente'), el('p', null, 'Las acciones correctivas son para mejorar, no para molestar. Cada jefe tiene que transmitirlo así.'));
+  }
+  function pintarSim(pn) {
+    const dd = st.datos, pr = simProy(), r = pr.v / dd.par.meta, cu = pr.cuello >= 0 ? PL_ETAPAS[pr.cuello] : null;
+    pn.append(el('p', null, `El ritmo de cada etapa es lo que de verdad salió en ${mtMesTtl(dd.mes)} por día hábil, según ADECOM. La gente no está en ADECOM: pon cuántas personas hay hoy y prueba con más o menos.`));
+    pn.append(el('p', 'pl-dim', 'Ojo: el ritmo es lo que salió, no lo máximo que podría hacer la etapa. Si una etapa estuvo esperando trabajo, rinde más de lo que muestra. Los dos talleres se suman, porque hacen el mismo paso.'));
+    const cf = el('div', 'pl-cifras'); const cifra = (v, l, c) => { const x = el('div', 'pl-cifra ' + (c || '')); x.append(el('b', null, v), el('span', null, l)); return x; };
+    cf.append(cifra(plN(pr.v), 'Saldrían en el mes', plEstado(r)), cifra(pct(r), 'De la meta', plEstado(r)), cifra(cu ? cu.corto : '—', 'Cuello de botella', r >= 1 ? '' : 'rojo')); pn.append(cf);
+    if (cu) {
+      const prueba = JSON.parse(JSON.stringify(SIMG)); prueba[cu.id].sim += 1; const pr2 = simProy(prueba);
+      const s = el('div', 'pl-sug'); s.append(el('p', null, `Con una persona más en ${cu.corto}, el mes cerraría en ${plN(pr2.v)}${pr2.cuello !== pr.cuello && pr2.cuello >= 0 ? ` y el cuello pasaría a ${PL_ETAPAS[pr2.cuello].corto}` : ''}.`));
+      const b = el('button', 'pl-btn pl-prim', `Probar +1 en ${cu.corto}`); b.type = 'button'; b.onclick = () => { SIMG[cu.id].sim += 1; guardarSim(); repintarSim(); }; s.append(b); pn.append(s);
+    }
+    const vuelve = el('button', 'pl-btn', 'Volver a la gente de hoy'); vuelve.type = 'button'; vuelve.onclick = () => { SIM_ETAPAS.forEach(id => { SIMG[id].sim = SIMG[id].hoy; }); guardarSim(); repintarSim(); }; pn.append(vuelve);
+    for (const id of SIM_ETAPAS) {
+      const i = PL_ETAPAS.findIndex(e => e.id === id), et = PL_ETAPAS[i], d = D()[id], g = SIMG[id], mes = simMes(id);
+      const f = el('div', 'pl-simfila' + (i === pr.cuello && r < 1 ? ' cuello' : '')); f.id = 'plsim-' + id;
+      const mm = simMeta(id), cab = el('div', 'pl-simcab'); cab.append(el('b', null, `${i + 1} · ${et.corto}`), mes == null ? chip('gris', 'sin ritmo este mes') : chip(plEstado(mes / mm), `${plN(mes)} de ${plN(mm)} al mes`)); f.append(cab);
+      f.append(el('small', null, `Ritmo real: ${d && d.ritmo ? (d.ritmo < 10 ? d.ritmo.toFixed(1).replace('.', ',') : plN(d.ritmo)) : 0} ${d ? d.unidad : ''} por día hábil`));
+      const ctl = el('div', 'pl-simctl');
+      const hoy = document.createElement('input'); hoy.type = 'number'; hoy.min = '1'; hoy.value = g.hoy; hoy.title = 'Personas hoy'; hoy.onchange = () => { g.hoy = Math.max(1, Math.round(+hoy.value || 1)); guardarSim(); repintarSim(); };
+      const menos = el('button', null, '−'), out = el('output', null, String(g.sim)), mas = el('button', null, '+'); menos.type = mas.type = 'button';
+      menos.onclick = () => { g.sim = Math.max(0, g.sim - 1); guardarSim(); repintarSim(); }; mas.onclick = () => { g.sim += 1; guardarSim(); repintarSim(); };
+      const stp = el('div', 'pl-stepper'); stp.append(menos, out, mas);
+      ctl.append(el('span', null, 'Hoy'), hoy, el('span', null, 'personas · simular'), stp); f.append(ctl);
+      if (mes != null) { const rr = mes / mm, esc = Math.max(1, rr); f.append(barra(rr / esc, plEstado(rr), 1 / esc)); }
+      pn.append(f);
+    }
+  }
+  function repintarSim() { const pn = document.getElementById('plPanel'), y = pn ? pn.scrollTop : 0; pintarCajon(); const p2 = document.getElementById('plPanel'); if (p2) p2.scrollTop = y; pintarPlantel(); }
+  function pintarPlantel() {
+    const f = document.getElementById('plPlantel'); if (!f) return; f.innerHTML = '';
+    const tarjeta = (nombre, sub, est, txt, look, activo, onclick, icono) => { const b = el('button', 'pl-tarjeta'); b.type = 'button'; b.classList.toggle('on', activo);
+      if (look) { const c = document.createElement('canvas'); c.width = 22; c.height = 38; avatar(c, look); b.append(c); } else b.append(el('span', 'pl-icono-ch', icono));
+      const t = el('div'); t.append(el('b', null, nombre), el('span', null, sub), chip(est, txt)); b.append(t); b.onclick = onclick; f.append(b); };
+    const dd = st.datos;
+    tarjeta('La meta', '10.000 al mes', dd.estadoMeta, `${plN(dd.prod)} terminadas`, null, st.sel.tipo === 'meta', () => seleccionar({ tipo: 'meta' }), 'META');
+    PL_ETAPAS.forEach((et, i) => { const d = D()[et.id]; tarjeta(`${i + 1} · ${et.corto}`, d.kpi, d.estado, d.corto, monoDe(i).look, st.sel.tipo === 'etapa' && st.sel.id === et.id, () => seleccionar({ tipo: 'etapa', id: et.id })); });
+  }
+
+  /* ---------- mandos ---------- */
+  document.querySelectorAll('.pl-vel button').forEach(b => b.addEventListener('click', () => { st.vel = +b.dataset.vel; document.querySelectorAll('.pl-vel button').forEach(x => x.classList.toggle('on', x === b)); }));
+  document.getElementById('plMeta').onclick = () => seleccionar({ tipo: 'meta' });
+  document.getElementById('plSim').onclick = () => (st.sel.tipo === 'sim' ? seleccionar({ tipo: 'meta' }) : seleccionar({ tipo: 'sim' }));
+  document.getElementById('plAtasco').onclick = e => {
+    st.atasco = !st.atasco; e.currentTarget.classList.toggle('on', st.atasco); e.currentTarget.textContent = st.atasco ? 'Quitar colores' : '¿Dónde se atasca?';
+    if (!st.atasco) return;
+    const con = PL_ETAPAS.map((et, i) => ({ et, d: D()[et.id] })).filter(x => x.d.r != null && x.d.esp != null).sort((a, b) => a.d.r - b.d.r)[0];
+    if (con) { anotar(`Lo más atrasado este mes: ${con.et.corto}, ${pct(con.d.r)} de lo esperado a la fecha`); seleccionar({ tipo: 'etapa', id: con.et.id }, 'kpi'); }
+  };
+  cv.addEventListener('click', ev => {
+    const r = cv.getBoundingClientRect(), pt = { x: (ev.clientX - r.left) / r.width * W, y: (ev.clientY - r.top) / r.height * H };
+    const elegir = i => { if (st.sel.tipo === 'sim') { const fila = document.getElementById('plsim-' + PL_ETAPAS[i].id); if (fila) { fila.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); fila.classList.add('foco'); setTimeout(() => fila.classList.remove('foco'), 1600); } } else seleccionar({ tipo: 'etapa', id: PL_ETAPAS[i].id }); };
+    let mejor = null, dmin = 14;
+    for (const p of monos) { const b = P(p.c + 0.5 + (p.ajuste || 0), p.r + 0.5), d = Math.hypot(b.x - pt.x, b.y - 14 - pt.y); if (d < dmin) { dmin = d; mejor = p; } }
+    if (mejor) return mejor === gerencia ? seleccionar({ tipo: 'meta' }) : elegir(mejor.zona);
+    const o = P(0, 7.7, 62), dx = pt.x - o.x, dy = pt.y - (o.y - 0.5 * dx); if (dx >= -2 && dx <= 76 && dy >= -2 && dy <= 48) return seleccionar({ tipo: 'meta' });
+    for (const z of Z) if (z.arriba) { const q = P(z.base + 0.25, 0, 61), ex = pt.x - q.x, ey = pt.y - (q.y + 0.5 * ex); if (ex >= -1 && ex <= 60 && ey >= -1 && ey <= 24) return elegir(z.i); }
+    const fx = (pt.x - E.ox) / 16, fy = (pt.y - E.oy) / 8, c = (fx + fy) / 2, rr = (fy - fx) / 2, z = Z.find(q => c >= q.base && c <= q.base + 4 && rr >= q.r0 && rr <= q.r0 + 4);
+    if (z) elegir(z.i);
+  });
+
+  /* ---------- bucle: se detiene solo si se sale de la sección ---------- */
+  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (reduce) st.vel = 0;
+  function bucle(ts) {
+    if (!document.body.contains(cv) || PL !== st) return;
+    if (st.ultimo == null) st.ultimo = ts;
+    const dt = Math.min(64, ts - st.ultimo) * st.vel; st.ultimo = ts;
+    if (dt > 0) { st.simMs += dt; for (const p of monos) { paso(p, dt); vida(p); } trabajar(); }
+    dibujar(ts); capas();
+    st.raf = requestAnimationFrame(bucle);
+  }
+  pintarCajon(); pintarPlantel();
+  anotar('El trabajo entra por Compras y sale por Cobranza: haz clic en un mono para ver su ficha');
+  st.raf = requestAnimationFrame(bucle);
+}
+SECS['planta'] = () => secPlanta();
+
 </script>
 </body>
 </html>
