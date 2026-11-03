@@ -15851,7 +15851,7 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
 const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy']);
 /* Atención (Manu, 27-10-2026: "debería verse aparte de todo eso"): una vista solo con lo de las agentes de Nexor
    (Conversaciones; después el CRM tienda, los casos y las campañas). Esas secciones no salen en las otras vistas. */
-const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion', 'formularios-atencion', 'campanas-atencion']);
+const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion', 'formularios-atencion', 'campanas-atencion', 'plantillas-atencion']);
 const VISTAS = ['ambos', 'sg', 'k', 'at'];
 const leerVista = () => { try { const v = localStorage.getItem('adecom_vista'); return VISTAS.includes(v) ? v : 'ambos'; } catch (e) { return 'ambos'; } };
 const vistaInicio = () => ({ k: ['venta-kennedy', 'Venta Kennedy'], at: ['conversaciones', 'Conversaciones'] })[leerVista()] || ['resumen', 'Resumen General'];
