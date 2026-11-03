@@ -802,6 +802,10 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
       Formularios
     </button>
+    <button class="nav-item" data-sec="plantillas-atencion" data-ttl="Plantillas de WhatsApp" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+      Plantillas
+    </button>
 
     <div class="sb-grp" data-admin-only>Cobranza</div>
     <button class="nav-item" data-sec="deudas" data-ttl="Deudas" data-admin-only>
@@ -4527,6 +4531,128 @@ const cvAvatar = (nombre, agente, canal, t = 36) => `<div class="cv-av" style="w
 
 /* Bandeja (27-10, Manu: "siento que no está tomando la importancia el chat como debería"): como WhatsApp Web, el chat al
    centro y de alto completo, la lista angosta a la izquierda y el contexto a la derecha; las cifras en una franja. */
+/* 02-11 (Manu, mirando el tablero de Nexor: "¿podríamos replicar esto en Conversaciones? necesitamos tener ese CRM"):
+   las conversaciones de cada agente en columnas por etapa (conversaciones?tablero=sofia|valentina). Tocar una tarjeta abre el
+   chat; arrastrarla a otra columna la cambia de etapa en Nexor (no deja las que traspasan o cierran la conversación). */
+let CV_TAB = null, CV_TAB_AG = 'sofia';
+const CV_TCOLOR = { active: 'var(--tx3)', won: 'var(--ok)', lost: 'var(--er)', discarded: 'var(--er)', deferred: 'var(--wa)' };
+/* el chat al costado del tablero: se mueve el mismo panel de la lista (#cvDet) y se devuelve al cerrar */
+function cvTPanel(abrir) {
+  const det = document.getElementById('cvDet'), wrap = document.getElementById('cvTWrap'), panel = document.getElementById('cvTPanel'), app = document.getElementById('cvApp');
+  if (!det) return;
+  if (abrir && panel) { if (det.parentNode !== panel) panel.appendChild(det); wrap?.classList.add('abierto'); }
+  else { if (app && det.parentNode !== app) app.appendChild(det); wrap?.classList.remove('abierto'); document.querySelectorAll('.cv-tcard.sel').forEach(x => x.classList.remove('sel')); }
+}
+function cvTFiltrar(T) {
+  const q = (document.getElementById('cvTq')?.value || '').trim().toLowerCase();
+  const tag = document.getElementById('cvTtag')?.value || '', resp = document.getElementById('cvTresp')?.value || '';
+  const canal = document.getElementById('cvTcanal')?.value || '', paus = document.getElementById('cvTpaus')?.checked, erp = document.getElementById('cvTerp')?.checked, comp = document.getElementById('cvTcomp')?.checked;
+  return T.leads.filter(l => (!q || [l.nombre, l.razon, l.celular, ...Object.values(l.campos || {}), ...(l.tags || [])].join(' ').toLowerCase().includes(q))
+    && (!tag || (l.tags || []).includes(tag)) && (!resp || (resp === '-' ? !l.asignado_id : l.asignado_id === resp))
+    && (!canal || l.canal === canal) && (!paus || l.pausada) && (!erp || l.erp) && (!comp || l.compro || l.pidio_vendedor));
+}
+function cvTCard(l, T) {
+  const campos = Object.values(l.campos || {}).filter(v => v && !/^(no_llamar|si|no)$/i.test(v));
+  return `<div class="cv-tcard${l.id === CV_SEL ? ' sel' : ''}" draggable="true" data-tid="${cvEsc(l.id)}" title="Toca para abrir el chat · arrástrala para cambiarla de etapa">
+    <div class="cv-tc1"><div><b>${cvEsc(l.nombre)}</b>${l.razon && l.razon.toUpperCase() !== String(l.nombre).toUpperCase() ? `<div class="td-dim">${cvEsc(l.razon)}</div>` : ''}</div>
+      <span class="cv-tico">${l.pausada ? '<span class="cv-tpausa" title="La agente está en pausa: no le responde">❚❚</span>' : ''}${cvIcono(l.canal, 14)}</span></div>
+    <div class="td-dim">Hace ${cvEsc(cvHace(l.actividad))}${l.celular ? ' · ' + cvEsc(l.celular) : ''}</div>
+    ${l.compro || l.pidio_vendedor || l.bloqueado ? `<div class="cv-tchips">${l.compro ? `<span class="cv-tchip" style="background:rgba(16,185,129,.14);color:var(--ok)" title="Pedido por Sofía o la página">🛒 Compró ${fmt(l.compro.unidades)} u · ${cvEsc(String(l.compro.fecha).slice(8, 10) + '-' + String(l.compro.fecha).slice(5, 7))}</span>` : ''}${l.pidio_vendedor ? `<span class="cv-tchip" style="background:rgba(183,121,31,.15);color:#b7791f" title="Pedido que ingresó ${cvEsc(l.pidio_vendedor.vendedor || 'el vendedor')} al ERP">Pidió al vendedor ${fmt(l.pidio_vendedor.u)} u · ${cvEsc(String(l.pidio_vendedor.fecha).slice(8, 10) + '-' + String(l.pidio_vendedor.fecha).slice(5, 7))}</span>` : ''}${l.bloqueado ? '<span class="cv-tchip" style="background:rgba(240,68,56,.12);color:var(--er)">Bloqueado en el ERP</span>' : ''}</div>` : ''}
+    ${campos.length || l.erp || l.equipo ? `<div class="cv-tchips">${l.erp ? '<span class="cv-tchip" style="color:var(--ac)">Mayorista ERP</span>' : ''}${l.equipo ? '<span class="cv-tchip" style="color:var(--ac)">La atiende el equipo</span>' : ''}${campos.map(v => `<span class="cv-tchip" title="${cvEsc(v)}">${cvEsc(v)}</span>`).join('')}</div>` : ''}
+    <div class="cv-tchips">${(l.tags || []).map(t => `<span class="cv-ttag">${cvEsc(t)}<button data-tquita="${cvEsc(t)}" title="Sacar la etiqueta">×</button></span>`).join('')}<button class="cv-tadd" data-tadd>+ Añadir</button></div>
+    <button class="cv-tresp" data-tresp title="Responsable">👤 ${cvEsc(l.asignado || 'Sin responsable')}</button></div>`;
+}
+function cvTableroHtml(T) {
+  if (!T || !T.ok) return `<div class="cv-vacio">${cvEsc((T && T.mensaje) || 'No pude leer el tablero.')}</div>`;
+  const xs = cvTFiltrar(T);
+  const por = {}; for (const l of xs) (por[l.etapa] = por[l.etapa] || []).push(l);
+  const col = e => { const ls = por[e.key] || []; return `<div class="cv-tcol" data-tetapa="${cvEsc(e.key)}" data-tmover="${e.mover ? 1 : 0}">
+      <h5><i style="background:${['necesita_ayuda', 'awaiting_human_response'].includes(e.key) ? 'var(--wa)' : CV_TCOLOR[e.categoria] || 'var(--tx3)'}"></i><span>${cvEsc(e.label)}</span><small>${fmt(ls.length)}</small></h5>
+      <div class="cv-tcards">${ls.map(l => cvTCard(l, T)).join('')}</div></div>`; };
+  const enProg = T.etapas.filter(e => !e.final), term = T.etapas.filter(e => e.final);
+  return `<div class="cv-tab">
+      <div class="cv-tgrupo"><span class="cv-tglabel">En progreso</span><div class="cv-tcols">${enProg.map(col).join('')}</div></div>
+      ${term.length ? `<div class="cv-tgrupo"><span class="cv-tglabel">Terminal</span><div class="cv-tcols">${term.map(col).join('')}</div></div>` : ''}</div>`;
+}
+function cvTBarra(T) {
+  const opt = (v, t, sel) => `<option value="${cvEsc(v)}"${sel ? ' selected' : ''}>${cvEsc(t)}</option>`;
+  return `<div class="cv-tbar"><input type="search" id="cvTq" class="finput" placeholder="🔍 Buscar nombre, razón social, celular, dato o etiqueta…">
+    <select id="cvTtag">${opt('', 'Todas las etiquetas')}${(T.etiquetas || []).map(t => opt(t, t)).join('')}</select>
+    <select id="cvTresp">${opt('', 'Todos los responsables')}${opt('-', 'Sin responsable')}${(T.equipo || []).map(m => opt(m.id, m.nombre)).join('')}</select>
+    <select id="cvTcanal">${opt('', 'Todos los canales')}${opt('whatsapp', 'WhatsApp')}${opt('instagram', 'Instagram')}</select>
+    <label><input type="checkbox" id="cvTcomp"> Compraron</label><label><input type="checkbox" id="cvTpaus"> En pausa</label><label><input type="checkbox" id="cvTerp"> Mayoristas del ERP</label>
+    <span class="td-dim" style="margin-left:auto">${cvEsc(T.agente)} · ${fmt(T.leads.length)} conversaciones${T.detalle_faltan ? ` · cargando datos de ${fmt(T.detalle_faltan)}…` : ''} · <button class="cv-linkbtn" data-trec>↻ Actualizar</button></span></div>`;
+}
+async function cvTablero(ag, { silencio = false } = {}) {
+  CV_TAB_AG = ag;
+  const cont = document.getElementById('cvTablero'); if (!cont) return;
+  if (!silencio) cont.innerHTML = '<div class="cv-vacio">Cargando el tablero…</div>';
+  CV_TAB = await cvFetch('?tablero=' + ag);
+  if (!CV_TAB || !CV_TAB.ok) { cont.innerHTML = cvTableroHtml(CV_TAB); return; }
+  const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
+  const abierto = document.getElementById('cvTWrap')?.classList.contains('abierto');
+  cvTPanel(false);
+  cont.innerHTML = cvTBarra(CV_TAB) + `<div class="cv-twrap" id="cvTWrap"><div id="cvTBoard" style="min-height:0">${cvTableroHtml(CV_TAB)}</div><div class="cv-tpanel" id="cvTPanel"><button class="cv-tcerrar" data-tcerrar title="Cerrar el chat">×</button></div></div>`;
+  for (const [id, v] of filtros) { const e = document.getElementById(id); if (e && v != null) e.type === 'checkbox' ? (e.checked = v) : (e.value = v); }
+  if (abierto && CV_SEL) cvTPanel(true);
+  const repintar = () => { const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } };
+  ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp'].forEach(id => document.getElementById(id)?.addEventListener(id === 'cvTq' ? 'input' : 'change', repintar));
+  cont.querySelector('[data-trec]')?.addEventListener('click', () => cvTablero(ag));
+  cont.querySelector('[data-tcerrar]')?.addEventListener('click', () => { cvTPanel(false); CV_SEL = null; });
+  cvTEventos(ag);
+}
+function cvTEventos(ag) {
+  const cont = document.getElementById('cvTBoard'); if (!cont) return;
+  const lead = id => (CV_TAB.leads || []).find(x => x.id === id);
+  const guardarTags = async (l, tags) => {
+    const r = await cvFetch('', { accion: 'etiquetas', lead: l.id, tags });
+    if (!r.ok) return alert(r.mensaje || 'No se pudo');
+    l.tags = r.tags || tags; if (!CV_TAB.etiquetas.includes(...l.tags.slice(-1))) CV_TAB.etiquetas = [...new Set([...CV_TAB.etiquetas, ...l.tags])].sort();
+    const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); }
+  };
+  let arrastrada = null;
+  cont.querySelectorAll('.cv-tcard').forEach(c => {
+    const l = lead(c.dataset.tid); if (!l) return;
+    c.addEventListener('click', e => {
+      if (e.target.closest('button,input,select')) return;
+      cont.querySelectorAll('.cv-tcard.sel').forEach(x => x.classList.remove('sel')); c.classList.add('sel');
+      cvTPanel(true); cvAbrir(l.id);
+    });
+    c.addEventListener('dragstart', e => { arrastrada = l.id; e.dataTransfer.setData('text/plain', l.id); });
+    c.querySelectorAll('[data-tquita]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); guardarTags(l, (l.tags || []).filter(t => t !== b.dataset.tquita)); }));
+    c.querySelector('[data-tadd]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const b = e.currentTarget, dl = 'cvTdl' + Math.random().toString(36).slice(2, 7);
+      b.outerHTML = `<input list="${dl}" placeholder="Etiqueta y Enter" data-tnueva><datalist id="${dl}">${(CV_TAB.etiquetas || []).filter(t => !(l.tags || []).includes(t)).map(t => `<option value="${cvEsc(t)}">`).join('')}</datalist>`;
+      const inp = c.querySelector('[data-tnueva]'); inp.focus();
+      inp.addEventListener('keydown', ev => { if (ev.key === 'Enter' && inp.value.trim()) guardarTags(l, [...(l.tags || []), inp.value.trim()]); if (ev.key === 'Escape') { const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } });
+    });
+    c.querySelector('[data-tresp]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      e.currentTarget.outerHTML = `<select data-tsel><option value="">Sin responsable</option>${(CV_TAB.equipo || []).map(m => `<option value="${cvEsc(m.id)}"${m.id === l.asignado_id ? ' selected' : ''}>${cvEsc(m.nombre)}</option>`).join('')}</select>`;
+      const sel = c.querySelector('[data-tsel]'); sel.focus();
+      sel.addEventListener('change', async () => {
+        const r = await cvFetch('', { accion: 'asignar', lead: l.id, usuario: sel.value });
+        if (!r.ok) return alert(r.mensaje || 'No se pudo');
+        l.asignado_id = sel.value; l.asignado = ((CV_TAB.equipo || []).find(m => m.id === sel.value) || {}).nombre || '';
+        const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag);
+      });
+    });
+  });
+  cont.querySelectorAll('.cv-tcol').forEach(col => {
+    col.addEventListener('dragover', e => { if (col.dataset.tmover === '1') { e.preventDefault(); col.classList.add('sobre'); } });
+    col.addEventListener('dragleave', () => col.classList.remove('sobre'));
+    col.addEventListener('drop', async e => {
+      e.preventDefault(); col.classList.remove('sobre');
+      const l = lead(arrastrada || e.dataTransfer.getData('text/plain')), et = (CV_TAB.etapas || []).find(x => x.key === col.dataset.tetapa);
+      if (!l || !et || l.etapa === et.key) return;
+      if (!confirm(`¿Mover a ${l.nombre} a "${et.label}"? Se cambia también en Nexor.`)) return;
+      const r = await cvFetch('', { accion: 'mover', lead: l.id, etapa: et.key });
+      if (!r.ok) return alert(r.mensaje || 'No se pudo');
+      l.etapa = et.key; const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag);
+    });
+  });
+}
 async function secConversaciones() {
   const ICO = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
   const d = await cvFetch('?lista=1');
@@ -4696,6 +4822,41 @@ async function secConversaciones() {
     .cv-cx-pide{font-weight:600;color:var(--tx1)}
     .cv-caso{border:1px solid var(--bd);border-radius:var(--rsm);padding:8px 10px;font-size:12px;line-height:1.45;margin-bottom:6px}
     .cv-ok{color:var(--ok)}.cv-er{color:var(--er)}
+    .cv-vista{margin:0 0 12px}
+    .cv-tbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+    .cv-tbar input[type=search]{flex:1 1 220px;max-width:340px}
+    .cv-tbar select{max-width:200px}
+    .cv-tbar label{font-size:12.5px;color:var(--tx2);display:flex;gap:5px;align-items:center}
+    .cv-twrap{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;height:calc(100vh - 250px);min-height:520px}
+    .cv-twrap.abierto{grid-template-columns:minmax(0,1fr) minmax(420px,46%)}
+    .cv-tpanel{display:none;border:1px solid var(--bd);border-radius:var(--r,12px);overflow:hidden;background:var(--sf);position:relative;min-height:0}
+    .cv-twrap.abierto .cv-tpanel{display:block}
+    .cv-tpanel .cv-det{height:100%;grid-template-columns:minmax(0,1fr)}
+    .cv-tpanel .cv-ctxcol{display:none}
+    .cv-tcerrar{position:absolute;top:8px;right:10px;z-index:6;border:0;background:var(--sf2);border-radius:8px;padding:3px 9px;cursor:pointer;font-weight:700}
+    .cv-tab{display:flex;gap:12px;overflow:auto;align-items:stretch;min-height:0;height:100%;padding-bottom:6px}
+    .cv-tgrupo{display:flex;flex-direction:column;gap:6px;min-height:0}
+    .cv-tgrupo>.cv-tglabel{font-size:11.5px;font-weight:700;color:var(--tx2);background:var(--sf2);border-radius:9px;padding:2px 9px;align-self:flex-start}
+    .cv-tcols{display:flex;gap:12px;min-height:0;flex:1}
+    .cv-tcol{flex:0 0 270px;background:var(--sf2);border-radius:var(--r,12px);display:flex;flex-direction:column;min-height:0}
+    .cv-tcol.sobre{outline:2px dashed var(--ac);outline-offset:-2px}
+    .cv-tcol h5{margin:0;padding:10px 12px;font-size:12.5px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--bd)}
+    .cv-tcol h5 i{display:inline-block;width:3px;height:14px;border-radius:2px}
+    .cv-tcol h5 small{color:var(--tx3);font-weight:600}
+    .cv-tcards{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1}
+    .cv-tcard{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:9px 10px;cursor:pointer;font-size:12.5px;line-height:1.4}
+    .cv-tcard:hover,.cv-tcard.sel{border-color:var(--ac)}
+    .cv-tc1{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
+    .cv-tc1 b{font-size:13px}
+    .cv-tico{display:flex;gap:4px;align-items:center;flex:0 0 auto}
+    .cv-tpausa{color:var(--wa);font-weight:800;font-size:11px}
+    .cv-tchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .cv-tchip{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;background:var(--sf2);color:var(--tx2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cv-ttag{font-size:10.5px;font-weight:700;padding:1px 4px 1px 8px;border-radius:9px;background:rgba(16,185,129,.12);color:var(--ok);display:inline-flex;align-items:center;gap:2px}
+    .cv-ttag button,.cv-tadd,.cv-tresp{border:0;background:none;cursor:pointer;font:inherit;color:inherit;padding:0 3px}
+    .cv-tadd{font-size:11px;color:var(--tx3);font-weight:600}
+    .cv-tresp{font-size:11px;color:var(--tx2);font-weight:600;margin-top:5px}
+    .cv-tcard input,.cv-tcard select{font-size:11.5px;padding:2px 6px;border:1px solid var(--bd);border-radius:6px;max-width:100%}
     @media(max-width:1280px){.cv-det{grid-template-columns:minmax(0,1fr)}.cv-ctxcol{display:none}.cv-vctx{display:inline-block}.cv-ctx-cerrar{display:block}
       .cv-det.cv-ver-ctx .cv-ctxcol{display:block;position:absolute;right:0;top:0;bottom:0;width:min(320px,90%);box-shadow:-8px 0 24px rgba(0,0,0,.12);z-index:5}
       .cv-det{position:relative}}
@@ -4708,6 +4869,8 @@ async function secConversaciones() {
     ${stat('necesita', 'requieren una persona', '--er')}${stat('caso', 'con caso abierto', '--wa')}${stat('tomada', 'las atiende el equipo', '--ac')}${stat('all', `en los últimos ${fmt(d.dias || 30)} días`, '--tx2')}
   </div>
   ${alertasHtml}
+  <div class="segs cv-vista" id="cvVista"><button class="seg on" data-cvvista="lista">Lista</button><button class="seg" data-cvvista="sofia">Tablero de Sofía</button><button class="seg" data-cvvista="valentina">Tablero de Valentina</button></div>
+  <div id="cvTablero" style="display:none"></div>
   <div class="cv-app" id="cvApp">
     <aside class="cv-col-lista">
       <div class="cv-lhead">
@@ -4792,6 +4955,16 @@ function raRender() {
   const enPer = xs => (xs || []).filter(o => Date.parse(o.fecha) >= ini);
   const vC = enPer(V.confirmadas), vP = enPer(V.probables), sP = enPer(S.pedidos);
   const web = sP.filter(o => o.via !== 'ERP').length;
+  /* 02-11 (Manu: "esa venta debería salir arriba en una tarjeta y el total entre ambos en otra… y todas las que salgan con
+     posible, todas"): confirmado = Valentina con el mismo celular o su link, Sofía por la página o por ella; posible = lo
+     "probable" de Valentina (abrió su link y compró otra cuenta) y los pedidos que el vendedor ingresó al ERP (Opalo). El
+     total va en neto: lo de Valentina viene con IVA y se divide por 1,19 */
+  const suma = xs => xs.reduce((t, o) => t + Number(o.total || 0), 0);
+  const sConf = sP.filter(o => o.via !== 'ERP'), sPos = sP.filter(o => o.via === 'ERP');
+  const vConfM = vr.monto || 0, vPosM = vp.monto || 0, sConfM = suma(sConf), sPosM = suma(sPos);
+  const neto = n => Math.round(n / 1.19);
+  const confNeto = neto(vConfM) + sConfM, posNeto = neto(vPosM) + sPosM;
+  const nConf = (vr.pedidos || 0) + sConf.length, nPos = (vp.pedidos || 0) + sPos.length;
   return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
       <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
 
@@ -4799,9 +4972,14 @@ function raRender() {
       <div class="ra-ks">
         ${k(fmt(H.total), `personas escribieron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)} · WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
         ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta · el equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
-        ${k(fmtM(vr.monto || 0), `vendió Valentina ${per}`, `${fmt(vr.pedidos)} ${vr.pedidos === 1 ? 'pedido' : 'pedidos'} en mohicano.cl, con IVA${vp.pedidos ? ` · ${fmt(vp.pedidos)} probables más (${fmtM(vp.monto)})` : ''}${VC ? `<br><b>Casos con la tienda:</b> ${fmt(vc.resueltos || 0)} resueltos ${per} (${fmtM(vc.monto_resuelto || 0)} en pedidos que no se perdieron) · ${fmt(VC.pendientes || 0)} pendientes${VC.pendientes ? ` (${fmtM(VC.monto_pendiente || 0)})` : ''}` : ''}`, '--ok')}
-        ${k(fmtM(sr.monto || 0), `pidieron los mayoristas de Sofía ${per}`, `${fmt(sr.pedidos)} ${sr.pedidos === 1 ? 'pedido' : 'pedidos'}${sr.unidades ? ` · ${fmt(sr.unidades)} prendas` : ''}, neto${web ? ` · ${fmt(web)} por la página` : ''}`, '--ac')}
+        ${k(fmtM(confNeto), `ventas confirmadas ${per}`, `${fmt(nConf)} ${nConf === 1 ? 'pedido' : 'pedidos'}, neto<br>Valentina ${fmtM(vConfM)} con IVA (${fmt(vr.pedidos || 0)}) · Sofía ${fmtM(sConfM)} neto (${fmt(sConf.length)})`, '--ok')}
+        ${k(fmtM(posNeto), `ventas posibles ${per}`, `${fmt(nPos)} ${nPos === 1 ? 'pedido' : 'pedidos'}, neto · pueden ser por las agentes o no<br>Valentina ${fmtM(vPosM)} con IVA (${fmt(vp.pedidos || 0)}: abrió su link y compró otra cuenta) · Sofía ${fmtM(sPosM)} neto (${fmt(sPos.length)}: pedidos del vendedor de quien le escribió)`, '--wa')}
       </div>
+      <div class="ra-k" style="margin:12px 0;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:20px 24px">
+        <div><div class="ra-t" style="font-size:14px">Total ${per} · confirmado + posible</div><div class="ra-n" style="font-size:44px;line-height:1.1;color:var(--ok)">${fmtM(confNeto + posNeto)}</div><div class="ra-s">${fmt(nConf + nPos)} pedidos · neto (lo de mohicano.cl sin IVA)</div></div>
+        <div style="font-size:15px;line-height:1.7"><div><b style="color:var(--ok)">${fmtM(confNeto)}</b> confirmado</div><div><b style="color:var(--wa)">${fmtM(posNeto)}</b> posible</div></div>
+      </div>
+      ${VC ? `<div class="td-dim" style="margin:-4px 0 12px">Valentina además pasó casos a la tienda: <b>${fmt(vc.resueltos || 0)} resueltos ${per}</b> (${fmtM(vc.monto_resuelto || 0)} en pedidos que no se perdieron) · ${fmt(VC.pendientes || 0)} pendientes${VC.pendientes ? ` (${fmtM(VC.monto_pendiente || 0)})` : ''}</div>` : ''}
       <div class="ra-g2">
         <div class="ra-col"><div class="ra-ct">Personas que escribieron cada día <small>${P === 'd30' ? 'últimos 30 días' : 'últimos 7 días'}</small></div><div class="ra-chart"><canvas id="raDias"></canvas></div></div>
         <div class="ra-col"><div class="ra-ct">A qué hora escriben <small>mensajes de clientes, 30 días</small></div><div class="ra-chart"><canvas id="raHoras"></canvas></div></div>
@@ -4816,10 +4994,11 @@ function raRender() {
       <div class="ra-g11">
         <div class="ra-col"><div class="ra-ct">Valentina · mohicano.cl <small>${fmt(vC.length)} confirmadas</small></div>
           ${vC.length ? vC.map(o => fila(o, fmtCLP(o.total))).join('') : '<div class="td-dim">Sin ventas confirmadas en el período</div>'}
-          ${vP.length ? `<div class="ra-sub">Probables (abrió su link y compró otra cuenta, o el mismo nombre) · no suman</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
+          ${vP.length ? `<div class="ra-sub">Posibles (abrió su link y compró otra cuenta, o el mismo nombre) · van aparte, en "ventas posibles"</div>${vP.map(o => fila(o, `<span class="td-dim">${fmtCLP(o.total)}</span>`)).join('')}` : ''}
         </div>
         <div class="ra-col"><div class="ra-ct">Mayoristas de Sofía <small>pedido hasta 14 días después de escribirle</small></div>
-          ${sP.length ? sP.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Ningún mayorista que habló con Sofía hizo un pedido en el período</div>'}
+          ${sConf.length ? sConf.map(o => fila(o, o.total ? fmtCLP(o.total) : `${fmt(o.unidades)} u.`)).join('') : '<div class="td-dim">Sin pedidos confirmados en el período</div>'}
+          ${sPos.length ? `<div class="ra-sub">Posibles (los ingresó el vendedor al ERP; el cliente había hablado con Sofía) · van aparte</div>${sPos.map(o => fila(o, `<span class="td-dim">${o.total ? fmtCLP(o.total) : fmt(o.unidades) + ' u.'}</span>`)).join('')}` : ''}
         </div>
       </div>
     </section>
@@ -4851,7 +5030,7 @@ function raCampana(c = RA_CAMP, o = {}) {
     </div>
     <div class="ra-g11">
       <div class="ra-col"><div class="ra-ct">Embudo del aviso por WhatsApp <small>% sobre los que se les mandó</small></div><div class="ra-chart alto"><canvas id="raEmbudo"></canvas></div></div>
-      <div class="ra-col"><div class="ra-ct">Qué respondieron <small>su primer mensaje después del aviso</small></div><div class="ra-chart alto"><canvas id="raResp"></canvas></div></div>
+      <div class="ra-col"><div class="ra-ct">Qué respondieron <small>su primer mensaje después del aviso · toca una barra para ver los nombres</small></div><div class="ra-chart alto"><canvas id="raResp"></canvas></div></div>
     </div>
     <div class="ra-g11">
       <div class="ra-col"><div class="ra-ct">Por qué no les llegó el aviso <small>${fmt(c.sin_aviso ? c.sin_aviso.length : 0)} mayoristas${c.bloqueados ? ` · además ${fmt(c.bloqueados)} bloqueados en el ERP, fuera de la campaña` : ''}</small></div><div class="ra-chart"><canvas id="raNoLlego"></canvas></div></div>
@@ -4879,7 +5058,8 @@ function raCampana(c = RA_CAMP, o = {}) {
 function raFormularios(ini, per) {
   const F = RA_FORM;
   if (!F || !Array.isArray(F.formularios)) return `<section class="ra-bloque"><div class="ra-bt"><h3>Formularios de mini-mayoristas</h3><span>mohicano.cl/mayorista</span></div><div class="ra-col td-dim">Todavía no disponibles: la función que los entrega no está publicada (Netlify sin créditos hasta el 7 de noviembre).</div></section>`;
-  const fecha = f => Date.parse(String(f.fecha).replace(' ', 'T') + '-03:00');
+  /* 02-11: las solicitudes del webservice traen la fecha con hora y zona; las cuentas de la tienda, sin zona */
+  const fecha = f => { let t = String(f.fecha || '').trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(t)) t += ' 12:00:00'; return /T|Z$|[+-]\d\d:?\d\d$/.test(t) ? Date.parse(t) : Date.parse(t.replace(' ', 'T') + '-03:00'); };
   const xs = (F.formularios || []).filter(f => fecha(f) >= ini);
   const n = fn => xs.filter(fn).length;
   const k = (v, t, sub, color) => `<div class="ra-k"><div class="ra-n" style="color:var(${color})">${v}</div><div class="ra-t">${t}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div>`;
@@ -4935,9 +5115,12 @@ function raGraficos() {
     const ks = Object.keys(dias).sort();
     barras('raForm', ks.map(t => t.slice(8, 10) + '-' + t.slice(5, 7)), [{ label: 'Formularios', data: ks.map(t => dias[t]), backgroundColor: rgba(color('--ac'), .8), borderRadius: 3 }], null, { horizontal: false, apiladas: false, leyenda: false, sufijo: ' formularios', eje: raEnteros }).catch(() => {});
   }
-  raGraficosCampana();
+  raGraficosCampana(true);
+  /* tocar las cifras abre la lista con los nombres (02-11) */
+  const TOCA = { 'no recibir más': 'bajas', 'lo leyeron': 'leyeron', 'respondieron': 'respondieron' };
+  body.querySelectorAll('.ra-k').forEach(card => { const t = (card.querySelector('.ra-t')?.textContent || '').trim(); if (TOCA[t]) { card.style.cursor = 'pointer'; card.title = 'Toca para ver los nombres'; card.addEventListener('click', () => cpVerLista(TOCA[t])); } });
 }
-function raGraficosCampana() {
+function raGraficosCampana(conClic = false) {
   const c = RA_CAMP;
   if (c && c.hay) {
     const w = c.whatsapp || {}, resp = c.respuestas || {}, respondieron = Object.entries(resp).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, n]) => t + n, 0);
@@ -4950,7 +5133,7 @@ function raGraficosCampana() {
     const orden = ['Sí, mándamelas', '¡Lo quiero!', 'Ver más modelos', 'El catálogo completo', 'Escribió otra cosa', 'Ahora no', 'No recibir más', 'Sin respuesta'];
     const COL = { '¡Lo quiero!': color('--ok'), 'Ver más modelos': color('--ac'), 'Sí, mándamelas': color('--ok'), 'El catálogo completo': color('--ac'), 'Escribió otra cosa': color('--ac'), 'Ahora no': color('--wa'), 'No recibir más': color('--er'), 'Sin respuesta': color('--tx3') };
     const ks = orden.filter(x => resp[x]);
-    barras('raResp', ks, [{ label: 'Mayoristas', data: ks.map(x => resp[x]), backgroundColor: ks.map(x => COL[x]), borderRadius: 4 }], null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
+    barras('raResp', ks, [{ label: 'Mayoristas', data: ks.map(x => resp[x]), backgroundColor: ks.map(x => COL[x]), borderRadius: 4 }], conClic ? (i => cpVerLista('resp:' + ks[i])) : null, { apiladas: false, leyenda: false, sufijo: ' mayoristas', etiquetas: true, eje: raEnteros }).catch(() => {});
   }
 }
 function raMontar() {
@@ -4988,6 +5171,8 @@ let CV_FORM = null, CV_FORM_VER = 'sin_tomar';
 const CAMPANAS = [
   { id: 'halloween', nombre: 'Halloween', fuente: '?campana_correo=halloween' },
   { id: 'despacho', nombre: 'Despacho inmediato 44', fuente: '?campana=1' },
+  /* 02-11 (Manu: "que siempre les lleguen correos… y siempre manteniendo el dato en el dashboard"): sale solo de lunes a sábado */
+  { id: 'diario', nombre: 'Correo diario', fuente: '?campana_correo=diario' },
 ];
 let CP_DATA = {}, CP_SEL = 'todas';
 /* las mismas cifras de cada campaña, para compararlas */
@@ -5025,6 +5210,7 @@ function cpMezclar(ds) {
 const CP_OPC = {
   halloween: { titulo: 'Halloween · Descuento de miedo', sub: '4455 Riviera y 4007, el 30 y 31-10', correoNota: 'salió el mismo día que el WhatsApp; primero los que más compran', boton: 'tocaron "Lo quiero"' },
   despacho: {},
+  diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00, con todo el cupo libre del día; mínimo 2 días entre correos a la misma persona', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
 };
 /* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
    la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
@@ -5033,7 +5219,8 @@ function cpAsignar() {
   const camp = CAMPANAS.map(x => ({ id: x.id, nombre: x.nombre, desde: (CP_DATA[x.id] || {}).desde || '', d: CP_DATA[x.id] })).filter(x => x.d && x.d.ok && x.d.hay);
   const vistos = new Map();
   for (const c of camp) for (const o of ((c.d.ventas || {}).detalle || [])) {
-    const k = `${String(o.cliente || '').toUpperCase().replace(/\W/g, '').slice(0, 12)}|${String(o.fecha || '').slice(0, 10)}|${o.unidades}`;
+    /* 02-11: un pedido del ERP se reconoce por su número (Opalo, 00143326, salía en Halloween y en despacho) */
+    const k = /^\d+$/.test(String(o.ref || '')) ? 'erp|' + o.ref : `${String(o.cliente || '').toUpperCase().replace(/\W/g, '').slice(0, 12)}|${String(o.fecha || '').slice(0, 10)}|${o.unidades}`;
     const cand = vistos.get(k);
     /* gana la campaña que salió más tarde pero antes del pedido */
     if (!cand || (c.desde > cand.desde && (!o.fecha || c.desde <= o.fecha))) vistos.set(k, { ...o, campana: c.id, desde: c.desde });
@@ -5069,12 +5256,14 @@ function cpTexto() {
   const QUE = {
     halloween: '5% de descuento en el 4455 Riviera (palazzo tiro alto) y el 4007 (pitillo tiro alto), con despacho inmediato, el 30 y 31-10. WhatsApp con foto y correo con botón a Sofía',
     despacho: 'Modelos de la Dolce Vita 44 con despacho inmediato, 3 elegidos para cada mayorista según lo que compra. WhatsApp con foto y, 3 días después, correo a los que no respondieron',
+    diario: 'Correo de lunes a sábado con 3 modelos de la Dolce Vita 44 con despacho inmediato (primero los que compra cada uno), su curva y la reposición que viene. Sale con todo el cupo libre de Resend del día: primero quien lleva más tiempo sin correo, y nunca dos a la misma persona en menos de 2 días',
   };
   const L = [`*Informe de campañas · Mohicano Jeans*`, `al ${hoy}`, ''];
   L.push('*1. Ventas*');
   const posTxt = (a) => a && a.posible && a.posible.pedidos ? ` · _posible: ${plata(a.posible.valor)} (${a.posible.pedidos} ${a.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor)_` : '';
   for (const x of CAMPANAS) if (ids.includes(x.id)) { const a = A[x.id] || {}; L.push(`• ${x.nombre}: *${plata(a.valor)}* confirmado${a.pedidos ? ` · ${a.pedidos} ${a.pedidos === 1 ? 'pedido' : 'pedidos'} · ${a.unidades} prendas` : ''}${posTxt(a)}`); }
   if (CP_SEL === 'todas') L.push(`• *Total confirmado: ${plata(A.total.valor)}* neto · ${A.total.pedidos} ${A.total.pedidos === 1 ? 'pedido' : 'pedidos'} · ${A.total.unidades} prendas${posTxt(A.total)}`);
+  { const T = CP_SEL === 'todas' ? A.total : (A[CP_SEL] || {}); if (T.posible && T.posible.pedidos) L.push(`• *Total con posibles: ${plata((T.valor || 0) + T.posible.valor)}* neto`); }
   L.push('_Confirmado: pedidos hechos con Sofía después del aviso o de los modelos en oferta. Posible: pedidos que ingresó un vendedor de clientes que habían respondido el aviso; pueden ser por la campaña o no, y no suman al confirmado. Un pedido cuenta para una sola campaña (la del último aviso). Las respuestas automáticas no cuentan._');
   const vend = new Map();
   ids.forEach((id, n) => {
@@ -5082,17 +5271,19 @@ function cpTexto() {
     if (!c || !c.ok || !c.hay) { L.push('', `*${n + 2}. ${x.nombre}*: todavía no sale`); return; }
     const w = c.whatsapp || {}, co = c.correo || {}, v = c.ventas || {}, R = c.respuestas || {}, li = c.lista || {}, al = c.alcance || {};
     const resp = Object.entries(R).filter(([k]) => k !== 'Sin respuesta').reduce((t, [, k]) => t + k, 0);
-    L.push('', `*${n + 2}. ${(CP_OPC[id] || {}).titulo || x.nombre}* · salió el ${cvHora(c.desde)}`);
+    /* 02-11: el correo diario va solo por correo: sin las líneas de WhatsApp */
+    const soloCorreo = !w.enviados && !li.con_celular;
+    L.push('', `*${n + 2}. ${(CP_OPC[id] || {}).titulo || x.nombre}* · ${soloCorreo ? 'desde' : 'salió'} el ${cvHora(c.desde)}`);
     if (QUE[id]) L.push(`*Qué se ofreció:* ${QUE[id]}`);
-    L.push(`*A quién:* ${li.clientes || al.total || 0} mayoristas del ERP (${li.con_celular || 0} con celular, ${li.con_correo || 0} con correo). Fuera por bloqueo en el ERP: ${c.bloqueados || 0}`);
-    L.push(`*Alcance:* les llegó a ${(al.whatsapp || 0) + (al.solo_correo || 0)} de ${al.total || 0}: ${al.whatsapp || 0} por WhatsApp, ${al.solo_correo || 0} solo por correo, ${al.ninguno || 0} por ningún lado`);
-    L.push(`*WhatsApp:* se mandó a ${w.enviados || 0} · les llegó a ${w.llegaron || 0} (${pct(w.llegaron, w.enviados)}) · lo leyeron ${w.leyeron || 0} (${pct(w.leyeron, w.llegaron)}) · fallaron ${w.fallaron || 0}`);
+    L.push(soloCorreo ? `*A quién:* ${li.con_correo || 0} mayoristas del ERP con correo. Fuera por bloqueo en el ERP: ${c.bloqueados || 0}` : `*A quién:* ${li.clientes || al.total || 0} mayoristas del ERP (${li.con_celular || 0} con celular, ${li.con_correo || 0} con correo). Fuera por bloqueo en el ERP: ${c.bloqueados || 0}`);
+    if (!soloCorreo) L.push(`*Alcance:* les llegó a ${(al.whatsapp || 0) + (al.solo_correo || 0)} de ${al.total || 0}: ${al.whatsapp || 0} por WhatsApp, ${al.solo_correo || 0} solo por correo, ${al.ninguno || 0} por ningún lado`);
+    if (!soloCorreo) L.push(`*WhatsApp:* se mandó a ${w.enviados || 0} · les llegó a ${w.llegaron || 0} (${pct(w.llegaron, w.enviados)}) · lo leyeron ${w.leyeron || 0} (${pct(w.leyeron, w.llegaron)}) · fallaron ${w.fallaron || 0}`);
     const nl = (c.no_llego || []).map(([m, k]) => `   - ${m}: ${k}`);
     if (nl.length) L.push('*Por qué no les llegó el WhatsApp:*', ...nl);
     if (co.enviados || co.lista) L.push(`*Correo:* ${co.enviados || 0} enviados${co.pendientes ? ` (${co.pendientes} sin mandar)` : ''} · lo abrieron ${co.abrieron || 0} (${pct(co.abrieron, co.enviados)}) · tocaron el botón ${co.tocaron || 0}${co.fallaron ? ` · fallaron ${co.fallaron}` : ''}`);
-    L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó el WhatsApp)`);
+    if (!soloCorreo) L.push(`*Respondieron:* ${resp} (${pct(resp, w.llegaron)} de los que les llegó el WhatsApp)`);
     for (const [k, m] of Object.entries(R).filter(([k]) => k !== 'Sin respuesta').sort((a, b) => b[1] - a[1])) L.push(`   - ${k}: ${m}`);
-    L.push(`*Conversaron con Sofía:* ${c.conversando || 0} · siguen conversando (últimas 72 h): ${c.conversando_ahora || 0} · pidieron no recibir más: ${c.bajas || 0}`);
+    if (!soloCorreo) L.push(`*Conversaron con Sofía:* ${c.conversando || 0} · siguen conversando (últimas 72 h): ${c.conversando_ahora || 0} · pidieron no recibir más: ${c.bajas || 0}`);
     const det = (v.detalle || []).map(o => `   - ${cpSeguro(o) ? '' : '_(POSIBLE)_ '}${o.cliente}: ${o.unidades} prendas, ${plata(o.valor)} neto · ${dia(o.fecha)} · ${o.via}${cpSeguro(o) ? '' : ` · ${o.por_que || 'pedido del vendedor: no se sabe si fue por la campaña'}`}${o.promo === 0 ? ' · compró otros modelos, no los de la oferta' : o.promo ? ` · ${o.promo} prendas en oferta` : ''}`);
     const det2 = [];
     for (const [k, o] of (v.detalle || []).entries()) { det2.push(det[k]); for (const l of (o.lineas || [])) det2.push(`      · ${l.codigo}: ${l.unidades} u × ${plata(l.precio)} = ${plata(l.subtotal)}${cpTallas(l.tallas) ? ` (${cpTallas(l.tallas)})` : ''}`); }
@@ -5119,18 +5310,134 @@ function cpTexto() {
    cada venta de las campañas con su detalle (lo arman los reportes: lineas de quote_items o del pedido del ERP) */
 function cpTallas(t) { return Object.entries(t || {}).filter(([, n]) => n).map(([k, n]) => `${k}: ${n}`).join(' · '); }
 function cpCompras(xs, conCampana) {
+  /* 02-11 (Manu: "las tallas cuando se seleccione el cliente, si no vamos a llenar de datos la tabla"): una fila por pedido;
+     al tocarla se abren sus artículos con tallas. Al lado, el Excel del pedido y su conversación con Sofía */
   const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-CL');
   if (!xs.length) return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>todavía nadie</span></div></section>`;
-  const filas = xs.slice().sort((a, b) => (b.valor || 0) - (a.valor || 0)).map(o => {
+  const cols = conCampana ? 7 : 6;
+  const filas = xs.slice().sort((a, b) => (cpSeguro(b) - cpSeguro(a)) || ((b.valor || 0) - (a.valor || 0))).map((o, i) => {
     const camp = conCampana ? ((CAMPANAS.find(x => x.id === o.campana) || {}).nombre || '') : '';
-    const lin = (o.lineas || []).map(l => `<tr class="cp-lin"><td style="padding-left:22px">${cvEsc(l.codigo)}</td><td colspan="${conCampana ? 3 : 2}" class="td-dim">${cvEsc(cpTallas(l.tallas) || 'sin tallas en el ERP')}</td><td class="hw-num">${fmt(l.unidades)}</td><td class="hw-num td-dim">${plata(l.precio)}</td><td class="hw-num">${plata(l.subtotal)}</td></tr>`).join('');
     const pos = !cpSeguro(o);
-    return `<tr${pos ? ' style="background:rgba(183,121,31,.06)"' : ''}><td><b>${cvEsc(o.cliente)}</b>${o.ref ? ` <span class="td-dim">#${cvEsc(o.ref)}</span>` : ''}${pos ? `<br><span class="cv-tag" style="background:rgba(183,121,31,.15);color:#b7791f">Posible</span> <span class="td-dim">${cvEsc(o.por_que || 'pedido del vendedor: no se sabe si fue por la campaña')}</span>` : '<br><span class="cv-tag" style="background:rgba(16,185,129,.12);color:var(--ok)">Confirmado</span>'}</td>${conCampana ? `<td>${cvEsc(camp)}</td>` : ''}<td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via || '')}${o.promo === 0 ? '<br><span class="td-dim">compró otros modelos, no los de la oferta</span>' : o.promo ? `<br><span class="td-dim">${fmt(o.promo)} prendas en oferta</span>` : ''}</td><td class="hw-num"><b>${fmt(o.unidades)}</b></td><td></td><td class="hw-num"><b>${plata(o.valor)}</b></td></tr>${lin}`;
+    const excel = o.quote_id ? `<button class="cv-fbtn" data-cpexcel="${cvEsc(o.quote_id)}">📥 Excel</button>`
+      : (o.pedidos_erp || (o.ref && /^\d+$/.test(o.ref) ? [o.ref] : [])).map(n => `<button class="cv-fbtn" data-cpexcelerp="${cvEsc(n)}">📥 Excel ${cvEsc(n)}</button>`).join(' ');
+    const lin = (o.lineas || []).map(l => `<tr><td>${cvEsc(l.codigo)}</td><td class="td-dim">${cvEsc(cpTallas(l.tallas) || 'sin tallas en el ERP')}</td><td class="hw-num">${fmt(l.unidades)}</td><td class="hw-num td-dim">${plata(l.precio)}</td><td class="hw-num">${plata(l.subtotal)}</td></tr>`).join('');
+    return `<tr data-cpfila="${i}" style="cursor:pointer${pos ? ';background:rgba(183,121,31,.06)' : ''}" title="Toca para ver los artículos y sus tallas"><td><span class="cp-flecha">▸</span> <b>${cvEsc(o.cliente)}</b>${o.ref ? ` <span class="td-dim">#${cvEsc(o.ref)}</span>` : ''}<br>${pos ? `<span class="cv-tag" style="background:rgba(183,121,31,.15);color:#b7791f">Posible</span> <span class="td-dim">${cvEsc(o.por_que || 'pedido del vendedor: no se sabe si fue por la campaña')}</span>` : '<span class="cv-tag" style="background:rgba(16,185,129,.12);color:var(--ok)">Confirmado</span>'}</td>${conCampana ? `<td>${cvEsc(camp)}</td>` : ''}<td>${cvEsc(cvHora(o.fecha))}</td><td>${cvEsc(o.via || '')}${o.promo === 0 ? '<br><span class="td-dim">compró otros modelos, no los de la oferta</span>' : o.promo ? `<br><span class="td-dim">${fmt(o.promo)} prendas en oferta</span>` : ''}</td><td class="hw-num"><b>${fmt(o.unidades)}</b></td><td class="hw-num"><b>${plata(o.valor)}</b></td><td style="white-space:nowrap">${excel} ${cpVerConv(o.lead)}</td></tr>
+      <tr data-cpdet="${i}" style="display:none"><td colspan="${cols}" style="padding:4px 10px 12px 28px;background:var(--bg2,rgba(0,0,0,.02))">${lin ? `<table class="hw-tabla" style="margin:0"><tr><th>Artículo</th><th>Tallas</th><th class="hw-num">Prendas</th><th class="hw-num">Precio neto</th><th class="hw-num">Subtotal</th></tr>${lin}</table>` : '<span class="td-dim">El detalle de artículos aparece con la próxima actualización del reporte.</span>'}</td></tr>`;
   }).join('');
-  const seg = xs.filter(cpSeguro), pos = xs.filter(o => !cpSeguro(o)), tot = (ys) => ys.reduce((t, o) => t + Number(o.valor || 0), 0);
-  return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>confirmado: ${fmt(seg.length)} ${seg.length === 1 ? 'pedido' : 'pedidos'} · ${plata(tot(seg))} neto${pos.length ? ` · posible: ${fmt(pos.length)} · ${plata(tot(pos))}` : ''}</span></div>
-    <div class="hw-col"><table class="hw-tabla"><tr><th>Cliente</th>${conCampana ? '<th>Campaña</th>' : ''}<th>Fecha</th><th>Por dónde</th><th class="hw-num">Prendas</th><th class="hw-num">Precio</th><th class="hw-num">Monto neto</th></tr>${filas}</table>
-    <div class="hw-pie">Debajo de cada cliente, cada artículo con sus tallas, unidades, precio neto y subtotal. Pedidos de Sofía o de la página: precio de lista con la promoción a la fecha del pedido; del ERP: el precio del pedido. Las tallas de algunos pedidos del ERP no vienen en el BI. <b>Confirmado</b>: lo pidió con Sofía después del aviso o compró los modelos en oferta. <b>Posible</b>: lo ingresó un vendedor y el cliente había respondido el aviso; puede ser por la campaña o no, y no suma al monto confirmado.</div></div></section>`;
+  const seg = xs.filter(cpSeguro), posi = xs.filter(o => !cpSeguro(o)), tot = (ys) => ys.reduce((t, o) => t + Number(o.valor || 0), 0);
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>confirmado: ${fmt(seg.length)} · ${plata(tot(seg))}${posi.length ? ` · posible: ${fmt(posi.length)} · ${plata(tot(posi))} · <b>total con posibles: ${plata(tot(xs))}</b>` : ''} · neto</span></div>
+    <div class="hw-col"><table class="hw-tabla"><tr><th>Cliente</th>${conCampana ? '<th>Campaña</th>' : ''}<th>Fecha</th><th>Por dónde</th><th class="hw-num">Prendas</th><th class="hw-num">Monto neto</th><th></th></tr>${filas}</table>
+    <div class="hw-pie">Toca un cliente para ver sus artículos con tallas, unidades y precio. 📥 Excel baja la planilla del pedido (no lo marca como listo). <b>Confirmado</b>: lo pidió con Sofía después del aviso o compró los modelos en oferta. <b>Posible</b>: lo ingresó un vendedor y el cliente había respondido el aviso; puede ser por la campaña o no, y no suma al monto confirmado.</div></div></section>`;
+}
+/* 02-11 (Manu: "¿dónde podríamos ver las conversaciones que tuvieron con Sofía?"): quienes respondieron el aviso, con un
+   botón que abre su chat completo en Atención → Conversaciones */
+function cpVerConv(lead) { return lead ? `<button class="cv-fbtn" data-cpconv="${cvEsc(lead)}" style="white-space:nowrap">Ver conversación</button>` : ''; }
+function cpConversaciones(xs, conCampana) {
+  if (!xs.length) return '';
+  const filas = xs.map(o => `<tr><td><b>${cvEsc(o.cliente)}</b>${o.compro ? ' <span class="cv-tag" style="background:rgba(16,185,129,.12);color:var(--ok)">Compró</span>' : o.vendedor ? ' <span class="cv-tag" style="background:rgba(183,121,31,.15);color:#b7791f">Pidió con vendedor</span>' : ''}${o.texto ? `<br><span class="td-dim">“${cvEsc(o.texto)}”</span>` : ''}</td>${conCampana ? `<td>${cvEsc(o.campana || '')}</td>` : ''}<td>${cvEsc(o.respondio || '')}</td><td>${cvEsc(cvHora(o.ultimo))}</td><td class="hw-num">${o.mensajes == null ? '—' : fmt(o.mensajes)}</td><td>${cpVerConv(o.lead)}</td></tr>`).join('');
+  return `<section class="ra-bloque"><div class="ra-bt"><h3>Conversaciones con Sofía</h3><span>${fmt(xs.length)} ${xs.length === 1 ? 'mayorista respondió' : 'mayoristas respondieron'} el aviso · lo más reciente primero</span></div>
+    <div class="hw-col"><table class="hw-tabla"><tr><th>Cliente</th>${conCampana ? '<th>Campaña</th>' : ''}<th>Qué respondió primero</th><th>Último mensaje suyo</th><th class="hw-num">Mensajes</th><th></th></tr>${filas}</table>
+    <div class="hw-pie">"Ver conversación" abre el chat completo con Sofía en Atención → Conversaciones, donde también se puede responder.</div></div></section>`;
+}
+/* 02-11 (Tamara, Marketing: "¿hay manera de ver los que apretaron 'No recibir más'? ese dato nos sirve harto… o los que
+   ignoran"): cliente por cliente, juntando las campañas (por_cliente de cada reporte) */
+let CP_BAJAS_TXT = '', CP_BAJAS_DATOS = null;
+/* 02-11 (Manu: "está muy mal organizado el copiar esa lista, se ve muy desordenada cuando la pego en un chat"): el texto para
+   WhatsApp, por grupos y una línea por cliente, ordenado por lo que compra en el año; con el motivo anotado si hay */
+async function cpTextoBajas() {
+  const D = CP_BAJAS_DATOS; if (!D) return '';
+  if (!CP_MOTIVOS) { const r = await cvFetch('?motivos=1'); CP_MOTIVOS = (r && r.motivos) || {}; }
+  const rN = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, '').replace(/^0+/, '');
+  const dm = t => t ? String(t).slice(8, 10) + '-' + String(t).slice(5, 7) + (String(t).slice(0, 4) !== String(new Date().getFullYear()) ? '-' + String(t).slice(0, 4) : '') : '';
+  const cap = t => String(t || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+  const plata = n => n >= 1e6 ? '$' + (Math.round(n / 1e5) / 10).toLocaleString('es-CL') + ' M' : '$' + Math.round(n || 0).toLocaleString('es-CL');
+  const porCompra = (a, b) => (b.compras_12m || 0) - (a.compras_12m || 0);
+  const linea = x => {
+    const partes = [x.ciudad ? `(${cap(x.ciudad)})` : '', x.compras_12m ? `${plata(x.compras_12m)} al año` : '', x.ultima_compra ? `última compra ${dm(x.ultima_compra)}` : 'sin compras en el año', x.vendedor ? cap(x.vendedor) : ''].filter(Boolean);
+    const mo = CP_MOTIVOS[rN(x.rut)];
+    return `• *${x.cliente}* ${partes.join(' · ')}` + (mo ? `\n   Motivo: ${String(mo.texto).replace(/^[^·]*·\s*/, '')}` : '');
+  };
+  const hace45 = new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10);
+  const lejos = D.ign.filter(x => !x.ultima_compra || x.ultima_compra < hace45).sort(porCompra);
+  const cerca = D.ign.filter(x => x.ultima_compra && x.ultima_compra >= hace45).sort(porCompra);
+  const lista = (xs, max) => xs.slice(0, max).map(linea).concat(xs.length > max ? [`   …y ${xs.length - max} más en el dashboard`] : []);
+  const hoy = new Date();
+  const L = [`*Clientes que no responden las campañas*`, `al ${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getMonth() + 1).padStart(2, '0')} · ${D.campanas.join(' + ')}`, ''];
+  if (D.bajas.length) L.push(`*1. Pidieron "No recibir más"* (${D.bajas.length})`, `Ya no se les escribe por WhatsApp: que los llame su vendedor.`, ...lista([...D.bajas].sort(porCompra), 20), '');
+  if (lejos.length) L.push(`*2. No responden y llevan más de 45 días sin comprar* (${lejos.length})`, `Los que más preocupan: revisar a quién le compran.`, ...lista(lejos, 15), '');
+  if (cerca.length) L.push(`*3. No responden a Sofía, pero compraron en los últimos 45 días* (${cerca.length})`, `No se fueron: le compran a su vendedor.`, ...lista(cerca, 15), '');
+  L.push(`Detalle y para anotar el motivo: dashboard de Adecom → Atención → Campañas.`);
+  return L.join('\n');
+}
+function cpBajasIgnoran(ids) {
+  const fecha = t => t ? String(t).slice(0, 10).split('-').reverse().join('-') : '—';
+  const por = new Map();
+  for (const id of ids) {
+    const nom = (CAMPANAS.find(x => x.id === id) || {}).nombre || id;
+    for (const c of ((CP_DATA[id] || {}).por_cliente || [])) {
+      const k = String(c.rut || c.cliente);
+      const x = por.get(k) || { ...c, campanas: [], leyo: false, respondio: '', baja: false, compro: false };
+      x.campanas.push(nom); if (c.wa === 'Lo leyó') x.leyo = true; if (c.respondio) x.respondio = c.respondio;
+      if (c.baja) { x.baja = true; x.baja_en = c.baja_en; x.baja_campana = nom; }
+      if (c.compro) x.compro = true;
+      por.set(k, x);
+    }
+  }
+  const xs = [...por.values()];
+  const bajas = xs.filter(x => x.baja).sort((a, b) => String(b.baja_en).localeCompare(String(a.baja_en)));
+  const ign = xs.filter(x => !x.baja && !x.respondio && !x.compro && x.wa !== 'No le llegó')
+    .sort((a, b) => b.campanas.length - a.campanas.length || (b.leyo - a.leyo) || String(b.ultima_compra).localeCompare(String(a.ultima_compra)));
+  const leyeron = ign.filter(x => x.leyo), noAbrieron = ign.filter(x => !x.leyo);
+  CP_BAJAS_DATOS = { bajas, ign, campanas: ids.map(id => (CAMPANAS.find(x => x.id === id) || {}).nombre || id) };
+  const fila = (x, extra) => `<tr><td><b>${cvEsc(x.cliente)}</b></td><td>${cvEsc(x.ciudad || '—')}</td>${extra}<td>${fecha(x.ultima_compra)}</td><td class="td-dim">${cvEsc(x.vendedor || '—')}</td><td>${cpVerConv(x.lead)}</td></tr>`;
+  const tabla = (titulo, sub, cab, filas) => `<section class="ra-bloque"><div class="ra-bt"><h3>${titulo}</h3><span>${sub}</span></div><div class="hw-col">${filas.length ? `<table class="hw-tabla"><tr><th>Cliente (ERP)</th><th>Ciudad</th>${cab}<th>Última compra</th><th>Vendedor</th><th></th></tr>${filas.join('')}</table>` : '<div class="td-dim">Nadie por ahora.</div>'}</div></section>`;
+  const txt = (titulo, ys, f) => ys.length ? [titulo, ...ys.map(f)].join('\n') : '';
+  CP_BAJAS_TXT = [txt('PIDIERON NO RECIBIR MÁS', bajas, x => `${x.cliente} · ${x.ciudad || '—'} · ${x.baja_campana} ${fecha(x.baja_en)} · última compra ${fecha(x.ultima_compra)} · ${x.vendedor || '—'}`),
+    txt('LO LEYERON Y NO RESPONDIERON', leyeron, x => `${x.cliente} · ${x.ciudad || '—'} · ${x.campanas.length} ${x.campanas.length === 1 ? 'campaña' : 'campañas'} · última compra ${fecha(x.ultima_compra)} · ${x.vendedor || '—'}`),
+    txt('LES LLEGÓ Y NO LO ABRIERON', noAbrieron, x => `${x.cliente} · ${x.ciudad || '—'} · ${x.campanas.length} ${x.campanas.length === 1 ? 'campaña' : 'campañas'} · última compra ${fecha(x.ultima_compra)} · ${x.vendedor || '—'}`)].filter(Boolean).join('\n\n');
+  if (!xs.length) return '';
+  return `<div class="hw-hd" style="margin-top:18px"><h3>Bajas y los que no responden</h3><span class="td-dim">${fmt(bajas.length)} pidieron no recibir más · ${fmt(leyeron.length)} lo leyeron y no respondieron · ${fmt(noAbrieron.length)} no lo abrieron · <button class="cv-fbtn" data-cpbajas>📋 Copiar las listas</button></span></div>`
+    + tabla('Pidieron "No recibir más"', 'no se les vuelve a escribir por WhatsApp; conviene que los llame su vendedor para saber por qué', '<th>Campaña</th><th>Cuándo</th>', bajas.map(x => fila(x, `<td>${cvEsc(x.baja_campana)}</td><td>${fecha(x.baja_en)}</td>`)))
+    + tabla('Lo leyeron y no respondieron', 'ordenados por cuántas campañas seguidas ignoraron: para que los llame un vendedor', '<th class="hw-num">Campañas</th>', leyeron.map(x => fila(x, `<td class="hw-num">${fmt(x.campanas.length)}</td>`)))
+    + tabla('Les llegó y no lo abrieron', 'probablemente no miran ese WhatsApp: probar por correo o una llamada', '<th class="hw-num">Campañas</th>', noAbrieron.map(x => fila(x, `<td class="hw-num">${fmt(x.campanas.length)}</td>`)));
+}
+/* 02-11 (Manu: "no se desglosa cuando lo aprieto; la idea es saber qué nombre tienen y a qué competencia se fueron"):
+   tocar "no recibir más", "lo leyeron", "respondieron" o una barra de "Qué respondieron" abre la lista con los nombres, lo que
+   escribieron y un campo para anotar el motivo o a quién le compran (se guarda en el CRM: crm_interacciones_v2) */
+let CP_MOTIVOS = null;
+async function cpVerLista(tipo) {
+  const ids = typeof CP_SEL !== 'undefined' && CP_SEL && CP_SEL !== 'todas' && CP_DATA[CP_SEL] ? [CP_SEL] : CAMPANAS.map(x => x.id);
+  const filas = [];
+  for (const id of ids) { const nom = (CAMPANAS.find(x => x.id === id) || {}).nombre || id; for (const c of ((CP_DATA[id] || {}).por_cliente || [])) filas.push({ ...c, campana: nom }); }
+  if (!filas.length) return alert('Abre Atención → Campañas y espera a que el reporte se recalcule para ver la lista.');
+  const sel = filas.filter(c => tipo === 'bajas' ? c.baja : tipo === 'leyeron' ? (c.wa === 'Lo leyó' && !c.respondio && !c.baja) : tipo === 'noabrieron' ? (c.wa !== 'Lo leyó' && !c.respondio && !c.baja)
+    : tipo === 'respondieron' ? (c.respondio && !c.baja) : tipo.startsWith('resp:') ? (tipo === 'resp:Sin respuesta' ? (!c.respondio && !c.baja) : c.respondio === tipo.slice(5)) : false);
+  const titulo = { bajas: 'Pidieron "No recibir más"', leyeron: 'Lo leyeron y no respondieron', noabrieron: 'Les llegó y no lo abrieron', respondieron: 'Respondieron' }[tipo] || `Respondieron "${tipo.slice(5)}"`;
+  if (!CP_MOTIVOS) { const r = await cvFetch('?motivos=1'); CP_MOTIVOS = (r && r.motivos) || {}; }
+  const rN = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, '').replace(/^0+/, '');
+  const fecha = t => t ? String(t).slice(0, 10).split('-').reverse().join('-') : '—';
+  const html = sel.sort((a, b) => String(b.ultima_compra).localeCompare(String(a.ultima_compra))).map((c, i) => { const mo = CP_MOTIVOS[rN(c.rut)];
+    return `<tr><td><b>${cvEsc(c.cliente)}</b><div class="td-dim">${cvEsc(c.ciudad || '—')} · ${cvEsc(c.vendedor || 'sin vendedor')} · última compra ${fecha(c.ultima_compra)}</div></td>
+      <td>${cvEsc(c.campana)}${c.baja_en ? `<div class="td-dim">${fecha(c.baja_en)}</div>` : ''}</td><td>${c.texto ? `“${cvEsc(c.texto)}”` : `<span class="td-dim">${cvEsc(c.respondio || (c.wa === 'Lo leyó' ? 'Lo leyó, no escribió' : c.wa || '—'))}</span>`}</td>
+      <td style="min-width:230px">${mo ? `<div style="font-size:12px;margin-bottom:4px">${cvEsc(mo.texto)} <span class="td-dim">${fecha(mo.fecha)}</span></div>` : ''}<div style="display:flex;gap:4px"><input class="finput" style="font-size:12px;padding:4px 6px" placeholder="Motivo o a quién le compra" data-cpmot="${i}"><button class="cv-fbtn" data-cpmotg="${i}">Guardar</button></div></td>
+      <td>${cpVerConv(c.lead)}</td></tr>`; }).join('');
+  document.getElementById('cpModal')?.remove();
+  const m = document.createElement('div'); m.id = 'cpModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
+  m.innerHTML = `<div style="background:var(--sf);border-radius:14px;max-width:1100px;width:100%;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><h3 style="margin:0">${cvEsc(titulo)} <span class="td-dim" style="font-size:14px">${fmt(sel.length)}</span></h3><button class="cv-fbtn" data-cpcerrar>Cerrar ✕</button></div>
+    <div class="td-dim" style="margin-bottom:10px">A quién le compran no lo registra Nexor ni el ERP: si lo dijeron, sale en lo que escribieron; si no, pregúntalo al llamar y anótalo acá (queda guardado para todos).</div>
+    ${sel.length ? `<div class="hw-col"><table class="hw-tabla"><tr><th>Cliente (ERP)</th><th>Campaña</th><th>Lo que escribió</th><th>Motivo / a quién le compra</th><th></th></tr>${html}</table></div>` : '<div class="td-dim">Nadie en esta lista.</div>'}</div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-cpcerrar]')) m.remove(); });
+  m.querySelectorAll('[data-cpconv]').forEach(b => b.addEventListener('click', () => { m.remove(); CV_SEL = b.dataset.cpconv; go('conversaciones', 'Conversaciones'); }));
+  m.querySelectorAll('[data-cpmotg]').forEach(b => b.addEventListener('click', async () => {
+    const i = +b.dataset.cpmotg, inp = m.querySelector(`[data-cpmot="${i}"]`), c = sel[i];
+    if (!inp.value.trim()) return;
+    const r = await cvFetch('', { accion: 'motivo', rut: c.rut, nota: inp.value.trim() });
+    if (!r.ok) return alert(r.mensaje || 'No se pudo');
+    CP_MOTIVOS[rN(c.rut)] = { texto: inp.value.trim(), fecha: new Date().toISOString() }; b.textContent = '✔'; inp.disabled = true;
+  }));
 }
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
@@ -5140,8 +5447,14 @@ function cpRender() {
   const notaPromo = (id) => { const xs = (A[id] && A[id].detalle) || []; if (!xs.length || !xs.some(o => o.promo != null)) return '';
     const con = xs.filter(o => o.promo > 0).length, sin = xs.length - con;
     return `<br>${con ? `${fmt(con)} con los modelos en oferta` : ''}${con && sin ? ' · ' : ''}${sin ? `${fmt(sin)} ${sin === 1 ? 'entró' : 'entraron'} por el aviso y ${sin === 1 ? 'compró' : 'compraron'} otros modelos` : ''}`; };
-  const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo} <span class="td-dim" style="font-weight:400">confirmado</span></div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'sin ventas confirmadas'}${v && v.posible && v.posible.pedidos ? `<br><b style="color:var(--warn,#b7791f)">+ ${fmtM(v.posible.valor)} posible</b> · ${fmt(v.posible.pedidos)} ${v.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor, no se sabe si fue por la campaña` : ''}${extra || ''}</div></div>`;
-  const tarjetas = `<div class="ra-ks" style="grid-template-columns:repeat(${CAMPANAS.length + 1},minmax(0,1fr));margin-bottom:14px">
+  const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo} <span class="td-dim" style="font-weight:400">confirmado</span></div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'sin ventas confirmadas'}${v && v.posible && v.posible.pedidos ? `<br><b style="color:var(--warn,#b7791f)">+ ${fmtM(v.posible.valor)} posible</b> · ${fmt(v.posible.pedidos)} ${v.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor, no se sabe si fue por la campaña<br><b>Total con posibles: ${fmtM(v.valor + v.posible.valor)}</b>` : ''}${extra || ''}</div></div>`;
+  /* 02-11 (Manu: "también un total entre posibles y venta confirmada"): la cuarta tarjeta, en grande */
+  const P = A.total.posible || { valor: 0, pedidos: 0 };
+  /* en grande y arriba (Manu: "debería ser una tarjeta en grande para saber cuál es el total") */
+  const tarjetaSuma = `<div class="ra-k" data-cptab="todas" style="cursor:pointer;margin-bottom:14px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:20px 24px">
+    <div><div class="ra-t" style="font-size:14px">Total de las campañas · confirmado + posible</div><div class="ra-n" style="font-size:44px;line-height:1.1;color:var(--ok)">${fmtM((A.total.valor || 0) + (P.valor || 0))}</div><div class="ra-s">${fmt((A.total.pedidos || 0) + (P.pedidos || 0))} pedidos · ${fmt((A.total.unidades || 0) + (P.unidades || 0))} prendas · neto</div></div>
+    <div style="font-size:15px;line-height:1.7"><div><b style="color:var(--ok)">${fmtM(A.total.valor || 0)}</b> confirmado <span class="td-dim">· pedidos con Sofía después del aviso o de los modelos en oferta</span></div><div><b style="color:#b7791f">${fmtM(P.valor || 0)}</b> posible <span class="td-dim">· pedidos del vendedor de clientes que respondieron el aviso: pueden ser por la campaña o no</span></div></div></div>`;
+  const tarjetas = `${tarjetaSuma}<div class="ra-ks" style="grid-template-columns:repeat(${CAMPANAS.length + 1},minmax(0,1fr));margin-bottom:14px">
     ${CAMPANAS.map(x => tarjeta(cvEsc(x.nombre), A[x.id], notaPromo(x.id), x.id)).join('')}
     ${tarjeta('Total de las campañas', A.total, '<br>neto · por Sofía, la página o después de responder el aviso', 'todas')}</div>`;
   const CPD = Object.fromEntries(CAMPANAS.map(x => [x.id, cpConVentas(CP_DATA[x.id], A[x.id])]));
@@ -5154,10 +5467,12 @@ function cpRender() {
       <div class="hw-col"><table class="hw-tabla"><tr><th>Campaña</th><th>Salió</th><th class="hw-num">WhatsApp</th><th class="hw-num">Les llegó</th><th class="hw-num">Lo leyeron</th><th class="hw-num">Respondieron</th><th class="hw-num">No recibir más</th><th class="hw-num">Correos</th><th class="hw-num">Abrieron</th><th class="hw-num">Compraron</th></tr>
       ${filas.map(f => `<tr data-cpsel="${f.id}" style="cursor:pointer"><td><b>${cvEsc(f.nombre)}</b></td><td>${cvEsc(cvHora(f.r.desde))}</td><td class="hw-num">${fmt(f.r.wa)}</td><td class="hw-num">${pct(f.r.llego, f.r.wa)}</td><td class="hw-num">${pct(f.r.leyeron, f.r.llego)}</td><td class="hw-num">${fmt(f.r.resp)} <span class="td-dim">${pct(f.r.resp, f.r.llego)}</span></td><td class="hw-num">${fmt(f.r.bajas)}</td><td class="hw-num">${fmt(f.r.correos)}</td><td class="hw-num">${pct(f.r.abrieron, f.r.correos)}</td><td class="hw-num">${fmt(f.r.compraron)}${f.r.monto ? ` <span class="td-dim">${fmtM(f.r.monto)}</span>` : ''}</td></tr>`).join('')}
       </table><div class="hw-pie">Les llegó: sobre los WhatsApp mandados · lo leyeron y respondieron: sobre los que les llegó · abrieron: sobre los correos enviados · compraron: por Sofía, la página o después de responder el aviso (los pedidos que el vendedor ingresa directo al ERP van aparte). Toca una campaña para ver su detalle.</div></div></section>` : '';
-    det = cpCompras(A.total.detalle || [], true) + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
+    const extraBI = () => cpBajasIgnoran(CAMPANAS.map(x => x.id));
+    const convs = CAMPANAS.flatMap(x => ((CP_DATA[x.id] || {}).conversaciones || []).map(o => ({ ...o, campana: x.nombre }))).sort((a, b) => String(b.ultimo).localeCompare(String(a.ultimo)));
+    det = cpCompras(A.total.detalle || [], true) + cpConversaciones(convs, true) + extraBI() + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
   } else {
     RA_CAMP = CPD[CP_SEL] && CPD[CP_SEL].ok ? CPD[CP_SEL] : null;
-    det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
+    det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + cpConversaciones((CP_DATA[CP_SEL] || {}).conversaciones || [], false) + cpBajasIgnoran([CP_SEL]) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
   }
   return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${tabs}<div id="cpDet">${det}</div>`;
 }
@@ -5179,6 +5494,27 @@ function cpMontar() {
     setTimeout(() => { e.target.textContent = '📋 Copiar para WhatsApp'; }, 2500);
   });
   body.querySelector('[data-cpwa]')?.addEventListener('click', () => window.open('https://wa.me/?text=' + encodeURIComponent(cpTexto()), '_blank', 'noopener'));
+  body.querySelector('[data-cpbajas]')?.addEventListener('click', async e => { const t = await cpTextoBajas(); try { await navigator.clipboard.writeText(t); e.target.textContent = '✔ Copiado'; } catch (_) { alert(t); } });
+  /* "Ver conversación": abre Conversaciones con ese chat (la sección abre CV_SEL al armarse) */
+  body.querySelectorAll('[data-cpconv]').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); CV_SEL = b.dataset.cpconv; go('conversaciones', 'Conversaciones'); }));
+  body.querySelectorAll('[data-cpfila]').forEach(r => r.addEventListener('click', () => {
+    const d = body.querySelector(`[data-cpdet="${r.dataset.cpfila}"]`); if (!d) return;
+    const abrir = d.style.display === 'none'; d.style.display = abrir ? '' : 'none';
+    const f = r.querySelector('.cp-flecha'); if (f) f.textContent = abrir ? '▾' : '▸';
+  }));
+  const bajar = async (e, q) => {
+    e.stopPropagation(); const b = e.currentTarget, t0 = b.textContent; b.textContent = 'Armando…'; b.disabled = true;
+    try {
+      const r = await cvFetch(q);
+      if (!r || !r.ok) throw new Error((r && r.mensaje) || 'no se pudo');
+      const bin = atob(r.base64), u8 = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([u8], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); a.download = r.nombre || 'pedido.xlsx';
+      document.body.appendChild(a); a.click(); a.remove(); b.textContent = t0;
+    } catch (err) { b.textContent = 'Error: ' + err.message; setTimeout(() => { b.textContent = t0; }, 3000); }
+    b.disabled = false;
+  };
+  body.querySelectorAll('[data-cpexcel]').forEach(b => b.addEventListener('click', (e) => bajar(e, '?excel=' + encodeURIComponent(b.dataset.cpexcel))));
+  body.querySelectorAll('[data-cpexcelerp]').forEach(b => b.addEventListener('click', (e) => bajar(e, '?excel_erp=' + encodeURIComponent(b.dataset.cpexcelerp))));
   raGraficosCampana();
 }
 
@@ -5213,6 +5549,40 @@ function hwExtras(c) {
   <div class="hw-col"><table class="hw-tabla"><tr><th>Mayorista</th><th class="hw-num">Compró 12 meses</th><th>Correo</th><th>WhatsApp</th><th>Respondió</th><th>Pidió</th></tr>
     ${(c.mejores || []).map(m => `<tr><td><b>${cvEsc(m.nombre || '—')}</b></td><td class="hw-num">${fmtM(m.compras || 0)}</td><td>${chip(m.correo)}</td><td>${chip(m.whatsapp)}</td><td>${chip(m.respondio)}</td><td>${m.pidio ? chip('Pidió la promoción') : m.vendedor ? '<span class="hw-chip" style="color:var(--tx2)">Por vendedor</span>' : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
   </table></div></section>`;
+}
+/* Plantillas de WhatsApp (03-11, Manu: "déjame todas las plantillas que llevamos aprobadas y en qué situación se mandarían"):
+   el estado en Meta sale en vivo de Nexor (conversaciones?plantillas=1); el cuándo y el estado de uso, de USO_PLANTILLAS en
+   conversaciones.js, junto al código que las manda */
+async function secPlantillas() {
+  setTimeout(async () => {
+    const box = document.getElementById('plBody'); if (!box) return;
+    const d = await cvFetch('?plantillas=1').catch(() => null);
+    if (!d || !d.ok) { box.innerHTML = '<div class="td-dim">No pude leer las plantillas de Nexor.</div>'; return; }
+    const GR = ['Seguimiento', 'Campañas', 'Atención', 'Casos de la tienda', 'Llamadas', 'Campañas pasadas', 'No usar', 'Otras'];
+    const COL = { 'en uso': ['#e5f4e4', '#1f7a3d'], 'en prueba': ['#e7f1fb', '#2b5ea8'], 'en simulación': ['#e7f1fb', '#2b5ea8'], 'lista para usar': ['#efedff', '#5141c2'], 'respaldo': ['#f0efec', '#555'], 'apagada': ['#f0efec', '#555'], 'antigua': ['#f0efec', '#777'], 'no usar': ['#fbebeb', '#b42318'], 'sin definir': ['#f9eeda', '#8a5a00'] };
+    const chip = (t, [bg, fg]) => `<span class="cv-tag" style="background:${bg};color:${fg}">${cvEsc(t)}</span>`;
+    const cuerpo = (t) => cvEsc(t).replace(/\{\{(\w+)\}\}/g, '<b style="color:var(--ac)">{$1}</b>').replace(/\n/g, '<br>');
+    const xs = d.plantillas || [];
+    const ap = xs.filter(x => x.estado === 'APPROVED').length;
+    document.getElementById('plN').textContent = `${ap} aprobadas por Meta de ${xs.length} · en vivo desde Nexor`;
+    box.innerHTML = GR.filter(g => xs.some(x => x.grupo === g)).map(g => `<div style="margin:16px 0 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)">${cvEsc(g)}</div>` +
+      xs.filter(x => x.grupo === g).sort((a, b) => a.orden - b.orden).map(x => `
+      <div style="border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--sf)">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">
+          <b style="font-size:14px">${cvEsc(x.nombre)}</b>
+          ${chip(x.estado === 'APPROVED' ? 'Aprobada' : x.estado === 'REJECTED' ? 'Rechazada' : x.estado === 'PENDING' ? 'En revisión' : x.estado, x.estado === 'APPROVED' ? ['#e5f4e4', '#1f7a3d'] : x.estado === 'REJECTED' ? ['#fbebeb', '#b42318'] : ['#f9eeda', '#8a5a00'])}
+          ${chip(x.uso, COL[x.uso] || COL['sin definir'])}
+          <span class="td-dim" style="font-size:11.5px">${cvEsc(x.categoria === 'MARKETING' ? 'Marketing' : x.categoria === 'UTILITY' ? 'Utilidad' : x.categoria || '')}${x.cabecera ? ' · con ' + (x.cabecera === 'IMAGE' ? 'foto' : x.cabecera.toLowerCase()) : ''}</span>
+        </div>
+        <div style="font-size:13px;margin-bottom:8px"><b>Cuándo se manda:</b> ${cvEsc(x.cuando)} <span class="td-dim">· ${cvEsc(x.quien)}</span></div>
+        <div style="background:#e7f7e4;color:#111;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45;max-width:560px">${cuerpo(x.cuerpo)}${x.pie ? `<div style="color:#667;font-size:11.5px;margin-top:6px">${cvEsc(x.pie)}</div>` : ''}</div>
+        ${x.botones.length ? `<div style="margin-top:6px">${x.botones.map(b => `<span class="cv-fbtn" style="cursor:default">${cvEsc(b)}</span>`).join('')}</div>` : ''}
+        ${x.rechazo ? `<div style="color:#b42318;font-size:12px;margin-top:6px">Motivo del rechazo: ${cvEsc(x.rechazo)}</div>` : ''}
+      </div>`).join('')).join('');
+  }, 0);
+  return `<style>.cv-form{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf)}.cv-form-hd{width:100%;display:flex;gap:10px;align-items:center;font-size:15px;font-weight:700;color:var(--tx1);padding:12px 14px}.cv-form-hd .td-dim{font-weight:500;font-size:12.5px}.cv-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}.cv-fbtn{border:1px solid var(--bd);background:var(--sf);border-radius:999px;font:inherit;font-size:11.5px;font-weight:600;padding:3px 10px;color:var(--tx1);display:inline-block;margin:0 4px 4px 0;white-space:nowrap}</style>
+  <div class="cv-form"><div class="cv-form-hd"><span>💬 Plantillas de WhatsApp</span><span id="plN" class="td-dim">cargando…</span></div>
+    <div style="padding:0 14px 14px"><div class="td-dim" style="font-size:12.5px">Las plantillas son los únicos mensajes que se pueden mandar pasadas 24 h desde el último mensaje del cliente. Dentro de las 24 h, Sofía escribe libre (por ejemplo, el aviso cuando faltan 4 horas), sin plantilla. En <b style="color:var(--ac)">{azul}</b> lo que cambia para cada cliente.</div><div id="plBody"></div></div></div>`;
 }
 async function secFormularios() {
   setTimeout(() => cvFormularios(true), 0);
@@ -5560,7 +5930,9 @@ function cvRender(d) {
       <div class="cv-chathd">
         <button class="cv-btn cv-volver" data-cvback="1" title="Volver a la lista">←</button>
         ${cvAvatar(L.nombre, L.agente, L.canal, 40)}
-        <div class="cv-chathd-txt"><b>${cvEsc(L.nombre)}</b>
+        <div class="cv-chathd-txt"><b>${cvEsc(L.nombre)}</b>${(() => { /* 02-11 (Manu): la razón social del ERP al lado del nombre del chat */
+          const rz = String(((d.ofrecer || {}).cliente) || '').trim();
+          return rz && rz.toUpperCase() !== String(L.nombre || '').trim().toUpperCase() ? ` <span class="td-dim" style="font-weight:500">(${cvEsc(rz)})</span>` : ''; })()}
           <div class="cv-chathd-meta">${cvIcono(L.canal, 12)} ${L.canal === 'instagram' ? 'Instagram' : 'WhatsApp'}${L.celular ? ' · ' + cvEsc(L.celular) : ''} · ${ag}</div>
           <div class="cv-chathd-meta">${estado}</div></div>
         <div class="cv-btns">
@@ -10394,6 +10766,7 @@ const SECS = {
   'conversaciones': () => secConversaciones(),
   'reporte-atencion': () => secReporteAtencion(),
   'formularios-atencion': () => secFormularios(),
+  'plantillas-atencion': () => secPlantillas(),
   'campanas-atencion': () => secCampanas(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
@@ -13476,6 +13849,15 @@ function bindContent(secId) {
     document.getElementById('cvRecargar')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
     applyCv();
     cvCampana();
+    document.querySelectorAll('#cvVista [data-cvvista]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#cvVista .seg').forEach(x => x.classList.toggle('on', x === b));
+      const v = b.dataset.cvvista, lista = v === 'lista';
+      const app = document.getElementById('cvApp'), tab = document.getElementById('cvTablero');
+      if (lista) cvTPanel(false);
+      if (app) app.style.display = lista ? '' : 'none';
+      if (tab) tab.style.display = lista ? 'none' : '';
+      if (!lista) cvTablero(v);
+    }));
     if (CV_SEL) cvAbrir(CV_SEL);   // al volver a armar la lista (después de tomar o devolver) sigue abierta la misma
     /* mientras la sección esté abierta (28-10, Manu: "se demora mucho en mostrar los mensajes"): cada 4 s una consulta liviana
        mira si llegó o se leyó un mensaje y, solo entonces, se recarga la conversación; además, todo cada 60 s. No se recarga
