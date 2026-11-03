@@ -4549,10 +4549,10 @@ function cvTPanel(abrir) {
 function cvTFiltrar(T) {
   const q = (document.getElementById('cvTq')?.value || '').trim().toLowerCase();
   const tag = document.getElementById('cvTtag')?.value || '', resp = document.getElementById('cvTresp')?.value || '';
-  const canal = document.getElementById('cvTcanal')?.value || '', paus = document.getElementById('cvTpaus')?.checked, erp = document.getElementById('cvTerp')?.checked, comp = document.getElementById('cvTcomp')?.checked;
+  const canal = document.getElementById('cvTcanal')?.value || '', paus = document.getElementById('cvTpaus')?.checked, erp = document.getElementById('cvTerp')?.checked, comp = document.getElementById('cvTcomp')?.checked, recf = document.getElementById('cvTrecf')?.checked;
   return T.leads.filter(l => (!q || [l.nombre, l.razon, l.celular, ...Object.values(l.campos || {}), ...(l.tags || [])].join(' ').toLowerCase().includes(q))
     && (!tag || (l.tags || []).includes(tag)) && (!resp || (resp === '-' ? !l.asignado_id : l.asignado_id === resp))
-    && (!canal || l.canal === canal) && (!paus || l.pausada) && (!erp || l.erp) && (!comp || l.compro || l.pidio_vendedor));
+    && (!canal || l.canal === canal) && (!paus || l.pausada) && (!erp || l.erp) && (!comp || l.compro || l.pidio_vendedor) && (!recf || (l.recordatorios || []).length));
 }
 function cvTCard(l, T) {
   const campos = Object.values(l.campos || {}).filter(v => v && !/^(no_llamar|si|no)$/i.test(v));
@@ -4563,7 +4563,8 @@ function cvTCard(l, T) {
     ${l.compro || l.pidio_vendedor || l.bloqueado ? `<div class="cv-tchips">${l.compro ? `<span class="cv-tchip" style="background:rgba(16,185,129,.14);color:var(--ok)" title="Pedido por Sofía o la página">🛒 Compró ${fmt(l.compro.unidades)} u · ${cvEsc(String(l.compro.fecha).slice(8, 10) + '-' + String(l.compro.fecha).slice(5, 7))}</span>` : ''}${l.pidio_vendedor ? `<span class="cv-tchip" style="background:rgba(183,121,31,.15);color:#b7791f" title="Pedido que ingresó ${cvEsc(l.pidio_vendedor.vendedor || 'el vendedor')} al ERP">Pidió al vendedor ${fmt(l.pidio_vendedor.u)} u · ${cvEsc(String(l.pidio_vendedor.fecha).slice(8, 10) + '-' + String(l.pidio_vendedor.fecha).slice(5, 7))}</span>` : ''}${l.bloqueado ? '<span class="cv-tchip" style="background:rgba(240,68,56,.12);color:var(--er)">Bloqueado en el ERP</span>' : ''}</div>` : ''}
     ${campos.length || l.erp || l.equipo ? `<div class="cv-tchips">${l.erp ? '<span class="cv-tchip" style="color:var(--ac)">Mayorista ERP</span>' : ''}${l.equipo ? '<span class="cv-tchip" style="color:var(--ac)">La atiende el equipo</span>' : ''}${campos.map(v => `<span class="cv-tchip" title="${cvEsc(v)}">${cvEsc(v)}</span>`).join('')}</div>` : ''}
     <div class="cv-tchips">${(l.tags || []).map(t => `<span class="cv-ttag">${cvEsc(t)}<button data-tquita="${cvEsc(t)}" title="Sacar la etiqueta">×</button></span>`).join('')}<button class="cv-tadd" data-tadd>+ Añadir</button></div>
-    <button class="cv-tresp" data-tresp title="Responsable">👤 ${cvEsc(l.asignado || 'Sin responsable')}</button></div>`;
+    ${(l.recordatorios || []).map(r => { const hoy = new Date().toLocaleDateString('en-CA'), v = r.fecha <= hoy; return `<div class="cv-trec${v ? ' vence' : ''}" title="Creado por ${cvEsc(r.por || '')}">⏰ <b>${cvEsc(r.fecha.slice(8, 10) + '-' + r.fecha.slice(5, 7))}</b> ${cvEsc(r.nota)}${r.para ? ` · <i>${cvEsc(r.para)}</i>` : ''}<button data-trhecho="${cvEsc(r.id)}" title="Marcar como hecho">✓</button></div>`; }).join('')}
+    <div class="cv-tpie"><button class="cv-tresp" data-tresp title="Responsable">👤 ${cvEsc(l.asignado || 'Sin responsable')}</button><button class="cv-tresp" data-tradd title="Agregar un recordatorio: ese día llega el aviso al grupo Ayuda">⏰ Recordar</button></div></div>`;
 }
 function cvTableroHtml(T) {
   if (!T || !T.ok) return `<div class="cv-vacio">${cvEsc((T && T.mensaje) || 'No pude leer el tablero.')}</div>`;
@@ -4583,7 +4584,7 @@ function cvTBarra(T) {
     <select id="cvTtag">${opt('', 'Todas las etiquetas')}${(T.etiquetas || []).map(t => opt(t, t)).join('')}</select>
     <select id="cvTresp">${opt('', 'Todos los responsables')}${opt('-', 'Sin responsable')}${(T.equipo || []).map(m => opt(m.id, m.nombre)).join('')}</select>
     <select id="cvTcanal">${opt('', 'Todos los canales')}${opt('whatsapp', 'WhatsApp')}${opt('instagram', 'Instagram')}</select>
-    <label><input type="checkbox" id="cvTcomp"> Compraron</label><label><input type="checkbox" id="cvTpaus"> En pausa</label><label><input type="checkbox" id="cvTerp"> Mayoristas del ERP</label>
+    <label><input type="checkbox" id="cvTcomp"> Compraron</label><label><input type="checkbox" id="cvTpaus"> En pausa</label><label><input type="checkbox" id="cvTerp"> Mayoristas del ERP</label><label><input type="checkbox" id="cvTrecf"> Con recordatorio${(() => { const n = T.leads.reduce((t, l) => t + (l.recordatorios || []).length, 0); return n ? ` (${n})` : ''; })()}</label><button class="cv-fbtn" data-texcel title="Bajar a Excel lo que se ve en el tablero (con los filtros puestos)">⬇ Excel</button>
     <span class="td-dim" style="margin-left:auto">${cvEsc(T.agente)} · ${fmt(T.leads.length)} conversaciones${T.detalle_faltan ? ` · cargando datos de ${fmt(T.detalle_faltan)}…` : ''} · <button class="cv-linkbtn" data-trec>↻ Actualizar</button></span></div>`;
 }
 async function cvTablero(ag, { silencio = false } = {}) {
@@ -4592,15 +4593,29 @@ async function cvTablero(ag, { silencio = false } = {}) {
   if (!silencio) cont.innerHTML = '<div class="cv-vacio">Cargando el tablero…</div>';
   CV_TAB = await cvFetch('?tablero=' + ag);
   if (!CV_TAB || !CV_TAB.ok) { cont.innerHTML = cvTableroHtml(CV_TAB); return; }
-  const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
+  const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp', 'cvTrecf'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
   const abierto = document.getElementById('cvTWrap')?.classList.contains('abierto');
   cvTPanel(false);
   cont.innerHTML = cvTBarra(CV_TAB) + `<div class="cv-twrap" id="cvTWrap"><div id="cvTBoard" style="min-height:0">${cvTableroHtml(CV_TAB)}</div><div class="cv-tpanel" id="cvTPanel"><button class="cv-tcerrar" data-tcerrar title="Cerrar el chat">×</button></div></div>`;
   for (const [id, v] of filtros) { const e = document.getElementById(id); if (e && v != null) e.type === 'checkbox' ? (e.checked = v) : (e.value = v); }
   if (abierto && CV_SEL) cvTPanel(true);
   const repintar = () => { const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } };
-  ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp'].forEach(id => document.getElementById(id)?.addEventListener(id === 'cvTq' ? 'input' : 'change', repintar));
+  ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp', 'cvTrecf'].forEach(id => document.getElementById(id)?.addEventListener(id === 'cvTq' ? 'input' : 'change', repintar));
   cont.querySelector('[data-trec]')?.addEventListener('click', () => cvTablero(ag));
+  /* 03-11 (Manu: "exportar a Excel"): lo que se ve en el tablero, con los filtros puestos */
+  cont.querySelector('[data-texcel]')?.addEventListener('click', () => {
+    const et = k => ((CV_TAB.etapas || []).find(e => e.key === k) || {}).label || k;
+    const filas = [['Nombre', 'Razón social', 'Celular', 'Etapa', 'Canal', 'Responsable', 'Etiquetas', 'Datos de la conversación', 'Compró (Sofía o página)', 'Pidió al vendedor', 'Bloqueado en el ERP', 'Mayorista del ERP', 'Agente en pausa', 'Última actividad', 'Recordatorios pendientes']];
+    for (const l of cvTFiltrar(CV_TAB)) filas.push([l.nombre || '', l.razon || '', l.celular || '', et(l.etapa), l.canal || '', l.asignado || '', (l.tags || []).join(', '), Object.values(l.campos || {}).join(' · '),
+      l.compro ? `${l.compro.unidades} u · ${String(l.compro.fecha).slice(0, 10)}` : '', l.pidio_vendedor ? `${l.pidio_vendedor.u} u · ${String(l.pidio_vendedor.fecha).slice(0, 10)}` : '',
+      l.bloqueado ? 'Sí' : '', l.erp ? 'Sí' : '', l.pausada ? 'Sí' : '', l.actividad ? String(l.actividad).slice(0, 16).replace('T', ' ') : '',
+      (l.recordatorios || []).map(r => `${r.fecha}: ${r.nota}${r.para ? ' (' + r.para + ')' : ''}`).join(' | ')]);
+    const h = XLSX.utils.aoa_to_sheet(filas);
+    h['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length - 1, c: filas[0].length - 1 } }) };
+    h['!cols'] = filas[0].map((_, i) => ({ wch: Math.min(40, Math.max(10, ...filas.map(f => String(f[i] || '').length))) }));
+    const libro = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(libro, h, ('Tablero ' + CV_TAB.agente).slice(0, 31));
+    XLSX.writeFile(libro, `Tablero ${CV_TAB.agente} ${new Date().toLocaleDateString('en-CA')}.xlsx`);
+  });
   cont.querySelector('[data-tcerrar]')?.addEventListener('click', () => { cvTPanel(false); CV_SEL = null; });
   cvTEventos(ag);
 }
@@ -4629,6 +4644,33 @@ function cvTEventos(ag) {
       b.outerHTML = `<input list="${dl}" placeholder="Etiqueta y Enter" data-tnueva><datalist id="${dl}">${(CV_TAB.etiquetas || []).filter(t => !(l.tags || []).includes(t)).map(t => `<option value="${cvEsc(t)}">`).join('')}</datalist>`;
       const inp = c.querySelector('[data-tnueva]'); inp.focus();
       inp.addEventListener('keydown', ev => { if (ev.key === 'Enter' && inp.value.trim()) guardarTags(l, [...(l.tags || []), inp.value.trim()]); if (ev.key === 'Escape') { const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } });
+    });
+    c.querySelectorAll('[data-trhecho]').forEach(b => b.addEventListener('click', async e => {
+      e.stopPropagation();
+      const r = await cvFetch('', { accion: 'recordatorio_hecho', id: b.dataset.trhecho });
+      if (!r.ok) return alert(r.mensaje || 'No se pudo');
+      l.recordatorios = (l.recordatorios || []).filter(x => x.id !== b.dataset.trhecho);
+      const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag);
+    }));
+    c.querySelector('[data-tradd]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const man = new Date(Date.now() + 864e5).toLocaleDateString('en-CA');
+      e.currentTarget.closest('.cv-tpie').outerHTML = `<div class="cv-trform"><input type="date" data-trf value="${man}"><input data-trn placeholder="Qué hay que hacer (ej. llamarla por la 45)" maxlength="300">
+        <select data-trp><option value="">Para: cualquiera</option>${(CV_TAB.equipo || []).map(m => `<option value="${cvEsc(m.nombre)}">${cvEsc(m.nombre)}</option>`).join('')}</select>
+        <div><button class="cv-fbtn pri" data-trok>Guardar</button><button class="cv-fbtn" data-trno>Cancelar</button></div></div>`;
+      const f = c.querySelector('.cv-trform'); f.querySelector('[data-trn]').focus();
+      f.addEventListener('click', ev => ev.stopPropagation());
+      const cerrar = () => { const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); };
+      f.querySelector('[data-trno]').addEventListener('click', cerrar);
+      const guardar = async () => {
+        const fecha = f.querySelector('[data-trf]').value, nota = f.querySelector('[data-trn]').value.trim(), para = f.querySelector('[data-trp]').value;
+        if (!fecha || !nota) return alert('Pon la fecha y qué hay que hacer.');
+        const r = await cvFetch('', { accion: 'recordatorio', lead: l.id, nombre: l.razon || l.nombre, agente: CV_TAB.agente, fecha, nota, para });
+        if (!r.ok) return alert(r.mensaje || 'No se pudo');
+        l.recordatorios = [...(l.recordatorios || []), r.recordatorio].sort((a, b) => a.fecha.localeCompare(b.fecha)); cerrar();
+      };
+      f.querySelector('[data-trok]').addEventListener('click', guardar);
+      f.querySelector('[data-trn]').addEventListener('keydown', ev => { if (ev.key === 'Enter') guardar(); if (ev.key === 'Escape') cerrar(); });
     });
     c.querySelector('[data-tresp]')?.addEventListener('click', e => {
       e.stopPropagation();
@@ -4858,7 +4900,7 @@ async function secConversaciones() {
     .cv-tchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
     .cv-tchip{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;background:var(--sf2);color:var(--tx2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .cv-ttag{font-size:10.5px;font-weight:700;padding:1px 4px 1px 8px;border-radius:9px;background:rgba(16,185,129,.12);color:var(--ok);display:inline-flex;align-items:center;gap:2px}
-    .cv-ttag button,.cv-tadd,.cv-tresp{border:0;background:none;cursor:pointer;font:inherit;color:inherit;padding:0 3px}
+    .cv-ttag button,.cv-tadd,.cv-tresp{border:0;background:none;cursor:pointer;font:inherit;color:inherit;padding:0 3px}.cv-tpie{display:flex;gap:6px;flex-wrap:wrap}.cv-trec{font-size:11.5px;background:var(--sf2);border-radius:8px;padding:4px 6px;margin:4px 0;display:flex;gap:4px;align-items:baseline}.cv-trec.vence{background:rgba(240,68,56,.10);color:var(--er)}.cv-trec button{margin-left:auto;border:0;background:none;cursor:pointer;font-weight:700;color:var(--ok)}.cv-trform{display:flex;flex-direction:column;gap:5px;margin-top:6px}.cv-trform input,.cv-trform select{font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);color:var(--tx1)}
     .cv-tadd{font-size:11px;color:var(--tx3);font-weight:600}
     .cv-tresp{font-size:11px;color:var(--tx2);font-weight:600;margin-top:5px}
     .cv-tcard input,.cv-tcard select{font-size:11.5px;padding:2px 6px;border:1px solid var(--bd);border-radius:6px;max-width:100%}
