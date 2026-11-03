@@ -802,6 +802,10 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
       Formularios
     </button>
+    <button class="nav-item" data-sec="plantillas-atencion" data-ttl="Plantillas de WhatsApp" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+      Plantillas
+    </button>
 
     <div class="sb-grp" data-admin-only>Cobranza</div>
     <button class="nav-item" data-sec="deudas" data-ttl="Deudas" data-admin-only>
@@ -5194,7 +5198,7 @@ function cpMezclar(ds) {
 const CP_OPC = {
   halloween: { titulo: 'Halloween · Descuento de miedo', sub: '4455 Riviera y 4007, el 30 y 31-10', correoNota: 'salió el mismo día que el WhatsApp; primero los que más compran', boton: 'tocaron "Lo quiero"' },
   despacho: {},
-  diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00; cada mayorista como máximo un correo cada 7 días', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
+  diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00, con todo el cupo libre del día; mínimo 2 días entre correos a la misma persona', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
 };
 /* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
    la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
@@ -5240,7 +5244,7 @@ function cpTexto() {
   const QUE = {
     halloween: '5% de descuento en el 4455 Riviera (palazzo tiro alto) y el 4007 (pitillo tiro alto), con despacho inmediato, el 30 y 31-10. WhatsApp con foto y correo con botón a Sofía',
     despacho: 'Modelos de la Dolce Vita 44 con despacho inmediato, 3 elegidos para cada mayorista según lo que compra. WhatsApp con foto y, 3 días después, correo a los que no respondieron',
-    diario: 'Correo de lunes a sábado con 3 modelos de la Dolce Vita 44 con despacho inmediato (primero los que compra cada uno), su curva y la reposición que viene. Cada mayorista recibe como máximo uno cada 7 días',
+    diario: 'Correo de lunes a sábado con 3 modelos de la Dolce Vita 44 con despacho inmediato (primero los que compra cada uno), su curva y la reposición que viene. Sale con todo el cupo libre de Resend del día: primero quien lleva más tiempo sin correo, y nunca dos a la misma persona en menos de 2 días',
   };
   const L = [`*Informe de campañas · Mohicano Jeans*`, `al ${hoy}`, ''];
   L.push('*1. Ventas*');
@@ -5533,6 +5537,40 @@ function hwExtras(c) {
   <div class="hw-col"><table class="hw-tabla"><tr><th>Mayorista</th><th class="hw-num">Compró 12 meses</th><th>Correo</th><th>WhatsApp</th><th>Respondió</th><th>Pidió</th></tr>
     ${(c.mejores || []).map(m => `<tr><td><b>${cvEsc(m.nombre || '—')}</b></td><td class="hw-num">${fmtM(m.compras || 0)}</td><td>${chip(m.correo)}</td><td>${chip(m.whatsapp)}</td><td>${chip(m.respondio)}</td><td>${m.pidio ? chip('Pidió la promoción') : m.vendedor ? '<span class="hw-chip" style="color:var(--tx2)">Por vendedor</span>' : '<span class="td-dim">—</span>'}</td></tr>`).join('')}
   </table></div></section>`;
+}
+/* Plantillas de WhatsApp (03-11, Manu: "déjame todas las plantillas que llevamos aprobadas y en qué situación se mandarían"):
+   el estado en Meta sale en vivo de Nexor (conversaciones?plantillas=1); el cuándo y el estado de uso, de USO_PLANTILLAS en
+   conversaciones.js, junto al código que las manda */
+async function secPlantillas() {
+  setTimeout(async () => {
+    const box = document.getElementById('plBody'); if (!box) return;
+    const d = await cvFetch('?plantillas=1').catch(() => null);
+    if (!d || !d.ok) { box.innerHTML = '<div class="td-dim">No pude leer las plantillas de Nexor.</div>'; return; }
+    const GR = ['Seguimiento', 'Campañas', 'Atención', 'Casos de la tienda', 'Llamadas', 'Campañas pasadas', 'No usar', 'Otras'];
+    const COL = { 'en uso': ['#e5f4e4', '#1f7a3d'], 'en prueba': ['#e7f1fb', '#2b5ea8'], 'en simulación': ['#e7f1fb', '#2b5ea8'], 'lista para usar': ['#efedff', '#5141c2'], 'respaldo': ['#f0efec', '#555'], 'apagada': ['#f0efec', '#555'], 'antigua': ['#f0efec', '#777'], 'no usar': ['#fbebeb', '#b42318'], 'sin definir': ['#f9eeda', '#8a5a00'] };
+    const chip = (t, [bg, fg]) => `<span class="cv-tag" style="background:${bg};color:${fg}">${cvEsc(t)}</span>`;
+    const cuerpo = (t) => cvEsc(t).replace(/\{\{(\w+)\}\}/g, '<b style="color:var(--ac)">{$1}</b>').replace(/\n/g, '<br>');
+    const xs = d.plantillas || [];
+    const ap = xs.filter(x => x.estado === 'APPROVED').length;
+    document.getElementById('plN').textContent = `${ap} aprobadas por Meta de ${xs.length} · en vivo desde Nexor`;
+    box.innerHTML = GR.filter(g => xs.some(x => x.grupo === g)).map(g => `<div style="margin:16px 0 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)">${cvEsc(g)}</div>` +
+      xs.filter(x => x.grupo === g).sort((a, b) => a.orden - b.orden).map(x => `
+      <div style="border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--sf)">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">
+          <b style="font-size:14px">${cvEsc(x.nombre)}</b>
+          ${chip(x.estado === 'APPROVED' ? 'Aprobada' : x.estado === 'REJECTED' ? 'Rechazada' : x.estado === 'PENDING' ? 'En revisión' : x.estado, x.estado === 'APPROVED' ? ['#e5f4e4', '#1f7a3d'] : x.estado === 'REJECTED' ? ['#fbebeb', '#b42318'] : ['#f9eeda', '#8a5a00'])}
+          ${chip(x.uso, COL[x.uso] || COL['sin definir'])}
+          <span class="td-dim" style="font-size:11.5px">${cvEsc(x.categoria === 'MARKETING' ? 'Marketing' : x.categoria === 'UTILITY' ? 'Utilidad' : x.categoria || '')}${x.cabecera ? ' · con ' + (x.cabecera === 'IMAGE' ? 'foto' : x.cabecera.toLowerCase()) : ''}</span>
+        </div>
+        <div style="font-size:13px;margin-bottom:8px"><b>Cuándo se manda:</b> ${cvEsc(x.cuando)} <span class="td-dim">· ${cvEsc(x.quien)}</span></div>
+        <div style="background:#e7f7e4;color:#111;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45;max-width:560px">${cuerpo(x.cuerpo)}${x.pie ? `<div style="color:#667;font-size:11.5px;margin-top:6px">${cvEsc(x.pie)}</div>` : ''}</div>
+        ${x.botones.length ? `<div style="margin-top:6px">${x.botones.map(b => `<span class="cv-fbtn" style="cursor:default">${cvEsc(b)}</span>`).join('')}</div>` : ''}
+        ${x.rechazo ? `<div style="color:#b42318;font-size:12px;margin-top:6px">Motivo del rechazo: ${cvEsc(x.rechazo)}</div>` : ''}
+      </div>`).join('')).join('');
+  }, 0);
+  return `<style>.cv-form{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf)}.cv-form-hd{width:100%;display:flex;gap:10px;align-items:center;font-size:15px;font-weight:700;color:var(--tx1);padding:12px 14px}.cv-form-hd .td-dim{font-weight:500;font-size:12.5px}.cv-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}.cv-fbtn{border:1px solid var(--bd);background:var(--sf);border-radius:999px;font:inherit;font-size:11.5px;font-weight:600;padding:3px 10px;color:var(--tx1);display:inline-block;margin:0 4px 4px 0;white-space:nowrap}</style>
+  <div class="cv-form"><div class="cv-form-hd"><span>💬 Plantillas de WhatsApp</span><span id="plN" class="td-dim">cargando…</span></div>
+    <div style="padding:0 14px 14px"><div class="td-dim" style="font-size:12.5px">Las plantillas son los únicos mensajes que se pueden mandar pasadas 24 h desde el último mensaje del cliente. Dentro de las 24 h, Sofía escribe libre (por ejemplo, el aviso cuando faltan 4 horas), sin plantilla. En <b style="color:var(--ac)">{azul}</b> lo que cambia para cada cliente.</div><div id="plBody"></div></div></div>`;
 }
 async function secFormularios() {
   setTimeout(() => cvFormularios(true), 0);
@@ -10716,6 +10754,7 @@ const SECS = {
   'conversaciones': () => secConversaciones(),
   'reporte-atencion': () => secReporteAtencion(),
   'formularios-atencion': () => secFormularios(),
+  'plantillas-atencion': () => secPlantillas(),
   'campanas-atencion': () => secCampanas(),
   'tabla':          () => secTabla(),
   'cuadrados':      () => secCuadrados(),
