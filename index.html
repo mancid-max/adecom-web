@@ -11213,19 +11213,26 @@ function erGrafico(col) {
 /* Trazabilidad: las tarjetas y ¿dónde está la producción?, con lo que entra por temporada, tipo y búsqueda (no por Etapa
    ni Revisar, que son lo que filtran las tarjetas). nums sigue el orden de NUM: las etapas van de 4 a 9. */
 const TRZ_ETAPAS = [['Corte', 4], ['Costura', 5], ['T.Externo', 6], ['Limpiado', 7], ['Lavandería', 8], ['Terminación', 9]];
-function trzMolde(alc, etapa, final) {
+function trzMolde(alc, etapa, final, vis = alc) {
   const poner = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  /* Las tarjetas cuentan lo que muestra la tabla con TODOS los filtros (vis), Etapa y Revisar incluidos (Manu,
+     03-11-2026: "cuando elija el filtro vayan cambiando las tarjetas también"). El gráfico sigue con alc, que no
+     descuenta Etapa ni Revisar: así se ven las otras etapas apagadas y se puede tocar una para cambiar. */
   // En producción = lo detenido en alguna etapa (calza con el gráfico); "proceso" del ERP suma también órdenes viejas
   const enEtapas = f => f.nums[4] + f.nums[5] + f.nums[6] + f.nums[7] + f.nums[8] + f.nums[9];
-  const enProc = alc.filter(f => enEtapas(f) > 0), uProc = enProc.reduce((a, f) => a + enEtapas(f), 0);
-  const uFinal = alc.reduce((a, f) => a + f.nums[8] + f.nums[9], 0), nFinal = alc.filter(f => final.has(f.etapa)).length;
-  const sinMov = alc.filter(f => f.etapa === 'Sin movimiento').length, mal = new Set(alc.filter(f => f.mal).map(f => f.oc)).size;
+  const enProc = vis.filter(f => enEtapas(f) > 0), uProc = enProc.reduce((a, f) => a + enEtapas(f), 0);
+  const uFinal = vis.reduce((a, f) => a + f.nums[8] + f.nums[9], 0), nFinal = vis.filter(f => final.has(f.etapa)).length;
+  const sinMov = vis.filter(f => f.etapa === 'Sin movimiento').length, mal = new Set(vis.filter(f => f.mal).map(f => f.oc)).size;
+  const atr = vis.filter(f => f.atr).length, atrRojas = vis.filter(f => f.atr === 'rojo').length;
   poner('tk-proc-val', fmt(uProc)); poner('tk-proc-sub', `en ${fmt(enProc.length)} órden${enProc.length === 1 ? '' : 'es'}`);
   poner('tk-final-val', fmt(uFinal)); poner('tk-final-sub', `en lavandería y terminación · ${fmt(nFinal)} órden${nFinal === 1 ? '' : 'es'}`);
   poner('tk-sinmov-val', fmt(sinMov)); poner('tk-sinmov-sub', sinMov ? 'no han pasado por ninguna etapa' : 'ninguna');
   poner('tk-mal-val', fmt(mal)); poner('tk-mal-sub', mal ? 'un solo 0 adelante: hay que corregirlos en el ERP' : 'ninguno');
   const cm = document.getElementById('tk-mal');
   if (cm) { const c = mal ? 'var(--er)' : 'var(--ok)'; cm.style.borderTopColor = c; document.getElementById('tk-mal-val').style.color = c; }
+  poner('tk-atr-val', fmt(atr)); poner('tk-atr-sub', atr ? (atrRojas ? `${fmt(atrRojas)} en rojo: más del doble del estándar` : 'más del estándar de su etapa') : 'ninguna');
+  const ca = document.getElementById('tk-atr');
+  if (ca) { const c = atr ? (atrRojas ? 'var(--er)' : 'var(--wa)') : 'var(--ok)'; ca.style.borderTopColor = c; document.getElementById('tk-atr-val').style.color = c; }
   const card = document.getElementById('trzGrafCard');
   if (!card) return;
   const tot = TRZ_ETAPAS.map(([, i]) => alc.reduce((a, f) => a + f.nums[i], 0));
@@ -12002,7 +12009,7 @@ function bindContent(secId) {
       const rv    = document.querySelector('#tblRevSegs .seg.on')?.dataset.rv || '';   // "mal": solo el correlativo mal ingresado
       const artNum = /^\d{4,}$/.test(art);
       const tots = new Array(NUM.length).fill(0);
-      const pasan = [], alc = [];   // alc: lo que entra sin contar Etapa ni Revisar, para las tarjetas y el gráfico
+      const pasan = [], alc = [];   // pasan: lo que se ve (tabla y tarjetas); alc: sin contar Etapa ni Revisar, para el gráfico
       for (const f of FILAS) {
         const tipoOk = tipo === 'todo'
           || (tipo === 'muestras' && f.tipo === 'muestras' && (selMs.size === 0 || selMs.has(f.m)))
@@ -12018,7 +12025,7 @@ function bindContent(secId) {
         if (tipoOk && (temp === 'todo' || f.temp === temp) && (!art || (artNum ? (artMatch(f.art8, art) || f.art.startsWith(art)) : f.art.includes(art))) && (!oc || f.oc.includes(oc))) alc.push(f);
       }
       pintarFilas(pasan);
-      trzMolde(alc, etapa, TBL_FINAL);
+      trzMolde(alc, etapa, TBL_FINAL, pasan);
       const countEl = document.getElementById('tblCount');
       if (countEl) countEl.textContent = `${pasan.length} de ${FILAS.length} OC`;
       totEls.forEach((el, i) => { if (el) el.textContent = fmt(tots[i]); });
