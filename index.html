@@ -12123,7 +12123,10 @@ function bindContent(secId) {
       const temp = art.slice(2, 4), base = art.slice(2, 6), mod = art.slice(6, 8);
       const item = (Array.isArray(pa) ? pa : []).find(x => String(x.temp) === temp && String(x.base) === base);
       const col = item ? (item.modelos || []).find(m => String(m.mod).padStart(2, '0') === mod) : null;
-      const tc = col && Array.isArray(col.tc) ? col.tc : null, ts = col && Array.isArray(col.ts) ? col.ts : null;
+      /* El ERP trae el corte por talla por artículo; cuando es cero en todas, el archivo no lo repite y la fila hay que
+         mostrarla en cero (Manu, 04-11-2026: "debería salirme como está cortado por talla"). */
+      const ts = col && Array.isArray(col.ts) ? col.ts : null;
+      const tc = col && Array.isArray(col.tc) ? col.tc : (ts ? [] : null);
       let tallasHtml;
       if (tc || ts) {
         const n = Math.max(tc ? tc.length : 0, ts ? ts.length : 0, 6);
