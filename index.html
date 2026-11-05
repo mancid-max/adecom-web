@@ -4140,16 +4140,26 @@ async function secTelas() {
   const sucs = [...new Set(T.flatMap(t => Object.keys(t.stock || {})))].sort((a, b) => ((b === '33') - (a === '33')) || a.localeCompare(b));
   const neg = T.filter(t => t.stock_total < 0), conStock = T.filter(t => t.stock_total > 0);
   const mUrr = T.reduce((a, t) => a + Math.max(0, (t.stock || {})['33'] || 0), 0), m90 = T.reduce((a, t) => a + (t.consumo_90d || 0), 0);
-  const filas = T.map(t => { const al = t.m_prenda && t.stock_total > 0 ? Math.floor(t.stock_total / t.m_prenda) : null;
-    return `<tr data-q="${(t.nombre + ' ' + t.cod + ' ' + (t.comp || '')).toLowerCase().replace(/"/g, '')}" data-neg="${t.stock_total < 0 ? 1 : ''}" data-urr="${(t.stock || {})['33'] ? 1 : ''}"${t.stock_total < 0 ? ' style="background:var(--er10)"' : ''}>
-      <td><b>${t.nombre || '<span class="td-dim">sin nombre en el ERP</span>'}</b><div class="td-dim" style="font-size:10px">${t.cod}${t.comp ? ' · ' + t.comp : ''}</div></td>
-      ${sucs.map(s => `<td class="r td-num" style="color:${((t.stock || {})[s] || 0) < 0 ? 'var(--er)' : 'inherit'}">${(t.stock || {})[s] ? fmt(Math.round(t.stock[s])) : '—'}</td>`).join('')}
-      <td class="r td-num" style="font-weight:800;color:${t.stock_total < 0 ? 'var(--er)' : t.stock_total > 0 ? 'var(--ok)' : 'var(--tx3)'}">${t.stock_total ? fmt(Math.round(t.stock_total)) : '—'}</td>
-      <td class="r td-dim">${t.m_prenda ? t.m_prenda : '—'}</td>
-      <td class="r td-num">${al !== null ? fmt(al) : '—'}</td>
-      <td class="r td-dim">${t.consumo_90d ? fmt(Math.round(t.consumo_90d)) + ' m · ' + fmt(t.ocs_90d) + ' OC' : '—'}</td>
-      <td class="td-dim">${t.ultimo ? t.ultimo.split('-').reverse().join('/') : '—'}</td></tr>`; }).join('');
   const mTodas = T.reduce((a, t) => a + Math.max(0, t.stock_total || 0), 0), oc90 = T.reduce((a, t) => a + (t.ocs_90d || 0), 0);
+  const alcanza = t => (t.m_prenda && t.stock_total > 0 ? Math.floor(t.stock_total / t.m_prenda) : null);
+  const chip = (s, m) => `<span style="display:inline-flex;gap:6px;align-items:baseline;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:4px 9px;font-size:12px"><i style="font-style:normal;color:var(--tx3)">${s}</i><b style="color:${m < 0 ? 'var(--er)' : 'var(--tx1)'}">${fmt(Math.round(m))} m</b></span>`;
+  const filas = T.map((t, i) => {
+    const al = alcanza(t), q = (t.nombre + ' ' + t.cod + ' ' + (t.comp || '')).toLowerCase().replace(/"/g, '');
+    const det = sucs.filter(s => (t.stock || {})[s]).map(s => chip(TELA_SUC[s] || 'Bod. ' + s, t.stock[s])).join('');
+    return `<tbody class="tl-grp" data-q="${q}" data-neg="${t.stock_total < 0 ? 1 : ''}" data-urr="${(t.stock || {})['33'] ? 1 : ''}">
+      <tr class="tl-fila" style="cursor:pointer;${t.stock_total < 0 ? 'background:var(--er10)' : ''}">
+        <td><span class="tl-flecha" style="display:inline-block;width:14px;color:var(--tx3)">▸</span><b>${t.nombre || '<span class="td-dim">sin nombre en el ERP</span>'}</b><div class="td-dim" style="font-size:10px;margin-left:14px">${t.cod}${t.comp ? ' · ' + t.comp : ''}</div></td>
+        <td class="r td-num" data-v="${t.stock_total || 0}" style="font-weight:800;color:${t.stock_total < 0 ? 'var(--er)' : t.stock_total > 0 ? 'var(--ok)' : 'var(--tx3)'}">${t.stock_total ? fmt(Math.round(t.stock_total)) : '—'}</td>
+        <td class="r" data-v="${t.m_prenda || ''}"><input type="number" step="0.01" min="0" class="finput tl-mp" value="${t.m_prenda ?? ''}" placeholder="—" style="width:84px;text-align:right"></td>
+        <td class="r td-num tl-al" data-v="${al ?? ''}">${al !== null ? fmt(al) : '—'}</td>
+        <td class="r td-dim" data-v="${t.consumo_90d || 0}">${t.consumo_90d ? fmt(Math.round(t.consumo_90d)) + ' m · ' + fmt(t.ocs_90d) + ' OC' : '—'}</td>
+        <td class="td-dim" data-v="${t.ultimo || ''}">${t.ultimo ? t.ultimo.split('-').reverse().join('/') : '—'}</td>
+      </tr>
+      <tr class="tl-det" style="display:none"><td colspan="6" style="background:var(--sf2);padding:8px 14px"><div style="display:flex;flex-wrap:wrap;gap:6px">${det || '<span class="td-dim">sin stock en ninguna bodega</span>'}</div></td></tr>
+    </tbody>`;
+  }).join('');
+  const porSuc = sucs.map(s => [s, T.reduce((a, t) => a + ((t.stock || {})[s] || 0), 0)]);
+  const totStock = T.reduce((a, t) => a + (t.stock_total || 0), 0), totCons = T.reduce((a, t) => a + (t.consumo_90d || 0), 0), totAl = T.reduce((a, t) => a + (alcanza(t) || 0), 0);
   return `
   <div class="kpi-grid">
     ${tarjetaKpi({ attr: 'tl', k: 'con', lbl: 'Telas con stock', val: fmt(conStock.length), sub: `de ${fmt(T.length)} telas en el ERP`, color: 'var(--ac)', ver: 'Ver todas' })}
@@ -4158,77 +4168,15 @@ async function secTelas() {
     ${tarjetaKpi({ attr: 'tl', k: 'c90', lbl: 'Consumidos en 90 días', val: fmt(Math.round(m90)) + ' m', sub: `en ${fmt(oc90)} órdenes de producción`, color: 'var(--wa)', ver: 'Ver todas' })}
   </div>
   <div class="tbl-card">
-    <div class="tbl-head"><div><div class="tbl-ttl">Stock de tela por bodega</div><div class="card-sub">En metros, como lo exporta el ERP. Alcanza = stock ÷ metros por prenda (mediana de las órdenes de producción que usaron esa tela).</div></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="telasBuscar" class="finput fsearch" placeholder="Tela, código o composición…" style="width:220px"><button class="seg" id="telasPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button></div></div>
-    <div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th>${sucs.map(s => `<th class="r">${TELA_SUC[s] || 'Bod. ' + s}</th>`).join('')}<th class="r">Total m</th><th class="r" title="Metros por prenda, mediana de las órdenes que la usaron">m/prenda</th><th class="r">Alcanza para</th><th class="r">Consumo 90 d</th><th>Último uso</th></tr></thead>
-      <tbody id="telasBody">${filas}</tbody></table></div>
-    <div class="tbl-foot">Un saldo negativo es consumo registrado sin ingreso en el ERP: corregirlo con Adecom. Las telas sin nombre no aparecen en el consumo de ninguna orden; el nombre lo da el ERP solo ahí.</div>
-  </div>`;
-}
-
-const CONSUMO_ICO = '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/>';
-async function secConsumo() {
-  const [CO, TOC] = await Promise.all([load('consumo_oc.json'), load('traza_oc.json')]);
-  const co = CO && !Array.isArray(CO) ? CO : {};
-  if (!Object.keys(co).length) return makePH(CONSUMO_ICO, 'Consumo de tela', 'Todavía no hay datos de consumo: llegan con la próxima corrida del ThinkPad.');
-  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  const traza = new Map();
-  (Array.isArray(TOC) ? TOC : []).forEach(o => { const k = String(o.oc).trim(); if (!traza.has(k)) traza.set(k, o); });
-  const ordenes = Object.entries(co).map(([oc, d]) => {
-    const t = traza.get(oc) || {};
-    const telas = (d.telas || []).slice().sort((a, b) => (b.m || 0) - (a.m || 0));
-    return { oc, art: t.articulo || '', temp: t.articulo ? String(t.articulo).slice(2, 4) : '', tipo: t.tipo || '', cort: t.cort ?? null, telas, m: d.m || 0, mp: d.m_prenda, ins: d.insumos || 0, total: d.total || 0, cp: d.costo_prenda };
-  }).sort((a, b) => b.total - a.total);
-  const porTela = new Map();
-  ordenes.forEach(o => o.telas.forEach(x => {
-    const p = porTela.get(x.cod) || { cod: x.cod, nombre: x.nombre, m: 0, valor: 0, ocs: 0 };
-    p.m += x.m || 0; p.valor += x.valor || 0; p.ocs += 1; porTela.set(x.cod, p);
-  }));
-  const telas = [...porTela.values()].sort((a, b) => b.m - a.m);
-  const temps = [...new Set(ordenes.map(o => o.temp).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-  const tipos = [...new Set(ordenes.map(o => o.tipo).filter(Boolean))].sort();
-  const nombres = [...new Set(telas.map(t => t.nombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-  const totV = ordenes.reduce((a, o) => a + o.total, 0), totM = ordenes.reduce((a, o) => a + o.m, 0);
-  const filasOrd = ordenes.map(o => {
-    const tel = o.telas.slice(0, 3).map(x => `${esc(x.nombre)} <b>${fmt(Math.round(x.m))} m</b>`).join(' · ') + (o.telas.length > 3 ? ` <span class="td-dim">+${o.telas.length - 3}</span>` : '');
-    const q = esc(`${o.oc} ${o.art} ${o.tipo} ${o.telas.map(x => x.nombre).join(' ')}`).toLowerCase();
-    const enTelas = '|' + o.telas.map(x => String(x.nombre || '').toLowerCase()).join('|') + '|';
-    return `<tr data-q="${q}" data-temp="${o.temp}" data-tipo="${esc(o.tipo)}" data-telas="${esc(enTelas)}" data-m="${o.m}" data-t="${o.total}">
-      <td data-v="${Number(o.oc)}"><span class="td-code">${String(o.oc).replace(/^0+/, '')}</span></td>
-      <td class="td-code" data-v="${esc(o.art)}">${esc(o.art)}</td>
-      <td class="td-dim" data-v="${esc(o.tipo)}">${esc(o.tipo)}</td>
-      <td class="r td-num" data-v="${o.cort ?? ''}">${o.cort !== null && o.cort !== '' ? fmt(o.cort) : '—'}</td>
-      <td style="font-size:12px">${tel || '<span class="td-dim">sin tela</span>'}</td>
-      <td class="r td-num" data-v="${o.m}">${o.m ? fmt(Math.round(o.m)) : '—'}</td>
-      <td class="r td-dim" data-v="${o.mp ?? ''}">${o.mp ?? '—'}</td>
-      <td class="r td-dim" data-v="${o.ins}">${o.ins ? fmtCLP(o.ins) : '—'}</td>
-      <td class="r td-num" data-v="${o.total}" style="font-weight:700">${fmtCLP(o.total)}</td>
-      <td class="r td-dim" data-v="${o.cp ?? ''}">${o.cp ? fmtCLP(o.cp) : '—'}</td></tr>`;
-  }).join('');
-  const filasTel = telas.map(t => `<tr data-q="${esc(`${t.nombre} ${t.cod}`).toLowerCase()}" data-nombre="${esc(t.nombre)}">
-      <td data-v="${esc(t.nombre)}"><b>${esc(t.nombre)}</b><div class="td-dim" style="font-size:10px">${esc(t.cod)}</div></td>
-      <td class="r td-num" data-v="${t.m}">${fmt(Math.round(t.m))}</td>
-      <td class="r td-num" data-v="${t.valor}">${fmtCLP(Math.round(t.valor))}</td>
-      <td class="r td-dim" data-v="${t.ocs}">${fmt(t.ocs)}</td>
-      <td class="r td-dim" data-v="${t.m ? t.valor / t.m : ''}">${t.m ? fmtCLP(Math.round(t.valor / t.m)) : '—'}</td></tr>`).join('');
-  const opt = (arr, lbl) => `<option value="">${lbl}</option>` + arr.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
-  const optT = `<option value="">Todas las temporadas</option>` + temps.map(t => `<option value="${t}">T${t}</option>`).join('');
-  return `
-  <div class="tbl-card">
-    <div class="tbl-head"><div><div class="tbl-ttl">Consumo de tela</div>
-      <div class="card-sub">${fmt(ordenes.length)} órdenes con consumo · ${fmt(Math.round(totM))} m · ${fmtCLP(Math.round(totV))} en telas e insumos. Sale del consumo por orden que exporta Adecom (CONSUMOS-OP.CSV), para las órdenes de la trazabilidad.</div></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="consumoBuscar" class="finput fsearch" placeholder="Orden, artículo o tela…" style="width:220px"></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px">
-      <select id="consumoTemp" class="finput">${optT}</select>
-      <select id="consumoTela" class="finput" style="max-width:240px">${opt(nombres, 'Todas las telas')}</select>
-      <select id="consumoTipo" class="finput">${opt(tipos, 'Todos los tipos')}</select>
-      <button class="seg" id="consumoLimpiar" style="border:1px solid var(--bd2)">Quitar filtros</button>
-      <span id="consumoCuenta" class="td-dim" style="font-size:12px"></span>
-    </div>
-    <div style="display:flex;gap:6px;margin:0 0 10px"><button class="seg on" data-cv="ord">Por orden</button><button class="seg" data-cv="tel">Por tela</button></div>
-    <div id="consumoOrd" class="tbl-scroll"><table id="consumoTabOrd" class="tbl-compacta" style="width:100%"><thead><tr><th data-ord="n">Orden</th><th data-ord="t">Artículo</th><th data-ord="t">Tipo</th><th class="r" data-ord="n">Cortadas</th><th>Telas (mayor consumo)</th><th class="r" data-ord="n">Metros</th><th class="r" data-ord="n">m por prenda</th><th class="r" data-ord="n">Insumos</th><th class="r" data-ord="n">Total</th><th class="r" data-ord="n">$ por prenda</th></tr></thead><tbody id="consumoBodyOrd">${filasOrd}</tbody></table></div>
-    <div id="consumoTel" class="tbl-scroll" style="display:none"><table id="consumoTabTel" class="tbl-compacta" style="width:100%"><thead><tr><th data-ord="t">Tela</th><th class="r" data-ord="n">Metros</th><th class="r" data-ord="n">Valor $</th><th class="r" data-ord="n">Órdenes</th><th class="r" data-ord="n">$ por metro</th></tr></thead><tbody id="consumoBodyTel">${filasTel}</tbody></table></div>
-    <div class="tbl-foot">Toca un encabezado para ordenar de menor a mayor; otra vez para al revés. Las órdenes salen de la de más valor a la de menos. Si una orden tiene varios artículos, el consumo es de la orden completa y aparece el primero. Los insumos pueden restar cuando el ERP registra devoluciones. En la vista por tela, la temporada y el tipo no aplican.</div>
+    <div class="tbl-head"><div><div class="tbl-ttl">Stock de tela</div><div class="card-sub">En metros, como lo exporta el ERP. Toca una tela para ver su stock por bodega, o el total para ver el total por bodega. Alcanza = stock ÷ metros por prenda: puedes cambiar el M por prenda y se recalcula.</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="telasBuscar" class="finput fsearch" placeholder="Tela, código o composición…" style="width:220px"><button class="seg" id="telasPrint" style="border:1px solid var(--bd2)">Imprimir</button></div></div>
+    <div class="tbl-scroll"><table id="telasTabla" class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th><th class="r">Total m</th><th class="r" title="Metros por prenda: puedes cambiarlo">M por prenda</th><th class="r">Alcanza para</th><th class="r">Consumo 90 d</th><th>Último uso</th></tr></thead>
+      ${filas}
+      <tfoot>
+        <tr class="tl-total" style="cursor:pointer;font-weight:800;background:var(--sf2)"><td>Total · ${fmt(T.length)} telas <span class="td-dim" style="font-weight:400;font-size:11px">(toca para ver por bodega)</span></td><td class="r td-num" style="color:${totStock < 0 ? 'var(--er)' : 'var(--ok)'}">${fmt(Math.round(totStock))}</td><td></td><td class="r td-num" id="tl-tot-al">${fmt(totAl)}</td><td class="r td-dim">${fmt(Math.round(totCons))} m</td><td></td></tr>
+        <tr class="tl-det-tot" style="display:none"><td colspan="6" style="background:var(--sf2);padding:8px 14px"><div style="display:flex;flex-wrap:wrap;gap:6px">${porSuc.filter(([, m]) => m).map(([s, m]) => chip(TELA_SUC[s] || 'Bod. ' + s, m)).join('')}</div></td></tr>
+      </tfoot></table></div>
+    <div class="tbl-foot">Alcanza suma las prendas que alcanzan con cada tela por separado; una prenda que usa dos telas no se descuenta dos veces. Un saldo negativo es consumo registrado sin ingreso en el ERP: corregirlo con Adecom.</div>
   </div>`;
 }
 
@@ -12112,16 +12060,27 @@ function bindContent(secId) {
 
   // Tabla Completa section — client-side filters
   if (secId === 'telas') {
-    const filas = [...document.querySelectorAll('#telasBody tr')];
+    const grupos = [...document.querySelectorAll('#telasTabla tbody.tl-grp')];
     let soloK = '';
     const filtrar = () => { const q = (document.getElementById('telasBuscar')?.value || '').trim().toLowerCase();
-      filas.forEach(tr => { tr.style.display = (!q || (tr.dataset.q || '').includes(q)) && (soloK !== 'neg' || tr.dataset.neg) && (soloK !== 'urr' || tr.dataset.urr) ? '' : 'none'; }); };
+      grupos.forEach(g => { g.style.display = (!q || (g.dataset.q || '').includes(q)) && (soloK !== 'neg' || g.dataset.neg) && (soloK !== 'urr' || g.dataset.urr) ? '' : 'none'; }); };
     document.getElementById('telasBuscar')?.addEventListener('input', filtrar);
-    document.getElementById('telasPrint')?.addEventListener('click', () => printTable({ table: document.getElementById('telasBody')?.closest('table'), title: 'Stock de tela por bodega', subtitle: 'En metros · ' + new Date().toLocaleDateString('es-CL') }));
+    document.getElementById('telasPrint')?.addEventListener('click', () => printTable({ table: document.getElementById('telasTabla'), title: 'Stock de tela', subtitle: 'En metros · ' + new Date().toLocaleDateString('es-CL') }));
     document.querySelectorAll('[data-tl]').forEach(card => card.addEventListener('click', () => {
       soloK = card.dataset.tl === 'con' ? '' : card.dataset.tl; filtrar();
-      document.getElementById('telasBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('telasTabla')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
+    const alDe = g => { const st = +g.querySelector('.tl-fila td:nth-child(2)').dataset.v, mp = +g.querySelector('.tl-mp').value; return st > 0 && mp > 0 ? Math.floor(st / mp) : null; };
+    const recalc = () => { let tot = 0; grupos.forEach(g => { const al = alDe(g), c = g.querySelector('.tl-al'); c.textContent = al !== null ? fmt(al) : '—'; c.dataset.v = al ?? ''; if (al) tot += al; });
+      const el = document.getElementById('tl-tot-al'); if (el) el.textContent = fmt(tot); };
+    grupos.forEach(g => {
+      g.querySelector('.tl-fila').addEventListener('click', () => { const d = g.querySelector('.tl-det'), abre = d.style.display === 'none'; d.style.display = abre ? '' : 'none'; g.querySelector('.tl-flecha').textContent = abre ? '▾' : '▸'; });
+      const inp = g.querySelector('.tl-mp');
+      inp.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('input', recalc);
+    });
+    const tot = document.querySelector('#telasTabla .tl-total'), detTot = document.querySelector('#telasTabla .tl-det-tot');
+    tot?.addEventListener('click', () => { detTot.style.display = detTot.style.display === 'none' ? '' : 'none'; });
   }
   if (secId === 'consumo') {
     const el = id => document.getElementById(id);
