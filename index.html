@@ -4149,12 +4149,13 @@ async function secTelas() {
       <td class="r td-num">${al !== null ? fmt(al) : '—'}</td>
       <td class="r td-dim">${t.consumo_90d ? fmt(Math.round(t.consumo_90d)) + ' m · ' + fmt(t.ocs_90d) + ' OC' : '—'}</td>
       <td class="td-dim">${t.ultimo ? t.ultimo.split('-').reverse().join('/') : '—'}</td></tr>`; }).join('');
+  const mTodas = T.reduce((a, t) => a + Math.max(0, t.stock_total || 0), 0), oc90 = T.reduce((a, t) => a + (t.ocs_90d || 0), 0);
   return `
-  <div class="kpis">
-    ${tarjetaKpi({ attr: 'tl', k: 'con', lbl: 'Telas con stock', val: fmt(conStock.length), color: 'var(--ac)', ver: 'Ver todas' })}
-    ${tarjetaKpi({ attr: 'tl', k: 'urr', lbl: 'Metros en Urrutia', val: fmt(Math.round(mUrr)), color: 'var(--ok)', ver: 'Ver cuáles' })}
-    ${tarjetaKpi({ attr: 'tl', k: 'neg', lbl: 'Con saldo negativo', val: fmt(neg.length), color: neg.length ? 'var(--er)' : 'var(--ok)', ver: 'Ver cuáles' })}
-    ${tarjetaKpi({ attr: 'tl', k: 'con', lbl: 'Consumidos en 90 días', val: fmt(Math.round(m90)) + ' m', color: 'var(--wa)', ver: 'Ver todas' })}
+  <div class="kpi-grid">
+    ${tarjetaKpi({ attr: 'tl', k: 'con', lbl: 'Telas con stock', val: fmt(conStock.length), sub: `de ${fmt(T.length)} telas en el ERP`, color: 'var(--ac)', ver: 'Ver todas' })}
+    ${tarjetaKpi({ attr: 'tl', k: 'urr', lbl: 'Metros en Urrutia', val: fmt(Math.round(mUrr)), sub: `de ${fmt(Math.round(mTodas))} m en todas las bodegas`, color: 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tl', k: 'neg', lbl: 'Con saldo negativo', val: fmt(neg.length), sub: neg.length ? 'consumo sin ingreso en el ERP' : 'ninguna', color: neg.length ? 'var(--er)' : 'var(--ok)', ver: 'Ver cuáles' })}
+    ${tarjetaKpi({ attr: 'tl', k: 'c90', lbl: 'Consumidos en 90 días', val: fmt(Math.round(m90)) + ' m', sub: `en ${fmt(oc90)} órdenes de producción`, color: 'var(--wa)', ver: 'Ver todas' })}
   </div>
   <div class="tbl-card">
     <div class="tbl-head"><div><div class="tbl-ttl">Stock de tela por bodega</div><div class="card-sub">En metros, como lo exporta el ERP. Alcanza = stock ÷ metros por prenda (mediana de las órdenes de producción que usaron esa tela).</div></div>
