@@ -833,6 +833,10 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/></svg>
       Telas
     </button>
+    <button class="nav-item" data-sec="consumo" data-ttl="Consumo de tela" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/></svg>
+      Consumo de tela
+    </button>
     <button class="nav-item" data-sec="fotos" data-ttl="Fotos pendientes" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       Fotos pendientes
@@ -4158,6 +4162,59 @@ async function secTelas() {
     <div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th>${sucs.map(s => `<th class="r">${TELA_SUC[s] || 'Bod. ' + s}</th>`).join('')}<th class="r">Total m</th><th class="r" title="Metros por prenda, mediana de las órdenes que la usaron">m/prenda</th><th class="r">Alcanza para</th><th class="r">Consumo 90 d</th><th>Último uso</th></tr></thead>
       <tbody id="telasBody">${filas}</tbody></table></div>
     <div class="tbl-foot">Un saldo negativo es consumo registrado sin ingreso en el ERP: corregirlo con Adecom. Las telas sin nombre no aparecen en el consumo de ninguna orden; el nombre lo da el ERP solo ahí.</div>
+  </div>`;
+}
+
+const CONSUMO_ICO = '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/>';
+async function secConsumo() {
+  const [CO, TOC] = await Promise.all([load('consumo_oc.json'), load('traza_oc.json')]);
+  const co = CO && !Array.isArray(CO) ? CO : {};
+  if (!Object.keys(co).length) return makePH(CONSUMO_ICO, 'Consumo de tela', 'Todavía no hay datos de consumo: llegan con la próxima corrida del ThinkPad.');
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const traza = new Map();
+  (Array.isArray(TOC) ? TOC : []).forEach(o => { const k = String(o.oc).trim(); if (!traza.has(k)) traza.set(k, o); });
+  const ordenes = Object.entries(co).map(([oc, d]) => {
+    const t = traza.get(oc) || {};
+    const telas = (d.telas || []).slice().sort((a, b) => (b.m || 0) - (a.m || 0));
+    return { oc, art: t.articulo || '', tipo: t.tipo || '', cort: t.cort ?? null, telas, m: d.m || 0, mp: d.m_prenda, ins: d.insumos || 0, total: d.total || 0, cp: d.costo_prenda };
+  }).sort((a, b) => b.total - a.total);
+  const porTela = new Map();
+  ordenes.forEach(o => o.telas.forEach(x => {
+    const p = porTela.get(x.cod) || { cod: x.cod, nombre: x.nombre, m: 0, valor: 0, ocs: 0 };
+    p.m += x.m || 0; p.valor += x.valor || 0; p.ocs += 1; porTela.set(x.cod, p);
+  }));
+  const telas = [...porTela.values()].sort((a, b) => b.m - a.m);
+  const totV = ordenes.reduce((a, o) => a + o.total, 0), totM = ordenes.reduce((a, o) => a + o.m, 0);
+  const filasOrd = ordenes.map(o => {
+    const tel = o.telas.slice(0, 3).map(x => `${esc(x.nombre)} <b>${fmt(Math.round(x.m))} m</b>`).join(' · ') + (o.telas.length > 3 ? ` <span class="td-dim">+${o.telas.length - 3}</span>` : '');
+    const q = esc(`${o.oc} ${o.art} ${o.tipo} ${o.telas.map(x => x.nombre).join(' ')}`).toLowerCase();
+    return `<tr data-q="${q}">
+      <td><span class="td-code">${String(o.oc).replace(/^0+/, '')}</span></td>
+      <td class="td-code">${esc(o.art)}</td>
+      <td class="td-dim">${esc(o.tipo)}</td>
+      <td class="r td-num">${o.cort !== null && o.cort !== '' ? fmt(o.cort) : '—'}</td>
+      <td style="font-size:12px">${tel || '<span class="td-dim">sin tela</span>'}</td>
+      <td class="r td-num">${o.m ? fmt(Math.round(o.m)) : '—'}</td>
+      <td class="r td-dim">${o.mp ?? '—'}</td>
+      <td class="r td-dim">${o.ins ? fmtCLP(o.ins) : '—'}</td>
+      <td class="r td-num" style="font-weight:700">${fmtCLP(o.total)}</td>
+      <td class="r td-dim">${o.cp ? fmtCLP(o.cp) : '—'}</td></tr>`;
+  }).join('');
+  const filasTel = telas.map(t => `<tr data-q="${esc(`${t.nombre} ${t.cod}`).toLowerCase()}">
+      <td><b>${esc(t.nombre)}</b><div class="td-dim" style="font-size:10px">${esc(t.cod)}</div></td>
+      <td class="r td-num">${fmt(Math.round(t.m))}</td>
+      <td class="r td-num">${fmtCLP(Math.round(t.valor))}</td>
+      <td class="r td-dim">${fmt(t.ocs)}</td>
+      <td class="r td-dim">${t.m ? fmtCLP(Math.round(t.valor / t.m)) : '—'}</td></tr>`).join('');
+  return `
+  <div class="tbl-card">
+    <div class="tbl-head"><div><div class="tbl-ttl">Consumo de tela</div>
+      <div class="card-sub">${fmt(ordenes.length)} órdenes con consumo · ${fmt(Math.round(totM))} m · ${fmtCLP(Math.round(totV))} en telas e insumos. Sale del consumo por orden que exporta Adecom (CONSUMOS-OP.CSV), para las órdenes de la trazabilidad.</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="consumoBuscar" class="finput fsearch" placeholder="Orden, artículo o tela…" style="width:220px"></div></div>
+    <div style="display:flex;gap:6px;margin:8px 0 10px"><button class="seg on" data-cv="ord">Por orden</button><button class="seg" data-cv="tel">Por tela</button></div>
+    <div id="consumoOrd" class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Orden</th><th>Artículo</th><th>Tipo</th><th class="r">Cortadas</th><th>Telas (mayor consumo)</th><th class="r">Metros</th><th class="r">m por prenda</th><th class="r">Insumos</th><th class="r">Total</th><th class="r">$ por prenda</th></tr></thead><tbody id="consumoBodyOrd">${filasOrd}</tbody></table></div>
+    <div id="consumoTel" class="tbl-scroll" style="display:none"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th><th class="r">Metros</th><th class="r">Valor $</th><th class="r">Órdenes</th><th class="r">$ por metro</th></tr></thead><tbody id="consumoBodyTel">${filasTel}</tbody></table></div>
+    <div class="tbl-foot">Las órdenes salen de la de más valor a la de menos. Si una orden tiene varios artículos, el consumo es de la orden completa y aparece el primero. Los insumos pueden restar cuando el ERP registra devoluciones.</div>
   </div>`;
 }
 
@@ -10935,6 +10992,7 @@ const SECS = {
   'kennedy':        () => secKennedy(),
   'cajas':          () => secCajas(),
   'telas':          () => secTelas(),
+  'consumo':        () => secConsumo(),
   'fotos':          () => secFotos(),
   'conversaciones': () => secConversaciones(),
   'reporte-atencion': () => secReporteAtencion(),
@@ -12048,6 +12106,16 @@ function bindContent(secId) {
     document.querySelectorAll('[data-tl]').forEach(card => card.addEventListener('click', () => {
       soloK = card.dataset.tl === 'con' ? '' : card.dataset.tl; filtrar();
       document.getElementById('telasBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+  }
+  if (secId === 'consumo') {
+    const filtrarC = () => { const q = (document.getElementById('consumoBuscar')?.value || '').trim().toLowerCase();
+      document.querySelectorAll('#consumoBodyOrd tr, #consumoBodyTel tr').forEach(tr => { tr.style.display = !q || (tr.dataset.q || '').includes(q) ? '' : 'none'; }); };
+    document.getElementById('consumoBuscar')?.addEventListener('input', filtrarC);
+    document.querySelectorAll('[data-cv]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('[data-cv]').forEach(x => x.classList.toggle('on', x === b));
+      document.getElementById('consumoOrd').style.display = b.dataset.cv === 'ord' ? '' : 'none';
+      document.getElementById('consumoTel').style.display = b.dataset.cv === 'tel' ? '' : 'none';
     }));
   }
   if (secId === 'tabla') {
@@ -15854,7 +15922,7 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
 const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy']);
 /* Atención (Manu, 27-10-2026: "debería verse aparte de todo eso"): una vista solo con lo de las agentes de Nexor
    (Conversaciones; después el CRM tienda, los casos y las campañas). Esas secciones no salen en las otras vistas. */
-const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion', 'formularios-atencion', 'campanas-atencion', 'plantillas-atencion']);
+const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion', 'formularios-atencion', 'campanas-atencion']);
 const VISTAS = ['ambos', 'sg', 'k', 'at'];
 const leerVista = () => { try { const v = localStorage.getItem('adecom_vista'); return VISTAS.includes(v) ? v : 'ambos'; } catch (e) { return 'ambos'; } };
 const vistaInicio = () => ({ k: ['venta-kennedy', 'Venta Kennedy'], at: ['conversaciones', 'Conversaciones'] })[leerVista()] || ['resumen', 'Resumen General'];
@@ -15971,10 +16039,6 @@ const plIso = s => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || ''); retu
 const plEstado = r => (r >= 1 ? 'verde' : r >= 0.85 ? 'ambar' : 'rojo');
 const plEstadoConteo = (n, amarillo) => (n <= 0 ? 'verde' : n <= amarillo ? 'ambar' : 'rojo');
 const plN = n => fmt(Math.round(n || 0));
-/* Con una sola unidad el texto va en singular ("1 prueba", no "1 pruebas") */
-const PL_UNO = { 'prendas detenidas en la etapa': 'prenda detenida en la etapa', 'pruebas del mes': 'prueba del mes', 'pruebas M2 o más (volvieron con correcciones)': 'prueba M2 o más (volvió con correcciones)',
-  'metros de tela en bodega': 'metro de tela en bodega', 'cajas armadas en bodega': 'caja armada en bodega', 'clientes con factura en el mes': 'cliente con factura en el mes', 'clientes con deuda': 'cliente con deuda' };
-const plWip = d => (Math.round(d.wip || 0) === 1 && PL_UNO[d.wipTxt]) || d.wipTxt;
 
 /* Las etapas de la planta. Arriba van de izquierda a derecha (1 a 6), abajo vuelven (7 a 12). Las seis de producción
    usan los mismos nombres de etapa que Metas de Producción (MT_ET) y Trazabilidad (TRZ_ESTANDAR). */
@@ -16081,7 +16145,7 @@ async function plDatos() {
     D.modelaje = { valor: delMes.length, meta: m, esp, r: esp ? delMes.length / esp : 0, estado: plEstado(esp ? delMes.length / esp : 0),
       corto: `${delMes.length}/${m}`, kpi: 'Pruebas (M1 a M5) hechas en el mes', wip: delMes.length, wipTxt: 'pruebas del mes', unidad: 'pruebas',
       ritmo: jor.corridos ? delMes.length / jor.corridos : 0,
-      detalle: [['Esperado a la fecha', plN(esp)], ['Últimos 7 días', `${semana} ${semana === 1 ? 'prueba' : 'pruebas'} (meta ${plN(cas.calceSemana)} a la semana)`],
+      detalle: [['Esperado a la fecha', plN(esp)], ['Últimos 7 días', `${semana} pruebas (meta ${plN(cas.calceSemana)} a la semana)`],
         ['Por nivel', Object.keys(porM).sort().map(k => `${k}: ${porM[k]}`).join(' · ') || 'sin pruebas']],
       formula: `${cas.modelos} modelos × ${par.ppm} pruebas por modelo aprobado = ${cas.pruebas} pruebas al mes. Real en ADECOM: unas 3,4 pruebas por modelo aprobado.`, origen: 'reunion' };
   }
@@ -16100,7 +16164,7 @@ async function plDatos() {
       corto: `${aprob.length}/${m}`, kpi: 'Modelos que pasaron a producción en el mes', wip: devueltas, wipTxt: 'pruebas M2 o más (volvieron con correcciones)', unidad: 'modelos',
       ritmo: jor.corridos ? aprob.length / jor.corridos : 0,
       detalle: [['Esperado a la fecha', plN(esp)], ['Modelos aprobados', aprob.slice(0, 12).join(', ') + (aprob.length > 12 ? '…' : '') || 'ninguno aún'],
-        ['Pruebas que volvieron', `${devueltas} del mes ${devueltas === 1 ? 'es' : 'son'} M2 o más`]],
+        ['Pruebas que volvieron', `${devueltas} del mes son M2 o más`]],
       formula: `10.000 ÷ ${par.upm} unidades por modelo = ${cas.modelos} modelos al mes. Un modelo cuenta el mes de su primera orden de producción (de 10 prendas o más).`, origen: 'reunion',
       aviso: 'La prueba de calce no queda registrada en ADECOM: aquí se ve su resultado, no la prueba.' };
   }
@@ -16127,7 +16191,7 @@ async function plDatos() {
 
   /* Venta: prendas vendidas (facturas y boletas menos notas de crédito) */
   { const V = (Array.isArray(dv) ? dv : []).filter(d => (d.fecha_iso || '').slice(0, 7) === mes && d.fecha_iso <= ref && d.tipo !== 'Ndeb');
-    const prendas = V.reduce((s, d) => s + (d.prendas || 0), 0);   /* las notas de crédito ya vienen en negativo (como en Reporte Venta) */
+    const prendas = V.reduce((s, d) => s + (d.tipo === 'N/cre' ? -1 : 1) * (d.prendas || 0), 0);
     const clientes = new Set(V.filter(d => d.tipo === 'F/Elec' || d.tipo === 'FACT').map(d => d.rut)).size;
     const m = par.meta, esp = m * jor.frac;
     D.venta = { valor: prendas, meta: m, esp, r: esp ? prendas / esp : 0, estado: plEstado(esp ? prendas / esp : 0), corto: `${plN(prendas)}/${plN(m)}`,
@@ -16416,7 +16480,7 @@ function plIniciar(datos) {
     mono(10, [5, 6], LOOK('#23874f', '#151515', 'largo', '#f1c7a5'), true),
     mono(11, [1, 6], LOOK('#7a5228', '#6b4a2b', 'melena', '#e8b896', { lentes: true }), true),
   ];
-  const gerencia = mono(-1, [12, 4], LOOK('#1c2a39', '#2b1d16', 'corto', '#e8b896'), false, { etiqueta: 'Gerencia' });   /* 03-11 (Manu): con pelo y sin canas */
+  const gerencia = mono(-1, [12, 4], LOOK('#1c2a39', '#8d8d99', 'calvo', '#e8b896'), false, { etiqueta: 'Gerencia' });
   monos.push(gerencia);
   const monoDe = i => monos.find(m => m.zona === i && !m.mudo);
   function ruta(de, a) {
@@ -16571,14 +16635,14 @@ function plIniciar(datos) {
     if (st.pestana === 'ficha') {
       const ah = el('div', 'pl-ahora'); ah.append(chip(d.estado, NOMBRE_EST[d.estado]), el('span', null, `${d.kpi}: ${d.corto}`)); pn.append(ah);
       pn.append(dato('Le entra', et.entra), dato('Entrega', et.entrega), dato('Responsable', 'Por confirmar'), dato('Sistema', et.sistema), dato('Dónde se cae', et.cae));
-      if (d.wip > 0 || et.mt) pn.append(dato('Ahora', `${plN(d.wip)} ${plWip(d)}`));
+      if (d.wip > 0 || et.mt) pn.append(dato('Ahora', `${plN(d.wip)} ${d.wipTxt}`));
       const ir = el('button', 'pl-btn pl-ir', `Ver en ${et.ir[1]} ›`); ir.type = 'button'; ir.onclick = () => irA(et.ir[0], et.ir[1]); pn.append(ir);
     } else if (st.pestana === 'kpi') {
       pn.append(el('h4', null, d.kpi));
       pn.append(el('span', 'pl-origen' + (d.origen === 'reunion' ? ' reunion' : ''), d.origen === 'reunion' ? 'Meta de la reunión o del dashboard' : 'Meta propuesta'));
       const cf = el('div', 'pl-cifras'); const cifra = (v, l, c) => { const x = el('div', 'pl-cifra ' + (c || '')); x.append(el('b', null, v), el('span', null, l)); return x; };
       if (d.esp != null) cf.append(cifra(plN(d.valor), 'Real del mes', d.estado), cifra(plN(d.esp), 'Esperado a la fecha'), cifra(plN(d.meta), 'Meta del mes'));
-      else cf.append(cifra(plN(d.valor), d.kpi, d.estado), cifra(plN(d.meta), 'Meta'), cifra(plN(d.wip), plWip(d)));
+      else cf.append(cifra(plN(d.valor), d.kpi, d.estado), cifra(plN(d.meta), 'Meta'), cifra(plN(d.wip), d.wipTxt));
       pn.append(cf);
       if (d.esp != null && d.meta) { pn.append(barra(d.valor / d.meta, d.estado, d.esp / d.meta)); pn.append(el('p', 'pl-dim', 'La raya marca lo esperado a la fecha según los días hábiles que ya pasaron.')); }
       if (d.aviso) pn.append(el('p', 'pl-aviso', d.aviso));
