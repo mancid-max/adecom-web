@@ -4176,7 +4176,7 @@ async function secConsumo() {
   const ordenes = Object.entries(co).map(([oc, d]) => {
     const t = traza.get(oc) || {};
     const telas = (d.telas || []).slice().sort((a, b) => (b.m || 0) - (a.m || 0));
-    return { oc, art: t.articulo || '', tipo: t.tipo || '', cort: t.cort ?? null, telas, m: d.m || 0, mp: d.m_prenda, ins: d.insumos || 0, total: d.total || 0, cp: d.costo_prenda };
+    return { oc, art: t.articulo || '', temp: t.articulo ? String(t.articulo).slice(2, 4) : '', tipo: t.tipo || '', cort: t.cort ?? null, telas, m: d.m || 0, mp: d.m_prenda, ins: d.insumos || 0, total: d.total || 0, cp: d.costo_prenda };
   }).sort((a, b) => b.total - a.total);
   const porTela = new Map();
   ordenes.forEach(o => o.telas.forEach(x => {
@@ -4184,37 +4184,50 @@ async function secConsumo() {
     p.m += x.m || 0; p.valor += x.valor || 0; p.ocs += 1; porTela.set(x.cod, p);
   }));
   const telas = [...porTela.values()].sort((a, b) => b.m - a.m);
+  const temps = [...new Set(ordenes.map(o => o.temp).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+  const tipos = [...new Set(ordenes.map(o => o.tipo).filter(Boolean))].sort();
+  const nombres = [...new Set(telas.map(t => t.nombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   const totV = ordenes.reduce((a, o) => a + o.total, 0), totM = ordenes.reduce((a, o) => a + o.m, 0);
   const filasOrd = ordenes.map(o => {
     const tel = o.telas.slice(0, 3).map(x => `${esc(x.nombre)} <b>${fmt(Math.round(x.m))} m</b>`).join(' · ') + (o.telas.length > 3 ? ` <span class="td-dim">+${o.telas.length - 3}</span>` : '');
     const q = esc(`${o.oc} ${o.art} ${o.tipo} ${o.telas.map(x => x.nombre).join(' ')}`).toLowerCase();
-    return `<tr data-q="${q}">
-      <td><span class="td-code">${String(o.oc).replace(/^0+/, '')}</span></td>
-      <td class="td-code">${esc(o.art)}</td>
-      <td class="td-dim">${esc(o.tipo)}</td>
-      <td class="r td-num">${o.cort !== null && o.cort !== '' ? fmt(o.cort) : '—'}</td>
+    const enTelas = '|' + o.telas.map(x => String(x.nombre || '').toLowerCase()).join('|') + '|';
+    return `<tr data-q="${q}" data-temp="${o.temp}" data-tipo="${esc(o.tipo)}" data-telas="${esc(enTelas)}" data-m="${o.m}" data-t="${o.total}">
+      <td data-v="${Number(o.oc)}"><span class="td-code">${String(o.oc).replace(/^0+/, '')}</span></td>
+      <td class="td-code" data-v="${esc(o.art)}">${esc(o.art)}</td>
+      <td class="td-dim" data-v="${esc(o.tipo)}">${esc(o.tipo)}</td>
+      <td class="r td-num" data-v="${o.cort ?? ''}">${o.cort !== null && o.cort !== '' ? fmt(o.cort) : '—'}</td>
       <td style="font-size:12px">${tel || '<span class="td-dim">sin tela</span>'}</td>
-      <td class="r td-num">${o.m ? fmt(Math.round(o.m)) : '—'}</td>
-      <td class="r td-dim">${o.mp ?? '—'}</td>
-      <td class="r td-dim">${o.ins ? fmtCLP(o.ins) : '—'}</td>
-      <td class="r td-num" style="font-weight:700">${fmtCLP(o.total)}</td>
-      <td class="r td-dim">${o.cp ? fmtCLP(o.cp) : '—'}</td></tr>`;
+      <td class="r td-num" data-v="${o.m}">${o.m ? fmt(Math.round(o.m)) : '—'}</td>
+      <td class="r td-dim" data-v="${o.mp ?? ''}">${o.mp ?? '—'}</td>
+      <td class="r td-dim" data-v="${o.ins}">${o.ins ? fmtCLP(o.ins) : '—'}</td>
+      <td class="r td-num" data-v="${o.total}" style="font-weight:700">${fmtCLP(o.total)}</td>
+      <td class="r td-dim" data-v="${o.cp ?? ''}">${o.cp ? fmtCLP(o.cp) : '—'}</td></tr>`;
   }).join('');
-  const filasTel = telas.map(t => `<tr data-q="${esc(`${t.nombre} ${t.cod}`).toLowerCase()}">
-      <td><b>${esc(t.nombre)}</b><div class="td-dim" style="font-size:10px">${esc(t.cod)}</div></td>
-      <td class="r td-num">${fmt(Math.round(t.m))}</td>
-      <td class="r td-num">${fmtCLP(Math.round(t.valor))}</td>
-      <td class="r td-dim">${fmt(t.ocs)}</td>
-      <td class="r td-dim">${t.m ? fmtCLP(Math.round(t.valor / t.m)) : '—'}</td></tr>`).join('');
+  const filasTel = telas.map(t => `<tr data-q="${esc(`${t.nombre} ${t.cod}`).toLowerCase()}" data-nombre="${esc(t.nombre)}">
+      <td data-v="${esc(t.nombre)}"><b>${esc(t.nombre)}</b><div class="td-dim" style="font-size:10px">${esc(t.cod)}</div></td>
+      <td class="r td-num" data-v="${t.m}">${fmt(Math.round(t.m))}</td>
+      <td class="r td-num" data-v="${t.valor}">${fmtCLP(Math.round(t.valor))}</td>
+      <td class="r td-dim" data-v="${t.ocs}">${fmt(t.ocs)}</td>
+      <td class="r td-dim" data-v="${t.m ? t.valor / t.m : ''}">${t.m ? fmtCLP(Math.round(t.valor / t.m)) : '—'}</td></tr>`).join('');
+  const opt = (arr, lbl) => `<option value="">${lbl}</option>` + arr.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+  const optT = `<option value="">Todas las temporadas</option>` + temps.map(t => `<option value="${t}">T${t}</option>`).join('');
   return `
   <div class="tbl-card">
     <div class="tbl-head"><div><div class="tbl-ttl">Consumo de tela</div>
       <div class="card-sub">${fmt(ordenes.length)} órdenes con consumo · ${fmt(Math.round(totM))} m · ${fmtCLP(Math.round(totV))} en telas e insumos. Sale del consumo por orden que exporta Adecom (CONSUMOS-OP.CSV), para las órdenes de la trazabilidad.</div></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="consumoBuscar" class="finput fsearch" placeholder="Orden, artículo o tela…" style="width:220px"></div></div>
-    <div style="display:flex;gap:6px;margin:8px 0 10px"><button class="seg on" data-cv="ord">Por orden</button><button class="seg" data-cv="tel">Por tela</button></div>
-    <div id="consumoOrd" class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Orden</th><th>Artículo</th><th>Tipo</th><th class="r">Cortadas</th><th>Telas (mayor consumo)</th><th class="r">Metros</th><th class="r">m por prenda</th><th class="r">Insumos</th><th class="r">Total</th><th class="r">$ por prenda</th></tr></thead><tbody id="consumoBodyOrd">${filasOrd}</tbody></table></div>
-    <div id="consumoTel" class="tbl-scroll" style="display:none"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Tela</th><th class="r">Metros</th><th class="r">Valor $</th><th class="r">Órdenes</th><th class="r">$ por metro</th></tr></thead><tbody id="consumoBodyTel">${filasTel}</tbody></table></div>
-    <div class="tbl-foot">Las órdenes salen de la de más valor a la de menos. Si una orden tiene varios artículos, el consumo es de la orden completa y aparece el primero. Los insumos pueden restar cuando el ERP registra devoluciones.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px">
+      <select id="consumoTemp" class="finput">${optT}</select>
+      <select id="consumoTela" class="finput" style="max-width:240px">${opt(nombres, 'Todas las telas')}</select>
+      <select id="consumoTipo" class="finput">${opt(tipos, 'Todos los tipos')}</select>
+      <button class="seg" id="consumoLimpiar" style="border:1px solid var(--bd2)">Quitar filtros</button>
+      <span id="consumoCuenta" class="td-dim" style="font-size:12px"></span>
+    </div>
+    <div style="display:flex;gap:6px;margin:0 0 10px"><button class="seg on" data-cv="ord">Por orden</button><button class="seg" data-cv="tel">Por tela</button></div>
+    <div id="consumoOrd" class="tbl-scroll"><table id="consumoTabOrd" class="tbl-compacta" style="width:100%"><thead><tr><th data-ord="n">Orden</th><th data-ord="t">Artículo</th><th data-ord="t">Tipo</th><th class="r" data-ord="n">Cortadas</th><th>Telas (mayor consumo)</th><th class="r" data-ord="n">Metros</th><th class="r" data-ord="n">m por prenda</th><th class="r" data-ord="n">Insumos</th><th class="r" data-ord="n">Total</th><th class="r" data-ord="n">$ por prenda</th></tr></thead><tbody id="consumoBodyOrd">${filasOrd}</tbody></table></div>
+    <div id="consumoTel" class="tbl-scroll" style="display:none"><table id="consumoTabTel" class="tbl-compacta" style="width:100%"><thead><tr><th data-ord="t">Tela</th><th class="r" data-ord="n">Metros</th><th class="r" data-ord="n">Valor $</th><th class="r" data-ord="n">Órdenes</th><th class="r" data-ord="n">$ por metro</th></tr></thead><tbody id="consumoBodyTel">${filasTel}</tbody></table></div>
+    <div class="tbl-foot">Toca un encabezado para ordenar de menor a mayor; otra vez para al revés. Las órdenes salen de la de más valor a la de menos. Si una orden tiene varios artículos, el consumo es de la orden completa y aparece el primero. Los insumos pueden restar cuando el ERP registra devoluciones. En la vista por tela, la temporada y el tipo no aplican.</div>
   </div>`;
 }
 
@@ -12109,14 +12122,42 @@ function bindContent(secId) {
     }));
   }
   if (secId === 'consumo') {
-    const filtrarC = () => { const q = (document.getElementById('consumoBuscar')?.value || '').trim().toLowerCase();
-      document.querySelectorAll('#consumoBodyOrd tr, #consumoBodyTel tr').forEach(tr => { tr.style.display = !q || (tr.dataset.q || '').includes(q) ? '' : 'none'; }); };
-    document.getElementById('consumoBuscar')?.addEventListener('input', filtrarC);
+    const el = id => document.getElementById(id);
+    const filtrarC = () => {
+      const q = (el('consumoBuscar')?.value || '').trim().toLowerCase();
+      const tmp = el('consumoTemp')?.value || '', tela = el('consumoTela')?.value || '', tipo = el('consumoTipo')?.value || '';
+      const vista = document.querySelector('[data-cv].on')?.dataset.cv || 'ord';
+      if (vista === 'ord') {
+        let n = 0, m = 0, v = 0;
+        document.querySelectorAll('#consumoBodyOrd tr').forEach(tr => {
+          const ok = (!q || (tr.dataset.q || '').includes(q)) && (!tmp || tr.dataset.temp === tmp) && (!tipo || tr.dataset.tipo === tipo) && (!tela || (tr.dataset.telas || '').includes('|' + tela.toLowerCase() + '|'));
+          tr.style.display = ok ? '' : 'none';
+          if (ok) { n++; m += +tr.dataset.m || 0; v += +tr.dataset.t || 0; }
+        });
+        if (el('consumoCuenta')) el('consumoCuenta').textContent = `${fmt(n)} órdenes · ${fmt(Math.round(m))} m · ${fmtCLP(Math.round(v))}`;
+      } else {
+        let n = 0;
+        document.querySelectorAll('#consumoBodyTel tr').forEach(tr => {
+          const ok = (!q || (tr.dataset.q || '').includes(q)) && (!tela || tr.dataset.nombre === tela);
+          tr.style.display = ok ? '' : 'none';
+          if (ok) n++;
+        });
+        if (el('consumoCuenta')) el('consumoCuenta').textContent = `${fmt(n)} telas`;
+      }
+    };
+    const ordT = el('consumoTabOrd'), telT = el('consumoTabTel');
+    if (ordT) planOrdenable(ordT);
+    if (telT) planOrdenable(telT);
+    ['consumoBuscar'].forEach(id => el(id)?.addEventListener('input', filtrarC));
+    ['consumoTemp', 'consumoTela', 'consumoTipo'].forEach(id => el(id)?.addEventListener('change', filtrarC));
+    el('consumoLimpiar')?.addEventListener('click', () => { ['consumoBuscar'].forEach(id => { if (el(id)) el(id).value = ''; }); ['consumoTemp', 'consumoTela', 'consumoTipo'].forEach(id => { if (el(id)) el(id).value = ''; }); filtrarC(); });
     document.querySelectorAll('[data-cv]').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('[data-cv]').forEach(x => x.classList.toggle('on', x === b));
-      document.getElementById('consumoOrd').style.display = b.dataset.cv === 'ord' ? '' : 'none';
-      document.getElementById('consumoTel').style.display = b.dataset.cv === 'tel' ? '' : 'none';
+      el('consumoOrd').style.display = b.dataset.cv === 'ord' ? '' : 'none';
+      el('consumoTel').style.display = b.dataset.cv === 'tel' ? '' : 'none';
+      filtrarC();
     }));
+    filtrarC();
   }
   if (secId === 'tabla') {
     const NUM = ['programa','proceso','bodega','saldo','p_corte','p_taller','p_texterno','p_limpiado','p_lavanderia','p_terminacion'];
