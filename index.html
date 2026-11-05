@@ -11033,6 +11033,7 @@ const SECS = {
    desde el contenido: data-goto, barras del gráfico, etc.) */
 function secPermitida(secId) {
   if (!window._bodegaMode) return true;
+  if (window._soloTraza) return secId === 'tabla';
   const btn = document.querySelector(`.nav-item[data-sec="${secId}"]`);
   return !!btn && !btn.hasAttribute('data-admin-only');
 }
@@ -15206,7 +15207,7 @@ let _appLista = false;
 async function init(role) {
   if (_appLista) return;
   _appLista = true;
-  const esBodega = role === 'bodega';
+  const esBodega = role === 'bodega' || role === 'trazabilidad';
 
   // Cargar datos base en paralelo + meta para timestamp real del build.
   // Bodega no pide los documentos de venta: no ve ninguna seccion que los use y el
@@ -15267,7 +15268,7 @@ async function init(role) {
   });
   bindMobile();
   // Bodega parte en Stock Bodega; admin en el Resumen
-  await (esBodega ? go('stock', 'Stock Bodega') : go(...vistaInicio()));
+  await (esBodega ? (role === 'trazabilidad' ? go('tabla', 'Trazabilidad') : go('stock', 'Stock Bodega')) : go(...vistaInicio()));
 }
 
 /* ── INTELIGENCIA BI ─────────────────────────────────────────────────────────
@@ -15997,11 +15998,17 @@ function applyRole(role, email) {
     window._bodegaMode = true;
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
   }
+  if (role === 'trazabilidad') {   // solo Trazabilidad: el menú queda con esa sección y sin el selector de vista
+    window._soloTraza = true;
+    document.querySelectorAll('.sb-nav > *').forEach(el => { if (el.dataset?.sec !== 'tabla') el.style.display = 'none'; });
+    const vista = document.getElementById('sbVista'); if (vista) vista.style.display = 'none';
+    document.getElementById('sbRole').textContent = 'Trazabilidad';
+  }
   document.getElementById('loginOv').classList.add('hidden');
   // El título va escrito en el HTML como "Resumen General": se corrige antes de cargar los datos,
   // si no el usuario de bodega lo alcanza a ver unos segundos.
   const hdT = document.getElementById('hdTitle');
-  if (hdT) hdT.textContent = role === 'admin' ? vistaInicio()[1] : 'Stock Bodega';
+  if (hdT) hdT.textContent = role === 'admin' ? vistaInicio()[1] : role === 'trazabilidad' ? 'Trazabilidad' : 'Stock Bodega';
   if (role === 'admin') iaIniciar();   // el asistente es solo para el administrador
   if (role === 'admin') {               // la vista del menú, también solo para el administrador
     document.querySelectorAll('#sbVista .seg').forEach(b => b.addEventListener('click', () => aplicarVista(b.dataset.v)));
