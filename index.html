@@ -204,11 +204,15 @@ html,body{overflow-x:hidden;max-width:100%}
 .kpi-grid>.kpi{flex:1 1 200px;max-width:360px}
 /* El Resumen agrupa sus tarjetas en columnas con nombre: 10 cifras sueltas no se leen,
    4 preguntas con 2 cifras cada una si. */
-.res-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.res-cols{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+.res-cols>*{grid-column:span 2}
+.res-temp>*:first-child,.chart-row.res-charts>*:first-child{grid-column:span 4;min-width:0}
+.res-temp>*:last-child,.chart-row.res-charts>*:last-child{grid-column:span 2;min-width:0}
+.chart-row.res-charts{grid-template-columns:repeat(6,minmax(0,1fr))}
 /* El bloque de la coleccion: el filtro manda sobre estas tres tarjetas, que van
    justo debajo. Antes el selector vivia apretado en el titulo de una columna y las
    tarjetas que dependian de el estaban repartidas en dos. */
-.res-temp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.res-temp{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
 .res-temp .kpi{padding:15px 16px}
 .res-temp .kpi-val{font-size:23px}
 /* Cada columna reparte su alto en dos filas iguales. Como el grid estira todas las
@@ -218,8 +222,8 @@ html,body{overflow-x:hidden;max-width:100%}
 .res-grp{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 1px}
 .res-col .kpi{padding:15px 16px}
 .res-col .kpi-val{font-size:23px}
-@media(max-width:1180px){.res-cols,.res-temp{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:620px){.res-cols,.res-temp{grid-template-columns:1fr}}
+@media(max-width:1180px){.res-cols,.res-temp,.chart-row.res-charts{grid-template-columns:repeat(2,minmax(0,1fr))}.res-cols>*,.res-temp>*,.chart-row.res-charts>*{grid-column:span 1}}
+@media(max-width:620px){.res-cols,.res-temp,.chart-row.res-charts{grid-template-columns:1fr}}
 .kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;min-width:0;transition:border-color .12s,box-shadow .12s,transform .1s}
 .kpi>div:last-child{min-width:0}
 .kpi-lbl{overflow-wrap:break-word}
@@ -1949,7 +1953,7 @@ async function secResumen() {
       </div>
   </div>
 
-  <div class="chart-row">
+  <div class="chart-row res-charts">
     <div class="card">
       <div class="card-ttl">Pedidos por Temporada</div>
       <div class="card-sub">Toca una barra para ver el detalle</div>
