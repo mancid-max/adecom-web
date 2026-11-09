@@ -4370,6 +4370,30 @@ const ZONAS_CHILE = {
   'Zona Austral': ['PUERTO AYSEN','COYHAIQUE','COCHRANE','PUERTO NATALES','PUNTA ARENAS','PORVENIR'],
 };
 const CIUDAD_ORDEN = Object.values(ZONAS_CHILE).flat();
+/* Regiones de Chile, de norte a sur, con las ciudades de los clientes */
+const REGIONES_CHILE = {
+  'Arica y Parinacota': ['ARICA'],
+  'Tarapacá': ['ALTO HOSPICIO','IQUIQUE'],
+  'Antofagasta': ['TOCOPILLA','CALAMA','ANTOFAGASTA'],
+  'Atacama': ['CHAÑARAL','DIEGO DE ALMAGRO','COPIAPO','VALLENAR'],
+  'Coquimbo': ['LA SERENA','COQUIMBO','OVALLE','LOS VILOS'],
+  'Valparaíso': ['LA LIGUA','CABILDO','LOS ANDES','SAN FELIPE','LA CALERA','QUILLOTA','VIÑA DEL MAR','SAN ANTONIO'],
+  'Metropolitana': ['SANTIAGO','MELIPILLA','PAINE'],
+  "O'Higgins": ['RANCAGUA','RENGO','SAN FERNANDO','SANTA CRUZ'],
+  'Maule': ['CURICO','TALCA','CONSTITUCION','CONSTIUCION','SAN JAVIER','LINARES','PARRAL','CAUQUENES'],
+  'Ñuble': ['CHILLAN','SAN CARLOS','YUNGAY'],
+  'Biobío': ['CABRERO','TALCAHUANO','CONCEPCION','ARAUCO','CURANILAHUE','CAÑETE','LOS ANGELES','NACIMIENTO','MULCHEN','BIO-BIO'],
+  'La Araucanía': ['ANGOL','COLLIPULLI','PUREN','TRAIGUEN','VICTORIA','CAPITAN PASTENE','TEMUCO','VILLARICA'],
+  'Los Ríos': ['PANGUIPULLI','LA UNION','RIO BUENO'],
+  'Los Lagos': ['OSORNO','PUERTO VARAS','PUERTO MONTT','CALBUCO','ANCUD','CASTRO','QUELLON','CHILOE'],
+  'Aysén': ['PUERTO AYSEN','COYHAIQUE','COCHRANE'],
+  'Magallanes': ['PUERTO NATALES','PUNTA ARENAS','PORVENIR'],
+};
+function regionDeCiudad(c) {
+  const n = String(c || '').trim().toUpperCase();
+  for (const [r, lista] of Object.entries(REGIONES_CHILE)) if (lista.includes(n)) return r;
+  return 'Sin región';
+}
 const ordenMapa = (a, b) => { const ia = CIUDAD_ORDEN.indexOf(a), ib = CIUDAD_ORDEN.indexOf(b); return ((ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib)) || a.localeCompare(b, 'es'); };
 function zonaDeCiudad(c) {
   const n = String(c || '').trim().toUpperCase();
@@ -4404,13 +4428,21 @@ function faltanT45Html(peds) {
   return `<div class="kpi-grid" style="margin-bottom:14px">${kpis}</div>`;
 }
 function faltanT45Tabla(peds) {
-  const lista = faltanT45Lista(peds).sort((a, b) => b.prev - a.prev);
+  const lista = faltanT45Lista(peds);
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  const filas = lista.map(g => `<tr data-zona="${g.zona}" data-ciudad="${esc(String(g.ciudad || '').trim().toLowerCase())}"><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="td-dim">${esc(g.zona)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
+  const regiones = [...Object.keys(REGIONES_CHILE), 'Sin región'];
+  const grupos = regiones.map(r => {
+    const cs = lista.filter(g => regionDeCiudad(g.ciudad) === r).sort((a, b) => b.prev - a.prev);
+    if (!cs.length) return '';
+    const filas = cs.map(g => `<tr data-zona="${g.zona}" data-region="${r}" data-ciudad="${esc(String(g.ciudad || '').trim().toLowerCase())}" style="display:none"><td style="padding-left:26px">${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
+    return `<tbody class="ft-grp" data-region="${esc(r)}">
+      <tr class="ft-cab" style="cursor:pointer;background:var(--sf2)" title="Toca para ver los clientes de ${esc(r)}"><td colspan="3" style="font-weight:700"><span class="ft-flecha" style="display:inline-block;width:14px;color:var(--tx3)">▸</span>${esc(r)} <span class="td-dim" style="font-weight:400">· <span class="ft-n">${fmt(cs.length)}</span> clientes · <span class="ft-u">${fmt(cs.reduce((a, g) => a + g.prev, 0))}</span> prendas en T37 y T41</span></td></tr>
+      ${filas}</tbody>`;
+  }).join('');
   return `<div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head"><div><div class="tbl-ttl">¿Quiénes faltan por comprar la T45?</div><div class="card-sub">Compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Usa el filtro de zona de arriba.</div></div>
+    <div class="tbl-head"><div><div class="tbl-ttl">¿Quiénes faltan por comprar la T45?</div><div class="card-sub">Por región, de norte a sur. Compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Toca una región para ver sus clientes.</div></div>
       <div class="xl-der"><span class="td-dim" id="ftCount">${fmt(lista.length)} clientes</span></div></div>
-    <div class="tbl-scroll"><table><thead><tr><th>Cliente</th><th>Ciudad</th><th>Zona</th><th class="r">Prendas T37 y T41</th></tr></thead><tbody id="ftBody">${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:14px">Ninguno</td></tr>'}</tbody></table></div>
+    <div class="tbl-scroll"><table id="ftTabla"><thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Prendas T37 y T41</th></tr></thead>${grupos || '<tbody><tr><td colspan="3" class="td-dim" style="text-align:center;padding:14px">Ninguno</td></tr></tbody>'}</table></div>
   </div>`;
 }
 async function secClientes() {
@@ -4419,10 +4451,11 @@ async function secClientes() {
 
   const base = clInactivos(peds);
   const ciudades = [...new Set([...base.map(c => c.ciudad), ...faltanT45Lista(peds).map(g => g.ciudad)].filter(Boolean).map(c => String(c).trim().toUpperCase()))].sort(ordenMapa);
-  const ciudadesOpts = [...Object.keys(ZONAS_CHILE), 'Sin zona'].map(z => {
-    const cs = ciudades.filter(c => zonaDeCiudad(c) === z);
-    return cs.length ? `<optgroup label="${z}">` + cs.map(c => `<option value="${c.toLowerCase()}">${c}</option>`).join('') + '</optgroup>' : '';
+  const ciudadesOpts = [...Object.keys(REGIONES_CHILE), 'Sin región'].map(r => {
+    const cs = ciudades.filter(c => regionDeCiudad(c) === r);
+    return cs.length ? `<optgroup label="${r}">` + cs.map(c => `<option value="${c.toLowerCase()}">${c}</option>`).join('') + '</optgroup>' : '';
   }).join('');
+  const regionesOpts = [...Object.keys(REGIONES_CHILE), 'Sin región'].filter(r => ciudades.some(c => regionDeCiudad(c) === r)).map(r => `<option value="${r}">${r}</option>`).join('');
   const esc = s => String(s||'').replace(/"/g,'&quot;');
   const rowsHtml = base.map((c, i) => `<tr data-i="${i}" title="Ver cuánto compró en cada colección" style="cursor:pointer"
     data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}" data-zona="${zonaDeCiudad(c.ciudad)}"
@@ -4452,6 +4485,7 @@ async function secClientes() {
     <div class="fgrp"><span class="flbl">Magic World</span><div class="segs" id="clMagicSegs"><button class="seg${CL_SIN_MAGIC ? '' : ' on'}" data-cm="con">Con Magic</button><button class="seg${CL_SIN_MAGIC ? ' on' : ''}" data-cm="sin">Sin Magic</button></div></div>
     <div class="fgrp"><span class="flbl">No compraron en</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
     <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
+    <div class="fgrp"><span class="flbl">Región</span><select id="clRegion" class="finput" style="width:190px"><option value="">Todas las regiones</option>${regionesOpts}</select></div>
     <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudadesOpts}</select></div>
     <div class="fgrp"><span class="flbl">Motivo</span>
     <div class="segs" id="clMotSegs">
@@ -14677,15 +14711,30 @@ function bindContent(secId) {
     function aplicarFt() {
       const z = document.querySelector('#ftZonaSegs .seg.on')?.dataset.fz || '';
       const ciu = document.getElementById('clCiudad')?.value || '';
-      let n = 0;
-      document.querySelectorAll('#ftBody tr[data-zona]').forEach(tr => { const ok = (!z || tr.dataset.zona === z) && (!ciu || tr.dataset.ciudad === ciu); tr.style.display = ok ? '' : 'none'; if (ok) n++; });
-      const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(n) + ' clientes';
+      const reg = document.getElementById('clRegion')?.value || '';
+      let total = 0;
+      document.querySelectorAll('#ftTabla tbody.ft-grp').forEach(g => {
+        const filas = [...g.querySelectorAll('tr[data-ciudad]')];
+        const pasan = filas.filter(tr => (!z || tr.dataset.zona === z) && (!reg || g.dataset.region === reg) && (!ciu || tr.dataset.ciudad === ciu));
+        filas.forEach(tr => { tr.style.display = (g.dataset.abierto === '1' && pasan.includes(tr)) ? '' : 'none'; });
+        const n = g.querySelector('.ft-n'); if (n) n.textContent = fmt(pasan.length);
+        g.style.display = pasan.length ? '' : 'none';
+        total += pasan.length;
+      });
+      const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(total) + ' clientes';
     }
     document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(x => x.classList.toggle('on', x === b));
       aplicarFt(); applyClFilters();
     }));
     document.getElementById('clCiudad')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
+    document.getElementById('clRegion')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
+    document.getElementById('ftTabla')?.addEventListener('click', e => {
+      const cab = e.target.closest('.ft-cab'); if (!cab) return;
+      const g = cab.closest('tbody'); g.dataset.abierto = g.dataset.abierto === '1' ? '' : '1';
+      const fl = cab.querySelector('.ft-flecha'); if (fl) fl.textContent = g.dataset.abierto === '1' ? '▾' : '▸';
+      aplicarFt();
+    });
     function filasVisibles() {
       return [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(r => r.style.display !== 'none');
     }
@@ -14705,9 +14754,10 @@ function bindContent(secId) {
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
       const zonaF = document.querySelector('#ftZonaSegs .seg.on')?.dataset.fz || '';
       const ciuF = document.getElementById('clCiudad')?.value || '';
+      const regF = document.getElementById('clRegion')?.value || '';
       let vis = 0, uds = 0, deuda = 0, frenados = 0;
       document.querySelectorAll('#clBody tr[data-nombre]').forEach(row => {
-        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) && (!zonaF || row.dataset.zona === zonaF) && (!ciuF || row.dataset.ciudad === ciuF) &&
+        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) && (!zonaF || row.dataset.zona === zonaF) && (!regF || regionDeCiudad(row.dataset.ciudad) === regF) && (!ciuF || row.dataset.ciudad === ciuF) &&
           (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q));
         row.style.display = show ? '' : 'none';
         if (show) {
@@ -14726,7 +14776,7 @@ function bindContent(secId) {
       if (el('clKFrenados')) el('clKFrenados').textContent = `${frenados} con algo que los frena`;
       if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades · ${fmtM(deuda)} de deuda`;
       // Las tarjetas y las cuentas de Motivo van con la búsqueda y la colección, no con Motivo (son esos mismos números)
-      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) && (!zonaF || row.dataset.zona === zonaF) && (!ciuF || row.dataset.ciudad === ciuF) &&
+      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) && (!zonaF || row.dataset.zona === zonaF) && (!regF || regionDeCiudad(row.dataset.ciudad) === regF) && (!ciuF || row.dataset.ciudad === ciuF) &&
         (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
       const conM = m => alc.filter(r => pasaMotivo(r, m));
       const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
