@@ -4324,8 +4324,8 @@ async function secCajas() {
 /* Inactivo = compro en alguna de las cuatro colecciones anteriores y NO en la activa.
    Esta va contra TEMP_ACTIVA y no contra la temporada que se este mirando: "inactivo" es
    el que no compro en la coleccion que se esta VENDIENDO. */
-const CL_ACT  = TEMP_ACTIVA;
-const CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA - i)).reverse();
+let CL_ACT  = TEMP_ACTIVA;
+let CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA - i)).reverse();
 
 function clInactivos(peds) {
   const gm = new Map();
@@ -4400,7 +4400,7 @@ function faltanT45Html(peds) {
 function faltanT45Tabla(peds) {
   const lista = faltanT45Lista(peds).sort((a, b) => b.prev - a.prev);
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  const filas = lista.map(g => `<tr data-zona="${g.zona}"><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="td-dim">${esc(g.zona)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
+  const filas = lista.map(g => `<tr data-zona="${g.zona}" data-ciudad="${esc(String(g.ciudad || '').trim().toLowerCase())}"><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="td-dim">${esc(g.zona)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
   return `<div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head"><div><div class="tbl-ttl">¿Quiénes faltan por comprar la T45?</div><div class="card-sub">Compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Usa el filtro de zona de arriba.</div></div>
       <div class="xl-der"><span class="td-dim" id="ftCount">${fmt(lista.length)} clientes</span></div></div>
@@ -4412,9 +4412,10 @@ async function secClientes() {
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
   const base = clInactivos(peds);
+  const ciudades = [...new Set([...base.map(c => c.ciudad), ...faltanT45Lista(peds).map(g => g.ciudad)].filter(Boolean).map(c => String(c).trim().toUpperCase()))].sort((a, b) => a.localeCompare(b, 'es'));
   const esc = s => String(s||'').replace(/"/g,'&quot;');
   const rowsHtml = base.map((c, i) => `<tr data-i="${i}" title="Ver cuánto compró en cada colección" style="cursor:pointer"
-    data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}"
+    data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}" data-zona="${zonaDeCiudad(c.ciudad)}"
     data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}"
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
@@ -4439,7 +4440,9 @@ async function secClientes() {
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
+    <div class="fgrp"><span class="flbl">No compraron en</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
     <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
+    <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudades.map(c => `<option value="${c.toLowerCase()}">${c}</option>`).join('')}</select></div>
     <div class="fgrp"><span class="flbl">Motivo</span>
     <div class="segs" id="clMotSegs">
       <button class="seg on" data-m="all">Todos <span class="db-n">${fmt(base.length)}</span></button>
@@ -14649,13 +14652,25 @@ function bindContent(secId) {
 
   // Clientes Inactivos — filters
   if (secId === 'clientes') {
-    /* Zona: filtra la lista de clientes que faltan la T45 (Manu, 09-11-2026) */
+    /* Temporada: la tabla cambia según la temporada que no compraron (Manu, 09-11-2026: "esa tabla está fija") */
+    document.querySelectorAll('#clActSegs [data-cla]').forEach(b => b.addEventListener('click', () => {
+      const tt = String(b.dataset.cla);
+      CL_ACT = tt; CL_BASE = [1, 2, 3, 4].map(i => String(+tt - i)).reverse();
+      go('clientes', 'Clientes Inactivos');
+    }));
+    /* Zona y ciudad: mueven la tabla de clientes y la lista de los que faltan la T45 (Manu, 09-11-2026) */
+    function aplicarFt() {
+      const z = document.querySelector('#ftZonaSegs .seg.on')?.dataset.fz || '';
+      const ciu = document.getElementById('clCiudad')?.value || '';
+      let n = 0;
+      document.querySelectorAll('#ftBody tr[data-zona]').forEach(tr => { const ok = (!z || tr.dataset.zona === z) && (!ciu || tr.dataset.ciudad === ciu); tr.style.display = ok ? '' : 'none'; if (ok) n++; });
+      const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(n) + ' clientes';
+    }
     document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(x => x.classList.toggle('on', x === b));
-      const z = b.dataset.fz; let n = 0;
-      document.querySelectorAll('#ftBody tr[data-zona]').forEach(tr => { const ok = !z || tr.dataset.zona === z; tr.style.display = ok ? '' : 'none'; if (ok) n++; });
-      const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(n) + ' clientes';
+      aplicarFt(); applyClFilters();
     }));
+    document.getElementById('clCiudad')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
     function filasVisibles() {
       return [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(r => r.style.display !== 'none');
     }
@@ -14673,9 +14688,11 @@ function bindContent(secId) {
       const q   = (document.getElementById('clSearch')?.value||'').trim().toLowerCase();
       const ult = document.querySelector('#clUltSegs .seg.on')?.dataset.u || 'all';
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
+      const zonaF = document.querySelector('#ftZonaSegs .seg.on')?.dataset.fz || '';
+      const ciuF = document.getElementById('clCiudad')?.value || '';
       let vis = 0, uds = 0, deuda = 0, frenados = 0;
       document.querySelectorAll('#clBody tr[data-nombre]').forEach(row => {
-        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) &&
+        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) && (!zonaF || row.dataset.zona === zonaF) && (!ciuF || row.dataset.ciudad === ciuF) &&
           (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q));
         row.style.display = show ? '' : 'none';
         if (show) {
