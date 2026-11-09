@@ -9665,12 +9665,13 @@ function buildPedTabla(ps) {
 
 /* Reporte Pedidos · por artículo (Manu, 09-11-2026): los mismos pedidos del periodo elegido, sumados por artículo.
    Con búsqueda por artículo o modelo, muestra cada pedido de ese artículo. Sin búsqueda, el ranking por prendas pedidas. */
-function pedArticulosHtml(ps, filtro = '') {
+function pedArticulosHtml(ps, filtro = '', temp = '') {
   const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const f = String(filtro || '').trim().toLowerCase(), num = v => +v || 0;
   if (f) {
     const filas = [];
     for (const p of ps) for (const l of (p.lineas || [])) {
+      if (temp && String(l.temp) !== temp) continue;
       if (!String(l.art || '').toLowerCase().includes(f) && !String(l.modelo || '').toLowerCase().includes(f)) continue;
       filas.push({ pedido: p.pedido, fecha: p.fecha || '', nombre: p.nombre || '', art: l.art, sol: num(l.sol), desp: num(l.desp), sal: num(l.sal) });
     }
@@ -9681,6 +9682,7 @@ function pedArticulosHtml(ps, filtro = '') {
   }
   const acc = new Map();
   for (const p of ps) for (const l of (p.lineas || [])) {
+    if (temp && String(l.temp) !== temp) continue;
     const a = acc.get(l.art) || { art: l.art, modelo: l.modelo || '', temp: l.temp || '', peds: new Set(), sol: 0, desp: 0, sal: 0 };
     a.peds.add(p.pedido); a.sol += num(l.sol); a.desp += num(l.desp); a.sal += num(l.sal); acc.set(l.art, a);
   }
@@ -9751,6 +9753,7 @@ async function secRepPedidos() {
     <div class="tbl-head xl-head" style="gap:8px;flex-wrap:wrap">
       <div class="xl-izq"><div class="card-ttl" style="margin:0">Por artículo · el período elegido</div></div>
       <div class="xl-der" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="pedArtTemp" class="finput" style="width:170px"><option value="">Todas las temporadas</option>${[...new Set(ps.flatMap(p => (p.lineas || []).map(l => String(l.temp))))].filter(Boolean).sort((a, b) => b - a).map(x => `<option value="${x}">T${x}</option>`).join('')}</select>
         <input id="pedArtBuscar" class="finput fsearch" list="pedArtLista" placeholder="Artículo o modelo…" style="width:200px">
         <datalist id="pedArtLista">${[...new Set(ps.flatMap(p => (p.lineas || []).map(l => l.art)))].sort().map(a => `<option value="${a}">`).join('')}</datalist>
         <button class="seg" id="pedArtPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
@@ -14471,7 +14474,7 @@ function bindContent(secId) {
       if (comp) comp.innerHTML = pComparativo(ps, rango);
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
       set('pkNum', ps.length);
-      { const ab = document.getElementById('pedArtBody'); if (ab) ab.innerHTML = pedArticulosHtml(ps, document.getElementById('pedArtBuscar')?.value || ''); }
+      { const ab = document.getElementById('pedArtBody'); if (ab) ab.innerHTML = pedArticulosHtml(ps, document.getElementById('pedArtBuscar')?.value || '', document.getElementById('pedArtTemp')?.value || ''); }
       set('pkUds', fmt(pSum(ps, 'unidades')));
       set('pkCli', pClientes(ps));
       for (const [id, k] of [['pkVal', 'valor'], ['pkSal', 'valor_sal']]) {
@@ -14561,9 +14564,12 @@ function bindContent(secId) {
     pOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
     const artBuscar = document.getElementById('pedArtBuscar');
-    artBuscar?.addEventListener('input', () => { document.getElementById('pedArtBody').innerHTML = pedArticulosHtml(PED_FILTRADO, artBuscar.value); });
+    const artTemp = document.getElementById('pedArtTemp');
+    const pintarArt = () => { document.getElementById('pedArtBody').innerHTML = pedArticulosHtml(PED_FILTRADO, artBuscar.value, artTemp?.value || ''); };
+    artBuscar?.addEventListener('input', pintarArt);
+    artTemp?.addEventListener('change', pintarArt);
     document.getElementById('pedArtBody')?.addEventListener('click', e => { const tr = e.target.closest('tr[data-art-pick]'); if (!tr) return; artBuscar.value = tr.dataset.artPick; artBuscar.dispatchEvent(new Event('input')); artBuscar.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-    document.getElementById('pedArtPrint')?.addEventListener('click', () => printTable({ table: document.querySelector('#pedArtBody table'), title: 'Pedidos por artículo', subtitle: (document.getElementById('pTblTtl')?.textContent || '') + (artBuscar.value ? ' · ' + artBuscar.value : '') }));
+    document.getElementById('pedArtPrint')?.addEventListener('click', () => printTable({ table: document.querySelector('#pedArtBody table'), title: 'Pedidos por artículo', subtitle: (document.getElementById('pTblTtl')?.textContent || '') + (artTemp?.value ? ' · T' + artTemp.value : '') + (artBuscar.value ? ' · ' + artBuscar.value : '') }));
     document.getElementById('pedPrint')?.addEventListener('click', () => {
       printTable({ table: document.getElementById('rpBody')?.closest('table'),
                    title: 'Reporte Pedidos',
