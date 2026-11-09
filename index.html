@@ -4392,18 +4392,19 @@ function faltanT45Html(peds) {
   const zonas = [...Object.keys(ZONAS_CHILE), 'Sin zona'];
   const colores = { 'Norte': 'var(--wa)', 'Centro': 'var(--ok)', 'Sur': 'var(--ac)', 'Austral': '#6d28d9', 'Sin zona': 'var(--tx3)' };
   const porZona = z => lista.filter(g => g.zona === z);
-  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  const kpis = [`<div class="kpi" style="border-top:3px solid var(--ac);cursor:default" title="Total"><div style="min-width:0"><div class="kpi-val" style="color:var(--ac)">${fmt(lista.length)}</div><div class="kpi-lbl">Faltan por comprar la T45</div><div class="kpi-delta d-nu">compraron T37 o T41 hasta el 09/11/2025 · sin pedido de T45 hoy</div></div></div>`]
-    .concat(zonas.map(z => `<div class="kpi" style="border-top:3px solid ${colores[z]};cursor:default" title="${z}"><div style="min-width:0"><div class="kpi-val" style="color:${colores[z]}">${fmt(porZona(z).length)}</div><div class="kpi-lbl">${z}</div><div class="kpi-delta d-nu">${fmt(porZona(z).reduce((a, g) => a + g.prev, 0))} prendas en T37 y T41</div></div></div>`))
+  const kpis = [`<div class="kpi" style="border-top:3px solid var(--ac);cursor:default"><div style="min-width:0"><div class="kpi-val" style="color:var(--ac)">${fmt(lista.length)}</div><div class="kpi-lbl">Faltan por comprar la T45</div><div class="kpi-delta d-nu">compraron T37 o T41 hasta el 09/11/2025 · sin pedido de T45 hoy</div></div></div>`]
+    .concat(zonas.map(z => `<div class="kpi" style="border-top:3px solid ${colores[z]};cursor:default"><div style="min-width:0"><div class="kpi-val" style="color:${colores[z]}">${fmt(porZona(z).length)}</div><div class="kpi-lbl">${z}</div><div class="kpi-delta d-nu">${fmt(porZona(z).reduce((a, g) => a + g.prev, 0))} prendas en T37 y T41</div></div></div>`))
     .join('');
-  const detalles = zonas.filter(z => porZona(z).length).map(z => {
-    const filas = porZona(z).sort((a, b) => b.prev - a.prev).slice(0, 300).map(g => `<tr><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
-    return `<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700;padding:6px 0">${z} · ${fmt(porZona(z).length)} clientes</summary><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Prendas T37 y T41</th></tr></thead><tbody>${filas}</tbody></table></div></details>`;
-  }).join('');
-  return `<div class="kpi-grid" style="margin-bottom:14px">${kpis}</div>
-  <div class="tbl-card" style="margin-bottom:14px">
-    <div class="tbl-head"><div><div class="tbl-ttl">¿Cuántos faltan por comprar la T45?</div><div class="card-sub">Compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Toca una zona para ver sus clientes.</div></div></div>
-    ${detalles || '<div class="td-dim" style="padding:14px">Ningún cliente que falte por comprar la T45.</div>'}
+  return `<div class="kpi-grid" style="margin-bottom:14px">${kpis}</div>`;
+}
+function faltanT45Tabla(peds) {
+  const lista = faltanT45Lista(peds).sort((a, b) => b.prev - a.prev);
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const filas = lista.map(g => `<tr data-zona="${g.zona}"><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="td-dim">${esc(g.zona)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
+  return `<div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head"><div><div class="tbl-ttl">¿Quiénes faltan por comprar la T45?</div><div class="card-sub">Compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Usa el filtro de zona de arriba.</div></div>
+      <div class="xl-der"><span class="td-dim" id="ftCount">${fmt(lista.length)} clientes</span></div></div>
+    <div class="tbl-scroll"><table><thead><tr><th>Cliente</th><th>Ciudad</th><th>Zona</th><th class="r">Prendas T37 y T41</th></tr></thead><tbody id="ftBody">${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:14px">Ninguno</td></tr>'}</tbody></table></div>
   </div>`;
 }
 async function secClientes() {
@@ -4438,6 +4439,7 @@ async function secClientes() {
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
+    <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
     <div class="fgrp"><span class="flbl">Motivo</span>
     <div class="segs" id="clMotSegs">
       <button class="seg on" data-m="all">Todos <span class="db-n">${fmt(base.length)}</span></button>
@@ -4478,7 +4480,8 @@ async function secClientes() {
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
     </div>
     <div class="tbl-foot">Clientes que compraron en alguna de las T40–T43 y todavía no en la T${CL_ACT}. Motivo: lo que los frena según su ficha (bloqueo, cupo o deuda). Toca un cliente para ver cuánto compró por colección y un encabezado para ordenar.</div>
-  </div>`;
+  </div>
+  ${faltanT45Tabla(peds)}`;
 }
 
 /* ── STOCK KENNEDY ───────────────────────────────────────────
@@ -14646,6 +14649,13 @@ function bindContent(secId) {
 
   // Clientes Inactivos — filters
   if (secId === 'clientes') {
+    /* Zona: filtra la lista de clientes que faltan la T45 (Manu, 09-11-2026) */
+    document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(x => x.classList.toggle('on', x === b));
+      const z = b.dataset.fz; let n = 0;
+      document.querySelectorAll('#ftBody tr[data-zona]').forEach(tr => { const ok = !z || tr.dataset.zona === z; tr.style.display = ok ? '' : 'none'; if (ok) n++; });
+      const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(n) + ' clientes';
+    }));
     function filasVisibles() {
       return [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(r => r.style.display !== 'none');
     }
