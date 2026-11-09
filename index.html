@@ -11912,24 +11912,6 @@ document.getElementById('guia')?.addEventListener('click', e => {
 let IR_TOCAR = null;
 function irA(sec, ttl, tocar) { IR_TOCAR = sec ? { sec, tocar: tocar || null } : null; go(sec, ttl); }
 
-/* Pestañas por grupo: las secciones de un grupo se abren desde una misma barra arriba del contenido */
-/* Grupos del menú: cada uno es un botón en el menú izquierdo; sus secciones salen como pestañas arriba */
-const GRUPOS_MENU = [
-  { id: 'pedidos', t: 'Pedidos', s: ['rep-pedidos', 'detalle-color', 'top10', 'pvc'] },
-  { id: 'despacho', t: 'Despacho', s: ['venta-despacho', 'debemos', 'reporte-venta'] },
-  { id: 'produccion', t: 'Producción', s: ['tabla', 'programado', 'cuadrados', 'metas', 'planta'] },
-  { id: 'stock', t: 'Stock', s: ['stock', 'cajas', 'telas', 'consumo', 'fotos'] },
-  { id: 'cobranza', t: 'Cobranza y finanzas', s: ['deudas', 'clientes', 'er', 'proyecciones'] },
-];
-function pestanasHtml(secId) {
-  const grp = GRUPOS_MENU.find(x => x.s.includes(secId));
-  if (!grp) return '';
-  return `<div class="segs grp-pestanas" style="margin-bottom:14px;flex-wrap:wrap">${grp.s.map(s => {
-    const b = document.querySelector(`.nav-item[data-sec="${s}"]`);
-    if (!b || (window._bodegaMode && b.hasAttribute('data-admin-only'))) return '';   // solo las que este usuario puede abrir
-    return `<button class="seg${s === secId ? ' on' : ''}" data-grp-sec="${s}" data-grp-ttl="${b?.dataset.ttl || s}">${b?.dataset.ttl || s}</button>`;
-  }).join('')}</div>`;
-}
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
   const seq = ++_goSeq;
@@ -11958,9 +11940,7 @@ async function go(secId, title) {
     return;
   }
   if (seq !== _goSeq) return;
-  document.getElementById('content').innerHTML = `<div class="sec on">${pestanasHtml(secId)}${html}</div>`;
-  document.querySelectorAll('.grp-btn').forEach(b => b.classList.toggle('active', !!GRUPOS_MENU.find(x => x.id === b.dataset.grupo)?.s.includes(secId)));
-  document.querySelectorAll('.grp-pestanas [data-grp-sec]').forEach(b => b.addEventListener('click', () => go(b.dataset.grpSec, b.dataset.grpTtl)));
+  document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
   try { bindContent(secId); } catch (e) { console.error('Falló al activar la sección', secId, e); }
   if (IR_TOCAR && IR_TOCAR.sec === secId) {   // llegó desde "Lo urgente": se pone el filtro de esa fila
     const t = IR_TOCAR.tocar;
@@ -16839,30 +16819,6 @@ function plIniciar(datos) {
 }
 SECS['planta'] = () => secPlanta();
 
-</script>
-<script>
-/* Menú por grupos: en el menú izquierdo cada grupo es un botón; sus secciones se esconden de ahí y se abren con pestañas */
-function menuPorGrupos() {
-  for (const g of GRUPOS_MENU) {
-    const items = g.s.map(s => document.querySelector(`.nav-item[data-sec="${s}"]`)).filter(Boolean);
-    if (!items.length) continue;
-    const btn = document.createElement('button');
-    btn.className = 'nav-item grp-btn';
-    btn.dataset.grupo = g.id;
-    if (items.every(i => i.hasAttribute('data-admin-only'))) btn.setAttribute('data-admin-only', '');
-    const ico = items[0].querySelector('svg');
-    btn.innerHTML = (ico ? ico.outerHTML : '') + g.t;
-    btn.addEventListener('click', () => { const primera = items.find(i => !i.hasAttribute('data-admin-only') || !window._bodegaMode) || items[0]; go(primera.dataset.sec, primera.dataset.ttl); });
-    items[0].parentNode.insertBefore(btn, items[0]);
-    items.forEach(i => { i.style.display = 'none'; });
-  }
-  document.querySelectorAll('.sb-grp').forEach(el => {
-    let n = el.nextElementSibling, visible = false;
-    while (n && !n.classList.contains('sb-grp')) { if (n.classList.contains('nav-item') && n.style.display !== 'none') visible = true; n = n.nextElementSibling; }
-    el.style.display = visible ? '' : 'none';
-  });
-}
-menuPorGrupos();
 </script>
 </body>
 </html>
