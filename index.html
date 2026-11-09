@@ -4361,13 +4361,16 @@ function clInactivos(peds) {
 }
 
 /* Zonas de Chile por ciudad (las ciudades vienen en mayúsculas, como en el ERP). Si una ciudad no está aquí, cae en "Sin zona". */
+/* Zonas de Chile, y dentro de cada una las ciudades de norte a sur: el orden del mapa, de arriba a abajo del país */
 const ZONAS_CHILE = {
-  'Norte Grande': ['ARICA','ALTO HOSPICIO','IQUIQUE','TOCOPILLA','ANTOFAGASTA','CALAMA'],
-  'Norte Chico': ['CHAÑARAL','COPIAPO','DIEGO DE ALMAGRO','VALLENAR','LA SERENA','COQUIMBO','OVALLE','LOS VILOS'],
-  'Zona Central': ['SANTIAGO','LA CALERA','QUILLOTA','LA LIGUA','MELIPILLA','SAN ANTONIO','VIÑA DEL MAR','LOS ANDES','SAN FELIPE','CABILDO','RENGO','SAN FERNANDO','SANTA CRUZ','RANCAGUA','PAINE','TALCA','LINARES','PARRAL','CAUQUENES','CURICO','SAN JAVIER','CONSTITUCION','CONSTIUCION'],
-  'Zona Sur': ['CONCEPCION','TALCAHUANO','CABRERO','LOS ANGELES','NACIMIENTO','MULCHEN','ARAUCO','CAÑETE','CURANILAHUE','BIO-BIO','CHILLAN','SAN CARLOS','TRAIGUEN','YUNGAY','ANGOL','TEMUCO','VICTORIA','COLLIPULLI','PUREN','VILLARICA','OSORNO','PUERTO MONTT','PUERTO VARAS','CASTRO','ANCUD','QUELLON','CALBUCO','CHILOE','PANGUIPULLI','LA UNION','RIO BUENO','CAPITAN PASTENE'],
-  'Zona Austral': ['PUERTO AYSEN','COYHAIQUE','PUNTA ARENAS','PUERTO NATALES','COCHRANE','PORVENIR'],
+  'Norte Grande': ['ARICA','ALTO HOSPICIO','IQUIQUE','TOCOPILLA','CALAMA','ANTOFAGASTA'],
+  'Norte Chico': ['CHAÑARAL','DIEGO DE ALMAGRO','COPIAPO','VALLENAR','LA SERENA','COQUIMBO','OVALLE','LOS VILOS'],
+  'Zona Central': ['LA LIGUA','CABILDO','LOS ANDES','SAN FELIPE','LA CALERA','QUILLOTA','VIÑA DEL MAR','SANTIAGO','MELIPILLA','PAINE','SAN ANTONIO','RANCAGUA','RENGO','SAN FERNANDO','SANTA CRUZ','CURICO','TALCA','CONSTITUCION','CONSTIUCION','SAN JAVIER','LINARES','PARRAL','CAUQUENES'],
+  'Zona Sur': ['CHILLAN','SAN CARLOS','YUNGAY','CABRERO','TALCAHUANO','CONCEPCION','ARAUCO','CURANILAHUE','CAÑETE','LOS ANGELES','NACIMIENTO','MULCHEN','BIO-BIO','ANGOL','COLLIPULLI','PUREN','TRAIGUEN','VICTORIA','CAPITAN PASTENE','TEMUCO','VILLARICA','PANGUIPULLI','LA UNION','RIO BUENO','OSORNO','PUERTO VARAS','PUERTO MONTT','CALBUCO','ANCUD','CASTRO','QUELLON','CHILOE'],
+  'Zona Austral': ['PUERTO AYSEN','COYHAIQUE','COCHRANE','PUERTO NATALES','PUNTA ARENAS','PORVENIR'],
 };
+const CIUDAD_ORDEN = Object.values(ZONAS_CHILE).flat();
+const ordenMapa = (a, b) => { const ia = CIUDAD_ORDEN.indexOf(a), ib = CIUDAD_ORDEN.indexOf(b); return ((ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib)) || a.localeCompare(b, 'es'); };
 function zonaDeCiudad(c) {
   const n = String(c || '').trim().toUpperCase();
   for (const [z, lista] of Object.entries(ZONAS_CHILE)) if (lista.includes(n)) return z;
@@ -4415,7 +4418,11 @@ async function secClientes() {
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
   const base = clInactivos(peds);
-  const ciudades = [...new Set([...base.map(c => c.ciudad), ...faltanT45Lista(peds).map(g => g.ciudad)].filter(Boolean).map(c => String(c).trim().toUpperCase()))].sort((a, b) => a.localeCompare(b, 'es'));
+  const ciudades = [...new Set([...base.map(c => c.ciudad), ...faltanT45Lista(peds).map(g => g.ciudad)].filter(Boolean).map(c => String(c).trim().toUpperCase()))].sort(ordenMapa);
+  const ciudadesOpts = [...Object.keys(ZONAS_CHILE), 'Sin zona'].map(z => {
+    const cs = ciudades.filter(c => zonaDeCiudad(c) === z);
+    return cs.length ? `<optgroup label="${z}">` + cs.map(c => `<option value="${c.toLowerCase()}">${c}</option>`).join('') + '</optgroup>' : '';
+  }).join('');
   const esc = s => String(s||'').replace(/"/g,'&quot;');
   const rowsHtml = base.map((c, i) => `<tr data-i="${i}" title="Ver cuánto compró en cada colección" style="cursor:pointer"
     data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}" data-zona="${zonaDeCiudad(c.ciudad)}"
@@ -4445,7 +4452,7 @@ async function secClientes() {
     <div class="fgrp"><span class="flbl">Magic World</span><div class="segs" id="clMagicSegs"><button class="seg${CL_SIN_MAGIC ? '' : ' on'}" data-cm="con">Con Magic</button><button class="seg${CL_SIN_MAGIC ? ' on' : ''}" data-cm="sin">Sin Magic</button></div></div>
     <div class="fgrp"><span class="flbl">No compraron en</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
     <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
-    <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudades.map(c => `<option value="${c.toLowerCase()}">${c}</option>`).join('')}</select></div>
+    <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudadesOpts}</select></div>
     <div class="fgrp"><span class="flbl">Motivo</span>
     <div class="segs" id="clMotSegs">
       <button class="seg on" data-m="all">Todos <span class="db-n">${fmt(base.length)}</span></button>
