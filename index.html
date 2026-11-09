@@ -11912,6 +11912,17 @@ document.getElementById('guia')?.addEventListener('click', e => {
 let IR_TOCAR = null;
 function irA(sec, ttl, tocar) { IR_TOCAR = sec ? { sec, tocar: tocar || null } : null; go(sec, ttl); }
 
+/* Pestañas por grupo: las secciones de un grupo se abren desde una misma barra arriba del contenido */
+const GRUPOS_PESTANAS = { stock: ['stock', 'cajas', 'telas', 'consumo', 'fotos'] };
+function pestanasHtml(secId) {
+  const g = Object.values(GRUPOS_PESTANAS).find(s => s.includes(secId));
+  if (!g) return '';
+  return `<div class="segs grp-pestanas" style="margin-bottom:14px;flex-wrap:wrap">${g.map(s => {
+    const b = document.querySelector(`.nav-item[data-sec="${s}"]`);
+    if (!b || (window._bodegaMode && b.hasAttribute('data-admin-only'))) return '';   // solo las que este usuario puede abrir
+    return `<button class="seg${s === secId ? ' on' : ''}" data-grp-sec="${s}" data-grp-ttl="${b?.dataset.ttl || s}">${b?.dataset.ttl || s}</button>`;
+  }).join('')}</div>`;
+}
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
   const seq = ++_goSeq;
@@ -11940,7 +11951,8 @@ async function go(secId, title) {
     return;
   }
   if (seq !== _goSeq) return;
-  document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
+  document.getElementById('content').innerHTML = `<div class="sec on">${pestanasHtml(secId)}${html}</div>`;
+  document.querySelectorAll('.grp-pestanas [data-grp-sec]').forEach(b => b.addEventListener('click', () => go(b.dataset.grpSec, b.dataset.grpTtl)));
   try { bindContent(secId); } catch (e) { console.error('Falló al activar la sección', secId, e); }
   if (IR_TOCAR && IR_TOCAR.sec === secId) {   // llegó desde "Lo urgente": se pone el filtro de esa fila
     const t = IR_TOCAR.tocar;
