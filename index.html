@@ -4390,18 +4390,20 @@ function faltanT45Lista(peds) {
 function faltanT45Html(peds) {
   const lista = faltanT45Lista(peds);
   const zonas = [...Object.keys(ZONAS_CHILE), 'Sin zona'];
+  const colores = { 'Norte': 'var(--wa)', 'Centro': 'var(--ok)', 'Sur': 'var(--ac)', 'Austral': '#6d28d9', 'Sin zona': 'var(--tx3)' };
   const porZona = z => lista.filter(g => g.zona === z);
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  const chips = zonas.map(z => `<div style="background:var(--sf2);border-radius:10px;padding:8px 12px;min-width:120px"><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em">${z}</div><div style="font-weight:800;font-size:18px">${fmt(porZona(z).length)}</div><div class="td-dim" style="font-size:10px">${fmt(porZona(z).reduce((a, g) => a + g.prev, 0))} prendas en T37 y T41</div></div>`).join('');
+  const kpis = [`<div class="kpi" style="border-top:3px solid var(--ac);cursor:default" title="Total"><div style="min-width:0"><div class="kpi-val" style="color:var(--ac)">${fmt(lista.length)}</div><div class="kpi-lbl">Faltan por comprar la T45</div><div class="kpi-delta d-nu">compraron T37 o T41 hasta el 09/11/2025 · sin pedido de T45 hoy</div></div></div>`]
+    .concat(zonas.map(z => `<div class="kpi" style="border-top:3px solid ${colores[z]};cursor:default" title="${z}"><div style="min-width:0"><div class="kpi-val" style="color:${colores[z]}">${fmt(porZona(z).length)}</div><div class="kpi-lbl">${z}</div><div class="kpi-delta d-nu">${fmt(porZona(z).reduce((a, g) => a + g.prev, 0))} prendas en T37 y T41</div></div></div>`))
+    .join('');
   const detalles = zonas.filter(z => porZona(z).length).map(z => {
     const filas = porZona(z).sort((a, b) => b.prev - a.prev).slice(0, 300).map(g => `<tr><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
-    return `<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">${z} · ${fmt(porZona(z).length)} clientes</summary><div class="tbl-scroll" style="margin-top:6px"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Prendas T37 y T41</th></tr></thead><tbody>${filas}</tbody></table></div></details>`;
+    return `<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700;padding:6px 0">${z} · ${fmt(porZona(z).length)} clientes</summary><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Prendas T37 y T41</th></tr></thead><tbody>${filas}</tbody></table></div></details>`;
   }).join('');
-  return `<div class="card" style="margin-bottom:14px">
-    <div class="card-ttl">¿Cuántos faltan por comprar la T45?</div>
-    <div class="card-sub" style="margin-bottom:10px">Clientes que compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Por zona de Chile. Toca una zona para ver sus clientes.</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"><div style="background:var(--ac10);border-radius:10px;padding:8px 12px;min-width:140px"><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em">Total que faltan</div><div style="font-weight:800;font-size:20px;color:var(--ac)">${fmt(lista.length)}</div></div>${chips}</div>
-    ${detalles || '<div class="td-dim">Ningún cliente de la T40-T44 que falte por comprar la T45.</div>'}
+  return `<div class="kpi-grid" style="margin-bottom:14px">${kpis}</div>
+  <div class="tbl-card" style="margin-bottom:14px">
+    <div class="tbl-head"><div><div class="tbl-ttl">¿Cuántos faltan por comprar la T45?</div><div class="card-sub">Compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Toca una zona para ver sus clientes.</div></div></div>
+    ${detalles || '<div class="td-dim" style="padding:14px">Ningún cliente que falte por comprar la T45.</div>'}
   </div>`;
 }
 async function secClientes() {
