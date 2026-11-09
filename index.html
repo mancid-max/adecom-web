@@ -4358,6 +4358,52 @@ function clInactivos(peds) {
     .sort((a,b) => b.unidades - a.unidades);
 }
 
+/* Zonas de Chile por ciudad (las ciudades vienen en mayúsculas, como en el ERP). Si una ciudad no está aquí, cae en "Sin zona". */
+const ZONAS_CHILE = {
+  'Norte': ['ARICA','ALTO HOSPICIO','IQUIQUE','TOCOPILLA','ANTOFAGASTA','CALAMA','CHAÑARAL','COPIAPO','DIEGO DE ALMAGRO','VALLENAR','LA SERENA','COQUIMBO','OVALLE','LOS VILOS'],
+  'Centro': ['SANTIAGO','LA CALERA','QUILLOTA','LA LIGUA','MELIPILLA','SAN ANTONIO','VIÑA DEL MAR','LOS ANDES','SAN FELIPE','CABILDO','RENGO','SAN FERNANDO','SANTA CRUZ','RANCAGUA','PAINE','TALCA','LINARES','PARRAL','CAUQUENES','CURICO','SAN JAVIER','CONSTIUCION','CONSTITUCION'],
+  'Sur': ['CONCEPCION','TALCAHUANO','CABRERO','LOS ANGELES','NACIMIENTO','MULCHEN','ARAUCO','CAÑETE','CURANILAHUE','BIO-BIO','CHILLAN','SAN CARLOS','TRAIGUEN','YUNGAY','ANGOL','TEMUCO','VICTORIA','COLLIPULLI','PUREN','VILLARICA','OSORNO','PUERTO MONTT','PUERTO VARAS','CASTRO','ANCUD','QUELLON','CALBUCO','CHILOE','PANGUIPULLI','LA UNION','RIO BUENO','CAPITAN PASTENE'],
+  'Austral': ['PUERTO AYSEN','COYHAIQUE','PUNTA ARENAS','PUERTO NATALES','COCHRANE','PORVENIR'],
+};
+function zonaDeCiudad(c) {
+  const n = String(c || '').trim().toUpperCase();
+  for (const [z, lista] of Object.entries(ZONAS_CHILE)) if (lista.includes(n)) return z;
+  return 'Sin zona';
+}
+/* Clientes que compraron T37 o T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45 */
+function faltanT45Lista(peds) {
+  const m = new Map();
+  for (const p of peds) {
+    const k = vdKey(p);
+    const g = m.get(k) || { nombre: (p.nombre || p.rut || '').toUpperCase(), ciudad: p.ciudad || '', prev: 0, t45: 0 };
+    if (!g.ciudad) g.ciudad = p.ciudad || '';
+    const f = p.fecha_iso || '';
+    for (const [tt, u] of Object.entries(p.u_temp || {})) {
+      if (!(u > 0)) continue;
+      if (+tt === 45) g.t45 += u;
+      else if ((tt === '37' || tt === '41') && f && f <= '2025-11-09') g.prev += u;
+    }
+    m.set(k, g);
+  }
+  return [...m.values()].filter(g => g.prev > 0 && g.t45 === 0).map(g => ({ ...g, zona: zonaDeCiudad(g.ciudad) }));
+}
+function faltanT45Html(peds) {
+  const lista = faltanT45Lista(peds);
+  const zonas = [...Object.keys(ZONAS_CHILE), 'Sin zona'];
+  const porZona = z => lista.filter(g => g.zona === z);
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const chips = zonas.map(z => `<div style="background:var(--sf2);border-radius:10px;padding:8px 12px;min-width:120px"><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em">${z}</div><div style="font-weight:800;font-size:18px">${fmt(porZona(z).length)}</div><div class="td-dim" style="font-size:10px">${fmt(porZona(z).reduce((a, g) => a + g.prev, 0))} prendas en T37 y T41</div></div>`).join('');
+  const detalles = zonas.filter(z => porZona(z).length).map(z => {
+    const filas = porZona(z).sort((a, b) => b.prev - a.prev).slice(0, 300).map(g => `<tr><td>${esc(g.nombre)}</td><td class="td-dim">${esc(g.ciudad)}</td><td class="r td-num">${fmt(g.prev)}</td></tr>`).join('');
+    return `<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">${z} · ${fmt(porZona(z).length)} clientes</summary><div class="tbl-scroll" style="margin-top:6px"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Cliente</th><th>Ciudad</th><th class="r">Prendas T37 y T41</th></tr></thead><tbody>${filas}</tbody></table></div></details>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-ttl">¿Cuántos faltan por comprar la T45?</div>
+    <div class="card-sub" style="margin-bottom:10px">Clientes que compraron la T37 o la T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45. Por zona de Chile. Toca una zona para ver sus clientes.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"><div style="background:var(--ac10);border-radius:10px;padding:8px 12px;min-width:140px"><div class="td-dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em">Total que faltan</div><div style="font-weight:800;font-size:20px;color:var(--ac)">${fmt(lista.length)}</div></div>${chips}</div>
+    ${detalles || '<div class="td-dim">Ningún cliente de la T40-T44 que falte por comprar la T45.</div>'}
+  </div>`;
+}
 async function secClientes() {
   const peds = await load('pedidos.json');
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
@@ -4385,6 +4431,7 @@ async function secClientes() {
 
   const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
+  ${faltanT45Html(peds)}
   <div class="fbar">
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
