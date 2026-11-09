@@ -4056,7 +4056,7 @@ async function secVentaDespacho() {
     </div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${tarjetaKpi({ attr: 'vk', k: 'sal', lbl: `Saldo pendiente T${TEMP_SEL}`, val: fmt(totalSal), sub: `de ${fmt(totalPed)} pedidas · ${pct}% despachado`, color: 'var(--wa)', ver: 'Ver todos' })}
+    ${tarjetaKpi({ attr: 'vk', k: 'sal', lbl: `Saldo pendiente T${TEMP_SEL}`, val: fmt(totalSal), sub: `pedido ${fmt(totalPed)} · despachado ${fmt(totalDesp)} (${pct}%)`, color: 'var(--wa)', ver: 'Ver todos' })}
     ${tarjetaKpi({ attr: 'vk', k: 'cero', lbl: 'Clientes sin ningún despacho', val: '—', color: 'var(--er)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'vk', k: 'caja', lbl: 'Clientes listos para salir', val: '—', color: 'var(--ok)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'vk', k: 'term', lbl: 'Clientes con algo en terminación', val: '—', color: '#6d28d9', ver: 'Ver cuáles' })}
@@ -11342,7 +11342,7 @@ function vdTarjetas() {
   const cero = rs.filter(r => +r.dataset.avance === 0 && +r.dataset.sal > 0), caja = rs.filter(r => +r.dataset.cajas > 0), term = rs.filter(r => +r.dataset.term > 0);
   const poner = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   poner('vk-sal-val', fmt(sal));
-  poner('vk-sal-sub', `de ${fmt(ped)} pedidas · ${ped ? (desp / ped * 100).toFixed(1) : 0}% despachado${valor ? ` · ≈ ${fmtM(valor)}` : ''}`);
+  poner('vk-sal-sub', `pedido ${fmt(ped)} · despachado ${fmt(desp)} (${ped ? (desp / ped * 100).toFixed(1) : 0}%)${valor ? ` · ≈ ${fmtM(valor)}` : ''}`);
   poner('vk-cero-val', fmt(cero.length)); poner('vk-cero-sub', `${fmt(suma(cero, 'sal'))} prendas esperan su primer despacho`);
   poner('vk-caja-val', fmt(caja.length)); poner('vk-caja-sub', `${fmt(suma(caja, 'cajp'))} prendas en cajas armadas`);
   poner('vk-term-val', fmt(term.length)); poner('vk-term-sub', `${fmt(suma(term, 'termu'))} prendas por llegar de terminación`);
