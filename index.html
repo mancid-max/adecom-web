@@ -9663,6 +9663,33 @@ function buildPedTabla(ps) {
   }).join('');
 }
 
+/* Reporte Pedidos · por artículo (Manu, 09-11-2026): los mismos pedidos del periodo elegido, sumados por artículo.
+   Con búsqueda por artículo o modelo, muestra cada pedido de ese artículo. Sin búsqueda, el ranking por prendas pedidas. */
+function pedArticulosHtml(ps, filtro = '') {
+  const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const f = String(filtro || '').trim().toLowerCase(), num = v => +v || 0;
+  if (f) {
+    const filas = [];
+    for (const p of ps) for (const l of (p.lineas || [])) {
+      if (!String(l.art || '').toLowerCase().includes(f) && !String(l.modelo || '').toLowerCase().includes(f)) continue;
+      filas.push({ pedido: p.pedido, fecha: p.fecha || '', nombre: p.nombre || '', art: l.art, sol: num(l.sol), desp: num(l.desp), sal: num(l.sal) });
+    }
+    if (!filas.length) return '<div class="td-dim" style="padding:18px 16px">Ese artículo no tiene pedidos en el período elegido.</div>';
+    const tot = filas.reduce((a, r) => ({ sol: a.sol + r.sol, desp: a.desp + r.desp, sal: a.sal + r.sal }), { sol: 0, desp: 0, sal: 0 });
+    filas.sort((a, b) => (b.sal - a.sal) || (b.sol - a.sol));
+    return `<div class="tbl-scroll"><table><thead><tr><th>Artículo</th><th>Pedido</th><th>Fecha</th><th>Cliente</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Por despachar</th></tr></thead><tbody>${filas.map(r => `<tr><td class="td-code">${esc2(r.art)}</td><td class="td-code">${String(r.pedido).replace(/^0+/, '')}</td><td class="td-dim">${esc2(r.fecha)}</td><td>${esc2(r.nombre)}</td><td class="r td-num">${fmt(r.sol)}</td><td class="r td-num">${fmt(r.desp)}</td><td class="r td-num" style="color:${r.sal > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(r.sal)}</td></tr>`).join('')}<tr style="font-weight:800;background:var(--sf2)"><td>Total</td><td></td><td></td><td></td><td class="r td-num">${fmt(tot.sol)}</td><td class="r td-num">${fmt(tot.desp)}</td><td class="r td-num">${fmt(tot.sal)}</td></tr></tbody></table></div><div class="tbl-foot">${filas.length} líneas de pedido · ${fmt(tot.sol)} prendas pedidas · ${fmt(tot.desp)} despachadas · ${fmt(tot.sal)} por despachar</div>`;
+  }
+  const acc = new Map();
+  for (const p of ps) for (const l of (p.lineas || [])) {
+    const a = acc.get(l.art) || { art: l.art, modelo: l.modelo || '', temp: l.temp || '', peds: new Set(), sol: 0, desp: 0, sal: 0 };
+    a.peds.add(p.pedido); a.sol += num(l.sol); a.desp += num(l.desp); a.sal += num(l.sal); acc.set(l.art, a);
+  }
+  const lista = [...acc.values()].sort((a, b) => b.sol - a.sol);
+  if (!lista.length) return '<div class="td-dim" style="padding:18px 16px">Sin pedidos en el período elegido.</div>';
+  const tot = lista.reduce((a, x) => ({ sol: a.sol + x.sol, desp: a.desp + x.desp, sal: a.sal + x.sal }), { sol: 0, desp: 0, sal: 0 });
+  return `<div class="tbl-scroll"><table><thead><tr><th>Artículo</th><th class="r">Pedidos</th><th class="r">Pedido</th><th class="r">Despachado</th><th class="r">Por despachar</th><th class="r">Avance</th></tr></thead><tbody>${lista.map(a => `<tr style="cursor:pointer" data-art-pick="${esc2(a.art)}" title="Toca para ver sus pedidos"><td class="td-code">${esc2(a.art)} <span class="td-dim" style="font-size:11px">T${esc2(a.temp)} · ${esc2(a.modelo)}</span></td><td class="r td-num">${a.peds.size}</td><td class="r td-num">${fmt(a.sol)}</td><td class="r td-num">${fmt(a.desp)}</td><td class="r td-num" style="color:${a.sal > 0 ? 'var(--wa)' : 'var(--ok)'}">${fmt(a.sal)}</td><td class="r td-dim">${a.sol ? Math.round(a.desp / a.sol * 100) : 0}%</td></tr>`).join('')}<tr style="font-weight:800;background:var(--sf2)"><td>Total · ${fmt(lista.length)} artículos</td><td></td><td class="r td-num">${fmt(tot.sol)}</td><td class="r td-num">${fmt(tot.desp)}</td><td class="r td-num">${fmt(tot.sal)}</td><td></td></tr></tbody></table></div><div class="tbl-foot">Toca un artículo para ver sus pedidos, o escribe su código en el buscador.</div>`;
+}
+
 async function secRepPedidos() {
   const ps = await load('pedidos.json');
   const ICO = '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>';
@@ -9719,8 +9746,20 @@ async function secRepPedidos() {
       </table>
       <div class="tbl-foot" id="pedFoot">${hoyPs.length} pedidos · ${fmt(pSum(hoyPs, 'unidades'))} prendas · ${fmtCLP(pSum(hoyPs, 'valor'))}</div>
     </div>
+  </div>
+  <div class="tbl-card">
+    <div class="tbl-head xl-head" style="gap:8px;flex-wrap:wrap">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Por artículo · el período elegido</div></div>
+      <div class="xl-der" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="pedArtBuscar" class="finput fsearch" list="pedArtLista" placeholder="Artículo o modelo…" style="width:200px">
+        <datalist id="pedArtLista">${[...new Set(ps.flatMap(p => (p.lineas || []).map(l => l.art)))].sort().map(a => `<option value="${a}">`).join('')}</datalist>
+        <button class="seg" id="pedArtPrint" style="border:1px solid var(--bd2)">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div id="pedArtBody">${pedArticulosHtml(hoyPs, '')}</div>
   </div>`;
 }
+
 
 /* ── INVENTARIO PARA OFRECER (Cyber) ──────────────────────────────────────────
    Que se puede ofrecer de verdad, juntando San Gerardo y la tienda Kennedy.
@@ -14432,6 +14471,7 @@ function bindContent(secId) {
       if (comp) comp.innerHTML = pComparativo(ps, rango);
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
       set('pkNum', ps.length);
+      { const ab = document.getElementById('pedArtBody'); if (ab) ab.innerHTML = pedArticulosHtml(ps, document.getElementById('pedArtBuscar')?.value || ''); }
       set('pkUds', fmt(pSum(ps, 'unidades')));
       set('pkCli', pClientes(ps));
       for (const [id, k] of [['pkVal', 'valor'], ['pkSal', 'valor_sal']]) {
@@ -14520,6 +14560,10 @@ function bindContent(secId) {
     document.getElementById('vkOvClose')?.addEventListener('click', () => pOv.classList.remove('open'));
     pOv?.addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
 
+    const artBuscar = document.getElementById('pedArtBuscar');
+    artBuscar?.addEventListener('input', () => { document.getElementById('pedArtBody').innerHTML = pedArticulosHtml(PED_FILTRADO, artBuscar.value); });
+    document.getElementById('pedArtBody')?.addEventListener('click', e => { const tr = e.target.closest('tr[data-art-pick]'); if (!tr) return; artBuscar.value = tr.dataset.artPick; artBuscar.dispatchEvent(new Event('input')); artBuscar.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    document.getElementById('pedArtPrint')?.addEventListener('click', () => printTable({ table: document.querySelector('#pedArtBody table'), title: 'Pedidos por artículo', subtitle: (document.getElementById('pTblTtl')?.textContent || '') + (artBuscar.value ? ' · ' + artBuscar.value : '') }));
     document.getElementById('pedPrint')?.addEventListener('click', () => {
       printTable({ table: document.getElementById('rpBody')?.closest('table'),
                    title: 'Reporte Pedidos',
