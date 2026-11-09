@@ -4362,10 +4362,11 @@ function clInactivos(peds) {
 
 /* Zonas de Chile por ciudad (las ciudades vienen en mayúsculas, como en el ERP). Si una ciudad no está aquí, cae en "Sin zona". */
 const ZONAS_CHILE = {
-  'Norte': ['ARICA','ALTO HOSPICIO','IQUIQUE','TOCOPILLA','ANTOFAGASTA','CALAMA','CHAÑARAL','COPIAPO','DIEGO DE ALMAGRO','VALLENAR','LA SERENA','COQUIMBO','OVALLE','LOS VILOS'],
-  'Centro': ['SANTIAGO','LA CALERA','QUILLOTA','LA LIGUA','MELIPILLA','SAN ANTONIO','VIÑA DEL MAR','LOS ANDES','SAN FELIPE','CABILDO','RENGO','SAN FERNANDO','SANTA CRUZ','RANCAGUA','PAINE','TALCA','LINARES','PARRAL','CAUQUENES','CURICO','SAN JAVIER','CONSTIUCION','CONSTITUCION'],
-  'Sur': ['CONCEPCION','TALCAHUANO','CABRERO','LOS ANGELES','NACIMIENTO','MULCHEN','ARAUCO','CAÑETE','CURANILAHUE','BIO-BIO','CHILLAN','SAN CARLOS','TRAIGUEN','YUNGAY','ANGOL','TEMUCO','VICTORIA','COLLIPULLI','PUREN','VILLARICA','OSORNO','PUERTO MONTT','PUERTO VARAS','CASTRO','ANCUD','QUELLON','CALBUCO','CHILOE','PANGUIPULLI','LA UNION','RIO BUENO','CAPITAN PASTENE'],
-  'Austral': ['PUERTO AYSEN','COYHAIQUE','PUNTA ARENAS','PUERTO NATALES','COCHRANE','PORVENIR'],
+  'Norte Grande': ['ARICA','ALTO HOSPICIO','IQUIQUE','TOCOPILLA','ANTOFAGASTA','CALAMA'],
+  'Norte Chico': ['CHAÑARAL','COPIAPO','DIEGO DE ALMAGRO','VALLENAR','LA SERENA','COQUIMBO','OVALLE','LOS VILOS'],
+  'Zona Central': ['SANTIAGO','LA CALERA','QUILLOTA','LA LIGUA','MELIPILLA','SAN ANTONIO','VIÑA DEL MAR','LOS ANDES','SAN FELIPE','CABILDO','RENGO','SAN FERNANDO','SANTA CRUZ','RANCAGUA','PAINE','TALCA','LINARES','PARRAL','CAUQUENES','CURICO','SAN JAVIER','CONSTITUCION','CONSTIUCION'],
+  'Zona Sur': ['CONCEPCION','TALCAHUANO','CABRERO','LOS ANGELES','NACIMIENTO','MULCHEN','ARAUCO','CAÑETE','CURANILAHUE','BIO-BIO','CHILLAN','SAN CARLOS','TRAIGUEN','YUNGAY','ANGOL','TEMUCO','VICTORIA','COLLIPULLI','PUREN','VILLARICA','OSORNO','PUERTO MONTT','PUERTO VARAS','CASTRO','ANCUD','QUELLON','CALBUCO','CHILOE','PANGUIPULLI','LA UNION','RIO BUENO','CAPITAN PASTENE'],
+  'Zona Austral': ['PUERTO AYSEN','COYHAIQUE','PUNTA ARENAS','PUERTO NATALES','COCHRANE','PORVENIR'],
 };
 function zonaDeCiudad(c) {
   const n = String(c || '').trim().toUpperCase();
@@ -4437,7 +4438,6 @@ async function secClientes() {
 
   const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
-  ${faltanT45Html(peds)}
   <div class="fbar">
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
@@ -14719,7 +14719,7 @@ function bindContent(secId) {
       if (el('clKFrenados')) el('clKFrenados').textContent = `${frenados} con algo que los frena`;
       if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades · ${fmtM(deuda)} de deuda`;
       // Las tarjetas y las cuentas de Motivo van con la búsqueda y la colección, no con Motivo (son esos mismos números)
-      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) &&
+      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) && (!zonaF || row.dataset.zona === zonaF) && (!ciuF || row.dataset.ciudad === ciuF) &&
         (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
       const conM = m => alc.filter(r => pasaMotivo(r, m));
       const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
