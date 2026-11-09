@@ -4325,10 +4325,12 @@ async function secCajas() {
    Esta va contra TEMP_ACTIVA y no contra la temporada que se este mirando: "inactivo" es
    el que no compro en la coleccion que se esta VENDIENDO. */
 let CL_ACT  = TEMP_ACTIVA;
+let CL_SIN_MAGIC = false;   // Clientes Inactivos: sin Magic World, la tienda propia (Manu, 09-11-2026)
 let CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA - i)).reverse();
 
 function clInactivos(peds) {
   const gm = new Map();
+  if (CL_SIN_MAGIC) peds = peds.filter(p => !esMagic(p));
   peds.forEach(p => {
     const k = vdKey(p);
     if (!gm.has(k)) gm.set(k, { nombre:(p.nombre||p.rut||'').toUpperCase(), rut:p.rut||'', ciudad:p.ciudad||'',
@@ -4373,7 +4375,7 @@ function zonaDeCiudad(c) {
 /* Clientes que compraron T37 o T41 hasta el 09/11/2025 (misma fecha del año pasado) y hoy no tienen ningún pedido de la T45 */
 function faltanT45Lista(peds) {
   const m = new Map();
-  for (const p of peds) {
+  for (const p of (CL_SIN_MAGIC ? peds.filter(p => !esMagic(p)) : peds)) {
     const k = vdKey(p);
     const g = m.get(k) || { nombre: (p.nombre || p.rut || '').toUpperCase(), ciudad: p.ciudad || '', prev: 0, t45: 0 };
     if (!g.ciudad) g.ciudad = p.ciudad || '';
@@ -4440,6 +4442,7 @@ async function secClientes() {
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
+    <div class="fgrp"><span class="flbl">Magic World</span><div class="segs" id="clMagicSegs"><button class="seg${CL_SIN_MAGIC ? '' : ' on'}" data-cm="con">Con Magic</button><button class="seg${CL_SIN_MAGIC ? ' on' : ''}" data-cm="sin">Sin Magic</button></div></div>
     <div class="fgrp"><span class="flbl">No compraron en</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
     <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
     <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudades.map(c => `<option value="${c.toLowerCase()}">${c}</option>`).join('')}</select></div>
@@ -14652,6 +14655,11 @@ function bindContent(secId) {
 
   // Clientes Inactivos — filters
   if (secId === 'clientes') {
+    /* Magic World: con o sin la tienda propia en la tabla y en la lista de la T45 */
+    document.querySelectorAll('#clMagicSegs [data-cm]').forEach(b => b.addEventListener('click', () => {
+      CL_SIN_MAGIC = b.dataset.cm === 'sin';
+      go('clientes', 'Clientes Inactivos');
+    }));
     /* Temporada: la tabla cambia según la temporada que no compraron (Manu, 09-11-2026: "esa tabla está fija") */
     document.querySelectorAll('#clActSegs [data-cla]').forEach(b => b.addEventListener('click', () => {
       const tt = String(b.dataset.cla);
