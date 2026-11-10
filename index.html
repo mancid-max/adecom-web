@@ -10388,7 +10388,22 @@ function ddVencido(deuda, facs, hoy) {
   if (resto > 0) { t.v90 += resto; t.atraso = Math.max(t.atraso, 90); t.docs.push({ n: '', fecha: '', vence: '', plazo: 0, dias: 90, monto: resto, toma: resto, k: 'v90', viejo: true }); }
   return t;
 }
-function ddClientes(peds, docs = []) {
+/* Deudas con la cuenta corriente real (CTACTE.CSV, 10-11-2026): mismos campos que ddVencido, pero por documento.
+   Los pagos ya vienen aplicados a la factura más antigua desde el build; acá solo se arman los tramos. */
+function ddReal(ent, hoy) {
+  const t = { xv: 0, v1: 0, v30: 0, v60: 0, v90: 0, atraso: 0, docs: [] };
+  for (const [tipo, numero, fecha, vcto, monto, parcial] of (ent.d || [])) {
+    const vence = vcto ? new Date(vcto + 'T12:00:00') : null;
+    const dias = vence ? Math.round((hoy - vence) / 864e5) : 91;   // sin vencimiento: se trata como 90+
+    const k = dias <= 0 ? 'xv' : dias < 30 ? 'v1' : dias < 60 ? 'v30' : dias < 90 ? 'v60' : 'v90';
+    t[k] += monto;
+    if (dias > t.atraso) t.atraso = dias;
+    t.docs.push({ n: (tipo && !/^f-/i.test(tipo) ? tipo + ' ' : '') + (numero || ''), fecha, vence: vcto, plazo: 0, dias, monto, toma: monto, k, parcial: !!parcial });
+  }
+  t.docs.sort((a, b) => b.dias - a.dias);
+  return t;
+}
+function ddClientes(peds, docs = [], ct = null) {
   const hoy = new Date(today() + 'T12:00:00');
   const facs = new Map();   // facturas y notas de débito de cada RUT, de la más nueva a la más vieja
   for (const d of docs) if (d.fecha_iso && /^(F\/Elec|FACT|Ndeb)$/.test(d.tipo || '')) { const r = vRut(d); if (r) { if (!facs.has(r)) facs.set(r, []); facs.get(r).push(d); } }
@@ -10415,14 +10430,15 @@ function ddClientes(peds, docs = []) {
     const usa = Math.max(0, deuda) + cheques, uso = cupo > 0 ? usa / cupo : 0;
     const est = !usa ? 'verde' : (!cupo || disp <= 0) ? 'rojo' : uso >= DD_CUPO_ALERTA ? 'amarillo' : 'verde';
     const det = c.peds.filter(p => p.bloqueo);
-    const v = ddVencido(deuda, (vRut(c) && facs.get(vRut(c))) || [], hoy), venc = v.v1 + v.v30 + v.v60 + v.v90;
+    const ctEnt = ct ? ct[vRut(c)] : null, real = !!(ctEnt && ctEnt.d && ctEnt.d.length);
+    const v = real ? ddReal(ctEnt, hoy) : ddVencido(deuda, (vRut(c) && facs.get(vRut(c))) || [], hoy), venc = v.v1 + v.v30 + v.v60 + v.v90;
     const grande = c.magic || DD_GRANDES.some(g => String(f.razon || '').toUpperCase().includes(g));
     return { ...c, nombre: f.razon || c.rut || '—', deuda, cheques, cupo, disp, usa, uso, est,
       bloq: f.bloqueo_ficha === 'S' || c.bloqPed, pago: ddPago(f.fpago),
       contacto: String(f.contacto || '').trim(), fono: String(f.fono || '').trim(), correo: String(f.correo || '').trim(),   // el correo llega con el build del 27-10
       nP: c.peds.length, uP: c.peds.reduce((a, p) => a + (p.saldo || 0), 0), vP: c.peds.reduce((a, p) => a + (p.valor_sal || 0), 0),
       nDet: det.length, vDet: det.reduce((a, p) => a + (p.valor_sal || 0), 0),
-      v, venc, alDia: deuda > 0 && venc <= 0, grande };
+      v, venc, real, alDia: deuda > 0 && venc <= 0, grande };
   });
 }
 const ddFlags = c => ` ${c.deuda > 0 ? 'deuda ' : ''}${c.alDia ? 'aldia ' : ''}${c.venc > 0 ? 'venc ' : ''}${c.v.v90 > 0 ? 'v90 ' : ''}${c.bloq ? 'bloq ' : ''}${c.est !== 'verde' ? 'cupo ' : ''}${c.cheques > 0 ? 'cheq ' : ''}`;
@@ -10445,8 +10461,9 @@ function ddResumen(cs) {
 
 async function secDeudas() {
   const ICO = '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
-  const [peds, docs] = await Promise.all([load('pedidos.json'), load('docs_venta.json')]);
-  const cls = ddClientes(peds || [], docs || []);
+  const [peds, docs, ctx] = await Promise.all([load('pedidos.json'), load('docs_venta.json'), load('ctacte.json')]);
+  const ct = ctx && !Array.isArray(ctx) && ctx.clientes ? ctx.clientes : null;   // cuenta corriente real (CTACTE); sin ella, el estimado
+  const cls = ddClientes(peds || [], docs || [], ct);
   if (!cls.length) return makePH(ICO, 'Deudas', 'Sin datos de crédito de los clientes');
   cls.sort((a, b) => b.venc - a.venc || b.deuda - a.deuda || b.cheques - a.cheques || a.nombre.localeCompare(b.nombre, 'es'));
   DD = Object.fromEntries(cls.map(c => [c.k, c]));
@@ -10553,7 +10570,8 @@ function ddFicha(c) {
     + vTabla('<th>Factura</th><th>Emitida</th><th>Vence</th><th class="r">Días</th><th class="r">Monto</th><th class="r">De la deuda</th>',
       ds.map(d => `<tr><td class="td-code">${d.viejo ? '<span class="td-dim">Anterior a las facturas del año</span>' : d.n}</td><td>${fecha(d.fecha)}</td><td>${fecha(d.vence)}</td>`
         + `<td class="r td-num" style="color:${ddTramo(d.k)[2]}">${d.viejo ? 'más de 90 de atraso' : d.dias <= 0 ? `faltan ${fmt(-d.dias)}` : `${fmt(d.dias)} de atraso`}</td><td class="r td-num">${fmtCLP(d.monto)}</td><td class="r td-num"><b>${fmtCLP(d.toma)}</b></td></tr>`).join(''),
-      `${pl(ds.filter(d => !d.viejo).length, 'factura del año cubre', 'facturas del año cubren')} la deuda · plazo de pago: ${c.pago || 'sin dato'}`) : '';
+      c.real ? `${pl(ds.length, 'documento pendiente según la cuenta corriente del ERP', 'documentos pendientes según la cuenta corriente del ERP')} · cada pago aplicado a la factura más antigua` + (ds.some(d => d.parcial) ? ' · los marcados ◐ tienen un pago parcial' : '')
+             : `${pl(ds.filter(d => !d.viejo).length, 'factura del año cubre', 'facturas del año cubren')} la deuda · plazo de pago: ${c.pago || 'sin dato'}`) : '';
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:14px 16px">
       ${dato('Deuda', c.deuda < 0 ? `${fmtCLP(-c.deuda)} a favor` : fmtCLP(c.deuda), c.deuda < 0 ? 'var(--ok)' : '')}
       ${dato('Vencida', c.venc > 0 ? fmtCLP(c.venc) : c.deuda > 0 ? 'Nada: al día' : '—', c.venc > 0 ? 'var(--er)' : c.deuda > 0 ? 'var(--ok)' : '')}
