@@ -4471,8 +4471,8 @@ async function secClientes() {
   }).join('');
   const regionesOpts = [...Object.keys(REGIONES_CHILE), 'Sin región'].filter(r => ciudades.some(c => regionDeCiudad(c) === r)).map(r => `<option value="${r}">${r}</option>`).join('');
   const esc = s => String(s||'').replace(/"/g,'&quot;');
-  const obsChip = r => { const o = CL_OBS[r];
-    return o && o.texto ? `<span class="badge cl-obs-chip" title="${esc(o.texto)}" style="background:var(--ac10);color:var(--ac);font-size:10px;margin-left:4px">📝 ${esc(o.texto.length > 22 ? o.texto.slice(0, 22) + '…' : o.texto).replace(/</g, '&lt;')}</span>` : '<span class="cl-obs-chip"></span>'; };
+  const obsChip = r => { const o = CL_OBS[r], tx = (o && o.texto) || '';   // en su propia línea, debajo del motivo
+    return `<div class="cl-obs-chip"${tx ? '' : ' style="display:none"'}><span class="badge" title="${esc(tx)}" style="background:var(--ac10);color:var(--ac);font-size:10px;margin-top:3px">📝 ${esc(tx.length > 26 ? tx.slice(0, 26) + '…' : tx).replace(/</g, '&lt;')}</span></div>`; };
   const rowsHtml = base.map((c, i) => `<tr data-i="${i}" title="Ver cuánto compró en cada colección" style="cursor:pointer"
     data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}" data-zona="${zonaDeCiudad(c.ciudad)}"
     data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}"
@@ -14994,6 +14994,7 @@ function bindContent(secId) {
           <textarea id="cliObsTxt" class="finput" rows="3" style="width:100%;resize:vertical;box-sizing:border-box" placeholder="Ej: avisó que no comprará esta temporada…"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
             <button class="seg" id="cliObsGuardar" style="border:1px solid var(--bd2)">Guardar observación</button>
+            <button class="seg" id="cliObsBorrar" style="border:1px solid var(--bd2);color:var(--er)" title="La quita para todos; se puede volver a escribir cuando quieras">Borrar observación</button>
             <span class="td-dim" id="cliObsEstado" style="font-size:11px"></span>
           </div>
         </div>`;
@@ -15016,7 +15017,7 @@ function bindContent(secId) {
           const marca = row.querySelector('.cl-obs-marca');
           if (marca) { marca.style.display = texto ? '' : 'none'; marca.title = texto; }
           const chip = row.querySelector('.cl-obs-chip');   // la columna Motivo se actualiza al tiro
-          if (chip) chip.outerHTML = texto ? `<span class="badge cl-obs-chip" title="${texto.replace(/"/g, '&quot;')}" style="background:var(--ac10);color:var(--ac);font-size:10px;margin-left:4px">📝 ${(texto.length > 22 ? texto.slice(0, 22) + '…' : texto).replace(/</g, '&lt;')}</span>` : '<span class="cl-obs-chip"></span>';
+          if (chip) chip.outerHTML = `<div class="cl-obs-chip"${texto ? '' : ' style="display:none"'}><span class="badge" title="${texto.replace(/"/g, '&quot;')}" style="background:var(--ac10);color:var(--ac);font-size:10px;margin-top:3px">📝 ${(texto.length > 26 ? texto.slice(0, 26) + '…' : texto).replace(/</g, '&lt;')}</span></div>`;
           return true;
         } catch (e) {
           obsEst.textContent = 'No se pudo guardar: falta crear la tabla en Supabase (sql/observaciones_clientes.sql) o no hay permiso';
@@ -15024,6 +15025,10 @@ function bindContent(secId) {
         }
       };
       document.getElementById('cliObsGuardar').addEventListener('click', guardarObs);
+      document.getElementById('cliObsBorrar').addEventListener('click', async () => {   // quizás después sí quiera comprar
+        obsTxt.value = '';
+        if (await guardarObs()) setTimeout(() => document.getElementById('cliOv').classList.remove('open'), 400);
+      });
       obsTxt.addEventListener('keydown', async e => {   // Enter guarda y cierra; Shift+Enter hace salto de línea
         if (e.key !== 'Enter' || e.shiftKey) return;
         e.preventDefault();
