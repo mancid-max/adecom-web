@@ -4468,6 +4468,7 @@ async function secClientes() {
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
     <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${fichasBadge(c.cli)}</td>
     <td class="td-dim">${c.rut||'—'}</td>
+    <td class="td-dim">${c.ciudad || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}" style="padding:1px 6px;font-size:9px;margin-right:2px">${t}</span>`).join('')}</td>
     <td class="r td-num">${fmt(c.unidades)}</td>
     <td class="r td-num" style="color:${c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td>
@@ -4525,7 +4526,7 @@ async function secClientes() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr id="clThead"><th>Cliente</th><th>RUT</th><th title="Colecciones T40–T43 en que compró">Compró en</th><th class="r" data-sort="u" style="cursor:pointer" title="Unidades que compró en T40–T43 — de la más alta a la más baja">Unidades <span class="si">▼</span></th><th class="r" data-sort="deuda" style="cursor:pointer" title="Deuda en cuenta corriente más cheques">Deuda <span class="si">↕</span></th><th class="r" data-sort="dias" style="cursor:pointer" title="Días desde su último pedido">Sin comprar <span class="si">↕</span></th><th title="Lo que podría estar frenando la compra">Motivo</th></tr></thead>
+        <thead><tr id="clThead"><th>Cliente</th><th>RUT</th><th>Ciudad</th><th title="Colecciones T40–T43 en que compró">Compró en</th><th class="r" data-sort="u" style="cursor:pointer" title="Unidades que compró en T40–T43 — de la más alta a la más baja">Unidades <span class="si">▼</span></th><th class="r" data-sort="deuda" style="cursor:pointer" title="Deuda en cuenta corriente más cheques">Deuda <span class="si">↕</span></th><th class="r" data-sort="dias" style="cursor:pointer" title="Días desde su último pedido">Sin comprar <span class="si">↕</span></th><th title="Lo que podría estar frenando la compra">Motivo</th></tr></thead>
         <tbody id="clBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
