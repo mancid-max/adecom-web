@@ -4325,7 +4325,8 @@ async function secCajas() {
    Esta va contra TEMP_ACTIVA y no contra la temporada que se este mirando: "inactivo" es
    el que no compro en la coleccion que se esta VENDIENDO. */
 let CL_ACT  = TEMP_ACTIVA;
-let CL_SIN_MAGIC = false;   // Clientes Inactivos: sin Magic World, la tienda propia (Manu, 09-11-2026)
+let CL_SIN_MAGIC = false;
+let CL_MODO = 'inactivos';   // inactivos / activos / todos (Manu, 10-11-2026: "que se pueda ver también los activos y ambos")   // Clientes Inactivos: sin Magic World, la tienda propia (Manu, 09-11-2026)
 let CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA - i)).reverse();
 
 function clInactivos(peds) {
@@ -4345,9 +4346,11 @@ function clInactivos(peds) {
     if ((p.fecha_iso||'') > g.ult) { g.ult = p.fecha_iso||''; g.ultF = p.fecha||''; }
   });
   return [...gm.values()]
-    .filter(g => CL_BASE.some(t => g.temps.has(t)) && !g.temps.has(CL_ACT))
+    .filter(g => CL_MODO === 'activos' ? g.temps.has(String(CL_ACT))
+               : CL_MODO === 'todos' ? (CL_BASE.some(t => g.temps.has(t)) || g.temps.has(String(CL_ACT)))
+               : (CL_BASE.some(t => g.temps.has(t)) && !g.temps.has(String(CL_ACT))))
     .map(g => {
-      const compradas = [...g.temps].filter(t => CL_BASE.includes(t)).sort((a,b)=>+b-+a);
+      const compradas = [...g.temps].filter(t => CL_BASE.includes(t) || (CL_MODO !== 'inactivos' && t === String(CL_ACT))).sort((a,b)=>+b-+a);
       const c = g.cli || {};
       const deuda = (c.deuda || 0) + (c.cheques || 0);
       const sinCupo = !!(c.credito > 0 && c.disponible <= 0);
@@ -4482,8 +4485,9 @@ async function secClientes() {
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
+    <div class="fgrp"><span class="flbl">Estado</span><div class="segs" id="clEstadoSegs"><button class="seg${CL_MODO === 'inactivos' ? ' on' : ''}" data-ce="inactivos">Inactivos</button><button class="seg${CL_MODO === 'activos' ? ' on' : ''}" data-ce="activos">Activos</button><button class="seg${CL_MODO === 'todos' ? ' on' : ''}" data-ce="todos">Ambos</button></div></div>
     <div class="fgrp"><span class="flbl">Magic World</span><div class="segs" id="clMagicSegs"><button class="seg${CL_SIN_MAGIC ? '' : ' on'}" data-cm="con">Con Magic</button><button class="seg${CL_SIN_MAGIC ? ' on' : ''}" data-cm="sin">Sin Magic</button></div></div>
-    <div class="fgrp"><span class="flbl">No compraron en</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
+    <div class="fgrp"><span class="flbl">Temporada</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
     <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
     <div class="fgrp"><span class="flbl">Región</span><select id="clRegion" class="finput" style="width:190px"><option value="">Todas las regiones</option>${regionesOpts}</select></div>
     <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudadesOpts}</select></div>
@@ -4505,7 +4509,7 @@ async function secClientes() {
     </div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${tarjetaKpi({ attr: 'clk', k: 'all', lbl: `Clientes sin comprar en T${CL_ACT}`, val: fmt(base.length), sub: `compraban ${fmt(base.reduce((s, c) => s + c.unidades, 0))} unidades en T40–T43`, color: 'var(--ac)', ver: 'Ver todos' })}
+    ${tarjetaKpi({ attr: 'clk', k: 'all', lbl: CL_MODO === 'activos' ? `Clientes que compraron en T${CL_ACT}` : CL_MODO === 'todos' ? `Clientes activos e inactivos` : `Clientes sin comprar en T${CL_ACT}`, val: fmt(base.length), sub: `compraban ${fmt(base.reduce((s, c) => s + c.unidades, 0))} unidades en T40–T43`, color: 'var(--ac)', ver: 'Ver todos' })}
     ${tarjetaKpi({ attr: 'clk', k: 'nobloq', lbl: 'Se les puede vender hoy', val: fmt(base.filter(c => c.motivo !== 'bloqueado').length), sub: 'no están bloqueados', color: 'var(--ok)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'clk', k: 'bloq', lbl: 'Bloqueados', val: fmt(base.filter(c => c.motivo === 'bloqueado').length), color: 'var(--er)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'clk', k: 'deuda', lbl: 'Deuda de estos clientes', val: fmtM(base.reduce((s, c) => s + c.deuda, 0)), color: 'var(--wa)', ver: 'Ver los que deben' })}
@@ -4513,7 +4517,7 @@ async function secClientes() {
   ${grafCard('clGraf', '¿A quién llamar primero?', 'Los 15 que más compraban de lo que se ve: en verde a los que se les puede vender hoy, en amarillo los que deben y en rojo los bloqueados. Toca una barra para ver cuánto compró.', 420)}
   <div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px">
-      <div class="xl-izq"><div class="card-ttl" style="margin:0">Compraron en T40–T43 y no en T${CL_ACT} — toca un cliente para ver cuánto compró</div></div>
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">${CL_MODO === 'activos' ? `Compraron en T${CL_ACT}` : CL_MODO === 'todos' ? `Todos los que compraron entre T${CL_BASE[0]} y T${CL_ACT}` : `Compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y no en T${CL_ACT}`} — toca un cliente para ver cuánto compró</div></div>
       ${btnExcel('clExcel', 'Baja a Excel los clientes que estás viendo, con lo que compró cada uno por colección')}
       <div class="xl-der"><span class="td-dim" id="clCount">${base.length} clientes</span>
       <button class="seg" id="clCopiar" style="border:1px solid var(--bd2)">📋 Copiar</button>
@@ -4526,7 +4530,7 @@ async function secClientes() {
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
     </div>
-    <div class="tbl-foot">Clientes que compraron en alguna de las T40–T43 y todavía no en la T${CL_ACT}. Motivo: lo que los frena según su ficha (bloqueo, cupo o deuda). Toca un cliente para ver cuánto compró por colección y un encabezado para ordenar.</div>
+    <div class="tbl-foot">${CL_MODO === 'activos' ? `Clientes que compraron en la T${CL_ACT}.` : CL_MODO === 'todos' ? `Clientes que compraron en alguna de las T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} o en la T${CL_ACT}.` : `Clientes que compraron en alguna de las T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y todavía no en la T${CL_ACT}.`} Motivo: lo que los frena según su ficha (bloqueo, cupo o deuda). Toca un cliente para ver cuánto compró por colección y un encabezado para ordenar.</div>
   </div>
   ${faltanT45Tabla(peds)}`;
 }
@@ -14696,6 +14700,11 @@ function bindContent(secId) {
 
   // Clientes Inactivos — filters
   if (secId === 'clientes') {
+    /* Estado: inactivos, activos o ambos (Manu, 10-11-2026) */
+    document.querySelectorAll('#clEstadoSegs [data-ce]').forEach(b => b.addEventListener('click', () => {
+      CL_MODO = b.dataset.ce;
+      go('clientes', 'Clientes Inactivos');
+    }));
     /* Magic World: con o sin la tienda propia en la tabla y en la lista de la T45 */
     document.querySelectorAll('#clMagicSegs [data-cm]').forEach(b => b.addEventListener('click', () => {
       CL_SIN_MAGIC = b.dataset.cm === 'sin';
