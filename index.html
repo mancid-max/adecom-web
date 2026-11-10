@@ -4360,7 +4360,7 @@ function clInactivos(peds) {
                : CL_MODO === 'todos' ? (CL_BASE.some(t => g.temps.has(t)) || g.temps.has(String(CL_ACT)))
                : (CL_BASE.some(t => g.temps.has(t)) && !g.temps.has(String(CL_ACT))))
     .map(g => {
-      const compradas = [...g.temps].filter(t => CL_BASE.includes(t) || (CL_MODO !== 'inactivos' && t === String(CL_ACT))).sort((a,b)=>+b-+a);
+      const compradas = [...g.temps].filter(t => +t >= 38).sort((a,b)=>+b-+a);   // desde la T38: la historia completa que traen los pedidos (Manu, 10-11-2026)
       const c = g.cli || {};
       const deuda = (c.deuda || 0) + (c.cheques || 0);
       const sinCupo = !!(c.credito > 0 && c.disponible <= 0);
@@ -4539,7 +4539,7 @@ async function secClientes() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr id="clThead"><th>Cliente</th><th>RUT</th><th>Ciudad</th><th title="Colecciones T40–T43 en que compró">Compró en</th><th class="r" data-sort="u" style="cursor:pointer" title="Unidades que compró en T40–T43 — de la más alta a la más baja">Unidades <span class="si">▼</span></th><th class="r" data-sort="deuda" style="cursor:pointer" title="Deuda en cuenta corriente más cheques">Deuda <span class="si">↕</span></th><th class="r" data-sort="dias" style="cursor:pointer" title="Días desde su último pedido">Sin comprar <span class="si">↕</span></th><th title="Lo que podría estar frenando la compra">Motivo</th></tr></thead>
+        <thead><tr id="clThead"><th>Cliente</th><th>RUT</th><th>Ciudad</th><th title="Las colecciones en que compró, desde la T38">Compró en</th><th class="r" data-sort="u" style="cursor:pointer" title="Unidades que compró en T40–T43 — de la más alta a la más baja">Unidades <span class="si">▼</span></th><th class="r" data-sort="deuda" style="cursor:pointer" title="Deuda en cuenta corriente más cheques">Deuda <span class="si">↕</span></th><th class="r" data-sort="dias" style="cursor:pointer" title="Días desde su último pedido">Sin comprar <span class="si">↕</span></th><th title="Lo que podría estar frenando la compra">Motivo</th></tr></thead>
         <tbody id="clBody">${rowsHtml}</tbody>
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
@@ -14977,7 +14977,7 @@ function bindContent(secId) {
           </div>`).join('')}
         </div>
         <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:13px">
-          <span>Total T40–T43</span><span class="td-num">${fmt(tot)} unidades</span>
+          <span>Total desde la T38</span><span class="td-num">${fmt(tot)} unidades</span>
         </div>
         <div class="td-dim" style="font-size:11px;margin-top:8px">No registra compras en T${CL_ACT}</div>
         <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px">
