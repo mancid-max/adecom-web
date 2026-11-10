@@ -22,6 +22,91 @@
 /* ═══ PLANTA ═══ */
 /* ── Planta Mohicano ─────────────────────────────────────────── */
 .pla-wrap{display:grid;gap:12px}   /* pla-, no pl-: .pl-wrap ya es una celda de tabla en el resto del dashboard */
+/* ── Flujo por áreas (vista de Planta, 10-11-2026) ─ prefijo flu- para no chocar ── */
+.flu-wrap{--flu-acc:#2f4b8a;--flu-acc10:#e3e9f6;--flu-warn:#c27c0e;--flu-warn10:#fcf1dc;--flu-new:#2f7d5b;--flu-new10:#e1f1e9;--flu-skin:#f1c9a5;--flu-hair:#3a2e2a;display:grid;gap:26px}
+.flu-head{display:grid;gap:6px}
+.flu-eyebrow{font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--flu-acc);font-size:11px}
+.flu-h1{margin:0;font-size:24px;font-weight:700}
+.flu-h2{margin:0 0 12px;font-size:18px;font-weight:700}
+.flu-lead{max-width:76ch;color:var(--tx2);margin:0;font-size:13px}
+.flu-fig{margin:0;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.flu-scroll{overflow-x:auto}
+svg.flu-strip{display:block;width:100%;min-width:980px;height:auto;color:var(--tx1)}
+.flu-rowbg{fill:var(--sf2)}
+.flu-rowt{font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;fill:var(--tx2)}
+.flu-arrow{fill:none;stroke:currentColor;stroke-width:1.8}
+.flu-arrow.dashed{stroke-dasharray:6 5;stroke:var(--tx2)}
+.flu-hlabel{font-size:12.5px;font-style:italic;fill:var(--tx2)}
+.flu-sname{font-size:15px;font-weight:700;fill:var(--tx1)}
+.flu-snum{fill:var(--flu-acc);font-size:17px;font-weight:700}
+.flu-srol{font-size:13px;fill:var(--tx2)}
+.flu-sbr{font-size:12.5px;font-weight:600;fill:var(--flu-acc)}
+.flu-newtag{fill:var(--flu-new)}
+.flu-newtag-t{font-size:10.5px;font-weight:700;fill:#fff;letter-spacing:.04em}
+.flu-m-leg{stroke:var(--tx1);stroke-width:6;stroke-linecap:round}
+.flu-m-body{fill:var(--flu-acc)}
+.flu-m-arm{fill:none;stroke:var(--flu-acc);stroke-width:6;stroke-linecap:round}
+.flu-m-head{fill:var(--flu-skin);stroke:var(--tx1);stroke-width:1.4}
+.flu-m-hair{fill:var(--flu-hair)}
+.flu-m-eye{fill:#1b2233}
+.flu-m-smile{fill:none;stroke:#1b2233;stroke-width:1.4;stroke-linecap:round}
+.flu-m-prop{fill:var(--sf);stroke:var(--tx1);stroke-width:1.5}
+.flu-m-prop-dark{fill:var(--tx1)}
+.flu-m-prop-acc{fill:var(--flu-warn)}
+.flu-m-pline{fill:none;stroke:var(--tx1);stroke-width:1.4}
+.flu-m-blade{stroke:var(--tx1);stroke-width:2.6;stroke-linecap:round}
+.flu-m-ring{fill:var(--sf);stroke:var(--flu-warn);stroke-width:2.4}
+.flu-m-thread{fill:none;stroke:var(--flu-warn);stroke-width:1.6}
+.flu-m-drop{fill:#4f8fd6;stroke:var(--tx1);stroke-width:1.2}
+.flu-m-shine{fill:none;stroke:#ffffff;stroke-width:1.6;stroke-linecap:round}
+.flu-m-lens{fill:var(--flu-acc10);stroke:var(--tx1);stroke-width:2.6}
+.flu-m-handle{stroke:var(--tx1);stroke-width:4;stroke-linecap:round}
+.flu-m-box{fill:#c99a63;stroke:var(--tx1);stroke-width:1.5}
+.flu-m-tape{stroke:#8a6436;stroke-width:2}
+.flu-m-fabric{fill:#3d5f9e;stroke:var(--tx1);stroke-width:1.4}
+.flu-m-fabric-end{fill:#5c7fc0;stroke:var(--tx1);stroke-width:1.4}
+.flu-m-ruler{fill:#e9c46a;stroke:var(--tx1);stroke-width:1.4}
+.flu-m-coin{fill:#e9c46a;stroke:var(--tx1);stroke-width:1.6}
+.flu-m-coin-t{font-size:14px;font-weight:700;fill:#1b2233}
+.flu-badge{fill:var(--flu-warn)}
+.flu-badge-t{font-size:12px;font-weight:700;fill:#fff}
+.flu-cap{margin-top:12px;color:var(--tx2);font-size:12.5px;display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center}
+.flu-key{display:inline-flex;align-items:center;gap:8px}
+.flu-kline{width:28px;border-top:2px solid var(--tx1)}
+.flu-kdash{width:28px;border-top:2px dashed var(--tx2)}
+.flu-kbadge{width:20px;height:20px;flex:none;border-radius:50%;background:var(--flu-warn);color:#fff;font-weight:700;font-size:12px;display:inline-grid;place-items:center}
+.flu-knew{background:var(--flu-new);color:#fff;font-weight:700;font-size:10px;letter-spacing:.04em;border-radius:4px;padding:1px 6px;vertical-align:middle}
+.flu-rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.flu-rule{background:var(--sf);border:1px solid var(--bd);border-top:4px solid var(--flu-acc);border-radius:8px;padding:12px 14px}
+.flu-rule.warn{border-top-color:var(--flu-warn)}
+.flu-rule.acc{border-top-color:var(--flu-new)}
+.flu-rule b{display:block;font-size:13.5px;margin-bottom:2px}
+.flu-rule span{color:var(--tx2);font-size:12.5px;display:block}
+.flu-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.flu-card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px 18px 18px;display:grid;gap:12px;align-content:start}
+.flu-card.is-new{border-color:var(--flu-new);box-shadow:inset 0 4px 0 var(--flu-new)}
+.flu-card-head{display:flex;gap:12px;align-items:center}
+svg.flu-mini{width:62px;height:64px;flex:none;background:var(--flu-acc10);border-radius:50%;padding:4px}
+.flu-step{font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--flu-acc);font-size:11px;display:flex;gap:8px;align-items:center}
+.flu-card h3{margin:0;font-size:17px;font-weight:700;line-height:1.1}
+.flu-rol{font-size:12.5px;color:var(--tx2)}
+.flu-tbd{font-style:italic}
+.flu-dl{margin:0;display:grid;grid-template-columns:92px 1fr;gap:6px 12px;font-size:13px}
+.flu-dl dt{color:var(--tx2);font-weight:600}
+.flu-dl dd{margin:0}
+.flu-brazos{background:var(--flu-warn10);border-radius:8px;padding:8px 12px;font-size:12.5px}
+.flu-brazos b{color:var(--flu-warn);text-transform:uppercase;letter-spacing:.05em;font-size:11px;margin-right:6px}
+.flu-must{background:var(--flu-acc10);border-radius:8px;padding:10px 14px 12px}
+.flu-must-t{font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--flu-acc);margin-bottom:4px}
+ul.flu-check{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:13px}
+ul.flu-check li{position:relative;padding-left:24px}
+ul.flu-check li::before{content:"";position:absolute;left:2px;top:3px;width:14px;height:14px;border-radius:3px;border:2px solid var(--flu-new)}
+ul.flu-check li::after{content:"";position:absolute;left:7px;top:5px;width:4px;height:8px;border:solid var(--flu-new);border-width:0 2px 2px 0;transform:rotate(45deg)}
+ul.flu-ctl{list-style:none;margin:0;padding:10px 0 0;border-top:1px dashed var(--bd);display:grid;gap:6px;font-size:12.5px}
+ul.flu-ctl li{display:flex;gap:8px;align-items:center}
+.flu-note{font-size:12.5px;color:var(--tx2);max-width:85ch;margin:0}
+@media (max-width:480px){.flu-h1{font-size:20px}.flu-dl{grid-template-columns:1fr}}
+@media print{.flu-fig,.flu-card,.flu-rule{break-inside:avoid}}
 .pl-barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;justify-content:space-between}
 .pl-tit{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--tx1)}
 .pl-tit b{color:#d8232c}
@@ -16528,6 +16613,350 @@ async function plDatos() {
   return { D, jor, ref, mes, par, cas, meta: meta || {}, prod, espMes, estadoMeta: plEstado(espMes ? prod / espMes : 0) };
 }
 
+/* ── Flujo por áreas: las 16 áreas de la reunión del 10-11-2026, vista de Planta ── */
+const FLU_HTML = `
+<header class="flu-head">
+  <div class="flu-eyebrow">Propuesta para validar · versión del 10 de noviembre de 2026</div>
+  <h2 class="flu-h1">Qué debe cumplir cada área</h2>
+  <p class="flu-lead">Así se mueve una prenda por la empresa, desde el plan de venta hasta el cobro. Cada monito es un área: recibe algo de la anterior, cumple su parte y entrega a la siguiente, dejando registro en ADECOM. Las etiquetas verdes marcan lo que se agregó en esta versión y los números ámbar son los puntos donde hoy se daña la información.</p>
+</header>
+<figure class="flu-fig">
+<div class="flu-scroll">
+<svg viewBox="0 0 1180 1092" class="flu-strip" role="img" aria-label="Recorrido de una prenda por dieciséis áreas, de la planificación al cobro">
+<defs><marker id="fluAh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<rect x="4" y="26" width="1172" height="226" rx="14" class="flu-rowbg"/>
+<text x="52" y="48" class="flu-rowt">Planificación y desarrollo</text>
+<rect x="4" y="286" width="1172" height="226" rx="14" class="flu-rowbg"/>
+<text x="52" y="308" class="flu-rowt">Muestra y producción</text>
+<rect x="4" y="546" width="1172" height="226" rx="14" class="flu-rowbg"/>
+<text x="52" y="568" class="flu-rowt">Planta</text>
+<rect x="4" y="806" width="1172" height="226" rx="14" class="flu-rowbg"/>
+<text x="52" y="828" class="flu-rowt">Bodega, venta y cobro</text>
+<path d="M232,130 H394" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="313.0" y="120" text-anchor="middle" class="flu-hlabel">unidades a vender</text>
+<path d="M512,130 H674" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="593.0" y="120" text-anchor="middle" class="flu-hlabel">tela disponible</text>
+<path d="M792,130 H954" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="873.0" y="120" text-anchor="middle" class="flu-hlabel">collage y estilos</text>
+<path d="M1066,130 H1160 V390 H1066" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="1152" y="273.0" text-anchor="end" class="flu-hlabel">moldes y prototipo</text>
+<path d="M954,390 H792" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="873.0" y="380" text-anchor="middle" class="flu-hlabel">muestra con foto</text>
+<path d="M674,390 H512" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="593.0" y="380" text-anchor="middle" class="flu-hlabel">pedido sin stock</text>
+<path d="M394,390 H232" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="313.0" y="380" text-anchor="middle" class="flu-hlabel">orden de corte</text>
+<path d="M110,390 H24 V650 H110" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="34" y="533.0" class="flu-hlabel">piezas por corte</text>
+<path d="M232,650 H394" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="313.0" y="640" text-anchor="middle" class="flu-hlabel">prendas cosidas</text>
+<path d="M512,650 H674" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="593.0" y="640" text-anchor="middle" class="flu-hlabel">prendas lavadas</text>
+<path d="M792,650 H954" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="873.0" y="640" text-anchor="middle" class="flu-hlabel">prendas terminadas</text>
+<path d="M1066,650 H1160 V910 H1066" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="1152" y="793.0" text-anchor="end" class="flu-hlabel">1ª y 2ª etiquetadas</text>
+<path d="M954,910 H792" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="873.0" y="900" text-anchor="middle" class="flu-hlabel">pedido preparado</text>
+<path d="M674,910 H512" class="flu-arrow" marker-end="url(#fluAh)"/>
+<text x="593.0" y="900" text-anchor="middle" class="flu-hlabel">factura</text>
+<path d="M1000,1026 V1058 H160 V1028" class="flu-arrow dashed" marker-end="url(#fluAh)"/>
+<text x="580.0" y="1076" text-anchor="middle" class="flu-hlabel">reposición de tiendas</text>
+<g transform="translate(160,124) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-4)"><rect x="-12" y="-14" width="24" height="28" rx="2" class="flu-m-prop"/><rect x="-8" y="2" width="4" height="8" class="flu-m-prop-acc"/><rect x="-2" y="-4" width="4" height="14" class="flu-m-prop-dark"/><rect x="4" y="-10" width="4" height="20" class="flu-m-prop-acc"/></g></g>
+<rect x="180" y="58" width="44" height="17" rx="4" class="flu-newtag"/><text x="202" y="70" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="160" y="198" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">1</tspan>  Plan de venta</text>
+<text x="160" y="216" text-anchor="middle" class="flu-srol">Gerencia</text>
+<text x="160" y="234" text-anchor="middle" class="flu-sbr">4 colecciones al año</text>
+<g transform="translate(440,124) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2)"><rect x="-13" y="-9" width="22" height="18" class="flu-m-fabric"/><ellipse cx="9" cy="0" rx="4.5" ry="9" class="flu-m-fabric-end"/><ellipse cx="9" cy="0" rx="1.5" ry="3" class="flu-m-prop-dark"/><path d="M-13,9 V16 H3" class="flu-m-pline"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">6</text></g>
+<rect x="460" y="58" width="44" height="17" rx="4" class="flu-newtag"/><text x="482" y="70" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="440" y="198" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">2</tspan>  Compra de tela e insumos</text>
+<text x="440" y="216" text-anchor="middle" class="flu-srol">Compras</text>
+<text x="440" y="234" text-anchor="middle" class="flu-sbr">Urrutia · Codegua</text>
+<g transform="translate(720,124) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(34,-4) rotate(35)"><rect x="-3.5" y="-16" width="7" height="24" class="flu-m-prop"/><path d="M-3.5,8 L0,15 L3.5,8 Z" class="flu-m-prop-dark"/><rect x="-3.5" y="-19" width="7" height="4" class="flu-m-prop-acc"/></g></g>
+<rect x="740" y="58" width="44" height="17" rx="4" class="flu-newtag"/><text x="762" y="70" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="720" y="198" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">3</tspan>  Diseño</text>
+<text x="720" y="216" text-anchor="middle" class="flu-srol">Diseño y asistente</text>
+<g transform="translate(1000,124) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-4) rotate(-30)"><rect x="-4.5" y="-17" width="9" height="34" rx="1" class="flu-m-ruler"/><line x1="-4.5" y1="-11" x2="0" y2="-11" class="flu-m-pline"/><line x1="-4.5" y1="-5" x2="-1" y2="-5" class="flu-m-pline"/><line x1="-4.5" y1="1" x2="0" y2="1" class="flu-m-pline"/><line x1="-4.5" y1="7" x2="-1" y2="7" class="flu-m-pline"/><line x1="-4.5" y1="13" x2="0" y2="13" class="flu-m-pline"/></g></g>
+<rect x="1020" y="58" width="44" height="17" rx="4" class="flu-newtag"/><text x="1042" y="70" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="1000" y="198" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">4</tspan>  Modelaje</text>
+<text x="1000" y="216" text-anchor="middle" class="flu-srol">Modelistas</text>
+<text x="1000" y="234" text-anchor="middle" class="flu-sbr">2 modelistas</text>
+<g transform="translate(1000,384) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-6)"><rect x="-6" y="-13" width="10" height="5" rx="1" class="flu-m-prop-dark"/><rect x="-14" y="-9" width="28" height="19" rx="3" class="flu-m-prop-dark"/><circle cx="0" cy="0.5" r="5.5" class="flu-m-lens"/><circle cx="9" cy="-5" r="1.5" class="flu-m-prop-acc"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">1</text><circle cx="-30" cy="-22" r="10" class="flu-badge"/><text x="-30" y="-18" text-anchor="middle" class="flu-badge-t">7</text></g>
+<rect x="1020" y="318" width="44" height="17" rx="4" class="flu-newtag"/><text x="1042" y="330" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="1000" y="458" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">5</tspan>  Prueba de calce</text>
+<text x="1000" y="476" text-anchor="middle" class="flu-srol">Modelistas y diseño</text>
+<text x="1000" y="494" text-anchor="middle" class="flu-sbr">M1 · M2 · M3 con foto</text>
+<g transform="translate(720,384) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(38,-24)"><rect x="-15" y="-11" width="30" height="20" rx="6" class="flu-m-prop"/><path d="M-6,9 L-10,16 L0,9 Z" class="flu-m-prop"/><circle cx="-6" cy="-1" r="1.8" class="flu-m-prop-dark"/><circle cx="0" cy="-1" r="1.8" class="flu-m-prop-dark"/><circle cx="6" cy="-1" r="1.8" class="flu-m-prop-dark"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">4</text></g>
+<text x="720" y="458" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">6</tspan>  Comercial</text>
+<text x="720" y="476" text-anchor="middle" class="flu-srol">Vendedor</text>
+<g transform="translate(440,384) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2)"><rect x="-10" y="-14" width="20" height="27" rx="2" class="flu-m-prop"/><rect x="-5" y="-17" width="10" height="5" rx="1.5" class="flu-m-prop-dark"/><line x1="-6" y1="-6" x2="6" y2="-6" class="flu-m-pline"/><line x1="-6" y1="0" x2="6" y2="0" class="flu-m-pline"/><line x1="-6" y1="6" x2="3" y2="6" class="flu-m-pline"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">1</text></g>
+<text x="440" y="458" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">7</tspan>  Producción</text>
+<text x="440" y="476" text-anchor="middle" class="flu-srol">Jefatura de producción</text>
+<g transform="translate(160,384) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2) rotate(-20)"><line x1="-2" y1="4" x2="12" y2="-14" class="flu-m-blade"/><line x1="2" y1="4" x2="-12" y2="-14" class="flu-m-blade"/><circle cx="-5" cy="10" r="5" class="flu-m-ring"/><circle cx="5" cy="10" r="5" class="flu-m-ring"/></g></g>
+<text x="160" y="458" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">8</tspan>  Corte</text>
+<text x="160" y="476" text-anchor="middle" class="flu-srol">Cortador</text>
+<g transform="translate(160,644) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2)"><rect x="-9" y="-13" width="18" height="4" rx="1" class="flu-m-prop-dark"/><rect x="-9" y="9" width="18" height="4" rx="1" class="flu-m-prop-dark"/><rect x="-6" y="-9" width="12" height="18" class="flu-m-prop-acc"/><path d="M6,-4 Q16,0 12,14" class="flu-m-thread"/></g></g>
+<text x="160" y="718" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">9</tspan>  Confección</text>
+<text x="160" y="736" text-anchor="middle" class="flu-srol">Talleres</text>
+<text x="160" y="754" text-anchor="middle" class="flu-sbr">Urrutia · Tierra del Fuego</text>
+<g transform="translate(440,644) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-6)"><path d="M0,-15 Q11,0 9,6 A9,9 0 0 1 -9,6 Q-11,0 0,-15 Z" class="flu-m-drop"/><path d="M-4,4 Q-4,8 0,9" class="flu-m-shine"/></g></g>
+<text x="440" y="718" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">10</tspan>  Lavandería</text>
+<text x="440" y="736" text-anchor="middle" class="flu-srol">Lavandería</text>
+<text x="440" y="754" text-anchor="middle" class="flu-sbr">Interna · Externa</text>
+<g transform="translate(720,644) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,0)"><path d="M-2,-6 Q-2,-14 5,-14 H12 V-6" class="flu-m-pline"/><path d="M-17,9 L14,9 L14,1 Q14,-6 6,-6 L-5,-6 Q-12,-4 -17,9 Z" class="flu-m-prop"/><rect x="-17" y="9" width="31" height="3" class="flu-m-prop-dark"/></g></g>
+<rect x="740" y="578" width="44" height="17" rx="4" class="flu-newtag"/><text x="762" y="590" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="720" y="718" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">11</tspan>  Terminación y plancha</text>
+<text x="720" y="736" text-anchor="middle" class="flu-srol">Terminaciones</text>
+<g transform="translate(1000,644) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-6)"><circle cx="0" cy="-3" r="9" class="flu-m-lens"/><line x1="6" y1="4" x2="13" y2="13" class="flu-m-handle"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">2</text></g>
+<text x="1000" y="718" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">12</tspan>  Control de calidad</text>
+<text x="1000" y="736" text-anchor="middle" class="flu-srol">Cierre de corte</text>
+<g transform="translate(1000,904) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,0)"><rect x="-13" y="-11" width="26" height="22" rx="2" class="flu-m-box"/><line x1="-13" y1="-3" x2="13" y2="-3" class="flu-m-tape"/><line x1="0" y1="-11" x2="0" y2="-3" class="flu-m-tape"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">3</text><circle cx="-30" cy="-22" r="10" class="flu-badge"/><text x="-30" y="-18" text-anchor="middle" class="flu-badge-t">4</text><circle cx="-30" cy="0" r="10" class="flu-badge"/><text x="-30" y="4" text-anchor="middle" class="flu-badge-t">6</text></g>
+<text x="1000" y="978" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">13</tspan>  Bodega</text>
+<text x="1000" y="996" text-anchor="middle" class="flu-srol">Bodeguera</text>
+<text x="1000" y="1014" text-anchor="middle" class="flu-sbr">Producto terminado · Tela</text>
+<g transform="translate(720,904) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-2)"><path d="M-5,-6 Q-5,-15 0,-15 Q5,-15 5,-6" class="flu-m-pline"/><path d="M-11,-6 H11 L13,14 H-13 Z" class="flu-m-prop-acc"/></g><circle cx="-30" cy="-44" r="10" class="flu-badge"/><text x="-30" y="-40" text-anchor="middle" class="flu-badge-t">3</text><circle cx="-30" cy="-22" r="10" class="flu-badge"/><text x="-30" y="-18" text-anchor="middle" class="flu-badge-t">5</text></g>
+<text x="720" y="978" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">14</tspan>  Ventas y despacho</text>
+<text x="720" y="996" text-anchor="middle" class="flu-srol">Ventas y administración</text>
+<text x="720" y="1014" text-anchor="middle" class="flu-sbr">Mayoristas · Especiales · Detalle</text>
+<g transform="translate(440,904) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-4)"><circle r="12" class="flu-m-coin"/><circle r="8.5" fill="none" stroke="#8a6436" stroke-width="1"/><text y="5" text-anchor="middle" class="flu-m-coin-t">$</text></g></g>
+<rect x="460" y="838" width="44" height="17" rx="4" class="flu-newtag"/><text x="482" y="850" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="440" y="978" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">15</tspan>  Cobranza</text>
+<text x="440" y="996" text-anchor="middle" class="flu-srol">Cobranza</text>
+<g transform="translate(160,904) scale(1.15)"><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-4)"><rect x="-13" y="-4" width="26" height="18" class="flu-m-prop"/><path d="M-15,-4 L-11,-14 H11 L15,-4 Z" class="flu-m-prop-acc"/><rect x="-4" y="4" width="8" height="10" class="flu-m-prop-dark"/></g></g>
+<rect x="180" y="838" width="44" height="17" rx="4" class="flu-newtag"/><text x="202" y="850" text-anchor="middle" class="flu-newtag-t">NUEVO</text>
+<text x="160" y="978" text-anchor="middle" class="flu-sname"><tspan class="flu-snum">16</tspan>  Tiendas</text>
+<text x="160" y="996" text-anchor="middle" class="flu-srol">Venta al detalle</text>
+<text x="160" y="1014" text-anchor="middle" class="flu-sbr">Kennedy · Filomena</text>
+</svg>
+</div>
+<figcaption class="flu-cap">
+  <span class="flu-key"><span class="flu-kline"></span>Lo que pasa de un área a la otra</span>
+  <span class="flu-key"><span class="flu-kdash"></span>Reposición de tiendas desde bodega</span>
+  <span class="flu-key"><span class="flu-kbadge">1</span>Punto de control</span>
+  <span class="flu-key"><span class="flu-knew">NUEVO</span>Agregado el 10 de noviembre</span>
+</figcaption>
+</figure>
+<section>
+<h2 class="flu-h2">Reglas para todas las áreas</h2>
+<div class="flu-rules">
+  <div class="flu-rule"><b>Nada se mueve sin documento</b><span>Toda entrada, salida o préstamo queda con factura, guía o documento firmado.</span></div>
+  <div class="flu-rule"><b>Se registra en el momento</b><span>Lo que se hace se ingresa en ADECOM al hacerlo, no al final del día ni en un cuaderno.</span></div>
+  <div class="flu-rule"><b>Cada área responde por lo que entrega</b><span>Se entrega completo y cuadrado: lo que se recibió, menos lo informado como falla.</span></div>
+  <div class="flu-rule"><b>El error se avisa al tiro</b><span>Si algo viene mal, se informa al área anterior antes de seguir.</span></div>
+</div>
+</section>
+<section>
+<h2 class="flu-h2">Ficha por área</h2>
+<div class="flu-cards"><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-4)"><rect x="-12" y="-14" width="24" height="28" rx="2" class="flu-m-prop"/><rect x="-8" y="2" width="4" height="8" class="flu-m-prop-acc"/><rect x="-2" y="-4" width="4" height="14" class="flu-m-prop-dark"/><rect x="4" y="-10" width="4" height="20" class="flu-m-prop-acc"/></g></g></svg><div><div class="flu-step">Área 1 <span class="flu-knew">NUEVO</span></div><h3>Plan de venta</h3><div class="flu-rol">Gerencia · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Histórico de ventas por artículo, color y cliente, más las tendencias de la temporada.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Armar un plan de venta por colección (4 al año), que se pueda anualizar.</li><li>Definir cuánto vender por artículo, color y talla para cubrir la meta.</li><li>Partir de lo más vendido y cruzarlo con tendencias y necesidades.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Plan de venta → Compras y Diseño</dd>
+    <dt>En ADECOM</dt><dd>Histórico de ventas y proyección</dd>
+    <dt>Se mide con</dt><dd>Venta real contra el plan de cada colección.</dd>
+  </dl>
+  
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2)"><rect x="-13" y="-9" width="22" height="18" class="flu-m-fabric"/><ellipse cx="9" cy="0" rx="4.5" ry="9" class="flu-m-fabric-end"/><ellipse cx="9" cy="0" rx="1.5" ry="3" class="flu-m-prop-dark"/><path d="M-13,9 V16 H3" class="flu-m-pline"/></g></g></svg><div><div class="flu-step">Área 2 <span class="flu-knew">NUEVO</span></div><h3>Compra de tela e insumos</h3><div class="flu-rol">Compras · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Plan de venta y stock real de tela en cada bodega.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Calcular los metros necesarios con el consumo por prenda (1,4 a 1,5 m).</li><li>Comprar con anticipación para la colección siguiente (hoy ya toca invierno).</li><li>Comprar solo sobre stock cuadrado: inventario semanal de rollos.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Tela e insumos disponibles → Diseño y Corte</dd>
+    <dt>En ADECOM</dt><dd>Stock de tela por bodega</dd>
+    <dt>Se mide con</dt><dd>Stock de tela en ADECOM igual al físico; ningún modelo detenido por falta de tela.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">6</span>Stock de tela cuadrado</li></ul>
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(34,-4) rotate(35)"><rect x="-3.5" y="-16" width="7" height="24" class="flu-m-prop"/><path d="M-3.5,8 L0,15 L3.5,8 Z" class="flu-m-prop-dark"/><rect x="-3.5" y="-19" width="7" height="4" class="flu-m-prop-acc"/></g></g></svg><div><div class="flu-step">Área 3 <span class="flu-knew">NUEVO</span></div><h3>Diseño</h3><div class="flu-rol">Diseño y asistente · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Plan de venta y tendencias (viajes, ferias, vitrinas, calle).</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Diseño · Asistente de diseño</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Mantener el álbum de tendencias de cada temporada.</li><li>La asistente arma el collage de cada estilo y lo mantiene al día.</li><li>Asignar a cada modelista qué hace, con fecha de inicio, de término y cantidad.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Collage y estilos asignados → Modelaje</dd>
+    <dt>En ADECOM</dt><dd>Programa de modelos (M1, M2, M3) con fechas</dd>
+    <dt>Se mide con</dt><dd>Collage al día y artículos faltantes compensados.</dd>
+  </dl>
+  
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-4) rotate(-30)"><rect x="-4.5" y="-17" width="9" height="34" rx="1" class="flu-m-ruler"/><line x1="-4.5" y1="-11" x2="0" y2="-11" class="flu-m-pline"/><line x1="-4.5" y1="-5" x2="-1" y2="-5" class="flu-m-pline"/><line x1="-4.5" y1="1" x2="0" y2="1" class="flu-m-pline"/><line x1="-4.5" y1="7" x2="-1" y2="7" class="flu-m-pline"/><line x1="-4.5" y1="13" x2="0" y2="13" class="flu-m-pline"/></g></g></svg><div><div class="flu-step">Área 4 <span class="flu-knew">NUEVO</span></div><h3>Modelaje</h3><div class="flu-rol">Modelistas · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Collage y estilos asignados por Diseño.</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Modelista 1 · Modelista 2</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Hacer el molde según lo que entregó Diseño.</li><li>Ficha técnica firmada por el modelista que la hizo.</li><li>Llevar su avance al día contra las fechas comprometidas.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Moldes y prototipo → Prueba de calce</dd>
+    <dt>En ADECOM</dt><dd>Modelista asignado a cada artículo</dd>
+    <dt>Se mide con</dt><dd>Modelos entregados en la fecha comprometida.</dd>
+  </dl>
+  
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-6)"><rect x="-6" y="-13" width="10" height="5" rx="1" class="flu-m-prop-dark"/><rect x="-14" y="-9" width="28" height="19" rx="3" class="flu-m-prop-dark"/><circle cx="0" cy="0.5" r="5.5" class="flu-m-lens"/><circle cx="9" cy="-5" r="1.5" class="flu-m-prop-acc"/></g></g></svg><div><div class="flu-step">Área 5 <span class="flu-knew">NUEVO</span></div><h3>Prueba de calce</h3><div class="flu-rol">Modelistas y diseño · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Prototipo cosido.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Aprobar o pedir arreglo en cada prueba (M1, M2, M3).</li><li>Sacar la foto de cada prueba y subirla al artículo.</li><li>Registrar la aprobación en ADECOM al momento, no en el cuaderno.</li><li>Ingresar como MUESTRA, nunca como producción.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Muestra aprobada con foto → Comercial y Producción</dd>
+    <dt>En ADECOM</dt><dd>Calce aprobado con foto y modelista</dd>
+    <dt>Se mide con</dt><dd>Cero aprobados que estén solo en el cuaderno: aprobados vs. trazabilidad al día.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">1</span>Muestra vs producción</li><li><span class="flu-kbadge">7</span>Calce aprobado en ADECOM</li></ul>
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(38,-24)"><rect x="-15" y="-11" width="30" height="20" rx="6" class="flu-m-prop"/><path d="M-6,9 L-10,16 L0,9 Z" class="flu-m-prop"/><circle cx="-6" cy="-1" r="1.8" class="flu-m-prop-dark"/><circle cx="0" cy="-1" r="1.8" class="flu-m-prop-dark"/><circle cx="6" cy="-1" r="1.8" class="flu-m-prop-dark"/></g></g></svg><div><div class="flu-step">Área 6</div><h3>Comercial</h3><div class="flu-rol">Vendedor · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Muestrario armado con los artículos disponibles.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Vender con el perchero de muestrario, sin sacar prendas de bodega.</li><li>Ingresar cada pedido completo en ADECOM: cliente, SKU, talla y cantidad.</li><li>Revisar stock antes de comprometer una fecha al cliente.</li><li>Si saca una prenda de bodega, firmar el préstamo y devolverla en el día.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Pedido con stock → Bodega · Pedido sin stock → Producción</dd>
+    <dt>En ADECOM</dt><dd>Pedido de cliente</dd>
+    <dt>Se mide con</dt><dd>Pedidos con datos completos y préstamos devueltos el mismo día.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">4</span>Préstamo al muestrario</li></ul>
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2)"><rect x="-10" y="-14" width="20" height="27" rx="2" class="flu-m-prop"/><rect x="-5" y="-17" width="10" height="5" rx="1.5" class="flu-m-prop-dark"/><line x1="-6" y1="-6" x2="6" y2="-6" class="flu-m-pline"/><line x1="-6" y1="0" x2="6" y2="0" class="flu-m-pline"/><line x1="-6" y1="6" x2="3" y2="6" class="flu-m-pline"/></g></g></svg><div><div class="flu-step">Área 7</div><h3>Producción</h3><div class="flu-rol">Jefatura de producción · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Pedidos sin stock, muestra aprobada y ficha técnica.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Crear la orden de producción en ADECOM como PRODUCCIÓN.</li><li>Asignar cortes y talleres según capacidad y prioridad de pedidos.</li><li>Seguir el avance por sección contra las metas.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Orden de corte → Corte</dd>
+    <dt>En ADECOM</dt><dd>Orden de producción</dd>
+    <dt>Se mide con</dt><dd>Órdenes al día y avance real contra la meta de cada sección.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">1</span>Muestra vs producción</li></ul>
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2) rotate(-20)"><line x1="-2" y1="4" x2="12" y2="-14" class="flu-m-blade"/><line x1="2" y1="4" x2="-12" y2="-14" class="flu-m-blade"/><circle cx="-5" cy="10" r="5" class="flu-m-ring"/><circle cx="5" cy="10" r="5" class="flu-m-ring"/></g></g></svg><div><div class="flu-step">Área 8</div><h3>Corte</h3><div class="flu-rol">Cortador · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Orden de corte y tela.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Cortar exactamente lo que dice la orden.</li><li>Registrar la cantidad cortada: aquí nace el lote.</li><li>Enviar paquetes identificados con número de corte y artículo.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Piezas por corte → Confección</dd>
+    <dt>En ADECOM</dt><dd>Corte (cantidad cortada)</dd>
+    <dt>Se mide con</dt><dd>Unidades cortadas iguales a la orden.</dd>
+  </dl>
+  
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-2)"><rect x="-9" y="-13" width="18" height="4" rx="1" class="flu-m-prop-dark"/><rect x="-9" y="9" width="18" height="4" rx="1" class="flu-m-prop-dark"/><rect x="-6" y="-9" width="12" height="18" class="flu-m-prop-acc"/><path d="M6,-4 Q16,0 12,14" class="flu-m-thread"/></g></g></svg><div><div class="flu-step">Área 9</div><h3>Confección</h3><div class="flu-rol">Talleres · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Piezas cortadas identificadas por número de corte.</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Urrutia y Tierra del Fuego por separado: layout de máquinas, quién hace cada operación y cuántas personas (incluye bordadoras sin uso).</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Coser según la ficha técnica.</li><li>Registrar cada operación con su ticket.</li><li>Devolver la misma cantidad recibida o informar la diferencia.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Prendas cosidas → Lavandería</dd>
+    <dt>En ADECOM</dt><dd>Tickets de operación por corte</dd>
+    <dt>Se mide con</dt><dd>Prendas devueltas iguales a piezas recibidas.</dd>
+  </dl>
+  
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-6)"><path d="M0,-15 Q11,0 9,6 A9,9 0 0 1 -9,6 Q-11,0 0,-15 Z" class="flu-m-drop"/><path d="M-4,4 Q-4,8 0,9" class="flu-m-shine"/></g></g></svg><div><div class="flu-step">Área 10</div><h3>Lavandería</h3><div class="flu-rol">Lavandería · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Prendas cosidas con su número de corte.</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Circuito y máquinas (láser y otras), personas por máquina.</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Lavar según la receta de la ficha técnica.</li><li>Informar en el momento las fallas de lavado o de tela.</li><li>Separar el trabajo interno del externo.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Prendas lavadas → Terminación y plancha</dd>
+    <dt>En ADECOM</dt><dd>Avance de lavado, interno y externo</dd>
+    <dt>Se mide con</dt><dd>Fallas informadas al detectarlas, no al cierre.</dd>
+  </dl>
+  
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,0)"><path d="M-2,-6 Q-2,-14 5,-14 H12 V-6" class="flu-m-pline"/><path d="M-17,9 L14,9 L14,1 Q14,-6 6,-6 L-5,-6 Q-12,-4 -17,9 Z" class="flu-m-prop"/><rect x="-17" y="9" width="31" height="3" class="flu-m-prop-dark"/></g></g></svg><div><div class="flu-step">Área 11 <span class="flu-knew">NUEVO</span></div><h3>Terminación y plancha</h3><div class="flu-rol">Terminaciones · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Prendas lavadas.</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Cuántas personas en terminación y en plancha.</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Terminar: atraques, botones y etiquetas.</li><li>Planchar.</li><li>Entregar la cantidad recibida o informar la diferencia.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Prendas terminadas → Control de calidad</dd>
+    <dt>En ADECOM</dt><dd>Avance de terminación</dd>
+    <dt>Se mide con</dt><dd>Cantidad entregada igual a la recibida.</dd>
+  </dl>
+  
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(36,-6)"><circle cx="0" cy="-3" r="9" class="flu-m-lens"/><line x1="6" y1="4" x2="13" y2="13" class="flu-m-handle"/></g></g></svg><div><div class="flu-step">Área 12</div><h3>Control de calidad</h3><div class="flu-rol">Cierre de corte · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Prendas terminadas del corte completo.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Contar primera y segunda de cada corte.</li><li>Clasificar la segunda: por lavado, por tela o por maquinista.</li><li>Cerrar el corte en ADECOM: el código cambia a segunda solo.</li><li>Pegar la etiqueta que se imprime en el momento del cierre.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Primera y segunda etiquetadas → Bodega</dd>
+    <dt>En ADECOM</dt><dd>Cierre de corte</dd>
+    <dt>Se mide con</dt><dd>Cortes cerrados el mismo día y cuadratura cortado = cerrado.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">2</span>Cierre de corte con segundas</li></ul>
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,0)"><rect x="-13" y="-11" width="26" height="22" rx="2" class="flu-m-box"/><line x1="-13" y1="-3" x2="13" y2="-3" class="flu-m-tape"/><line x1="0" y1="-11" x2="0" y2="-3" class="flu-m-tape"/></g></g></svg><div><div class="flu-step">Área 13</div><h3>Bodega</h3><div class="flu-rol">Bodeguera · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Primera y segunda etiquetadas, pedidos con stock y rollos de tela.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Ingresar a stock solo con documento.</li><li>Ninguna salida sin factura, guía u otro documento.</li><li>Reservar y preparar los pedidos; reponer las tiendas.</li><li>Hacer inventario semanal de rollos de tela.</li><li>Controlar préstamos al muestrario y recibir las devoluciones antes del cierre.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Pedido preparado → Ventas · Reposición → Tiendas</dd>
+    <dt>En ADECOM</dt><dd>Ingresos, salidas, reservas y stock de tela</dd>
+    <dt>Se mide con</dt><dd>Stock físico (prendas y tela) igual al de ADECOM.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">3</span>Salida sin documento</li><li><span class="flu-kbadge">4</span>Préstamo al muestrario</li><li><span class="flu-kbadge">6</span>Stock de tela cuadrado</li></ul>
+</article><article class="flu-card">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-2)"><path d="M-5,-6 Q-5,-15 0,-15 Q5,-15 5,-6" class="flu-m-pline"/><path d="M-11,-6 H11 L13,14 H-13 Z" class="flu-m-prop-acc"/></g></g></svg><div><div class="flu-step">Área 14</div><h3>Ventas y despacho</h3><div class="flu-rol">Ventas y administración · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Pedido preparado por bodega.</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Circuito de venta: cuánto vende cada uno.</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Emitir factura o guía de cada salida y despachar con constancia.</li><li>Revisar a diario los pedidos con stock que siguen sin facturar.</li><li>Llevar la venta por vendedor y por canal: mayorista, especiales y detalle.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Pedido facturado → Cliente y Cobranza</dd>
+    <dt>En ADECOM</dt><dd>Factura, guía y venta por vendedor</dd>
+    <dt>Se mide con</dt><dd>Venta por vendedor contra el plan; pedidos facturados sin atraso.</dd>
+  </dl>
+  <ul class="flu-ctl"><li><span class="flu-kbadge">3</span>Salida sin documento</li><li><span class="flu-kbadge">5</span>Pedido sin facturar</li></ul>
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-4)"><circle r="12" class="flu-m-coin"/><circle r="8.5" fill="none" stroke="#8a6436" stroke-width="1"/><text y="5" text-anchor="middle" class="flu-m-coin-t">$</text></g></g></svg><div><div class="flu-step">Área 15 <span class="flu-knew">NUEVO</span></div><h3>Cobranza</h3><div class="flu-rol">Cobranza · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Facturas emitidas.</dd></dl>
+  
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Seguir la cuenta corriente de cada cliente.</li><li>Gestionar las facturas vencidas.</li><li>Avisar a Ventas los clientes con deuda antes de un pedido nuevo.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Pago registrado → Cuenta corriente</dd>
+    <dt>En ADECOM</dt><dd>Cuenta corriente (debe y haber)</dd>
+    <dt>Se mide con</dt><dd>Facturas cobradas dentro del plazo.</dd>
+  </dl>
+  
+</article><article class="flu-card is-new">
+  <div class="flu-card-head"><svg viewBox="-50 -62 110 112" class="flu-mini" aria-hidden="true"><g><line x1="-8" y1="20" x2="-10" y2="44" class="flu-m-leg"/><line x1="8" y1="20" x2="10" y2="44" class="flu-m-leg"/><path d="M-15,-14 Q0,-19 15,-14 L19,22 Q0,26 -19,22 Z" class="flu-m-body"/><path d="M-14,-8 Q-26,2 -24,14" class="flu-m-arm"/><path d="M14,-8 Q24,-6 28,2" class="flu-m-arm"/><circle cx="0" cy="-30" r="13" class="flu-m-head"/><path d="M-13,-33 Q-12,-46 0,-45 Q12,-46 13,-33 Q6,-39 0,-38 Q-6,-39 -13,-33 Z" class="flu-m-hair"/><circle cx="-4.5" cy="-30" r="1.7" class="flu-m-eye"/><circle cx="4.5" cy="-30" r="1.7" class="flu-m-eye"/><path d="M-5,-24 Q0,-20 5,-24" class="flu-m-smile"/><g transform="translate(37,-4)"><rect x="-13" y="-4" width="26" height="18" class="flu-m-prop"/><path d="M-15,-4 L-11,-14 H11 L15,-4 Z" class="flu-m-prop-acc"/><rect x="-4" y="4" width="8" height="10" class="flu-m-prop-dark"/></g></g></svg><div><div class="flu-step">Área 16 <span class="flu-knew">NUEVO</span></div><h3>Tiendas</h3><div class="flu-rol">Venta al detalle · <span class="flu-tbd">nombre según organigrama</span></div></div></div>
+  <dl class="flu-dl"><dt>Recibe</dt><dd>Reposición desde bodega.</dd></dl>
+  <div class="flu-brazos"><b>Se abre en</b>Kennedy y Filomena por separado: personas y metas.</div>
+  <div class="flu-must"><div class="flu-must-t">Debe cumplir</div><ul class="flu-check"><li>Vender al detalle y registrar cada venta.</li><li>Pedir reposición según lo vendido.</li><li>Cuadrar el stock de la tienda.</li></ul></div>
+  <dl class="flu-dl">
+    <dt>Entrega</dt><dd>Venta al detalle → Histórico de ventas (vuelve al Plan de venta)</dd>
+    <dt>En ADECOM</dt><dd>Venta al detalle y stock de tienda</dd>
+    <dt>Se mide con</dt><dd>Stock de tienda cuadrado y venta contra la meta.</dd>
+  </dl>
+  
+</article></div>
+</section>
+<section>
+<h2 class="flu-h2">Puntos de control</h2>
+<div class="flu-rules">
+  <div class="flu-rule warn"><b>1 · Muestra vs producción</b><span>ADECOM pide confirmar: «¿Está seguro? Está ingresando a PRODUCCIÓN, no a MUESTRA».</span></div>
+  <div class="flu-rule warn"><b>2 · Cierre de corte</b><span>Al marcar la segunda (lavado, tela o maquinista) el código cambia solo y la etiqueta se imprime en el momento.</span></div>
+  <div class="flu-rule warn"><b>3 · Salidas de bodega</b><span>No sale nada sin factura, guía u otro documento.</span></div>
+  <div class="flu-rule warn"><b>4 · Préstamos al muestrario</b><span>Documento firmado y devolución antes del cierre de bodega.</span></div>
+  <div class="flu-rule warn"><b>5 · Pedidos sin facturar</b><span>Aviso diario de pedidos con stock que no se han facturado.</span></div>
+  <div class="flu-rule warn"><b>6 · Stock de tela cuadrado <span class="flu-knew">NUEVO</span></b><span>Inventario semanal de rollos: el stock de ADECOM tiene que calzar con el físico antes de comprar o cortar.</span></div>
+  <div class="flu-rule warn"><b>7 · Calce aprobado en ADECOM <span class="flu-knew">NUEVO</span></b><span>Cada aprobación queda registrada con foto y modelista; ninguna queda solo en el cuaderno.</span></div>
+</div>
+</section>
+<section>
+<h2 class="flu-h2">Requerimientos para ADECOM</h2>
+<div class="flu-rules">
+  <div class="flu-rule acc"><b>Foto de la prueba de calce</b><span>Habilitar la foto por artículo: hoy la función de foto existe solo para insumos.</span></div>
+  <div class="flu-rule acc"><b>Vista en Muestras</b><span>Aprobados que aún no entran a trazabilidad frente a los que ya están en producción.</span></div>
+  <div class="flu-rule acc"><b>Campo modelista</b><span>Que se pueda mostrar u ocultar según la vista: en Producción no, en Muestras sí. Opción: agregarlo como atributo a una sección existente en vez de crear una sección nueva.</span></div>
+</div>
+<p class="flu-note">No son parte del flujo: son cambios al sistema. Se programan entre Carlos (proveedor de ADECOM) y Manuel.</p>
+</section>
+<section>
+<h2 class="flu-h2">Por levantar</h2>
+<div class="flu-rules">
+  <div class="flu-rule"><b>Nombres por área</b><span>Por levantar: quién es el responsable de cada área, según el organigrama.</span></div>
+  <div class="flu-rule"><b>Máquinas y dotación</b><span>Por levantar: Urrutia, Tierra del Fuego, lavandería, terminación y plancha, y tiendas.</span></div>
+  <div class="flu-rule"><b>Más adelante</b><span>Gráficos por unidad (sobre o bajo la meta), manuales por proceso y mostrar el flujo en un televisor de la oficina.</span></div>
+</div>
+</section>
+<p class="flu-note">Versión actualizada con la reunión del 10-11-2026: se agregan Plan de venta, Compra de tela e insumos, Diseño y Modelaje por separado, Prueba de calce, Terminación y plancha, Cobranza y Tiendas. Las personas y máquinas de cada unidad quedan por levantar. Las obligaciones de cada área son una propuesta para validar. Los puntos 1, 2, 5 y 7 dependen de lo que se pueda configurar en ADECOM.</p>
+`;
+
 /* ── Planta: dibujo, monos, panel y simulador ───────────────────────────────────────────────── */
 let PL = null;   // la planta abierta: si se sale de la sección, su bucle se detiene solo
 
@@ -16540,6 +16969,7 @@ async function secPlanta() {
     <div class="pl-barra">
       <div class="pl-tit"><b>Planta</b> Mohicano <span>el flujo del negocio, de Compras a Cobranza</span></div>
       <div class="pl-mandos">
+        <div class="pl-vel" role="group" aria-label="Vista"><button type="button" data-plv="vivo" class="on">La planta</button><button type="button" data-plv="flujo">Flujo por áreas</button></div>
         <div class="pl-vel" role="group" aria-label="Velocidad">
           <button type="button" data-vel="0" title="Pausa">II</button><button type="button" data-vel="1" class="on">1x</button><button type="button" data-vel="2">2x</button>
         </div>
@@ -16548,6 +16978,7 @@ async function secPlanta() {
         <button type="button" class="pl-btn pl-prim" id="plMeta">La meta: 10.000</button>
       </div>
     </div>
+    <div id="plVivo">
     <p class="pl-nota">Datos de ADECOM al ${ref} · ${mtMesTtl(datos.mes)}, ${datos.jor.corridos} de ${datos.jor.habiles} días hábiles. Cada número sale de los mismos datos del dashboard; las metas de producción son las de Metas de Producción.</p>
     <div class="pl-sala">
       <section class="pl-escena">
@@ -16558,12 +16989,24 @@ async function secPlanta() {
       <aside class="pl-cajon"><div class="pl-cab" id="plCab"></div><div class="pl-tabs" id="plTabs"></div><div class="pl-panel" id="plPanel"></div></aside>
     </div>
     <div class="pl-plantel" id="plPlantel"></div>
+    </div>
+    <div id="fluVista" class="flu-wrap" hidden>${FLU_HTML}</div>
   </div>`;
 }
 
 function plIniciar(datos) {
   const cv = document.getElementById('plCv');
   if (!cv) return;
+  const plVivoEl = document.getElementById('plVivo'), plFluEl = document.getElementById('fluVista');
+  const plVistaBtns = Array.from(document.querySelectorAll('.pla-wrap [data-plv]'));
+  const plVista = v => {
+    plVivoEl.hidden = v === 'flujo'; plFluEl.hidden = v !== 'flujo';
+    plVistaBtns.forEach(x => x.classList.toggle('on', x.dataset.plv === v));
+    document.querySelectorAll('#plAtasco,#plSim,#plMeta,.pla-wrap .pl-vel[aria-label="Velocidad"]').forEach(e => { e.style.display = v === 'flujo' ? 'none' : ''; });
+    try { localStorage.setItem('planta_vista', v); } catch (e) {}
+  };
+  plVistaBtns.forEach(b => b.addEventListener('click', () => plVista(b.dataset.plv)));
+  try { if (localStorage.getItem('planta_vista') === 'flujo') plVista('flujo'); } catch (e) {}
   if (PL && PL.raf) cancelAnimationFrame(PL.raf);
   const S = 3, W = 600, H = 376, WALL = 64, COLS = 24, ROWS = 10;
   cv.width = W * S; cv.height = H * S;
