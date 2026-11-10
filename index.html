@@ -4326,7 +4326,17 @@ async function secCajas() {
    el que no compro en la coleccion que se esta VENDIENDO. */
 let CL_ACT  = TEMP_ACTIVA;
 let CL_SIN_MAGIC = false;
-let CL_MODO = 'inactivos';   // inactivos / activos / todos (Manu, 10-11-2026: "que se pueda ver también los activos y ambos")   // Clientes Inactivos: sin Magic World, la tienda propia (Manu, 09-11-2026)
+let CL_MODO = 'inactivos';
+/* Observaciones por cliente (10-11-2026): el ERP no las permite, así que viven en Supabase (tabla
+   observaciones_clientes, solo admin) y las ve todo el equipo. {rut normalizado: {texto, autor, updated_at}} */
+let CL_OBS = {};
+async function clObsCargar() {
+  try {
+    const { data, error } = await sb.from('observaciones_clientes').select('rut,texto,autor,updated_at');
+    if (error) throw error;
+    CL_OBS = Object.fromEntries((data || []).map(o => [o.rut, o]));
+  } catch (e) { CL_OBS = {}; }   // sin tabla o sin permiso: la sección funciona igual, sin notas
+}   // inactivos / activos / todos (Manu, 10-11-2026: "que se pueda ver también los activos y ambos")   // Clientes Inactivos: sin Magic World, la tienda propia (Manu, 09-11-2026)
 let CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA - i)).reverse();
 
 function clInactivos(peds) {
@@ -4453,6 +4463,7 @@ async function secClientes() {
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
 
   const base = clInactivos(peds);
+  await clObsCargar();
   const ciudades = [...new Set([...base.map(c => c.ciudad), ...faltanT45Lista(peds).map(g => g.ciudad)].filter(Boolean).map(c => String(c).trim().toUpperCase()))].sort(ordenMapa);
   const ciudadesOpts = [...Object.keys(REGIONES_CHILE), 'Sin región'].map(r => {
     const cs = ciudades.filter(c => regionDeCiudad(c) === r);
@@ -4464,9 +4475,9 @@ async function secClientes() {
     data-nombre="${esc(c.nombre.toLowerCase())}" data-ciudad="${esc(c.ciudad.toLowerCase())}" data-zona="${zonaDeCiudad(c.ciudad)}"
     data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}"
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
-    data-motivo="${c.motivo}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
+    data-motivo="${c.motivo}" data-rutn="${vRut(c)}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${fichasBadge(c.cli)}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${fichasBadge(c.cli)}<span class="cl-obs-marca" title="${esc(CL_OBS[vRut(c)]?.texto || '')}"${CL_OBS[vRut(c)]?.texto ? '' : ' style="display:none"'}> 📝</span></td>
     <td class="td-dim">${c.rut||'—'}</td>
     <td class="td-dim">${c.ciudad || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.map(t=>`<span class="badge ${tcFor(t).cls}" style="padding:1px 6px;font-size:9px;margin-right:2px">${t}</span>`).join('')}</td>
@@ -14966,7 +14977,37 @@ function bindContent(secId) {
         <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:13px">
           <span>Total T40–T43</span><span class="td-num">${fmt(tot)} unidades</span>
         </div>
-        <div class="td-dim" style="font-size:11px;margin-top:8px">No registra compras en T${CL_ACT}</div>`;
+        <div class="td-dim" style="font-size:11px;margin-top:8px">No registra compras en T${CL_ACT}</div>
+        <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px">
+          <div style="font-weight:700;margin-bottom:6px">Observación <span class="td-dim" style="font-weight:400;font-size:11px">· la ve todo el equipo; el ERP no la tiene</span></div>
+          <textarea id="cliObsTxt" class="finput" rows="3" style="width:100%;resize:vertical;box-sizing:border-box" placeholder="Ej: avisó que no comprará esta temporada…"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+            <button class="seg" id="cliObsGuardar" style="border:1px solid var(--bd2)">Guardar observación</button>
+            <span class="td-dim" id="cliObsEstado" style="font-size:11px"></span>
+          </div>
+        </div>`;
+      const rutn = row.dataset.rutn || '';
+      const obsTxt = document.getElementById('cliObsTxt'), obsEst = document.getElementById('cliObsEstado');
+      const prev = CL_OBS[rutn];
+      if (prev && prev.texto) {
+        obsTxt.value = prev.texto;
+        obsEst.textContent = `Guardada el ${String(prev.updated_at || '').slice(0, 10).split('-').reverse().join('/')}${prev.autor ? ' por ' + String(prev.autor).split('@')[0] : ''}`;
+      }
+      document.getElementById('cliObsGuardar').addEventListener('click', async () => {
+        const texto = obsTxt.value.trim();
+        obsEst.textContent = 'Guardando…';
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          const { error } = await sb.from('observaciones_clientes').upsert({ rut: rutn, texto, autor: session?.user?.email || '', updated_at: new Date().toISOString() });
+          if (error) throw error;
+          CL_OBS[rutn] = { rut: rutn, texto, autor: session?.user?.email || '', updated_at: new Date().toISOString() };
+          obsEst.textContent = texto ? 'Guardada ✓' : 'Borrada ✓';
+          const marca = row.querySelector('.cl-obs-marca');
+          if (marca) { marca.style.display = texto ? '' : 'none'; marca.title = texto; }
+        } catch (e) {
+          obsEst.textContent = 'No se pudo guardar: falta crear la tabla en Supabase (sql/observaciones_clientes.sql) o no hay permiso';
+        }
+      });
       document.getElementById('cliOv').classList.add('open');
     }));
     document.getElementById('cliClose')?.addEventListener('click', () => document.getElementById('cliOv').classList.remove('open'));
