@@ -441,6 +441,10 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .pl .db-t2 i{font-style:normal;font-size:10px;font-weight:600;opacity:.75}
 .pl .db-t2 b{font-size:13px;font-weight:800}
 .pl .db-movil{display:none}
+/* Clientes Inactivos: filtros uno debajo del otro (Manu, 10-11-2026: "ordenar los filtros de arriba hasta abajo") */
+.cl-fbar, .cl-fbar .fbar-row{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.cl-fbar .fgrp{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.cl-fbar .segs{flex-wrap:wrap}
 .pl .db-tot-t{margin:0 0 12px;padding:10px 12px;background:var(--sf2);border-radius:10px}
 .pl .db-tot-t .db-tallas{margin-top:0}
 .pl .db-tot-t .db-tallas+.db-tallas{margin-top:6px}
@@ -4324,7 +4328,8 @@ async function secCajas() {
 /* Inactivo = compro en alguna de las cuatro colecciones anteriores y NO en la activa.
    Esta va contra TEMP_ACTIVA y no contra la temporada que se este mirando: "inactivo" es
    el que no compro en la coleccion que se esta VENDIENDO. */
-let CL_ACT  = TEMP_ACTIVA;
+let CL_ACTS = [String(TEMP_ACTIVA)];   // las temporadas elegidas para comparar (Manu, 10-11-2026: "las que se elijan")
+const clActsTxt = sep => 'T' + CL_ACTS.join(sep + 'T');
 let CL_SIN_MAGIC = false;
 let CL_MODO = 'inactivos';
 /* Observaciones por cliente (10-11-2026): el ERP no las permite, así que viven en Supabase (tabla
@@ -4356,9 +4361,10 @@ function clInactivos(peds) {
     if ((p.fecha_iso||'') > g.ult) { g.ult = p.fecha_iso||''; g.ultF = p.fecha||''; }
   });
   return [...gm.values()]
-    .filter(g => CL_MODO === 'activos' ? g.temps.has(String(CL_ACT))
-               : CL_MODO === 'todos' ? (CL_BASE.some(t => g.temps.has(t)) || g.temps.has(String(CL_ACT)))
-               : (CL_BASE.some(t => g.temps.has(t)) && !g.temps.has(String(CL_ACT))))
+    .filter(g => { const enSel = CL_ACTS.some(tt => g.temps.has(String(tt)));
+      return CL_MODO === 'activos' ? enSel
+           : CL_MODO === 'todos' ? (CL_BASE.some(t => g.temps.has(t)) || enSel)
+           : (CL_BASE.some(t => g.temps.has(t)) && !enSel); })
     .map(g => {
       const compradas = [...g.temps].filter(t => +t >= 38).sort((a,b)=>+b-+a);   // desde la T38: la historia completa que traen los pedidos (Manu, 10-11-2026)
       const c = g.cli || {};
@@ -4495,15 +4501,14 @@ async function secClientes() {
 
   const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
-  <div class="fbar">
+  <div class="fbar cl-fbar">
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
     <div class="fgrp"><span class="flbl">Estado</span><div class="segs" id="clEstadoSegs"><button class="seg${CL_MODO === 'inactivos' ? ' on' : ''}" data-ce="inactivos">Inactivos</button><button class="seg${CL_MODO === 'activos' ? ' on' : ''}" data-ce="activos">Activos</button><button class="seg${CL_MODO === 'todos' ? ' on' : ''}" data-ce="todos">Ambos</button></div></div>
     <div class="fgrp"><span class="flbl">Magic World</span><div class="segs" id="clMagicSegs"><button class="seg${CL_SIN_MAGIC ? '' : ' on'}" data-cm="con">Con Magic</button><button class="seg${CL_SIN_MAGIC ? ' on' : ''}" data-cm="sin">Sin Magic</button></div></div>
-    <div class="fgrp"><span class="flbl">Temporada</span><div class="segs" id="clActSegs"><button class="seg${String(CL_ACT) === String(TEMP_ACTIVA) ? ' on' : ''}" data-cla="${TEMP_ACTIVA}">T${TEMP_ACTIVA}</button><button class="seg${String(CL_ACT) === String(+TEMP_ACTIVA + 1) ? ' on' : ''}" data-cla="${+TEMP_ACTIVA + 1}">T${+TEMP_ACTIVA + 1}</button></div></div>
-    <div class="fgrp"><span class="flbl">Zona (clientes que faltan la T45)</span><div class="segs" id="ftZonaSegs"><button class="seg on" data-fz="">Todas</button>${Object.keys(ZONAS_CHILE).concat(['Sin zona']).map(z => `<button class="seg" data-fz="${z}">${z}</button>`).join('')}</div></div>
-    <div class="fgrp"><span class="flbl">Región</span><select id="clRegion" class="finput" style="width:190px"><option value="">Todas las regiones</option>${regionesOpts}</select></div>
+    <div class="fgrp"><span class="flbl">Sin comprar en (elige una o varias)</span><div class="segs" id="clActSegs" style="flex-wrap:wrap">${[40, 41, 42, 43, 44, 45].map(tt => `<button class="seg${CL_ACTS.includes(String(tt)) ? ' on' : ''}" data-cla="${tt}">T${tt}</button>`).join('')}</div></div>
+    <div class="fgrp"><span class="flbl">Región (elige una o varias)</span><div class="segs" id="clRegSegs" style="flex-wrap:wrap"><button class="seg on" data-fr="">Todas</button>${[...Object.keys(REGIONES_CHILE), 'Sin región'].filter(r => ciudades.some(c => regionDeCiudad(c) === r)).map(r => `<button class="seg" data-fr="${r}">${r}</button>`).join('')}</div></div>
     <div class="fgrp"><span class="flbl">Ciudad</span><select id="clCiudad" class="finput" style="width:200px"><option value="">Todas las ciudades</option>${ciudadesOpts}</select></div>
     <div class="fgrp"><span class="flbl">Motivo</span>
     <div class="segs" id="clMotSegs">
@@ -4523,7 +4528,7 @@ async function secClientes() {
     </div>
   </div>
   <div class="kpi-grid db-kpis">
-    ${tarjetaKpi({ attr: 'clk', k: 'all', lbl: CL_MODO === 'activos' ? `Clientes que compraron en T${CL_ACT}` : CL_MODO === 'todos' ? `Clientes activos e inactivos` : `Clientes sin comprar en T${CL_ACT}`, val: fmt(base.length), sub: `compraban ${fmt(base.reduce((s, c) => s + c.unidades, 0))} unidades en T40–T43`, color: 'var(--ac)', ver: 'Ver todos' })}
+    ${tarjetaKpi({ attr: 'clk', k: 'all', lbl: CL_MODO === 'activos' ? `Clientes que compraron en ${clActsTxt(' o ')}` : CL_MODO === 'todos' ? `Clientes activos e inactivos` : `Clientes sin comprar en ${clActsTxt(' ni ')}`, val: fmt(base.length), sub: `compraban ${fmt(base.reduce((s, c) => s + c.unidades, 0))} unidades en T40–T43`, color: 'var(--ac)', ver: 'Ver todos' })}
     ${tarjetaKpi({ attr: 'clk', k: 'nobloq', lbl: 'Se les puede vender hoy', val: fmt(base.filter(c => c.motivo !== 'bloqueado').length), sub: 'no están bloqueados', color: 'var(--ok)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'clk', k: 'bloq', lbl: 'Bloqueados', val: fmt(base.filter(c => c.motivo === 'bloqueado').length), color: 'var(--er)', ver: 'Ver cuáles' })}
     ${tarjetaKpi({ attr: 'clk', k: 'deuda', lbl: 'Deuda de estos clientes', val: fmtM(base.reduce((s, c) => s + c.deuda, 0)), color: 'var(--wa)', ver: 'Ver los que deben' })}
@@ -4531,7 +4536,7 @@ async function secClientes() {
   ${grafCard('clGraf', '¿A quién llamar primero?', 'Los 15 que más compraban de lo que se ve: en verde a los que se les puede vender hoy, en amarillo los que deben y en rojo los bloqueados. Toca una barra para ver cuánto compró.', 420)}
   <div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px">
-      <div class="xl-izq"><div class="card-ttl" style="margin:0">${CL_MODO === 'activos' ? `Compraron en T${CL_ACT}` : CL_MODO === 'todos' ? `Todos los que compraron entre T${CL_BASE[0]} y T${CL_ACT}` : `Compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y no en T${CL_ACT}`} — toca un cliente para ver cuánto compró</div></div>
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">${CL_MODO === 'activos' ? `Compraron en ${clActsTxt(' o ')}` : CL_MODO === 'todos' ? `Todos los que compraron entre T${CL_BASE[0]} y ${clActsTxt(' o ')}` : `Compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y no en ${clActsTxt(' ni ')}`} — toca un cliente para ver cuánto compró</div></div>
       ${btnExcel('clExcel', 'Baja a Excel los clientes que estás viendo, con lo que compró cada uno por colección')}
       <div class="xl-der"><span class="td-dim" id="clCount">${base.length} clientes</span>
       <button class="seg" id="clCopiar" style="border:1px solid var(--bd2)">📋 Copiar</button>
@@ -4544,7 +4549,7 @@ async function secClientes() {
       </table>
       <div class="tbl-foot" id="clFoot">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
     </div>
-    <div class="tbl-foot">${CL_MODO === 'activos' ? `Clientes que compraron en la T${CL_ACT}.` : CL_MODO === 'todos' ? `Clientes que compraron en alguna de las T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} o en la T${CL_ACT}.` : `Clientes que compraron en alguna de las T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y todavía no en la T${CL_ACT}.`} Motivo: lo que los frena según su ficha (bloqueo, cupo o deuda). Toca un cliente para ver cuánto compró por colección y un encabezado para ordenar.</div>
+    <div class="tbl-foot">${CL_MODO === 'activos' ? `Clientes que compraron en ${clActsTxt(' o ')}.` : CL_MODO === 'todos' ? `Clientes que compraron en alguna de las T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} o en ${clActsTxt(' o ')}.` : `Clientes que compraron en alguna de las T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]} y todavía no en ${clActsTxt(' ni ')}.`} Motivo: lo que los frena según su ficha (bloqueo, cupo o deuda). Toca un cliente para ver cuánto compró por colección y un encabezado para ordenar.</div>
   </div>
   ${faltanT45Tabla(peds)}`;
 }
@@ -14745,18 +14750,20 @@ function bindContent(secId) {
     /* Temporada: la tabla cambia según la temporada que no compraron (Manu, 09-11-2026: "esa tabla está fija") */
     document.querySelectorAll('#clActSegs [data-cla]').forEach(b => b.addEventListener('click', () => {
       const tt = String(b.dataset.cla);
-      CL_ACT = tt; CL_BASE = [1, 2, 3, 4].map(i => String(+tt - i)).reverse();
+      if (CL_ACTS.includes(tt)) { if (CL_ACTS.length > 1) CL_ACTS = CL_ACTS.filter(x => x !== tt); }
+      else CL_ACTS = [...CL_ACTS, tt].sort((a, b) => +a - +b);
+      const minAct = Math.min(...CL_ACTS.map(Number));
+      CL_BASE = [1, 2, 3, 4].map(i => String(minAct - i)).reverse();   // la base: las 4 anteriores a la menor elegida
       go('clientes', 'Clientes Inactivos');
     }));
     /* Zona y ciudad: mueven la tabla de clientes y la lista de los que faltan la T45 (Manu, 09-11-2026) */
     function aplicarFt() {
-      const z = document.querySelector('#ftZonaSegs .seg.on')?.dataset.fz || '';
+      const regsSel = [...document.querySelectorAll('#clRegSegs .seg.on')].map(b => b.dataset.fr).filter(Boolean);
       const ciu = document.getElementById('clCiudad')?.value || '';
-      const reg = document.getElementById('clRegion')?.value || '';
       let total = 0;
       document.querySelectorAll('#ftTabla tbody.ft-grp').forEach(g => {
         const filas = [...g.querySelectorAll('tr[data-ciudad]')];
-        const pasan = filas.filter(tr => (!z || tr.dataset.zona === z) && (!reg || g.dataset.region === reg) && (!ciu || tr.dataset.ciudad === ciu));
+        const pasan = filas.filter(tr => (!regsSel.length || regsSel.includes(g.dataset.region)) && (!ciu || tr.dataset.ciudad === ciu));
         filas.forEach(tr => { tr.style.display = (g.dataset.abierto === '1' && pasan.includes(tr)) ? '' : 'none'; });
         const n = g.querySelector('.ft-n'); if (n) n.textContent = fmt(pasan.length);
         g.style.display = pasan.length ? '' : 'none';
@@ -14764,12 +14771,16 @@ function bindContent(secId) {
       });
       const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(total) + ' clientes';
     }
-    document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('#ftZonaSegs [data-fz]').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById('clCiudad')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
+    document.querySelectorAll('#clRegSegs [data-fr]').forEach(b => b.addEventListener('click', () => {
+      const todas = document.querySelector('#clRegSegs [data-fr=""]');
+      if (!b.dataset.fr) document.querySelectorAll('#clRegSegs .seg').forEach(x => x.classList.toggle('on', x === b));
+      else {
+        b.classList.toggle('on'); todas.classList.remove('on');
+        if (!document.querySelector('#clRegSegs .seg.on')) todas.classList.add('on');
+      }
       aplicarFt(); applyClFilters();
     }));
-    document.getElementById('clCiudad')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
-    document.getElementById('clRegion')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
     document.getElementById('ftTabla')?.addEventListener('click', e => {
       const cab = e.target.closest('.ft-cab'); if (!cab) return;
       const g = cab.closest('tbody'); g.dataset.abierto = g.dataset.abierto === '1' ? '' : '1';
@@ -14793,12 +14804,11 @@ function bindContent(secId) {
       const q   = (document.getElementById('clSearch')?.value||'').trim().toLowerCase();
       const ult = document.querySelector('#clUltSegs .seg.on')?.dataset.u || 'all';
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
-      const zonaF = document.querySelector('#ftZonaSegs .seg.on')?.dataset.fz || '';
+      const regsSel = [...document.querySelectorAll('#clRegSegs .seg.on')].map(b => b.dataset.fr).filter(Boolean);
       const ciuF = document.getElementById('clCiudad')?.value || '';
-      const regF = document.getElementById('clRegion')?.value || '';
       let vis = 0, uds = 0, deuda = 0, frenados = 0;
       document.querySelectorAll('#clBody tr[data-nombre]').forEach(row => {
-        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) && (!zonaF || row.dataset.zona === zonaF) && (!regF || regionDeCiudad(row.dataset.ciudad) === regF) && (!ciuF || row.dataset.ciudad === ciuF) &&
+        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
           (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q));
         row.style.display = show ? '' : 'none';
         if (show) {
@@ -14817,7 +14827,7 @@ function bindContent(secId) {
       if (el('clKFrenados')) el('clKFrenados').textContent = `${frenados} con algo que los frena`;
       if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades · ${fmtM(deuda)} de deuda`;
       // Las tarjetas y las cuentas de Motivo van con la búsqueda y la colección, no con Motivo (son esos mismos números)
-      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) && (!zonaF || row.dataset.zona === zonaF) && (!regF || regionDeCiudad(row.dataset.ciudad) === regF) && (!ciuF || row.dataset.ciudad === ciuF) &&
+      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
         (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
       const conM = m => alc.filter(r => pasaMotivo(r, m));
       const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
@@ -14911,13 +14921,13 @@ function bindContent(secId) {
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
       const suf = mot === 'bloq' ? ' bloqueados' : mot === 'nobloq' ? ' no bloqueados'
                 : mot === 'deuda' ? ' con deuda' : mot === 'cupo' ? ' sin cupo' : '';
-      XLSX.writeFile(libro, `Clientes inactivos T${CL_ACT}${suf} ${fecha}.xlsx`);
+      XLSX.writeFile(libro, `Clientes inactivos ${clActsTxt('-')}${suf} ${fecha}.xlsx`);
     });
 
     // Copiar la lista visible al portapapeles, lista para pegar en un chat o en Excel
     document.getElementById('clCopiar')?.addEventListener('click', async (e) => {
       const filas = filasVisibles();
-      const txt = [`Clientes que compraron en T${CL_BASE[0]}-T${CL_BASE[CL_BASE.length-1]} y no en T${CL_ACT} — ${filas.length} clientes`, '']
+      const txt = [`Clientes que compraron en T${CL_BASE[0]}-T${CL_BASE[CL_BASE.length-1]} y no en ${clActsTxt(' ni ')} — ${filas.length} clientes`, '']
         .concat(filas.map(r => {
           const c = r.cells;
           const uds = (r.dataset.uds || '').split(',').filter(Boolean).map(x => { const [t, u] = x.split(':'); return `T${t}: ${fmt(+u)}`; }).join(', ');
@@ -14944,7 +14954,7 @@ function bindContent(secId) {
       const parts = [`Última colección comprada: ${ult}`];
       if (q) parts.push(`Búsqueda: ${q}`);
       printTable({ table: document.getElementById('clBody')?.closest('table'),
-                   title: `Clientes que compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length-1]} y no en T${CL_ACT}`, subtitle: parts.join(' · ') });
+                   title: `Clientes que compraron en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length-1]} y no en ${clActsTxt(' ni ')}`, subtitle: parts.join(' · ') });
     });
 
     // Click en un cliente → ventana con cuánto compró en cada colección
@@ -14979,7 +14989,7 @@ function bindContent(secId) {
         <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:13px">
           <span>Total desde la T38</span><span class="td-num">${fmt(tot)} unidades</span>
         </div>
-        <div class="td-dim" style="font-size:11px;margin-top:8px">No registra compras en T${CL_ACT}</div>
+        <div class="td-dim" style="font-size:11px;margin-top:8px">No registra compras en ${clActsTxt(' ni ')}</div>
         <div style="border-top:1px solid var(--bd);margin-top:12px;padding-top:10px">
           <div style="font-weight:700;margin-bottom:6px">Observación <span class="td-dim" style="font-weight:400;font-size:11px">· la ve todo el equipo; el ERP no la tiene</span></div>
           <select id="cliObsSel" class="finput" style="width:100%;box-sizing:border-box;margin-bottom:6px">
