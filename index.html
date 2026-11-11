@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-8">
+<meta name="adecom-build" content="2026-11-11-9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -26,12 +26,26 @@
 /* ── Flujo por áreas (vista de Planta, 10-11-2026) ─ prefijo flu- para no chocar ── */
 .pl-cumplir{margin:0;padding-left:18px;display:grid;gap:4px;font-size:12.5px;color:var(--tx1)}
 .pl-nuevoflu{margin:0;font:700 11px Outfit,sans-serif;color:#2f7d5b;background:#e2f0e9;border-radius:6px;padding:4px 8px;display:inline-block}
-.cvf-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin:2px 0 8px}
-.cvf-k{position:relative;border:1px solid var(--bd);border-radius:10px;background:var(--sf2,var(--bg));padding:10px 12px;display:grid;gap:3px;align-content:start}
-.cvf-k b{font-size:19px;letter-spacing:-.01em;color:var(--tx1);line-height:1.15}
-.cvf-k span{font-size:11.5px;color:var(--tx2);line-height:1.35}
-.cvf-pos{position:absolute;top:8px;right:10px;font-style:normal;font-size:10px;font-weight:700;color:var(--wa,#c27c0e);background:var(--wa10,#fdf3e3);padding:2px 7px;border-radius:999px}
-.cvf-src{font-size:11px;margin:0 0 10px}
+.cvf-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:2px 0 10px}
+.cvf-k{position:relative;border:1px solid var(--bd);border-radius:12px;background:var(--sf);padding:12px 14px;display:grid;gap:8px;align-content:start}
+.cvf-k h4{font-size:12px;font-weight:600;color:var(--tx2);letter-spacing:.01em;margin:0}
+.cvf-fila{display:grid;grid-template-columns:106px 1fr 42px;gap:8px;align-items:center}
+.cvf-fila>span{font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cvf-fila>b{font-size:12.5px;font-weight:600;color:var(--tx1);font-variant-numeric:tabular-nums;text-align:right}
+.cvf-barra{height:14px;border-radius:0 4px 4px 0;background:var(--ac);min-width:2px;justify-self:start}
+.cvf-meter{height:8px;border-radius:999px;background:var(--ac10);overflow:hidden}
+.cvf-meter i{display:block;height:100%;border-radius:999px;background:var(--ac)}
+.cvf-grande{font-size:22px;font-weight:600;color:var(--tx1);line-height:1.1}
+.cvf-sub{font-size:12px;color:var(--tx2)}
+.cvf-dim{font-size:11px;color:var(--tx3);line-height:1.4}
+.cvf-pos{position:absolute;top:10px;right:12px;font-style:normal;font-size:10px;font-weight:700;color:var(--wa);background:var(--wa10);padding:2px 7px;border-radius:999px}
+.cvf-meses{display:flex;gap:12px;align-items:flex-end;padding-top:2px}
+.cvf-mes{display:grid;gap:3px;justify-items:center}
+.cvf-mes i{width:24px;border-radius:4px 4px 0 0;background:#98a2b3;display:block}
+.cvf-mes.on i{background:var(--ac)}
+.cvf-mes b{font-size:11px;font-weight:600;color:var(--tx1);font-variant-numeric:tabular-nums}
+.cvf-mes span{font-size:10.5px;color:var(--tx3)}
+.cvf-src{font-size:11px;color:var(--tx3);margin:0 0 10px}
 .pl-barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;justify-content:space-between}
 .pl-tit{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--tx1)}
 .pl-tit b{color:#d8232c}
@@ -5924,9 +5938,10 @@ async function secFormularios() {
   </style>
   <div class="cv-form"><div class="cv-form-hd"><span>📝 Formularios de mini-mayoristas</span><span id="cvFormN" class="td-dim">cargando…</span></div><div id="cvFormBody"></div></div>`;
 }
-/* Las métricas de los formularios, arriba de la lista (11-11, para decidir en reunión): cuánto quieren comprar,
-   de dónde son, la plata posible con su supuesto a la vista, y el embudo. Todo se calcula de las filas vivas;
-   si un texto de "cantidad" no calza con los tres del formulario, se cuenta aparte como "sin dato" en vez de perderse. */
+/* La pestaña Resumen de los formularios (11-11, rediseñada con la guía de visualización): barras horizontales
+   con el valor en la punta y un solo color de dato, un medidor para el ratio de tienda física, la plata como
+   cifra con su etiqueta "Posible" y el supuesto a la vista, y el ritmo por mes con el mes vigente destacado.
+   Todo se calcula de las filas vivas; un texto de "cantidad" que no calce cae en "sin dato" en vez de perderse. */
 function cvfMetricas(fs) {
   if (!fs.length) return '';
   const n = fs.length;
@@ -5942,15 +5957,29 @@ function cvfMetricas(fs) {
   const meses = {};
   for (const f of fs) { const m = String(f.fecha || '').slice(0, 7); if (m.length === 7) meses[m] = (meses[m] || 0) + 1; }
   const NOM = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const ritmo = Object.keys(meses).sort().reverse().slice(0, 4).map(m => `${NOM[+m.slice(5, 7)]} ${meses[m]}`).join(' · ');
-  const k = (cifra, sub, extra) => `<div class="cvf-k">${extra || ''}<b>${cifra}</b><span>${sub}</span></div>`;
+  const mm = Object.keys(meses).sort().slice(-4), mMax = Math.max(...mm.map(k => meses[k]), 1);
+  const fila = (nom, v, max, ttl) => `<div class="cvf-fila" title="${ttl || `${nom}: ${fmt(v)}`}"><span>${nom}</span>${v > 0 ? `<i class="cvf-barra" style="width:${Math.max(3, Math.round(v / max * 100))}%"></i>` : '<i></i>'}<b>${fmt(v)}</b></div>`;
+  const maxCant = Math.max(a, b, c, 1), maxReg = Math.max(...top.map(x => x[1]), 1);
   return `<div class="cvf-kpis">
-    ${k(`${fmt(a)} · ${fmt(b)} · ${fmt(c)}`, `cuánto comprarían: el mínimo (12) · de 13 a 50 · de 51 o más${otros ? ` · ${fmt(otros)} sin dato` : ''}`)}
-    ${k(top.map(([r, x]) => `${cvEsc(r)} ${x}`).join(' · ') || '—', `de dónde son (top 3) · sin tienda física: ${fmt(sinTienda)} de ${fmt(n)}`)}
-    ${k(`${M(piso * PRECIO)}–${M(techo * PRECIO)}`, `netos si concretan todos · con un 20%: ${M(piso * PRECIO * 0.2)}–${M(techo * PRECIO * 0.2)}`, '<i class="cvf-pos">Posible</i>')}
-    ${k(`${fmt(n)} → ${fmt(lead)} → ${fmt(conPed)}`, `el embudo: llegaron → le escribieron a Sofía → con pedido · sin tomar: ${fmt(sinTomar)}`)}
+    <div class="cvf-k"><h4>Cuánto comprarían</h4>
+      ${fila('El mínimo (12)', a, maxCant)}${fila('De 13 a 50', b, maxCant)}${fila('De 51 o más', c, maxCant)}
+      ${otros ? `<div class="cvf-dim">${fmt(otros)} sin dato</div>` : ''}</div>
+    <div class="cvf-k"><h4>De dónde son</h4>
+      ${top.map(([r, v]) => fila(cvEsc(r), v, maxReg)).join('')}
+      <div class="cvf-sub" style="margin-top:2px">Sin tienda física: <b>${fmt(sinTienda)} de ${fmt(n)}</b></div>
+      <div class="cvf-meter" title="Sin tienda física: ${fmt(sinTienda)} de ${fmt(n)}"><i style="width:${Math.round(sinTienda / n * 100)}%"></i></div></div>
+    <div class="cvf-k"><i class="cvf-pos">Posible</i><h4>Plata si concretan todos</h4>
+      <div class="cvf-grande">${M(piso * PRECIO)}–${M(techo * PRECIO)}</div>
+      <div class="cvf-sub">netos · con un 20% de conversión: <b>${M(piso * PRECIO * 0.2)}–${M(techo * PRECIO * 0.2)}</b></div>
+      <div class="cvf-dim">Supuesto: ${fmt(a)}×12 + ${fmt(b)}×13 a 31 + ${fmt(c)}×51 prendas, a $25.990 netos cada una.</div></div>
+    <div class="cvf-k"><h4>El embudo</h4>
+      ${fila('Llegaron', n, n)}${fila('Le escribieron a Sofía', lead, n)}${fila('Con pedido', conPed, n)}
+      <div class="cvf-dim">Sin tomar: ${fmt(sinTomar)}</div></div>
+    <div class="cvf-k"><h4>Formularios por mes</h4>
+      <div class="cvf-meses">${mm.map((k, ix) => `<div class="cvf-mes${ix === mm.length - 1 ? ' on' : ''}" title="${NOM[+k.slice(5, 7)]}: ${fmt(meses[k])}"><b>${fmt(meses[k])}</b><i style="height:${Math.max(3, Math.round(meses[k] / mMax * 44))}px"></i><span>${NOM[+k.slice(5, 7)]}</span></div>`).join('')}</div>
+      <div class="cvf-dim">El mes en curso va en azul; ojo, no es lo mismo que "al mes".</div></div>
   </div>
-  <div class="td-dim cvf-src">Ritmo: ${ritmo}. Supuesto de la plata: ${fmt(a)}×12 + ${fmt(b)}×13 a 31 + ${fmt(c)}×51 prendas, a $25.990 netos cada una. Fuente: formularios de mohicano.cl/mayorista desde el 01-08.</div>`;
+  <div class="cvf-src">Fuente: formularios de mohicano.cl/mayorista desde el 01-08 · precio promedio $25.990 netos por prenda.</div>`;
 }
 async function cvFormularios(forzar) {
   const n = document.getElementById('cvFormN'); if (!n) return;
