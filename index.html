@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-1">
+<meta name="adecom-build" content="2026-11-11-2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5571,6 +5571,8 @@ const CAMPANAS = [
   { id: 'despacho', nombre: 'Despacho inmediato 44', fuente: '?campana=1' },
   /* 02-11 (Manu: "que siempre les lleguen correos… y siempre manteniendo el dato en el dashboard"): sale solo de lunes a sábado */
   { id: 'diario', nombre: 'Correo diario', fuente: '?campana_correo=diario' },
+  /* 11-11 (Manu: "necesito el dato de la última campaña en ese dashboard como dato aparte"): 5% en 3 modelos hasta el vie 13 */
+  { id: 'oferta44', nombre: 'Oferta 44 (5%)', fuente: '?campana_correo=oferta44' },
 ];
 let CP_DATA = {}, CP_SEL = 'todas';
 /* las mismas cifras de cada campaña, para compararlas */
@@ -5608,7 +5610,8 @@ function cpMezclar(ds) {
 const CP_OPC = {
   halloween: { titulo: 'Halloween · Descuento de miedo', sub: '4455 Riviera y 4007, el 30 y 31-10', correoNota: 'salió el mismo día que el WhatsApp; primero los que más compran', boton: 'tocaron "Lo quiero"' },
   despacho: {},
-  diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00, con todo el cupo libre del día; mínimo 2 días entre correos a la misma persona', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
+  diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00, con todo el cupo libre del día; mínimo 3 días entre correos a la misma persona', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
+  oferta44: { titulo: 'Oferta 44 · 5% en 3 favoritos', sub: '4455 Riviera, 4413 Antibes (sin talla 36) y 4480 Asti, del 10 al viernes 13-11', correoNota: 'el correo salió el 11-11, solo a los que el WhatsApp no alcanzó', boton: 'tocaron "Lo quiero"' },
 };
 /* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
    la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
