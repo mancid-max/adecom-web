@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-6">
+<meta name="adecom-build" content="2026-11-11-7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5976,7 +5976,7 @@ async function cvFormularios(forzar) {
   const xs = CV_FORM_VER === 'sin_tomar' ? sin : fs;
   const tag = (t, c, b) => `<span class="cv-tag" style="color:var(${c});background:var(${b})">${t}</span>`;
   body.innerHTML = `${cvfMetricas(fs)}<div class="segs" style="margin:2px 0 8px"><button class="seg${CV_FORM_VER === 'sin_tomar' ? ' on' : ''}" data-cvfver="sin_tomar">Sin tomar (${fmt(sin.length)})</button><button class="seg${CV_FORM_VER === 'todos' ? ' on' : ''}" data-cvfver="todos">Todos (${fmt(fs.length)})</button></div>
-    ${xs.length ? `<table class="cv-ft"><thead><tr><th>Fecha</th><th>Quién</th><th>Dónde · cuánto</th><th>Estado</th><th></th></tr></thead><tbody>${xs.map(f => {
+    ${xs.length ? `<div style="overflow-x:auto"><table class="cv-ft"><thead><tr><th>Fecha</th><th>Quién</th><th>Dónde · cuánto</th><th>Estado</th></tr></thead><tbody>${xs.map(f => {
       const wa = String(f.whatsapp || '').replace(/\D/g, '');
       const lead = f.lead && (f.lead.id || f.lead);
       const saludo = encodeURIComponent(`Hola ${String(f.nombre || '').split(' ')[0]}, te escribo de Mohicano Jeans por tu solicitud para comprar por mayor. ¿Te mando el catálogo con lo que tenemos con despacho inmediato?`);
@@ -5984,9 +5984,8 @@ async function cvFormularios(forzar) {
         <td class="td-dim">${fF(f.fecha)}</td>
         <td><b>${cvEsc(f.nombre || '—')}</b>${f.negocio ? `<div class="td-dim">${cvEsc(f.negocio)}</div>` : ''}${f.mensaje ? `<div class="td-dim">«${cvEsc(String(f.mensaje).slice(0, 120))}»</div>` : ''}</td>
         <td class="td-dim">${cvEsc([f.ciudad, f.region].filter(Boolean).join(', ') || '—')}${f.cantidad ? `<div>${cvEsc(f.cantidad)}</div>` : ''}${f.tienda_fisica ? `<div>Tienda física: ${cvEsc(f.tienda_fisica)}</div>` : ''}</td>
-        <td>${f.tomado ? tag('Tomado por ' + cvEsc(String(f.tomado.por || '').split('@')[0]), '--ac', '--ac10') : tag('Sin tomar', '--er', '--er10')}${f.aprobada ? tag('Aprobada', '--ok', '--ok10') : ''}${lead ? tag('Le escribió a ' + cvEsc(f.lead.agente || 'Sofía'), '--ok', '--ok10') : ''}${(f.pedidos || []).length ? tag('Hizo pedido', '--ok', '--ok10') : ''}${!wa ? tag('Sin WhatsApp en el formulario', '--tx3', '--sf2') : ''}</td>
-        <td>${!f.tomado ? `<button class="cv-fbtn pri" data-cvftomar="${f.ps_id}">🙋 Lo tomo yo</button>` : ''}${lead ? `<button class="cv-fbtn" data-cvfconv="${cvEsc(lead)}">Ver conversación</button>` : ''}${wa ? `<a class="cv-fbtn" href="https://wa.me/${wa}?text=${saludo}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${f.email ? `<a class="cv-fbtn" href="mailto:${cvEsc(f.email)}?subject=${encodeURIComponent('Tu solicitud mayorista en Mohicano Jeans')}">Correo</a>` : ''}</td>
-      </tr>`; }).join('')}</tbody></table>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
+        <td>${f.tomado ? tag('Tomado por ' + cvEsc(String(f.tomado.por || '').split('@')[0]), '--ac', '--ac10') : tag('Sin tomar', '--er', '--er10')}${f.aprobada ? tag('Aprobada', '--ok', '--ok10') : ''}${lead ? tag('Le escribió a ' + cvEsc(f.lead.agente || 'Sofía'), '--ok', '--ok10') : ''}${(f.pedidos || []).length ? tag('Hizo pedido', '--ok', '--ok10') : ''}${!wa ? tag('Sin WhatsApp en el formulario', '--tx3', '--sf2') : ''}<div style="margin-top:5px">${!f.tomado ? `<button class="cv-fbtn pri" data-cvftomar="${f.ps_id}">🙋 Lo tomo yo</button>` : ''}${lead ? `<button class="cv-fbtn" data-cvfconv="${cvEsc(lead)}">Ver conversación</button>` : ''}${wa ? `<a class="cv-fbtn" href="https://wa.me/${wa}?text=${saludo}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${f.email ? `<a class="cv-fbtn" href="mailto:${cvEsc(f.email)}?subject=${encodeURIComponent('Tu solicitud mayorista en Mohicano Jeans')}">Correo</a>` : ''}</div></td>
+      </tr>`; }).join('')}</tbody></table></div>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
     <div class="td-dim" style="font-size:11px;margin-top:8px">Fuente: las cuentas que crea el formulario de mohicano.cl/mayorista (PrestaShop). El WhatsApp y las otras respuestas llegan cuando el módulo nuevo las deje disponibles; "Le escribió" = tiene conversación con Sofía o Valentina por su celular o correo.</div>`;
   body.querySelectorAll('[data-cvfver]').forEach(b => b.addEventListener('click', () => { CV_FORM_VER = b.dataset.cvfver; cvFormularios(); }));
   /* 30-10 (Manu: "que salga una ventana emergente, no abajo de cada formulario") */
