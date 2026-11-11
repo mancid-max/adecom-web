@@ -4,6 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="adecom-build" content="2026-11-11-1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1058,22 +1059,28 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
 </div>
 
 <script>
-/* ── Versión nueva (Manu, 27-10-2026: "quizás es porque lo tengo instalado como app… eso debería ser apenas entren en la app") ──
-   Instalada como app en el iPad, la página se queda con la copia vieja y no hay botón de recargar. Al entrar se compara la
-   fecha del archivo que corre (document.lastModified: el Last-Modified que mandó el servidor, también para la copia guardada)
-   con la del servidor ahora (HEAD sin caché). Si hay una más nueva, se recarga al tiro, una sola vez por versión (para no
-   quedar en un bucle si algo falla). Al volver a la app después de un rato se avisa con una barra y se recarga al tocarla. */
+/* ── Versión nueva (Manu, 27-10-2026: "quizás es porque lo tengo instalado como app… eso debería ser apenas entren en la app";
+   11-11-2026: "me sale a cada rato aunque le aprete") ──
+   Instalada como app no hay botón de recargar, así que al entrar se compara la versión que corre con la del servidor y,
+   si cambió, se recarga sola una vez. Antes se comparaban fechas (Last-Modified), pero cada deploy de GitHub Pages cambia
+   la fecha aunque la página sea idéntica (y hasta da fechas distintas para / y para /index.html): por eso la barra salía
+   en bucle. Ahora cada publicación escribe un marcador dentro de la página (el meta adecom-build del head) y se comparan
+   marcadores: solo avisa cuando el contenido de verdad es otro. Se piden solo los primeros bytes del archivo (Range);
+   si un servidor no entiende Range manda el archivo entero e igual sirve. Y si tras recargar el servidor todavía reparte
+   la copia vieja (el CDN tarda unos minutos en ponerse al día), se queda callado en vez de insistir. */
 (function () {
-  const m = /(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+):(\d+)/.exec(document.lastModified || '');
-  const corre = m ? new Date(+m[3], +m[1] - 1, +m[2], +m[4], +m[5], +m[6]).getTime() : 0;
+  const mt = document.querySelector('meta[name="adecom-build"]');
+  const corre = mt ? mt.content : '';
   if (!corre || location.protocol === 'file:') return;
   const ruta = location.pathname.endsWith('/') ? location.pathname + 'index.html' : location.pathname;
   const recargar = () => location.replace(location.pathname + '?v=' + Date.now() + location.hash);
   async function servidor() {
     try {
-      const r = await fetch(ruta + '?v=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
-      return r.ok ? (Date.parse(r.headers.get('last-modified') || '') || 0) : 0;
-    } catch (e) { return 0; }
+      const r = await fetch(ruta + '?v=' + Date.now(), { headers: { 'Range': 'bytes=0-2047' }, cache: 'no-store' });
+      if (!r.ok) return '';
+      const m = /name="adecom-build" content="([^"]+)"/.exec(await r.text());
+      return m ? m[1] : '';
+    } catch (e) { return ''; }
   }
   function aviso() {
     if (document.getElementById('verNueva')) return;
@@ -1084,11 +1091,12 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
   }
   async function revisar(alEntrar) {
     const lm = await servidor();
-    if (!lm || lm <= corre + 1000) return false;      // la que corre es la última
+    if (!lm || lm === corre) return false;            // la que corre es la última
     const clave = 'adecom_recargada_para';
     let ya = ''; try { ya = sessionStorage.getItem(clave) || ''; } catch (e) {}
-    if (alEntrar && ya !== String(lm)) {
-      try { sessionStorage.setItem(clave, String(lm)); } catch (e) {}
+    if (ya === lm) return false;                      // ya se recargó para esa versión y aún llega la vieja: sin bucle
+    if (alEntrar) {
+      try { sessionStorage.setItem(clave, lm); } catch (e) {}
       recargar(); return true;
     }
     aviso(); return true;
