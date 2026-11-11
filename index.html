@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-5">
+<meta name="adecom-build" content="2026-11-11-6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5933,7 +5933,7 @@ function cvfMetricas(fs) {
   let a = 0, b = 0, c = 0, otros = 0;
   for (const f of fs) { const t = String(f.cantidad || ''); if (/51/.test(t)) c++; else if (/13/.test(t)) b++; else if (/12/.test(t)) a++; else otros++; }
   const reg = {};
-  for (const f of fs) { const r = String(f.region || '').replace(/^Regi[oó]n (de l?a? ?|del )?/i, '').trim(); if (r) reg[r] = (reg[r] || 0) + 1; }
+  for (const f of fs) { const r = String(f.region || '').replace(/^([IVX]+|RM)\s*[-·]?\s*/, '').replace(/^Regi[oó]n (de l?a? ?|del )?/i, '').trim(); if (r) reg[r] = (reg[r] || 0) + 1; }
   const top = Object.entries(reg).sort((x, y) => y[1] - x[1]).slice(0, 3);
   const sinTienda = fs.filter(f => { const t = String(f.tienda_fisica || '').trim(); return !t || /^no\b/i.test(t); }).length;
   const lead = fs.filter(f => f.lead).length, conPed = fs.filter(f => (f.pedidos || []).length).length, sinTomar = fs.filter(f => !f.tomado).length;
