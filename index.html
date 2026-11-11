@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-4">
+<meta name="adecom-build" content="2026-11-11-5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5899,7 +5899,13 @@ async function secPlantillas() {
         ${x.rechazo ? `<div style="color:#b42318;font-size:12px;margin-top:6px">Motivo del rechazo: ${cvEsc(x.rechazo)}</div>` : ''}
       </div>`).join('')).join('');
   }, 0);
-  return `<style>.cv-form{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf)}.cv-form-hd{width:100%;display:flex;gap:10px;align-items:center;font-size:15px;font-weight:700;color:var(--tx1);padding:12px 14px}.cv-form-hd .td-dim{font-weight:500;font-size:12.5px}.cv-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}.cv-fbtn{border:1px solid var(--bd);background:var(--sf);border-radius:999px;font:inherit;font-size:11.5px;font-weight:600;padding:3px 10px;color:var(--tx1);display:inline-block;margin:0 4px 4px 0;white-space:nowrap}</style>
+  return `<style>.cv-form{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf)}.cv-form-hd{width:100%;display:flex;gap:10px;align-items:center;font-size:15px;font-weight:700;color:var(--tx1);padding:12px 14px}.cv-form-hd .td-dim{font-weight:500;font-size:12.5px}.cv-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}.cv-fbtn{border:1px solid var(--bd);background:var(--sf);border-radius:999px;font:inherit;font-size:11.5px;font-weight:600;padding:3px 10px;color:var(--tx1);display:inline-block;margin:0 4px 4px 0;white-space:nowrap}
+.cvf-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin:2px 0 8px}
+.cvf-k{position:relative;border:1px solid var(--bd);border-radius:10px;background:var(--sf2,var(--bg));padding:10px 12px;display:grid;gap:3px;align-content:start}
+.cvf-k b{font-size:19px;letter-spacing:-.01em;color:var(--tx1);line-height:1.15}
+.cvf-k span{font-size:11.5px;color:var(--tx2);line-height:1.35}
+.cvf-pos{position:absolute;top:8px;right:10px;font-style:normal;font-size:10px;font-weight:700;color:var(--wa,#c27c0e);background:var(--wa10,#fdf3e3);padding:2px 7px;border-radius:999px}
+.cvf-src{font-size:11px;margin:0 0 10px}</style>
   <div class="cv-form"><div class="cv-form-hd"><span>💬 Plantillas de WhatsApp</span><span id="plN" class="td-dim">cargando…</span></div>
     <div style="padding:0 14px 14px"><div class="td-dim" style="font-size:12.5px">Las plantillas son los únicos mensajes que se pueden mandar pasadas 24 h desde el último mensaje del cliente. Dentro de las 24 h, Sofía escribe libre (por ejemplo, el aviso cuando faltan 4 horas), sin plantilla. En <b style="color:var(--ac)">{azul}</b> lo que cambia para cada cliente.</div><div id="plBody"></div></div></div>`;
 }
@@ -5917,6 +5923,34 @@ async function secFormularios() {
     .cv-fbtn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
   </style>
   <div class="cv-form"><div class="cv-form-hd"><span>📝 Formularios de mini-mayoristas</span><span id="cvFormN" class="td-dim">cargando…</span></div><div id="cvFormBody"></div></div>`;
+}
+/* Las métricas de los formularios, arriba de la lista (11-11, para decidir en reunión): cuánto quieren comprar,
+   de dónde son, la plata posible con su supuesto a la vista, y el embudo. Todo se calcula de las filas vivas;
+   si un texto de "cantidad" no calza con los tres del formulario, se cuenta aparte como "sin dato" en vez de perderse. */
+function cvfMetricas(fs) {
+  if (!fs.length) return '';
+  const n = fs.length;
+  let a = 0, b = 0, c = 0, otros = 0;
+  for (const f of fs) { const t = String(f.cantidad || ''); if (/51/.test(t)) c++; else if (/13/.test(t)) b++; else if (/12/.test(t)) a++; else otros++; }
+  const reg = {};
+  for (const f of fs) { const r = String(f.region || '').replace(/^Regi[oó]n (de l?a? ?|del )?/i, '').trim(); if (r) reg[r] = (reg[r] || 0) + 1; }
+  const top = Object.entries(reg).sort((x, y) => y[1] - x[1]).slice(0, 3);
+  const sinTienda = fs.filter(f => { const t = String(f.tienda_fisica || '').trim(); return !t || /^no\b/i.test(t); }).length;
+  const lead = fs.filter(f => f.lead).length, conPed = fs.filter(f => (f.pedidos || []).length).length, sinTomar = fs.filter(f => !f.tomado).length;
+  const PRECIO = 25990, piso = 12 * a + 13 * b + 51 * c, techo = 12 * a + 31 * b + 51 * c;
+  const M = x => '$' + Math.round(x / 1e6) + 'M';
+  const meses = {};
+  for (const f of fs) { const m = String(f.fecha || '').slice(0, 7); if (m.length === 7) meses[m] = (meses[m] || 0) + 1; }
+  const NOM = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const ritmo = Object.keys(meses).sort().reverse().slice(0, 4).map(m => `${NOM[+m.slice(5, 7)]} ${meses[m]}`).join(' · ');
+  const k = (cifra, sub, extra) => `<div class="cvf-k">${extra || ''}<b>${cifra}</b><span>${sub}</span></div>`;
+  return `<div class="cvf-kpis">
+    ${k(`${fmt(a)} · ${fmt(b)} · ${fmt(c)}`, `cuánto comprarían: el mínimo (12) · de 13 a 50 · de 51 o más${otros ? ` · ${fmt(otros)} sin dato` : ''}`)}
+    ${k(top.map(([r, x]) => `${cvEsc(r)} ${x}`).join(' · ') || '—', `de dónde son (top 3) · sin tienda física: ${fmt(sinTienda)} de ${fmt(n)}`)}
+    ${k(`${M(piso * PRECIO)}–${M(techo * PRECIO)}`, `netos si concretan todos · con un 20%: ${M(piso * PRECIO * 0.2)}–${M(techo * PRECIO * 0.2)}`, '<i class="cvf-pos">Posible</i>')}
+    ${k(`${fmt(n)} → ${fmt(lead)} → ${fmt(conPed)}`, `el embudo: llegaron → le escribieron a Sofía → con pedido · sin tomar: ${fmt(sinTomar)}`)}
+  </div>
+  <div class="td-dim cvf-src">Ritmo: ${ritmo}. Supuesto de la plata: ${fmt(a)}×12 + ${fmt(b)}×13 a 31 + ${fmt(c)}×51 prendas, a $25.990 netos cada una. Fuente: formularios de mohicano.cl/mayorista desde el 01-08.</div>`;
 }
 async function cvFormularios(forzar) {
   const n = document.getElementById('cvFormN'); if (!n) return;
@@ -5941,7 +5975,7 @@ async function cvFormularios(forzar) {
   };
   const xs = CV_FORM_VER === 'sin_tomar' ? sin : fs;
   const tag = (t, c, b) => `<span class="cv-tag" style="color:var(${c});background:var(${b})">${t}</span>`;
-  body.innerHTML = `<div class="segs" style="margin:2px 0 8px"><button class="seg${CV_FORM_VER === 'sin_tomar' ? ' on' : ''}" data-cvfver="sin_tomar">Sin tomar (${fmt(sin.length)})</button><button class="seg${CV_FORM_VER === 'todos' ? ' on' : ''}" data-cvfver="todos">Todos (${fmt(fs.length)})</button></div>
+  body.innerHTML = `${cvfMetricas(fs)}<div class="segs" style="margin:2px 0 8px"><button class="seg${CV_FORM_VER === 'sin_tomar' ? ' on' : ''}" data-cvfver="sin_tomar">Sin tomar (${fmt(sin.length)})</button><button class="seg${CV_FORM_VER === 'todos' ? ' on' : ''}" data-cvfver="todos">Todos (${fmt(fs.length)})</button></div>
     ${xs.length ? `<table class="cv-ft"><thead><tr><th>Fecha</th><th>Quién</th><th>Dónde · cuánto</th><th>Estado</th><th></th></tr></thead><tbody>${xs.map(f => {
       const wa = String(f.whatsapp || '').replace(/\D/g, '');
       const lead = f.lead && (f.lead.id || f.lead);
