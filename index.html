@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-10">
+<meta name="adecom-build" content="2026-11-11-11">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5788,11 +5788,14 @@ function cpRender() {
     return `<br>${con ? `${fmt(con)} con los modelos en oferta` : ''}${con && sin ? ' · ' : ''}${sin ? `${fmt(sin)} ${sin === 1 ? 'entró' : 'entraron'} por el aviso y ${sin === 1 ? 'compró' : 'compraron'} otros modelos` : ''}`; };
   const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo} <span class="td-dim" style="font-weight:400">confirmado</span></div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'sin ventas confirmadas'}${v && v.posible && v.posible.pedidos ? `<br><b style="color:var(--warn,#b7791f)">+ ${fmtM(v.posible.valor)} posible</b> · ${fmt(v.posible.pedidos)} ${v.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor, no se sabe si fue por la campaña<br><b>Total con posibles: ${fmtM(v.valor + v.posible.valor)}</b>` : ''}${extra || ''}</div></div>`;
   /* 02-11 (Manu: "también un total entre posibles y venta confirmada"): la cuarta tarjeta, en grande */
-  const P = A.total.posible || { valor: 0, pedidos: 0 };
+  /* 11-11 (Manu: "arriba me dice ese total… cuando presione en las otras vaya cambiando"): el bloque grande sigue a la pestaña */
+  const G = CP_SEL === 'todas' ? A.total : (A[CP_SEL] || { valor: 0, pedidos: 0, unidades: 0 });
+  const gNom = CP_SEL === 'todas' ? 'Total de las campañas' : cvEsc((CAMPANAS.find(x => x.id === CP_SEL) || {}).nombre || CP_SEL);
+  const P = G.posible || { valor: 0, pedidos: 0 };
   /* en grande y arriba (Manu: "debería ser una tarjeta en grande para saber cuál es el total") */
   const tarjetaSuma = `<div class="ra-k" data-cptab="todas" style="cursor:pointer;margin-bottom:14px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:20px 24px">
-    <div><div class="ra-t" style="font-size:14px">Total de las campañas · confirmado + posible</div><div class="ra-n" style="font-size:44px;line-height:1.1;color:var(--ok)">${fmtM((A.total.valor || 0) + (P.valor || 0))}</div><div class="ra-s">${fmt((A.total.pedidos || 0) + (P.pedidos || 0))} pedidos · ${fmt((A.total.unidades || 0) + (P.unidades || 0))} prendas · neto</div></div>
-    <div style="font-size:15px;line-height:1.7"><div><b style="color:var(--ok)">${fmtM(A.total.valor || 0)}</b> confirmado <span class="td-dim">· pedidos con Sofía después del aviso o de los modelos en oferta</span></div><div><b style="color:#b7791f">${fmtM(P.valor || 0)}</b> posible <span class="td-dim">· pedidos del vendedor de clientes que respondieron el aviso: pueden ser por la campaña o no</span></div></div></div>`;
+    <div><div class="ra-t" style="font-size:14px">${gNom} · confirmado + posible</div><div class="ra-n" style="font-size:44px;line-height:1.1;color:var(--ok)">${fmtM((G.valor || 0) + (P.valor || 0))}</div><div class="ra-s">${fmt((G.pedidos || 0) + (P.pedidos || 0))} pedidos · ${fmt((G.unidades || 0) + (P.unidades || 0))} prendas · neto</div></div>
+    <div style="font-size:15px;line-height:1.7"><div><b style="color:var(--ok)">${fmtM(G.valor || 0)}</b> confirmado <span class="td-dim">· pedidos con Sofía después del aviso o de los modelos en oferta</span></div><div><b style="color:#b7791f">${fmtM(P.valor || 0)}</b> posible <span class="td-dim">· pedidos del vendedor de clientes que respondieron el aviso: pueden ser por la campaña o no</span></div></div></div>`;
   const tarjetas = `${tarjetaSuma}<div class="ra-ks" style="grid-template-columns:repeat(${CAMPANAS.length + 1},minmax(0,1fr));margin-bottom:14px">
     ${CAMPANAS.map(x => tarjeta(cvEsc(x.nombre), A[x.id], notaPromo(x.id), x.id)).join('')}
     ${tarjeta('Total de las campañas', A.total, '<br>neto · por Sofía, la página o después de responder el aviso', 'todas')}</div>`;
