@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="adecom-build" content="2026-11-11-9">
+<meta name="adecom-build" content="2026-11-11-10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -5947,9 +5947,11 @@ function cvfMetricas(fs) {
   const n = fs.length;
   let a = 0, b = 0, c = 0, otros = 0;
   for (const f of fs) { const t = String(f.cantidad || ''); if (/51/.test(t)) c++; else if (/13/.test(t)) b++; else if (/12/.test(t)) a++; else otros++; }
-  const reg = {};
-  for (const f of fs) { const r = String(f.region || '').replace(/^([IVX]+|RM)\s*[-·]?\s*/, '').replace(/^Regi[oó]n (de l?a? ?|del )?/i, '').trim(); if (r) reg[r] = (reg[r] || 0) + 1; }
-  const top = Object.entries(reg).sort((x, y) => y[1] - x[1]).slice(0, 3);
+  /* ciudades, no regiones (Manu, 11-11): se agrupan sin importar mayúsculas ni tildes y se muestra como la escribió la mayoría */
+  const ciu = {}, lla = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  for (const f of fs) { const c0 = String(f.ciudad || '').trim(); if (!c0) continue; const k = lla(c0);
+    (ciu[k] = ciu[k] || { n: 0, v: {} }).n++; ciu[k].v[c0] = (ciu[k].v[c0] || 0) + 1; }
+  const top = Object.values(ciu).map(x => { let d = Object.entries(x.v).sort((p, q) => q[1] - p[1])[0][0]; d = d.split(' ').map((w, i2) => (i2 && /^(de|del|la|las|los|y)$/i.test(w)) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' '); return [d, x.n]; }).sort((x, y) => y[1] - x[1]).slice(0, 5);
   const sinTienda = fs.filter(f => { const t = String(f.tienda_fisica || '').trim(); return !t || /^no\b/i.test(t); }).length;
   const lead = fs.filter(f => f.lead).length, conPed = fs.filter(f => (f.pedidos || []).length).length, sinTomar = fs.filter(f => !f.tomado).length;
   const PRECIO = 25990, piso = 12 * a + 13 * b + 51 * c, techo = 12 * a + 31 * b + 51 * c;
@@ -5959,13 +5961,13 @@ function cvfMetricas(fs) {
   const NOM = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const mm = Object.keys(meses).sort().slice(-4), mMax = Math.max(...mm.map(k => meses[k]), 1);
   const fila = (nom, v, max, ttl) => `<div class="cvf-fila" title="${ttl || `${nom}: ${fmt(v)}`}"><span>${nom}</span>${v > 0 ? `<i class="cvf-barra" style="width:${Math.max(3, Math.round(v / max * 100))}%"></i>` : '<i></i>'}<b>${fmt(v)}</b></div>`;
-  const maxCant = Math.max(a, b, c, 1), maxReg = Math.max(...top.map(x => x[1]), 1);
+  const maxCant = Math.max(a, b, c, 1), maxCiu = Math.max(...top.map(x => x[1]), 1);
   return `<div class="cvf-kpis">
     <div class="cvf-k"><h4>Cuánto comprarían</h4>
       ${fila('El mínimo (12)', a, maxCant)}${fila('De 13 a 50', b, maxCant)}${fila('De 51 o más', c, maxCant)}
       ${otros ? `<div class="cvf-dim">${fmt(otros)} sin dato</div>` : ''}</div>
     <div class="cvf-k"><h4>De dónde son</h4>
-      ${top.map(([r, v]) => fila(cvEsc(r), v, maxReg)).join('')}
+      ${top.map(([r, v]) => fila(cvEsc(r), v, maxCiu)).join('')}
       <div class="cvf-sub" style="margin-top:2px">Sin tienda física: <b>${fmt(sinTienda)} de ${fmt(n)}</b></div>
       <div class="cvf-meter" title="Sin tienda física: ${fmt(sinTienda)} de ${fmt(n)}"><i style="width:${Math.round(sinTienda / n * 100)}%"></i></div></div>
     <div class="cvf-k"><i class="cvf-pos">Posible</i><h4>Plata si concretan todos</h4>
