@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-14">
+<meta name="adecom-build" content="2026-11-16-15">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -944,6 +944,10 @@ tr.lu-fila{display:table-row;padding:0;border:0}
   table[data-ml] .art-thumb{width:28px;height:36px;float:left;margin-right:8px}
   table[data-ml] tr.dc-color td[data-mlc="t"],table[data-ml] tr.variant-row td[data-mlc="t"]{padding-left:14px!important}
   table[data-ml] tbody tr:active{background:var(--ac10)}
+  /* En la lista del celular los bordes de las celdas se borran: la franja del motivo
+     (bloqueado/deuda) se pinta a nivel de fila para que igual se vea */
+  table[data-ml] tbody tr[data-motivo="bloqueado"],table[data-ml] tbody tr[data-motivo="sin cupo"]{border-left:3px solid var(--er)}
+  table[data-ml] tbody tr[data-motivo="con deuda"]{border-left:3px solid var(--wa)}
   /* filtros: buscador a la vista + hoja */
   .cv-caso{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--bd);font-size:12.5px;flex-wrap:wrap}
 .cv-caso.res{opacity:.72}
@@ -4811,7 +4815,7 @@ async function secClientes() {
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-rutn="${vRut(c)}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.motivo === 'bloqueado' ? '<span class="erp-etq er" style="font-size:9px;margin-right:6px;vertical-align:middle">BLOQUEADO</span>' : c.motivo === 'sin cupo' ? '<span class="erp-etq er" style="font-size:9px;margin-right:6px;vertical-align:middle">SIN CUPO</span>' : ''}${c.nombre}${fichasBadge(c.cli)}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid ${c.motivo === 'bloqueado' || c.motivo === 'sin cupo' ? 'var(--er)' : c.motivo === 'con deuda' ? 'var(--wa)' : 'transparent'}">${c.nombre}${fichasBadge(c.cli)}</td>
     <td class="td-dim">${c.rut||'—'}</td>
     <td class="td-dim">${c.ciudad || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.slice(0, 4).map(t=>`<span class="badge ${tcFor(t).cls}" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;margin-right:2px;vertical-align:middle"><span>${t}</span><b style="font-size:10px">${fmt(c.u[t] || 0)}</b></span>`).join('')}${c.compradas.length > 4 ? `<span class="badge" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;background:var(--sf2);color:var(--tx2);vertical-align:middle" title="También: ${c.compradas.slice(4).map(x => `T${x}: ${fmt(c.u[x] || 0)}`).join(' · ')}"><span>+${c.compradas.length - 4}</span><b style="font-size:10px">${fmt(c.compradas.slice(4).reduce((a, x) => a + (c.u[x] || 0), 0))}</b></span>` : ''}</td>
