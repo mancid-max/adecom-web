@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-8">
+<meta name="adecom-build" content="2026-11-16-9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -970,6 +970,13 @@ body.menu-oculto .fbar.fija{left:24px}
 </style>
 </head>
 <body>
+<div id="cortina" style="position:fixed;inset:0;background:#17324D;z-index:99999;display:flex;align-items:center;justify-content:center">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;font-family:'IBM Plex Sans',system-ui,sans-serif">
+    <div style="width:46px;height:46px;border-radius:4px;background:#fff;color:#17324D;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px">A</div>
+    <div style="color:#C9D6E4;font-size:13px;letter-spacing:.06em">ADECOM</div>
+  </div>
+</div>
+<script>setTimeout(function () { var c = document.getElementById('cortina'); if (c) c.remove(); }, 10000);</script>
 
 <div class="overlay" id="overlay"></div>
 <nav class="tabbar" id="tabBar" aria-label="Accesos">
@@ -17327,6 +17334,7 @@ function applyRole(role, email) {
     document.getElementById('sbRole').textContent = 'Trazabilidad';
   }
   document.getElementById('loginOv').classList.add('hidden');
+  document.getElementById('cortina')?.remove();
   // El título va escrito en el HTML como "Resumen General": se corrige antes de cargar los datos,
   // si no el usuario de bodega lo alcanza a ver unos segundos.
   const hdT = document.getElementById('hdTitle');
@@ -17364,6 +17372,7 @@ async function authInit() {
     const role = session.user?.user_metadata?.role || 'bodega';   // sin rol asignado → el acceso más restringido
     applyRole(role, session.user.email);
   }
+  document.getElementById('cortina')?.remove();   // sin sesión: el login ya está pintado detrás
   // Enter key en inputs
   ['loginEmail','loginPass'].forEach(id =>
     document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') authLogin(); })
