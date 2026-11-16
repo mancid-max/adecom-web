@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-2">
+<meta name="adecom-build" content="2026-11-16-3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -17113,8 +17113,11 @@ async function erpFichaArt(base) {
         const xs2 = Object.values(quien).sort((a, b) => (b.u - b.d) - (a.u - a.d) || b.u - a.u);
         if (!xs2.length) return '';
         return `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Quién lo pidió y cuánto lleva de despacho</div>
-        <table class="erp-tabla erp-ficha-quien"><thead><tr><th>Cliente</th><th class="num">Pedidas</th><th class="num">Desp.</th><th class="num">Saldo</th><th class="num">Av.</th></tr></thead>
-        <tbody>${xs2.slice(0, 10).map(q2 => `<tr><td style="font-weight:600;min-width:0">${esc2(q2.nombre)}<span style="display:block;font-weight:400;font-size:11px;color:var(--tx2)">${esc2([q2.vendedor, q2.n > 1 ? `${q2.n} pedidos` : ''].filter(Boolean).join(' · '))}</span>${Object.keys(q2.pt).length && typeof chipsTalla === 'function' ? chipsTalla('Pidió', q2.pt) : ''}</td><td class="num">${fmt(q2.u)}</td><td class="num">${fmt(q2.d)}</td><td class="num"${q2.u - q2.d > 0 ? ' style="font-weight:700"' : ''}>${fmt(Math.max(0, q2.u - q2.d))}</td><td class="num">${q2.u ? Math.round(q2.d / q2.u * 100) : 0}%</td></tr>`).join('')}</tbody></table>
+        <table class="erp-tabla erp-ficha-quien"><thead><tr><th>Cliente</th><th class="num">Pidió</th><th class="num" style="min-width:120px">Le falta</th></tr></thead>
+        <tbody>${xs2.slice(0, 10).map(q2 => { const falta = Math.max(0, q2.u - q2.d), av = q2.u ? Math.round(q2.d / q2.u * 100) : 0;
+          return `<tr><td style="font-weight:600;min-width:0">${esc2(q2.nombre)}<span style="display:block;font-weight:400;font-size:11px;color:var(--tx2)">${esc2([q2.vendedor, q2.n > 1 ? `${q2.n} pedidos` : ''].filter(Boolean).join(' · '))}</span>${Object.keys(q2.pt).length && typeof chipsTalla === 'function' ? chipsTalla('Pidió', q2.pt) : ''}</td>
+          <td class="num" style="font-size:14px">${fmt(q2.u)}</td>
+          <td class="num">${falta ? `<b style="font-size:14px;color:var(--wa)">${fmt(falta)}</b>` : '<b style="font-size:13px;color:var(--ok)">Al día ✓</b>'}<span style="display:block;font-size:10.5px;color:var(--tx2)">${fmt(q2.d)} despachadas · ${av}%</span><span style="display:block;height:4px;background:var(--bg);border-radius:2px;margin-top:3px;overflow:hidden"><span style="display:block;height:4px;width:${Math.min(100, av)}%;background:var(--ok)"></span></span></td></tr>`; }).join('')}</tbody></table>
         ${xs2.length > 10 ? `<div class="td-dim" style="font-size:11px;margin-top:3px">…y ${fmt(xs2.length - 10)} clientes más: el detalle completo está en Venta vs Despacho.</div>` : ''}</div>`; })()}
       ${extra ? `<div style="font-size:12px;color:var(--tx2);margin-top:10px">${extra}</div>` : ''}
       <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Dónde está en la producción (trazabilidad)</div>
