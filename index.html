@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-13">
+<meta name="adecom-build" content="2026-11-16-14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -17158,7 +17158,10 @@ function erpFbarPrep() {
 function erpFbarScroll() {
   if (FBAR && !document.contains(FBAR)) erpFbarPrep();   // la sección repintó: re-engancharse
   if (!FBAR || !document.contains(FBAR)) return;
-  const fijar = scrollY > FBAR_TOP - 86;
+  /* Se fija recién cuando la barra ya salió de la vista: antes se fijaba apenas se bajaba un
+     poco y dejaba un hueco blanco del alto de la barra (Manu, 16-11: "los filtros desaparecen
+     demasiado rápido… mira la sección como queda arriba"). Así el hueco queda fuera de pantalla. */
+  const fijar = scrollY > FBAR_TOP + (parseInt(FBAR.dataset.h) || 60) - 86;
   if (fijar === FBAR.classList.contains('fija')) return;
   FBAR.classList.toggle('fija', fijar);
   if (!fijar) FBAR.classList.remove('abierta');
