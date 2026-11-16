@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-12">
+<meta name="adecom-build" content="2026-11-16-13">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -4675,11 +4675,21 @@ function clInactivos(peds) {
     Object.entries(p.u_temp||{}).forEach(([t,u]) => { if (u>0) { g.temps.add(t); g.u[t]=(g.u[t]||0)+u; } });
     if ((p.fecha_iso||'') > g.ult) { g.ult = p.fecha_iso||''; g.ultF = p.fecha||''; }
   });
+  /* Un cliente con dos fichas (dos RUT y el mismo nombre) es UNA tienda: si cualquiera de sus
+     fichas compró, el cliente está activo (Manu, 16-11: Camila Calypso pidió la T45 con su otra
+     ficha y salía como inactiva — "déjala como activa porque ya hizo el pedido"). */
+  const tempsNombre = new Map();
+  gm.forEach(g => {
+    const n = g.nombre.trim();
+    if (!tempsNombre.has(n)) tempsNombre.set(n, new Set());
+    g.temps.forEach(t => tempsNombre.get(n).add(t));
+  });
   return [...gm.values()]
-    .filter(g => { const enSel = CL_ACTS.some(tt => g.temps.has(String(tt)));
+    .filter(g => { const temps = tempsNombre.get(g.nombre.trim()) || g.temps;
+      const enSel = CL_ACTS.some(tt => temps.has(String(tt)));
       return CL_MODO === 'activos' ? enSel
-           : CL_MODO === 'todos' ? (CL_BASE.some(t => g.temps.has(t)) || enSel)
-           : (CL_BASE.some(t => g.temps.has(t)) && !enSel); })
+           : CL_MODO === 'todos' ? (CL_BASE.some(t => temps.has(t)) || enSel)
+           : (CL_BASE.some(t => temps.has(t)) && !enSel); })
     .map(g => {
       const compradas = [...g.temps].filter(t => +t >= 37).sort((a,b)=>+b-+a);   // desde la T37: la historia completa que traen los pedidos (Manu, 10-11-2026)
       const c = g.cli || {};
