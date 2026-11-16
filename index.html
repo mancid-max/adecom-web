@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-10">
+<meta name="adecom-build" content="2026-11-16-11">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -960,6 +960,14 @@ tr.lu-fila{display:table-row;padding:0;border:0}
   .fbar.mv-hoja.abierta .mv-hoja-cab{display:flex;position:sticky;top:-10px;z-index:2;background:var(--sf);justify-content:space-between;align-items:center;gap:10px;padding:10px 0 8px;margin-top:-6px;border-bottom:1px solid var(--bd);width:100%}
   .fbar.mv-hoja.abierta .mv-hoja-cab .erp-fbtn{height:40px;font-weight:700;background:var(--marino);color:#fff;border-color:var(--marino)}
 }
+/* Totales de la tabla en el teléfono: la fila "Total" de 10 números sin encabezado mareaba
+   (Manu, 16-11: "me deja mareado, muchos numeros"); se esconde y en su lugar va este bloque
+   con cada total y su nombre al lado. Solo existe en el celular. */
+.tot-mv{display:none;grid-template-columns:1fr 1fr;gap:1px;background:var(--bd);border-top:2px solid var(--marino)}
+.tot-mv>div{background:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tot-mv .g{font-size:12px;color:var(--tx2)}
+.tot-mv .v{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px}
+@media(max-width:767px){.tot-mv{display:grid}.tf-movil-no{display:none!important}}
 .fab-filtros{display:none;position:fixed;left:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:69;height:44px;padding:0 16px;border-radius:22px;background:var(--marino);color:#fff;font-weight:700;font-size:13px;box-shadow:0 6px 16px rgba(0,0,0,.28);align-items:center;gap:6px}
 @media(max-width:767px){.fab-filtros.ver{display:flex}}
 .fbar-cab{display:none}
@@ -2621,6 +2629,9 @@ async function secTabla() {
   };
 
   const NUM_COLS = ['programa','proceso','bodega','saldo','p_corte','p_taller','p_texterno','p_limpiado','p_lavanderia','p_terminacion'];
+const TBL_TOT_ETQ = ['Programado', 'En proceso', 'En bodega', 'Saldo', 'En corte', 'En costura', 'Taller externo', 'Limpiado', 'Lavandería', 'Terminación'];
+/* En el celular las etapas en cero no se muestran: los cuatro primeros totales siempre, el resto solo con dato */
+const tblTotMvHtml = tots => tots.map((v, i) => (i < 4 || v > 0) ? `<div><span class="g">${TBL_TOT_ETQ[i]}</span><span class="v">${fmt(v)}</span></div>` : '').join('');
 
   /* Cuantas prendas estan DETENIDAS en la etapa. El visto gris es la etapa por la que ya
      paso sin dejar nada; la raya, la que todavia no toca. Antes aqui iba un 1 que solo
@@ -2658,7 +2669,8 @@ async function secTabla() {
     </tr>`;
   }).join('');
 
-  const totRow = NUM_COLS.map(k => `<td class="r td-num" id="tblTotal_${k}">${fmt(rows.reduce((s,r)=>s+(r[k]||0),0))}</td>`).join('');
+  const TOTS = NUM_COLS.map(k => rows.reduce((s, r) => s + (r[k] || 0), 0));
+  const totRow = NUM_COLS.map((k, i) => `<td class="r td-num" id="tblTotal_${k}">${fmt(TOTS[i])}</td>`).join('');
 
   return `
   <div class="fbar">
@@ -2763,12 +2775,13 @@ async function secTabla() {
           <th class="r th-sort" data-col="p_terminacion" data-num="1" title="Prendas detenidas en Term.. El visto es la etapa por la que ya pasó">Term. <span class="sort-ic"></span></th>
         </tr></thead>
         <tbody id="tablaBody">${rowsHtml}</tbody>
-        <tfoot><tr style="background:var(--sf2);font-weight:700;border-top:2px solid var(--marino)">
+        <tfoot class="tf-movil-no"><tr style="background:var(--sf2);font-weight:700;border-top:2px solid var(--marino)">
           <td class="td-dim" colspan="5">Total</td>
           ${totRow}
         </tr></tfoot>
       </table>
     </div>
+    <div class="tot-mv" id="tblTotMv">${tblTotMvHtml(TOTS)}</div>
     <div class="erp-pf">Toca una orden para abrir su detalle: etapas, tela y materiales, y el corte por talla.</div>
   </div>`;
 }
@@ -12935,6 +12948,8 @@ function bindContent(secId) {
       const countEl = document.getElementById('tblCount');
       if (countEl) countEl.textContent = `${pasan.length} de ${FILAS.length} OC`;
       totEls.forEach((el, i) => { if (el) el.textContent = fmt(tots[i]); });
+      const mvTot = document.getElementById('tblTotMv');
+      if (mvTot) mvTot.innerHTML = tblTotMvHtml(tots);
     }
 
     // Se espera a que la mano pare antes de filtrar. Son 200 ms y no menos porque escribiendo
