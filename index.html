@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-11">
+<meta name="adecom-build" content="2026-11-16-12">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -4801,7 +4801,7 @@ async function secClientes() {
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-rutn="${vRut(c)}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${fichasBadge(c.cli)}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${c.motivo === 'bloqueado' ? '<span class="erp-etq er" style="font-size:9px;margin-right:6px;vertical-align:middle">BLOQUEADO</span>' : c.motivo === 'sin cupo' ? '<span class="erp-etq er" style="font-size:9px;margin-right:6px;vertical-align:middle">SIN CUPO</span>' : ''}${c.nombre}${fichasBadge(c.cli)}</td>
     <td class="td-dim">${c.rut||'—'}</td>
     <td class="td-dim">${c.ciudad || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.slice(0, 4).map(t=>`<span class="badge ${tcFor(t).cls}" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;margin-right:2px;vertical-align:middle"><span>${t}</span><b style="font-size:10px">${fmt(c.u[t] || 0)}</b></span>`).join('')}${c.compradas.length > 4 ? `<span class="badge" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;background:var(--sf2);color:var(--tx2);vertical-align:middle" title="También: ${c.compradas.slice(4).map(x => `T${x}: ${fmt(c.u[x] || 0)}`).join(' · ')}"><span>+${c.compradas.length - 4}</span><b style="font-size:10px">${fmt(c.compradas.slice(4).reduce((a, x) => a + (c.u[x] || 0), 0))}</b></span>` : ''}</td>
