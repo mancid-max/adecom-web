@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-3">
+<meta name="adecom-build" content="2026-11-16-4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -17112,13 +17112,12 @@ async function erpFichaArt(base) {
         }
         const xs2 = Object.values(quien).sort((a, b) => (b.u - b.d) - (a.u - a.d) || b.u - a.u);
         if (!xs2.length) return '';
-        return `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Quién lo pidió y cuánto lleva de despacho</div>
-        <table class="erp-tabla erp-ficha-quien"><thead><tr><th>Cliente</th><th class="num">Pidió</th><th class="num" style="min-width:120px">Le falta</th></tr></thead>
-        <tbody>${xs2.slice(0, 10).map(q2 => { const falta = Math.max(0, q2.u - q2.d), av = q2.u ? Math.round(q2.d / q2.u * 100) : 0;
-          return `<tr><td style="font-weight:600;min-width:0">${esc2(q2.nombre)}<span style="display:block;font-weight:400;font-size:11px;color:var(--tx2)">${esc2([q2.vendedor, q2.n > 1 ? `${q2.n} pedidos` : ''].filter(Boolean).join(' · '))}</span>${Object.keys(q2.pt).length && typeof chipsTalla === 'function' ? chipsTalla('Pidió', q2.pt) : ''}</td>
-          <td class="num" style="font-size:14px">${fmt(q2.u)}</td>
-          <td class="num">${falta ? `<b style="font-size:14px;color:var(--wa)">${fmt(falta)}</b>` : '<b style="font-size:13px;color:var(--ok)">Al día ✓</b>'}<span style="display:block;font-size:10.5px;color:var(--tx2)">${fmt(q2.d)} despachadas · ${av}%</span><span style="display:block;height:4px;background:var(--bg);border-radius:2px;margin-top:3px;overflow:hidden"><span style="display:block;height:4px;width:${Math.min(100, av)}%;background:var(--ok)"></span></span></td></tr>`; }).join('')}</tbody></table>
-        ${xs2.length > 10 ? `<div class="td-dim" style="font-size:11px;margin-top:3px">…y ${fmt(xs2.length - 10)} clientes más: el detalle completo está en Venta vs Despacho.</div>` : ''}</div>`; })()}
+        ERP_QUIEN = { base, xs: xs2 };
+        const falta = xs2.reduce((a, q2) => a + Math.max(0, q2.u - q2.d), 0);
+        /* 16-11 (Manu: "podría quedar como botón y abrir una ventana, para que los demás queden a la vista") */
+        return `<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="erp-fbtn" onclick="erpFichaQuienVer()" style="font-weight:600">Quién lo pidió y cuánto lleva de despacho ›</button>
+          <span class="td-dim" style="font-size:12px">${fmt(xs2.length)} ${xs2.length === 1 ? 'cliente' : 'clientes'}${falta ? ` · faltan ${fmt(falta)} prendas por despachar` : ' · todo despachado'}</span></div>`; })()}
       ${extra ? `<div style="font-size:12px;color:var(--tx2);margin-top:10px">${extra}</div>` : ''}
       <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Dónde está en la producción (trazabilidad)</div>
       ${ocsAbiertas.length ? `
@@ -17139,6 +17138,23 @@ async function erpFichaArt(base) {
   ${erpSaltos([['stock', 'Stock Bodega', 'stSearch', base], ['detalle-color', 'Detalle Pedido Color', 'dcSearch', base], ['tabla', 'Trazabilidad', 'tblArtSearch', base], ['venta-despacho', 'Venta vs Despacho', 'vdSearch', base]].filter(x => typeof secPermitida !== 'function' || secPermitida(x[0])))}`;
   erpFichaAbrir(`Artículo ${base}`, cuerpo);
   erpSaltoBind();
+}
+let ERP_QUIEN = null;
+function erpFichaQuienVer() {
+  if (!ERP_QUIEN) return;
+  const { base, xs } = ERP_QUIEN;
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const filas = xs.map(q2 => { const falta = Math.max(0, q2.u - q2.d), av = q2.u ? Math.round(q2.d / q2.u * 100) : 0;
+    return `<tr><td style="font-weight:600;min-width:0">${esc(q2.nombre)}<span style="display:block;font-weight:400;font-size:11px;color:var(--tx2)">${esc([q2.vendedor, q2.n > 1 ? `${q2.n} pedidos` : ''].filter(Boolean).join(' · '))}</span>${Object.keys(q2.pt).length && typeof chipsTalla === 'function' ? chipsTalla('Pidió', q2.pt) : ''}</td>
+    <td class="num" style="font-size:14px">${fmt(q2.u)}</td>
+    <td class="num">${falta ? `<b style="font-size:14px;color:var(--wa)">${fmt(falta)}</b>` : '<b style="font-size:13px;color:var(--ok)">Al día ✓</b>'}<span style="display:block;font-size:10.5px;color:var(--tx2)">${fmt(q2.d)} despachadas · ${av}%</span><span style="display:block;height:4px;background:var(--bg);border-radius:2px;margin-top:3px;overflow:hidden"><span style="display:block;height:4px;width:${Math.min(100, av)}%;background:var(--ok)"></span></span></td></tr>`; }).join('');
+  erpFichaAbrir(`Artículo ${base} · quién lo pidió`, `
+    <div style="padding:12px 16px">
+      <button class="erp-fbtn" onclick="erpFichaArt('${base}')" style="margin-bottom:10px">‹ Volver a la ficha</button>
+      <table class="erp-tabla erp-ficha-quien"><thead><tr><th>Cliente</th><th class="num">Pidió</th><th class="num" style="min-width:120px">Le falta</th></tr></thead>
+      <tbody>${filas}</tbody></table>
+      <div class="td-dim" style="font-size:11px;margin-top:6px">${fmt(xs.length)} clientes · ordenados por lo que les falta · sin valores en plata.</div>
+    </div>`);
 }
 async function erpFichaCli(nombre) {
   erpFichaAbrir(nombre, '<div style="padding:30px;text-align:center;color:var(--tx2)">Cargando…</div>');
