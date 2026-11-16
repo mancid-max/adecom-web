@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-1">
+<meta name="adecom-build" content="2026-11-16-2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -862,6 +862,12 @@ select#sbVista{font:inherit;font-size:12px;height:28px;padding:0 6px;border:1px 
 .erp-pbar{height:10px;background:var(--bg)}
 .erp-pbar>div{height:10px;background:var(--ac)}
 .erp-ficha .art-thumb{width:160px;height:auto;max-height:220px;object-fit:cover;border:1px solid var(--bd2);border-radius:3px}
+.erp-ficha-quien td,.erp-ficha-quien th{padding:5px 8px}
+.erp-ficha-quien{font-size:12.5px}
+.erp-ficha-quien .pvc-ts{margin-top:3px;gap:3px}
+.erp-ficha-quien .pvc-t{font-size:10px}
+.erp-ficha-quien .pvc-t i{font-size:9px}
+.erp-ficha-quien .pvc-ts-l{font-size:10px}
 tr.lu-fila{display:table-row;padding:0;border:0}
 .erp-tabla tr[data-lu]:hover td{background:var(--ac10)}
 /* Tablas de TODAS las secciones: grilla densa */
@@ -955,7 +961,7 @@ tr.lu-fila{display:table-row;padding:0;border:0}
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
 <div class="det-ov" id="cliOv" style="z-index:250"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cliTtl">Cliente</div><button class="det-close" id="cliClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cliBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="debKOv" style="z-index:245"><div class="det-panel" style="width:min(880px,96vw)"><div class="det-hd"><div class="det-ttl" id="debKOvTtl">Detalle</div><button class="det-close" id="debKOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="debKOvBody" style="padding:0 0 4px"></div></div></div>
-<div class="det-ov" id="vkOv" style="z-index:250"><div class="det-panel" style="width:min(760px,96vw)"><div class="det-hd"><div class="det-ttl" id="vkOvTtl">Detalle</div><button class="det-close" id="vkOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="vkOvBody" style="padding:0 0 4px"></div></div></div>
+<div class="det-ov" id="vkOv" style="z-index:250"><div class="det-panel" style="width:min(920px,96vw)"><div class="det-hd"><div class="det-ttl" id="vkOvTtl">Detalle</div><button class="det-close" id="vkOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="vkOvBody" style="padding:0 0 4px"></div></div></div>
 <div class="det-ov" id="pedOv" style="z-index:240"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="pedTtl">Pedido</div><button class="det-close" id="pedClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="pedBody"></div></div></div>
 <div class="det-ov" id="vdMultiOv" style="z-index:250"><div class="det-panel" style="width:min(460px,94vw)"><div class="det-hd"><div class="det-ttl">Buscar varios artículos</div><button class="det-close" id="vdMultiClose" aria-label="Cerrar">✕</button></div>
   <div class="det-body" style="padding:14px 16px">
@@ -17107,8 +17113,8 @@ async function erpFichaArt(base) {
         const xs2 = Object.values(quien).sort((a, b) => (b.u - b.d) - (a.u - a.d) || b.u - a.u);
         if (!xs2.length) return '';
         return `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Quién lo pidió y cuánto lleva de despacho</div>
-        <table class="erp-tabla"><thead><tr><th>Cliente</th><th class="num">Pedidas</th><th class="num">Despachadas</th><th class="num">Saldo</th><th class="num">Avance</th><th>Por talla</th></tr></thead>
-        <tbody>${xs2.slice(0, 10).map(q2 => `<tr><td style="font-weight:600">${esc2(q2.nombre)}<span style="display:block;font-weight:400;font-size:11px;color:var(--tx2)">${esc2([q2.vendedor, q2.n > 1 ? `${q2.n} pedidos` : ''].filter(Boolean).join(' · '))}</span></td><td class="num">${fmt(q2.u)}</td><td class="num">${fmt(q2.d)}</td><td class="num"${q2.u - q2.d > 0 ? ' style="font-weight:700"' : ''}>${fmt(Math.max(0, q2.u - q2.d))}</td><td class="num">${q2.u ? Math.round(q2.d / q2.u * 100) : 0}%</td><td style="min-width:180px">${Object.keys(q2.pt).length && typeof chipsTalla === 'function' ? chipsTalla('Pidió', q2.pt) : '<span class="td-dim" style="font-size:11px">con la próxima actualización</span>'}</td></tr>`).join('')}</tbody></table>
+        <table class="erp-tabla erp-ficha-quien"><thead><tr><th>Cliente</th><th class="num">Pedidas</th><th class="num">Desp.</th><th class="num">Saldo</th><th class="num">Av.</th></tr></thead>
+        <tbody>${xs2.slice(0, 10).map(q2 => `<tr><td style="font-weight:600;min-width:0">${esc2(q2.nombre)}<span style="display:block;font-weight:400;font-size:11px;color:var(--tx2)">${esc2([q2.vendedor, q2.n > 1 ? `${q2.n} pedidos` : ''].filter(Boolean).join(' · '))}</span>${Object.keys(q2.pt).length && typeof chipsTalla === 'function' ? chipsTalla('Pidió', q2.pt) : ''}</td><td class="num">${fmt(q2.u)}</td><td class="num">${fmt(q2.d)}</td><td class="num"${q2.u - q2.d > 0 ? ' style="font-weight:700"' : ''}>${fmt(Math.max(0, q2.u - q2.d))}</td><td class="num">${q2.u ? Math.round(q2.d / q2.u * 100) : 0}%</td></tr>`).join('')}</tbody></table>
         ${xs2.length > 10 ? `<div class="td-dim" style="font-size:11px;margin-top:3px">…y ${fmt(xs2.length - 10)} clientes más: el detalle completo está en Venta vs Despacho.</div>` : ''}</div>`; })()}
       ${extra ? `<div style="font-size:12px;color:var(--tx2);margin-top:10px">${extra}</div>` : ''}
       <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Dónde está en la producción (trazabilidad)</div>
