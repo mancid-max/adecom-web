@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-9">
+<meta name="adecom-build" content="2026-11-16-10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -945,7 +945,10 @@ tr.lu-fila{display:table-row;padding:0;border:0}
   table[data-ml] tr.dc-color td[data-mlc="t"],table[data-ml] tr.variant-row td[data-mlc="t"]{padding-left:14px!important}
   table[data-ml] tbody tr:active{background:var(--ac10)}
   /* filtros: buscador a la vista + hoja */
-  .mv-hoja-cab{display:none}
+  .cv-caso{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--bd);font-size:12.5px;flex-wrap:wrap}
+.cv-caso.res{opacity:.72}
+.cv-caso-txt{color:var(--tx2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 140px}
+.mv-hoja-cab{display:none}
 .mv-fila{display:flex;gap:8px}
   .mv-fila .fgrp{flex:1 1 auto;min-width:0}
   .mv-fila .flbl{display:none}
@@ -5138,6 +5141,32 @@ function cvTableroHtml(T) {
       <div class="cv-tgrupo"><span class="cv-tglabel">En progreso</span><div class="cv-tcols">${enProg.map(col).join('')}</div></div>
       ${term.length ? `<div class="cv-tgrupo"><span class="cv-tglabel">Terminal</span><div class="cv-tcols">${term.map(col).join('')}</div></div>` : ''}</div>`;
 }
+/* Casos del tablero (16-11): pendientes arriba con hace cuánto esperan, resueltos de 14 días abajo con quién
+   los cerró; los repetidos marcados y sin contar como resueltos (regla del 23-10). El dato llega en T.casos. */
+function cvCasosHtml(T) {
+  const cs = (T && T.casos) || [];
+  if (!cs.length) return '';
+  const hace = f => { const ms = Date.now() - Date.parse(f || ''); if (!(ms > 0)) return ''; const h = Math.floor(ms / 36e5); return h < 1 ? 'hace minutos' : h < 24 ? `hace ${h} h` : `hace ${Math.floor(h / 24)} d`; };
+  const pend = cs.filter(c => c.estado === 'pendiente');
+  const res = cs.filter(c => c.estado !== 'pendiente');
+  const resOk = res.filter(c => !c.repetido);
+  const rep = cs.filter(c => c.repetido).length;
+  const linea = c => `<div class="cv-caso${c.estado === 'pendiente' ? '' : ' res'}">
+    ${c.estado === 'pendiente' ? '<span class="erp-etq wa">PENDIENTE</span>' : '<span class="erp-etq ok">RESUELTA</span>'}
+    <span class="td-code">${cvEsc(c.caso || '')}</span>
+    <b>${cvEsc(c.nombre || '')}</b>
+    <span class="cv-caso-txt" title="${cvEsc(c.texto || '')}">${cvEsc(c.texto || '')}</span>
+    ${c.repetido ? '<span class="erp-etq er" title="El mismo problema volvió: no cuenta como resuelto">REPETIDO</span>' : ''}
+    <span class="td-dim" style="margin-left:auto;white-space:nowrap">${c.estado === 'pendiente' ? cvEsc(hace(c.fecha)) : cvEsc([c.resuelta_por, hace(c.resuelta_at)].filter(Boolean).join(' · '))}</span>
+    ${c.lead ? `<button class="cv-fbtn" data-casolead="${cvEsc(c.lead)}">Ver conversación</button>` : ''}</div>`;
+  return `<section class="erp-panel" style="margin:10px 0">
+    <div class="erp-ph"><h2>Casos</h2><div style="display:flex;gap:16px;font-size:12px;align-items:baseline">
+      <span><b style="font-size:15px${pend.length ? ';color:var(--er)' : ''}">${fmt(pend.length)}</b> pendientes</span>
+      <span><b style="font-size:15px;color:var(--ok)">${fmt(resOk.length)}</b> resueltos 14 d</span>
+      ${rep ? `<span><b style="font-size:15px;color:var(--er)">${fmt(rep)}</b> repetidos</span>` : ''}</div></div>
+    <div style="padding:2px 0">${pend.map(linea).join('')}${res.map(linea).join('')}</div>
+  </section>`;
+}
 function cvTBarra(T) {
   const opt = (v, t, sel) => `<option value="${cvEsc(v)}"${sel ? ' selected' : ''}>${cvEsc(t)}</option>`;
   return `<div class="cv-tbar"><input type="search" id="cvTq" class="finput" placeholder="🔍 Buscar nombre, razón social, celular, dato o etiqueta…">
@@ -5156,7 +5185,8 @@ async function cvTablero(ag, { silencio = false } = {}) {
   const filtros = ['cvTq', 'cvTtag', 'cvTresp', 'cvTcanal', 'cvTpaus', 'cvTerp', 'cvTcomp', 'cvTrecf'].map(id => { const e = document.getElementById(id); return [id, e ? (e.type === 'checkbox' ? e.checked : e.value) : null]; });
   const abierto = document.getElementById('cvTWrap')?.classList.contains('abierto');
   cvTPanel(false);
-  cont.innerHTML = cvTBarra(CV_TAB) + `<div class="cv-twrap" id="cvTWrap"><div id="cvTBoard" style="min-height:0">${cvTableroHtml(CV_TAB)}</div><div class="cv-tpanel" id="cvTPanel"><button class="cv-tcerrar" data-tcerrar title="Cerrar el chat">×</button></div></div>`;
+  cont.innerHTML = cvTBarra(CV_TAB) + cvCasosHtml(CV_TAB) + `<div class="cv-twrap" id="cvTWrap"><div id="cvTBoard" style="min-height:0">${cvTableroHtml(CV_TAB)}</div><div class="cv-tpanel" id="cvTPanel"><button class="cv-tcerrar" data-tcerrar title="Cerrar el chat">×</button></div></div>`;
+  cont.querySelectorAll('[data-casolead]').forEach(b => b.addEventListener('click', () => { CV_SEL = b.dataset.casolead; go('conversaciones', 'Conversaciones'); }));
   for (const [id, v] of filtros) { const e = document.getElementById(id); if (e && v != null) e.type === 'checkbox' ? (e.checked = v) : (e.value = v); }
   if (abierto && CV_SEL) cvTPanel(true);
   const repintar = () => { const b = document.getElementById('cvTBoard'); if (b) { b.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } };
