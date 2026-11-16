@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-5">
+<meta name="adecom-build" content="2026-11-16-6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -945,7 +945,8 @@ tr.lu-fila{display:table-row;padding:0;border:0}
   table[data-ml] tr.dc-color td[data-mlc="t"],table[data-ml] tr.variant-row td[data-mlc="t"]{padding-left:14px!important}
   table[data-ml] tbody tr:active{background:var(--ac10)}
   /* filtros: buscador a la vista + hoja */
-  .mv-fila{display:flex;gap:8px}
+  .mv-hoja-cab{display:none}
+.mv-fila{display:flex;gap:8px}
   .mv-fila .fgrp{flex:1 1 auto;min-width:0}
   .mv-fila .flbl{display:none}
   .mv-fila .fsearch{width:100%!important;height:44px}
@@ -953,6 +954,14 @@ tr.lu-fila{display:table-row;padding:0;border:0}
   .fbar.mv-hoja{display:none}
   .fbar.mv-hoja.abierta{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom));top:auto;max-height:70dvh;overflow-y:auto;z-index:96;border:0;border-top:2px solid var(--marino);box-shadow:0 -10px 30px rgba(0,0,0,.3)}
   .fbar.mv-hoja.abierta .seg,.fbar.mv-hoja.abierta .finput{min-height:40px}
+  .fbar.mv-hoja.abierta .mv-hoja-cab{display:flex;position:sticky;top:-10px;z-index:2;background:var(--sf);justify-content:space-between;align-items:center;gap:10px;padding:10px 0 8px;margin-top:-6px;border-bottom:1px solid var(--bd);width:100%}
+  .fbar.mv-hoja.abierta .mv-hoja-cab .erp-fbtn{height:40px;font-weight:700;background:var(--marino);color:#fff;border-color:var(--marino)}
+}
+.fab-filtros{display:none;position:fixed;left:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:69;height:44px;padding:0 16px;border-radius:22px;background:var(--marino);color:#fff;font-weight:700;font-size:13px;box-shadow:0 6px 16px rgba(0,0,0,.28);align-items:center;gap:6px}
+@media(max-width:767px){.fab-filtros.ver{display:flex}}
+@media(min-width:1024px){
+.fbar.fija{position:fixed;top:calc(var(--hh) + var(--mb));left:calc(var(--sw) + 24px);right:24px;z-index:45;box-shadow:0 8px 20px rgba(23,50,77,.14);max-height:42vh;overflow-y:auto}
+body.menu-oculto .fbar.fija{left:24px}
 }
 </style>
 </head>
@@ -12491,7 +12500,8 @@ async function go(secId, title) {
   }
   if (seq !== _goSeq) return;
   document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
-  try { movilListas(); movilFiltros(); } catch (e) { console.error('móvil', e); }
+  try { movilListas(); movilFiltros(); erpFbarPrep();
+    document.getElementById('fabFiltros')?.classList.toggle('ver', matchMedia('(max-width: 767px)').matches && !!document.querySelector('#content .fbar.mv-hoja')); } catch (e) { console.error('móvil', e); }
   try { bindContent(secId); } catch (e) { console.error('Falló al activar la sección', secId, e); }
   if (IR_TOCAR && IR_TOCAR.sec === secId) {   // llegó desde "Lo urgente": se pone el filtro de esa fila
     const t = IR_TOCAR.tocar;
@@ -16025,6 +16035,7 @@ async function init(role) {
   bindMobile();
   // Bodega parte en Stock Bodega; admin en el Resumen
   movilObservar();
+  window.addEventListener('scroll', erpFbarScroll, { passive: true });
   await (esBodega ? (role === 'trazabilidad' ? go('tabla', 'Trazabilidad') : go('stock', 'Stock Bodega')) : go(...vistaInicio()));
 }
 
@@ -17031,8 +17042,21 @@ function movilListas() {
 }
 function movilFiltros() {
   if (!matchMedia('(max-width: 767px)').matches) return;
+  let fab = document.getElementById('fabFiltros');
+  if (!fab) {
+    fab = document.createElement('button'); fab.id = 'fabFiltros'; fab.type = 'button'; fab.className = 'fab-filtros';
+    fab.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.5V21l4-2v-6.5z"/></svg> Filtros';
+    fab.addEventListener('click', () => { const fb2 = document.querySelector('#content .fbar.mv-hoja'); if (fb2) fb2.classList.toggle('abierta'); });
+    document.body.appendChild(fab);
+  }
+  fab.classList.toggle('ver', !!document.querySelector('#content .fbar') || !!document.querySelector('#content .fbar.mv-hoja'));
   document.querySelectorAll('#content .fbar:not([data-mv])').forEach(fb => {
     fb.dataset.mv = '1'; fb.classList.add('mv-hoja');
+    const cab = document.createElement('div'); cab.className = 'mv-hoja-cab';
+    cab.innerHTML = '<b style="font-size:14px;color:var(--marino)">Filtros</b>';
+    const listo = document.createElement('button'); listo.type = 'button'; listo.className = 'erp-fbtn'; listo.textContent = 'Listo ✕';
+    listo.addEventListener('click', () => fb.classList.remove('abierta'));
+    cab.appendChild(listo); fb.prepend(cab);
     const fila = document.createElement('div'); fila.className = 'mv-fila';
     const buscar = [...fb.querySelectorAll('.fgrp')].find(g => g.querySelector('.fsearch'));
     if (buscar) fila.appendChild(buscar);
@@ -17042,6 +17066,28 @@ function movilFiltros() {
     btn.addEventListener('click', () => fb.classList.toggle('abierta'));
     fila.appendChild(btn); fb.before(fila);
   });
+}
+/* La barra de filtros se queda a la vista al bajar, también en el PC (Manu, 16-11) */
+let FBAR = null, FBAR_PH = null, FBAR_TOP = 0;
+function erpFbarPrep() {
+  if (FBAR) FBAR.classList.remove('fija');
+  FBAR = null; FBAR_PH = null;
+  if (!matchMedia('(min-width: 1024px)').matches) return;
+  const fb = document.querySelector('#content .fbar');
+  if (!fb) return;
+  const ph = document.createElement('div'); ph.style.height = '0px';
+  fb.before(ph);
+  FBAR = fb; FBAR_PH = ph;
+  FBAR_TOP = ph.getBoundingClientRect().top + scrollY;
+  fb.dataset.h = fb.offsetHeight;
+}
+function erpFbarScroll() {
+  if (FBAR && !document.contains(FBAR)) erpFbarPrep();   // la sección repintó: re-engancharse
+  if (!FBAR || !document.contains(FBAR)) return;
+  const fijar = scrollY > FBAR_TOP - 86;
+  if (fijar === FBAR.classList.contains('fija')) return;
+  FBAR.classList.toggle('fija', fijar);
+  FBAR_PH.style.height = fijar ? (FBAR.dataset.h || 60) + 'px' : '0px';
 }
 let MOVIL_OBS = null;
 function movilObservar() {
