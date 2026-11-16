@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-6">
+<meta name="adecom-build" content="2026-11-16-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -959,8 +959,12 @@ tr.lu-fila{display:table-row;padding:0;border:0}
 }
 .fab-filtros{display:none;position:fixed;left:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:69;height:44px;padding:0 16px;border-radius:22px;background:var(--marino);color:#fff;font-weight:700;font-size:13px;box-shadow:0 6px 16px rgba(0,0,0,.28);align-items:center;gap:6px}
 @media(max-width:767px){.fab-filtros.ver{display:flex}}
+.fbar-cab{display:none}
 @media(min-width:1024px){
 .fbar.fija{position:fixed;top:calc(var(--hh) + var(--mb));left:calc(var(--sw) + 24px);right:24px;z-index:45;box-shadow:0 8px 20px rgba(23,50,77,.14);max-height:42vh;overflow-y:auto}
+.fbar.fija .fbar-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+.fbar.fija:not(.abierta){max-height:none;overflow:visible;padding:7px 12px}
+.fbar.fija:not(.abierta)>*:not(.fbar-cab){display:none!important}
 body.menu-oculto .fbar.fija{left:24px}
 }
 </style>
@@ -11574,7 +11578,7 @@ const SECS = {
    desde el contenido: data-goto, barras del gráfico, etc.) */
 function secPermitida(secId) {
   if (!window._bodegaMode) return true;
-  if (window._soloTraza) return secId === 'tabla';
+  if (window._soloTraza) return ['tabla', 'detalle-color', 'top10', 'pvc'].includes(secId);
   const btn = document.querySelector(`.nav-item[data-sec="${secId}"]`);
   return !!btn && !btn.hasAttribute('data-admin-only');
 }
@@ -17077,6 +17081,14 @@ function erpFbarPrep() {
   if (!fb) return;
   const ph = document.createElement('div'); ph.style.height = '0px';
   fb.before(ph);
+  if (!fb.querySelector('.fbar-cab')) {
+    const cab = document.createElement('div'); cab.className = 'fbar-cab';
+    cab.innerHTML = '<b style="color:var(--marino);font-size:13px">Filtros</b>';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'erp-fbtn';
+    const pinta = () => { btn.textContent = fb.classList.contains('abierta') ? 'Plegar ▴' : 'Desplegar ▾'; };
+    btn.addEventListener('click', () => { fb.classList.toggle('abierta'); pinta(); });
+    pinta(); cab.appendChild(btn); fb.prepend(cab);
+  }
   FBAR = fb; FBAR_PH = ph;
   FBAR_TOP = ph.getBoundingClientRect().top + scrollY;
   fb.dataset.h = fb.offsetHeight;
@@ -17087,6 +17099,7 @@ function erpFbarScroll() {
   const fijar = scrollY > FBAR_TOP - 86;
   if (fijar === FBAR.classList.contains('fija')) return;
   FBAR.classList.toggle('fija', fijar);
+  if (!fijar) FBAR.classList.remove('abierta');
   FBAR_PH.style.height = fijar ? (FBAR.dataset.h || 60) + 'px' : '0px';
 }
 let MOVIL_OBS = null;
@@ -17143,9 +17156,9 @@ async function erpFichaArt(base) {
   const f0 = filas[0] || {};
   const img = artImg(`${pref}00`);
   const tTallas = Object.keys(tallas).filter(t => tallas[t] > 0).sort((a, b) => (+a || 99) - (+b || 99));
-  const extra = [enCajas ? `En cajas armadas para clientes: <b>${fmt(enCajas)}</b> prendas (${fmt(cajasSG)} en San Gerardo)` : '',
-    pend ? `En producción, por llegar a bodega: <b>${fmt(pend)}</b> prendas` : '', prog ? `Programado sin cortar: <b>${fmt(prog)}</b>` : '',
-    porCortar ? `Falta cortar de órdenes a medias: <b>${fmt(porCortar)}</b>` : ''].filter(Boolean).join(' · ');
+  const extra = [enCajas ? `En cajas: <b>${fmt(enCajas)}</b>${cajasSG !== enCajas ? ` (SG ${fmt(cajasSG)})` : ''}` : '',
+    pend ? `En camino a bodega: <b>${fmt(pend)}</b>` : '', prog ? `Sin cortar: <b>${fmt(prog)}</b>` : '',
+    porCortar ? `Falta cortar: <b>${fmt(porCortar)}</b>` : ''].filter(Boolean).join(' · ');
   const cuerpo = `
   <div class="erp-ficha" style="display:flex;gap:16px;padding:14px 16px;flex-wrap:wrap;align-items:flex-start">
     ${img ? `<div style="flex:0 0 160px">${img}</div>` : ''}
@@ -17179,21 +17192,19 @@ async function erpFichaArt(base) {
         const falta = xs2.reduce((a, q2) => a + Math.max(0, q2.u - q2.d), 0);
         /* 16-11 (Manu: "podría quedar como botón y abrir una ventana, para que los demás queden a la vista") */
         return `<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <button class="erp-fbtn" onclick="erpFichaQuienVer()" style="font-weight:600">Quién lo pidió y cuánto lleva de despacho ›</button>
-          <span class="td-dim" style="font-size:12px">${fmt(xs2.length)} ${xs2.length === 1 ? 'cliente' : 'clientes'}${falta ? ` · faltan ${fmt(falta)} prendas por despachar` : ' · todo despachado'}</span></div>`; })()}
+          <button class="erp-fbtn" onclick="erpFichaQuienVer()" style="font-weight:600">Quién lo pidió ›</button>
+          <span class="td-dim" style="font-size:12px">${fmt(xs2.length)} ${xs2.length === 1 ? 'cliente' : 'clientes'}${falta ? ` · faltan <b>${fmt(falta)}</b>` : ' · al día'}</span></div>`; })()}
       ${extra ? `<div style="font-size:12px;color:var(--tx2);margin-top:10px">${extra}</div>` : ''}
-      <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Dónde está en la producción (trazabilidad)</div>
+      <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Producción</div>
       ${ocsAbiertas.length ? `
         <div style="font-size:12px;color:var(--tx2);margin-bottom:5px">${Object.entries(porEtapa).map(([e, u]) => `<b>${fmt(u)}</b> en ${esc2(e)}`).join(' · ')}</div>
         <table class="erp-tabla"><thead><tr><th>OC</th><th>Artículo</th><th>Etapa</th><th class="num">Cortadas</th><th class="num">Por entregar</th></tr></thead>
         <tbody>${ocsAbiertas.slice(0, 8).map(o => `<tr><td style="font-family:'IBM Plex Mono',monospace">${esc2(String(o.oc).replace(/^0+/, ''))}</td><td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${esc2(o.art)}</td><td>${esc2(o.etapa || '—')}</td><td class="num">${fmt(o.unidades)}</td><td class="num">${fmt(o.saldo)}</td></tr>`).join('')}</tbody></table>
         ${ocsAbiertas.length > 8 ? `<div class="td-dim" style="font-size:11px;margin-top:3px">…y ${ocsAbiertas.length - 8} órdenes más: el detalle completo está en Trazabilidad.</div>` : ''}`
       : ocsCerradas.length ? `
-        <div style="font-size:12px;color:var(--tx2)">Nada en camino: lo cortado de sus órdenes ya está entregado en bodega. Las últimas:</div>
-        <table class="erp-tabla" style="margin-top:4px"><thead><tr><th>OC</th><th>Artículo</th><th class="num">Cortadas</th><th>Estado</th></tr></thead>
-        <tbody>${ocsCerradas.sort((a, b) => String(b.oc).localeCompare(String(a.oc))).slice(0, 5).map(o => `<tr><td style="font-family:'IBM Plex Mono',monospace">${esc2(String(o.oc).replace(/^0+/, ''))}</td><td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${esc2(o.art)}</td><td class="num">${fmt(o.unidades)}</td><td><span class="erp-etq ok">ENTREGADA</span></td></tr>`).join('')}</tbody></table>`
-      : `<div style="font-size:12px;color:var(--tx2)">Este modelo no tiene órdenes de producción registradas en la trazabilidad.</div>`}</div>
-      ${tTallas.length ? `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Stock libre por talla · San Gerardo</div>
+        <div style="font-size:12px;color:var(--tx2)">Nada en camino · entregadas: ${ocsCerradas.sort((a, b) => String(b.oc).localeCompare(String(a.oc))).slice(0, 3).map(o => `OC ${esc2(String(o.oc).replace(/^0+/, ''))} (${fmt(o.unidades)})`).join(' · ')}</div>`
+      : `<div style="font-size:12px;color:var(--tx2)">Sin órdenes de producción.</div>`}</div>
+      ${tTallas.length ? `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Tallas · San Gerardo</div>
         <table class="erp-tabla" style="width:auto"><thead><tr>${tTallas.map(t => `<th class="num">${esc2(t)}</th>`).join('')}</tr></thead>
         <tbody><tr>${tTallas.map(t => `<td class="num">${fmt(tallas[t])}</td>`).join('')}</tr></tbody></table></div>` : ''}
     </div>
@@ -17299,11 +17310,19 @@ function applyRole(role, email) {
     window._bodegaMode = true;
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
     document.querySelectorAll('#tabBar button').forEach(b => { const d = b.dataset.tab;
-      if (d !== 'mas' && document.querySelector(`.nav-item[data-sec="${d}"]`)?.hasAttribute('data-admin-only')) b.style.display = 'none'; });
+      if (d !== 'mas' && !secPermitida(d)) b.style.display = 'none'; });
   }
   if (role === 'trazabilidad') {   // solo Trazabilidad: el menú queda con esa sección y sin el selector de vista
     window._soloTraza = true;
-    document.querySelectorAll('.sb-nav > *').forEach(el => { if (el.dataset?.sec !== 'tabla') el.style.display = 'none'; });
+    const TRAZA_VE = new Set(['tabla', 'detalle-color', 'top10', 'pvc']);
+    document.querySelectorAll('.sb-nav > *').forEach(el => { el.style.display = TRAZA_VE.has(el.dataset?.sec) ? '' : 'none'; });
+    /* los títulos de los grupos con secciones visibles también se ven, y parten desplegados */
+    document.querySelectorAll('.sb-nav .sb-grp').forEach(g => {
+      let el = g.nextElementSibling, tiene = false;
+      while (el && !el.classList.contains('sb-grp')) { if (TRAZA_VE.has(el.dataset?.sec)) tiene = true; el = el.nextElementSibling; }
+      if (tiene) { g.style.display = ''; MENU_ABIERTOS.add(g.dataset.grp || g.textContent.trim()); }
+    });
+    try { menuActualizar(); } catch (e) {}
     const vista = document.getElementById('sbVista'); if (vista) vista.style.display = 'none';
     document.getElementById('sbRole').textContent = 'Trazabilidad';
   }
