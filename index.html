@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-4">
+<meta name="adecom-build" content="2026-11-16-5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -885,7 +885,16 @@ tr.lu-fila{display:table-row;padding:0;border:0}
 .badge{border-radius:2px}
 @media(max-width:767px){.erp-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.erp-kpis .v{font-size:20px}}
 @media(max-width:1023px){.sidebar{transform:translateX(-100%)}.main{margin-left:0;max-width:100vw}}
-@media(max-width:767px){body{font-size:14px}.hd-marca .logo-sub,.hd-lbl,.hd-user{display:none}}
+.hd-lupa{display:none;width:44px;height:44px;align-items:center;justify-content:center;color:#fff;margin-left:auto}
+@media(max-width:767px){body{font-size:14px}.hd-marca .logo-sub,.hd-lbl,.hd-user{display:none}
+  .hd-lupa{display:flex}
+  .hd-buscar{display:none}
+  .hd-pill,.hd-salir,.hd-alertas,select#sbVista,.hd-lbl{display:none}
+  .hd-right{margin-left:0}
+  .hd-buscar.abierta{display:flex;position:fixed;top:var(--hh);left:0;right:0;z-index:85;height:48px;margin:0;border-radius:0;background:#fff;border-bottom:2px solid var(--marino);padding:0 12px}
+  .hd-buscar.abierta input{font-size:16px}
+  .hd-buscar.abierta #irRes{position:fixed;top:calc(var(--hh) + 48px);left:0;right:0;max-height:60vh}
+}
 /* ══ ETAPA CELULAR (<768px): mesas móviles del lienzo ══ */
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:70;display:none;background:#fff;border-top:1px solid var(--bd2);grid-auto-flow:column;grid-auto-columns:1fr;padding-bottom:env(safe-area-inset-bottom)}
 .tabbar button{min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:#414B58;border-top:3px solid transparent}
@@ -1191,6 +1200,7 @@ tr.lu-fila{display:table-row;padding:0;border:0}
       <span class="hd-f3">F3</span>
       <div id="irRes" style="display:none"></div>
     </div>
+    <button class="hd-lupa" id="hdLupa" aria-label="Buscar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
     <div class="hd-right">
       <div class="hd-pill" id="hdTemp"><div class="hd-dot"></div></div>
       <button class="hd-alertas" data-admin-only onclick="go('bi-alertas','Alertas y decisiones')">Alertas<span id="hdAlertasN"></span></button>
@@ -16923,6 +16933,7 @@ function erpBuscarBind() {
   let ultimos = [];
   const abrir = x => {
     res.style.display = 'none'; q.value = ''; q.blur();
+    document.querySelector('.hd-buscar')?.classList.remove('abierta');
     if (x.tipo === 'sec') go(x.sec, x.k);
     else if (x.tipo === 'art') erpFichaArt(x.k);
     else erpFichaCli(x.k);
@@ -16943,10 +16954,16 @@ function erpBuscarBind() {
     res.style.display = '';
     res.querySelectorAll('[data-iri]').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); abrir(ultimos[+b.dataset.iri]); }));
   };
+  document.getElementById('hdLupa')?.addEventListener('click', () => {
+    const hb = document.querySelector('.hd-buscar');
+    if (!hb) return;
+    hb.classList.toggle('abierta');
+    if (hb.classList.contains('abierta')) q.focus(); else { res.style.display = 'none'; }
+  });
   q.addEventListener('input', pintar);
   q.addEventListener('keydown', e => {
     if (e.key === 'Enter' && ultimos.length && res.style.display !== 'none') { e.preventDefault(); abrir(ultimos[0]); }
-    if (e.key === 'Escape') { res.style.display = 'none'; q.blur(); }
+    if (e.key === 'Escape') { res.style.display = 'none'; q.blur(); document.querySelector('.hd-buscar')?.classList.remove('abierta'); }
   });
   q.addEventListener('blur', () => setTimeout(() => { res.style.display = 'none'; }, 150));
   document.addEventListener('keydown', e => {
