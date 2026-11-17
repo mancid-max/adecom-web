@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-16-15">
+<meta name="adecom-build" content="2026-11-17-1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -2558,7 +2558,6 @@ async function secStock() {
     ${tarjeta('caj', 'Ya en cajas', 'var(--wa)', 'Ver cuáles')}
     ${admin ? tarjeta('neg', 'Con stock negativo', 'var(--er)', 'Ver cuáles') : ''}
   </div>
-  <div class="erp-cols">
   <div class="tbl-card">
     <div class="tbl-head xl-head">
       <div class="xl-izq"><div class="card-ttl" style="margin:0" id="stTtl">Artículos en bodega</div></div>
@@ -2579,8 +2578,6 @@ async function secStock() {
       </table>
     </div>
     <div class="tbl-foot">Stock = prendas en la bodega · Cajas = las ya embaladas para un cliente · Saldo = lo libre (stock − cajas)${admin ? ' · Valor aprox. = stock × el precio neto medio al que se pidió cada artículo, sin IVA (no es el costo)' : ''}. Toca un artículo para ver sus tallas y un encabezado para ordenar.</div>
-  </div>
-  ${grafCard('stGraf', '¿De qué colección es el stock?', 'Prendas de lo que se ve, por temporada: lo de colecciones pasadas es lo primero que conviene mover. Toca una barra para ver solo esa temporada.', 240)}
   </div>`;
 }
 
