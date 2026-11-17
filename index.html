@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-17-1">
+<meta name="adecom-build" content="2026-11-17-2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -9296,7 +9296,12 @@ const caNombre = c => {   // cómo saludarlo: el nombre de pila del contacto; si
 const caListar = xs => xs.slice(0, -1).join(', ') + (xs.length > 1 ? ' y ' : '') + (xs[xs.length - 1] || '');
 /* Los datos: la colección nueva, lo que se vendía a esta fecha el año pasado, y los clientes por grupo */
 async function campArmarDatos(peds, pa) {
-  const docs = (await load('docs_venta.json')) || [];
+  // 17-11 (Manu: "que se generen de manera automática las campañas, con respecto a lo que vimos"): la campaña se arma
+  // sola con la deuda real de la cuenta corriente (ctacte.json) y las observaciones de Clientes Inactivos; una nota
+  // "no comprará" deja al cliente fuera por defecto, con la nota a la vista.
+  const [docsRaw, ctRaw] = await Promise.all([load('docs_venta.json'), load('ctacte.json'), clObsCargar()]);
+  const docs = docsRaw || [];
+  const ctCli = ctRaw && !Array.isArray(ctRaw) && ctRaw.clientes ? ctRaw.clientes : null;
   const T = String(Math.max(...pa.filter(x => (x.total || 0) > 0 && esTempViva(x.temp)).map(x => +x.temp))), TA = TEMP_ACTIVA;   // la T83 mal codificada no cuenta
   const modelos = pa.filter(x => x.temp === T && (x.total || 0) > 0).sort((a, b) => b.total - a.total)
     .map(x => ({ base: x.base, bota: x.bota || '', tiro: x.tiro || '', total: x.total, stock: x.stock || 0, colores: (x.modelos || []).filter(m => (m.qty || 0) > 0).map(m => String(m.mod).padStart(2, '0')) }));
@@ -9320,7 +9325,7 @@ async function campArmarDatos(peds, pa) {
   const botasNueva = Object.entries(modelos.reduce((m, x) => { if (x.bota) m[x.bota] = (m[x.bota] || 0) + x.total; return m; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
   const tiroTop = (() => { const m = {}; for (const x of modelos) if (x.tiro) m[x.tiro] = (m[x.tiro] || 0) + x.total; const e = Object.entries(m).sort((a, b) => b[1] - a[1])[0], tot = modelos.reduce((s, x) => s + x.total, 0); return e && tot && e[1] / tot >= 0.6 ? e[0].toLowerCase() : ''; })();
   // Los clientes, con lo que compraron de la colección activa, de la nueva y a esta fecha el año pasado
-  const fichas = Object.fromEntries(ddClientes(peds, docs).map(c => [c.k, c]));
+  const fichas = Object.fromEntries(ddClientes(peds, docs, ctCli).map(c => [c.k, c]));
   const cl = new Map();
   for (const p of peds) {
     const k = vdKey(p); if (CAMP_FUERA[k]) continue;   // no se le escribe (ver CAMP_FUERA)
@@ -9336,8 +9341,12 @@ async function campArmarDatos(peds, pa) {
   const clientes = [...cl.values()].map(c => {
     const f = fichas[c.k] || {};
     c.contacto = f.contacto || ''; c.fono = f.fono || ''; c.correo = f.correo || ''; c.bloq = !!f.bloq; c.venc = f.venc || 0; c.v90 = (f.v && f.v.v90) || 0;
+    c.deuda = f.deuda || 0; c.ctReal = !!f.real;
+    const o = CL_OBS[c.k]; c.obs = (o && o.texto || '').trim(); c.obsAutor = (o && o.autor) || '';
+    c.noCompra = /no\s+compra/i.test(c.obs);   // la nota de Clientes Inactivos manda: "no comprará..." lo deja fuera
     c.grupo = c.uN > 0 ? 'ya' : c.uA > 0 ? 'activa' : (c.uAno > 0 && c.ult < hace90) ? 'ano' : '';
-    c.motivo = c.magic ? 'tienda propia' : c.bloq ? 'bloqueado: va a cobranza' : c.v90 > 0 ? `deuda vencida hace más de 90 días (${fmtM(c.v90)}): cobrar antes` : '';
+    c.motivo = c.magic ? 'tienda propia' : c.bloq ? 'bloqueado: va a cobranza' : c.noCompra ? 'anotado que no comprará' : c.v90 > 0 ? `deuda vencida hace más de 90 días (${fmtM(c.v90)}): cobrar antes` : '';
+    c.estC = c.bloq || c.v90 > 0 ? 'cobra' : c.deuda > 0 ? 'deuda' : 'libre';
     c.incluido = dentro.has(c.k) ? true : fuera.has(c.k) ? false : !c.motivo;
     c.botasTxt = Object.entries(c.botasA).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]).join(', ');
     return c;
@@ -9592,15 +9601,17 @@ function campArmarHtml() {
     ${tarjetaKpi({ attr: 'cak', k: 'mod', lbl: `Modelos de la T${A.T} para mostrar`, val: fmt(modelosDentro.length), sub: `${fmt(A.modelos.reduce((s, m) => s + m.total, 0))} unidades ya pedidas · ${caListar(A.botasNueva.slice(0, 3))}`, color: '#047857', ver: 'Ver los bosquejos' })}
     ${tarjetaKpi({ attr: 'cak', k: 'ano', lbl: 'A esta fecha el año pasado', val: A.tempAno ? 'T' + A.tempAno : '—', sub: `${fmt(A.uTempAno)} unidades entre ${A.desde.slice(8, 10)}/${A.desde.slice(5, 7)} y ${A.hasta.slice(8, 10)}/${A.hasta.slice(5, 7)} · ${fmt(porG('ano').length)} clientes de entonces sin volver`, color: 'var(--wa)', ver: 'Ver quiénes' })}
     ${tarjetaKpi({ attr: 'cak', k: 'msg', lbl: 'Mensajes a nombre de Mohicano Jeans', val: '3', sub: 'uno por grupo, con el nombre de cada cliente', color: '#6d28d9', ver: 'Ver y corregir' })}
+    ${tarjetaKpi({ attr: 'cak', k: 'facil', lbl: 'Venta fácil', val: fmt(dentro.filter(c => c.estC === 'libre').length), sub: 'incluidos sin deuda, sin bloqueo y sin nota: solo falta tomarles el pedido', color: 'var(--ok)', ver: 'Ver cuáles' })}
   </div>`;
-  const filas = A.clientes.map(c => `<tr data-k="${caTx(c.k)}" data-g="${c.grupo}" style="${c.incluido ? '' : 'opacity:.55'}">
+  const filas = A.clientes.map(c => `<tr data-k="${caTx(c.k)}" data-g="${c.grupo}" data-est="${c.estC}" style="${c.incluido ? '' : 'opacity:.55'}">
       <td><input type="checkbox" class="ca-inc" data-k="${caTx(c.k)}" ${c.incluido ? 'checked' : ''} title="${c.incluido ? 'Sacar de la campaña' : 'Incluir igual'}"></td>
-      <td class="pl-wrap" data-v="${caTx(c.nombre)}"><b>${caTx(c.nombre)}</b>${c.motivo ? `<span class="pl-sub" style="color:var(--er)">${caTx(c.motivo)}</span>` : ''}<span class="pl-sub">${caTx([c.ciudad, c.vendedor].filter(Boolean).join(' · '))}</span></td>
+      <td class="pl-wrap" data-v="${caTx(c.nombre)}" style="border-left:3px solid ${c.estC === 'cobra' ? 'var(--er)' : c.estC === 'deuda' ? 'var(--wa)' : 'var(--ok)'}"><b>${caTx(c.nombre)}</b>${c.motivo ? `<span class="pl-sub" style="color:var(--er)">${caTx(c.motivo)}</span>` : ''}${c.obs ? `<span class="pl-sub" title="${caTx(c.obs)}${c.obsAutor ? ' — ' + caTx(c.obsAutor) : ''}" style="color:var(--ac)">📝 ${caTx(c.obs.length > 40 ? c.obs.slice(0, 40) + '…' : c.obs)}</span>` : ''}<span class="pl-sub">${caTx([c.ciudad, c.vendedor].filter(Boolean).join(' · '))}</span></td>
       <td data-v="${A.grupos[c.grupo].orden}">${caTx(A.grupos[c.grupo].ttl.split(':')[0].replace(/ y .*$/, ''))}</td>
       <td class="pl-sec">${caTx(c.contacto || '—')}<span class="pl-sub">${caTx([c.fono, c.correo].filter(Boolean).join(' · '))}</span></td>
       <td class="r td-num" data-v="${c.uA}">${c.uA ? fmt(c.uA) : '—'}<span class="pl-sub">${caTx(c.botasTxt)}</span></td>
       <td class="r td-num pl-sec" data-v="${c.uAno}">${c.uAno ? fmt(c.uAno) : '—'}</td>
       <td class="td-dim" data-v="${c.ult}">${c.ult ? c.ult.split('-').reverse().join('/') : '—'}</td>
+      <td class="r td-num" data-v="${c.deuda}">${c.deuda > 0 ? `<span style="${c.venc > 0 ? 'color:var(--er);font-weight:700' : ''}">${fmtM(c.deuda)}</span>${c.venc > 0 ? `<span class="pl-sub" style="color:var(--er)">${fmtM(c.venc)} vencida${c.ctReal ? '' : ' (est.)'}</span>` : '<span class="pl-sub">al día</span>'}` : '<span class="td-dim">—</span>'}</td>
       <td class="pl-sec" style="max-width:320px;white-space:normal;font-size:11.5px;color:var(--tx2)">${c.incluido ? caTx(caMensaje(c)) : '<span class="td-dim">fuera de la campaña</span>'}</td>
       <td data-xl-no><button type="button" class="seg ca-cat" data-k="${caTx(c.k)}" style="border:1px solid var(--bd2)" title="Su minicatálogo: los modelos de la T${A.T} elegidos para él, con su curva de tallas">📄 Minicatálogo</button></td>
       <td data-v="${(caEnvio(c) ? 1 : 0) + (caEnvio(c, 'correo') ? 1 : 0)}">${caEnvioTxt(c)}</td></tr>`).join('');
@@ -9626,12 +9637,12 @@ function campArmarHtml() {
   ${kpis}
   <div class="tbl-card" id="caClientes">
     <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">1 · A quién: ${fmt(dentro.length)} clientes</div>
-      <div class="card-sub" style="margin:2px 0 0">Marcados los que entran. Los bloqueados y los con deuda vencida hace más de 90 días quedan fuera (primero cobranza); puedes incluirlos igual.</div></div>
+      <div class="card-sub" style="margin:2px 0 0">Marcados los que entran. Quedan fuera solos los bloqueados, los con deuda vencida hace más de 90 días (primero cobranza) y los anotados como "no comprará" en Clientes Inactivos; puedes incluirlos igual. La deuda es la de la cuenta corriente.</div></div>
       ${btnExcel()}<div class="xl-der"><label class="td-dim" style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="caPrecios" ${caEstado().precios === false ? '' : 'checked'}> con precios</label>
       <button type="button" class="seg" id="caCatTodos" style="border:1px solid var(--bd2)" title="Un minicatálogo por cliente incluido, uno por página, para imprimir o guardar como PDF">📄 Todos los minicatálogos</button>
-      <button type="button" class="seg" id="caEnviar" style="border:1px solid var(--ac);color:var(--ac);font-weight:700" title="Mandar la campaña por WhatsApp o por correo a los incluidos, con confirmación">📨 Enviar campaña</button><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
+      <button type="button" class="seg" id="caEnviar" style="border:1px solid var(--ac);color:var(--ac);font-weight:700" title="Mandar la campaña por WhatsApp o por correo a los incluidos, con confirmación">📨 Enviar campaña</button><div class="segs" id="caEstSegs" title="La franja de color de cada fila: verde sin traba, ámbar con deuda, rojo en cobranza"><button class="seg on" data-est="">Todos</button><button class="seg" data-est="libre">Sin traba <span class="db-n">${fmt(A.clientes.filter(c => c.estC === 'libre').length)}</span></button><button class="seg" data-est="deuda">Con deuda <span class="db-n">${fmt(A.clientes.filter(c => c.estC === 'deuda').length)}</span></button><button class="seg" data-est="cobra">Cobranza <span class="db-n">${fmt(A.clientes.filter(c => c.estC === 'cobra').length)}</span></button></div><div class="segs" id="caGrupoSegs"><button class="seg on" data-g="">Todos <span class="db-n">${fmt(A.clientes.length)}</span></button>${gkeys.map(g => `<button class="seg" data-g="${g}">${caTx(A.grupos[g].ttl.split(' y ')[0].split(':')[0])} <span class="db-n">${fmt(porG(g).length)}</span></button>`).join('')}</div></div></div>
     <div class="tbl-scroll"><table data-ord-col="4" data-ord-dir="-1" data-ord-num="1">
-      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="pl-sec">Mensaje que le llegaría</th><th data-xl-no>Catálogo</th><th data-ord="n" title="Si ya le salió la campaña: 💬 WhatsApp, ✉️ correo">Enviado</th></tr></thead>
+      <thead><tr><th title="Entra en la campaña">✓</th><th data-ord="t">Cliente</th><th data-ord="n">Grupo</th><th class="pl-sec">Contacto</th><th class="r" data-ord="n">Compró T${A.TA}</th><th class="r pl-sec" data-ord="n">A esta fecha ${A.anoPas}</th><th data-ord="t">Último pedido</th><th class="r" data-ord="n" title="De la cuenta corriente; en rojo lo vencido">Deuda</th><th class="pl-sec">Mensaje que le llegaría</th><th data-xl-no>Catálogo</th><th data-ord="n" title="Si ya le salió la campaña: 💬 WhatsApp, ✉️ correo">Enviado</th></tr></thead>
       <tbody id="caBody">${filas}</tbody></table></div>
     <div class="tbl-foot">Grupos: los que compraron la T${A.TA} y aún no piden la T${A.T}; los que compraron entre el ${A.desde.split('-').reverse().join('/')} y el ${A.hasta.split('-').reverse().join('/')} (lo equivalente a estas fechas el año pasado) y no han pedido en 3 meses; y los que ya pidieron la T${A.T}. Magic World no entra. El Excel baja la lista con el mensaje personalizado de cada uno.</div>
   </div>
@@ -9685,14 +9696,18 @@ function campArmarBind() {
     caGuardar({ modelosFuera: [...CA.modelosFuera] }); ch.closest('.ca-modelo').classList.toggle('fuera', !ch.checked);
     const v = document.getElementById('cak-mod-val'); if (v) v.textContent = fmt(CA.modelos.length - CA.modelosFuera.size);
   }));
-  cont.querySelectorAll('#caGrupoSegs .seg').forEach(b => b.addEventListener('click', () => {
-    cont.querySelectorAll('#caGrupoSegs .seg').forEach(x => x.classList.toggle('on', x === b));
-    cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { tr.style.display = !b.dataset.g || tr.dataset.g === b.dataset.g ? '' : 'none'; });
+  const caFiltrar = () => {   // grupo y estado se combinan
+    const g = cont.querySelector('#caGrupoSegs .seg.on')?.dataset.g || '', e = cont.querySelector('#caEstSegs .seg.on')?.dataset.est || '';
+    cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { tr.style.display = (!g || tr.dataset.g === g) && (!e || tr.dataset.est === e) ? '' : 'none'; });
+  };
+  cont.querySelectorAll('#caGrupoSegs .seg, #caEstSegs .seg').forEach(b => b.addEventListener('click', () => {
+    b.closest('.segs').querySelectorAll('.seg').forEach(x => x.classList.toggle('on', x === b));
+    caFiltrar();
   }));
   let deb = null;
   cont.querySelectorAll('.ca-texto').forEach(t => t.addEventListener('input', () => {
     CA.msgs[t.dataset.g] = t.value;
-    clearTimeout(deb); deb = setTimeout(() => { caGuardar({ msgs: CA.msgs }); cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { const c = CA.clientes.find(x => x.k === tr.dataset.k); if (c && c.incluido && c.grupo === t.dataset.g) tr.cells[7].textContent = caMensaje(c); }); }, 400);
+    clearTimeout(deb); deb = setTimeout(() => { caGuardar({ msgs: CA.msgs }); cont.querySelectorAll('#caBody tr[data-k]').forEach(tr => { const c = CA.clientes.find(x => x.k === tr.dataset.k); if (c && c.incluido && c.grupo === t.dataset.g) tr.cells[8].textContent = caMensaje(c); }); }, 400);
   }));
   cont.querySelectorAll('.ca-cat').forEach(b => b.addEventListener('click', () => caAbrirCatalogo([b.dataset.k])));
   document.getElementById('caEnviar')?.addEventListener('click', caEnviarAbrir);
@@ -9716,8 +9731,8 @@ function campArmarBind() {
     finally { b.disabled = false; b.textContent = '✨ Pedirle otra versión a Mohi'; }
   }));
   cont.querySelectorAll('[data-cak]').forEach(card => {
-    const ir = () => document.getElementById({ cli: 'caClientes', mod: 'caModelos', ano: 'caClientes', msg: 'caMensajes' }[card.dataset.cak])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    card.addEventListener('click', () => { ir(); if (card.dataset.cak === 'ano') document.querySelector('#caGrupoSegs .seg[data-g="ano"]')?.click(); });
+    const ir = () => document.getElementById({ cli: 'caClientes', mod: 'caModelos', ano: 'caClientes', msg: 'caMensajes', facil: 'caClientes' }[card.dataset.cak])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.addEventListener('click', () => { ir(); if (card.dataset.cak === 'ano') document.querySelector('#caGrupoSegs .seg[data-g="ano"]')?.click(); if (card.dataset.cak === 'facil') document.querySelector('#caEstSegs .seg[data-est="libre"]')?.click(); });
     card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
   });
 }
