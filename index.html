@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-17-5">
+<meta name="adecom-build" content="2026-11-17-6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -9316,7 +9316,11 @@ async function campArmarDatos(peds, pa) {
   const [docsRaw, ctRaw] = await Promise.all([load('docs_venta.json'), load('ctacte.json'), clObsCargar()]);
   const docs = docsRaw || [];
   const ctCli = ctRaw && !Array.isArray(ctRaw) && ctRaw.clientes ? ctRaw.clientes : null;
-  const T = String(Math.max(...pa.filter(x => (x.total || 0) > 0 && esTempViva(x.temp)).map(x => +x.temp))), TA = TEMP_ACTIVA;   // la T83 mal codificada no cuenta
+  // 17-11 (Manu: "si coloco colección T44 debería ser la campaña orientada para la 44"): manda el selector Colección;
+  // si la elegida no tiene pedidos, se cae a la más nueva con pedidos. TA es la colección anterior a la elegida.
+  const nuevaT = String(Math.max(...pa.filter(x => (x.total || 0) > 0 && esTempViva(x.temp)).map(x => +x.temp)));   // la T83 mal codificada no cuenta
+  const T = PLAN_TEMP && pa.some(x => String(x.temp) === String(PLAN_TEMP) && (x.total || 0) > 0) ? String(PLAN_TEMP) : nuevaT;
+  const TA = String(+T - 1);
   const modelos = pa.filter(x => x.temp === T && (x.total || 0) > 0).sort((a, b) => b.total - a.total)
     .map(x => ({ base: x.base, bota: x.bota || '', tiro: x.tiro || '', total: x.total, stock: x.stock || 0, colores: (x.modelos || []).filter(m => (m.qty || 0) > 0).map(m => String(m.mod).padStart(2, '0')) }));
   const botaDe = {}; for (const x of pa) botaDe[x.temp + x.base] = x.bota || '';
