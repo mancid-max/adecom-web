@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-17-6">
+<meta name="adecom-build" content="2026-11-17-7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -9389,7 +9389,7 @@ async function campArmarDatos(peds, pa) {
   const sem = i => { const x = new Date(lunes); x.setDate(x.getDate() + 7 * i); return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}`; };
   const anoPas = String(+hoy.slice(0, 4) - 1), uAnoTot = peds.filter(p => (p.fecha_iso || '').startsWith(anoPas)).reduce((s, p) => s + (p.unidades || 0), 0);
   const uOctNov = peds.filter(p => (p.fecha_iso || '').startsWith(anoPas) && /-(10|11)-/.test(p.fecha_iso)).reduce((s, p) => s + (p.unidades || 0), 0);
-  return { T, TA, modelos, botasNueva, envios: Array.isArray(envios) ? envios : [], tempAno: tempAno[0], uTempAno: tempAno[1], topBotasAno, desde, hasta, clientes, grupos, msgs, plantillas, modelosFuera, sem, pctOctNov: uAnoTot ? Math.round(uOctNov / uAnoTot * 100) : 0, anoPas };
+  return { T, TA, nuevaT, modelos, botasNueva, envios: Array.isArray(envios) ? envios : [], tempAno: tempAno[0], uTempAno: tempAno[1], topBotasAno, desde, hasta, clientes, grupos, msgs, plantillas, modelosFuera, sem, pctOctNov: uAnoTot ? Math.round(uOctNov / uAnoTot * 100) : 0, anoPas };
 }
 function caMensaje(c) {   // el mensaje de su grupo, con su nombre
   return (CA.msgs[c.grupo] || '').replace(/\{nombre\}/g, caNombre(c)).replace(/\{vendedor\}/g, c.vendedor || '');
@@ -9525,6 +9525,17 @@ async function caApi(accion, extra = {}) {
   return d;
 }
 let CA_CANAL = 'whatsapp';   // el canal elegido en la ventana de envío
+/* 17-11 (Manu: "ya tenemos una aprobación para despacho inmediato"): la plantilla de WhatsApp se elige según la
+   campaña. La función 'campana' acepta body.plantilla (lista blanca; sin el campo usa coleccion_nueva_mayorista,
+   en correo se ignora) y la previa devuelve el texto real de la elegida. Por defecto: colección nueva si la campaña
+   es de la colección más nueva con pedidos; si no, la de reponer con despacho inmediato. */
+let CA_PLANT = '';   // '' = la que corresponde por defecto
+const CA_PLANTILLAS_WA = [
+  ['coleccion_nueva_mayorista', 'Colección nueva'],
+  ['despacho_inmediato_44_reponer', 'Reponer (despacho inmediato 44)'],
+  ['despacho_inmediato_44_volver', 'Volver a comprar (44)'],
+];
+const caPlantilla = () => CA_PLANT || (CA && CA.T === CA.nuevaT ? 'coleccion_nueva_mayorista' : 'despacho_inmediato_44_reponer');
 const caLista = () => CA.clientes.filter(c => c.incluido).map(c => ({ rut: c.rut, nombre: c.nombre, saludo: caNombre(c), telefono: c.fono || '', correo: c.correo || '', grupo: c.grupo,
   producto: caListar(caModelosPara(c, 3).map(m => m.base + (m.bota ? ' ' + m.bota : ''))) }));
 const caConCorreo = lista => lista.map(x => { const c = CA.clientes.find(y => y.rut === x.rut && y.nombre === x.nombre); if (!c) return x; const m = caCorreoHtml(c, !!document.getElementById('caPrecios')?.checked); return { ...x, asunto: m.asunto, html: m.html, texto: m.texto }; });
@@ -9542,6 +9553,7 @@ function caModalHtml(prev, lista) {
   const costo = correo ? 0 : Math.round(r.listos * 85);
   return `<div style="padding:12px 16px 16px;display:grid;gap:12px;font-size:13px">
     <div class="fgrp" style="margin:0"><span class="flbl">Canal</span><div class="segs" id="caCanalSegs"><button type="button" class="seg${correo ? '' : ' on'}" data-canal="whatsapp">💬 WhatsApp</button><button type="button" class="seg${correo ? ' on' : ''}" data-canal="correo">✉️ Correo</button></div></div>
+    ${correo ? '' : `<div class="fgrp" style="margin:0"><span class="flbl" title="El primer mensaje por WhatsApp debe ser una plantilla aprobada por Meta; elige la que calza con esta campaña">Plantilla del primer mensaje</span><div class="segs" id="caPlantSegs">${CA_PLANTILLAS_WA.map(([k, lbl]) => `<button type="button" class="seg${caPlantilla() === k ? ' on' : ''}" data-pl="${k}">${lbl}</button>`).join('')}</div></div>`}
     ${prev.plantilla.error ? `<div style="padding:9px 12px;border-radius:8px;background:var(--wa10);color:var(--wa);font-weight:600">${caTx(prev.plantilla.error)}</div>` : ''}
     <div class="guia-caja"><b>Lo que recibe cada cliente</b> <span class="td-dim">${correo ? '' : `(plantilla ${caTx(prev.plantilla.nombre)}, aprobada por Meta; la manda Sofía desde el número de Mohicano Jeans):`}</span>
       <div style="margin:8px 0;padding:10px 12px;background:var(--sf);border-radius:10px;border:1px solid var(--bd);line-height:1.5">${texto}</div>
@@ -9568,7 +9580,7 @@ async function caEnviarAbrir() {
   try {
     const lista = caLista();
     if (!lista.length) throw new Error('No hay clientes incluidos en la campaña.');
-    const prev = await caApi('previa', { canal: CA_CANAL, clientes: lista });
+    const prev = await caApi('previa', { canal: CA_CANAL, clientes: lista, plantilla: caPlantilla() });
     CA.previa = prev; CA.lista = lista;
     body.innerHTML = caModalHtml(prev, lista);
     caModalBind();
@@ -9580,12 +9592,13 @@ function caModalBind() {
   ok.addEventListener('change', () => { ir.disabled = !ok.checked || !listos.length; ir.style.opacity = ir.disabled ? '.5' : '1'; });
   body.querySelectorAll('[data-cae]').forEach(k => k.addEventListener('click', () => body.querySelector('.tbl-scroll')?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
   body.querySelectorAll('#caCanalSegs .seg').forEach(b => b.addEventListener('click', () => { if (b.dataset.canal !== CA_CANAL) { CA_CANAL = b.dataset.canal; caEnviarAbrir(); } }));
+  body.querySelectorAll('#caPlantSegs .seg').forEach(b => b.addEventListener('click', () => { if (b.dataset.pl !== caPlantilla()) { CA_PLANT = b.dataset.pl; caEnviarAbrir(); } }));   // la previa se rehace con la plantilla elegida
   body.querySelector('#caPrueba').addEventListener('click', async () => {
     const tel = body.querySelector('#caTel').value.trim(), out = body.querySelector('#caPruebaRes'), correo = CA_CANAL === 'correo';
     if (!tel) { out.textContent = correo ? 'Escribe tu correo.' : 'Escribe tu celular.'; return; }
     if (!confirm(`¿Mando la prueba a ${tel}? Es un ${correo ? 'correo' : 'mensaje de WhatsApp'} real.`)) return;
     out.textContent = 'Mandando…';
-    try { const r = await caApi('prueba', { canal: CA_CANAL, telefono: tel, correo: tel, clientes: correo ? caConCorreo([CA.lista[0]]) : [CA.lista[0]], confirmacion: 'ENVIAR' }); out.textContent = r.envio.estado === 'enviado' ? (correo ? `Listo, revisa tu correo (${r.envio.correo}).` : `Listo, revisa tu WhatsApp (${r.envio.telefono}).`) : 'No salió: ' + (r.envio.error || r.envio.estado); }
+    try { const r = await caApi('prueba', { canal: CA_CANAL, telefono: tel, correo: tel, plantilla: caPlantilla(), clientes: correo ? caConCorreo([CA.lista[0]]) : [CA.lista[0]], confirmacion: 'ENVIAR' }); out.textContent = r.envio.estado === 'enviado' ? (correo ? `Listo, revisa tu correo (${r.envio.correo}).` : `Listo, revisa tu WhatsApp (${r.envio.telefono}).`) : 'No salió: ' + (r.envio.error || r.envio.estado); }
     catch (e) { out.textContent = 'No salió: ' + String(e.message || e); }
   });
   ir.addEventListener('click', async () => {
@@ -9597,7 +9610,7 @@ function caModalBind() {
       const lote = listos.slice(i, i + 10);
       prog.textContent = `Enviando ${hechos + 1}–${Math.min(hechos + lote.length, listos.length)} de ${listos.length}… no cierres esta ventana`;
       try {
-        const r = await caApi('enviar', { canal: CA_CANAL, clientes: CA_CANAL === 'correo' ? caConCorreo(lote) : lote, confirmacion: 'ENVIAR' });
+        const r = await caApi('enviar', { canal: CA_CANAL, plantilla: caPlantilla(), clientes: CA_CANAL === 'correo' ? caConCorreo(lote) : lote, confirmacion: 'ENVIAR' });
         enviados += r.resumen.enviados; errores += r.resumen.errores;
         r.hechos.filter(x => x.estado === 'error').forEach(x => fallas.push(`${x.nombre}: ${x.error || ''}`));
       } catch (e) { errores += lote.length; fallas.push(`Lote de ${lote.map(x => x.nombre).join(', ')}: ${String(e.message || e)}`); }
