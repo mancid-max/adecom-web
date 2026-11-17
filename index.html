@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-17-2">
+<meta name="adecom-build" content="2026-11-17-3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1160,7 +1160,9 @@ body.menu-oculto .fbar.fija{left:24px}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
       Qué le debemos
     </button>
-    <button class="nav-item" data-sec="clientes" data-ttl="Clientes Inactivos" data-admin-only>
+    <!-- 17-11 (Manu: "tenemos que juntar secciones para mejorar la vista"): Clientes Inactivos pasa a ser una pestaña
+         de Campaña; el botón queda escondido porque las migas y los permisos lo siguen usando -->
+    <button class="nav-item" data-sec="clientes" data-ttl="Clientes Inactivos" data-admin-only style="display:none">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Clientes Inactivos
     </button>
@@ -4830,6 +4832,15 @@ async function secClientes() {
   const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
   <div class="fbar cl-fbar">
+    <div class="fbar-row">
+    <div class="fgrp"><span class="flbl">Pestaña</span>
+    <div class="segs" id="clCampTabs">
+      <button class="seg" data-tab="plan">Plan: qué producir</button>
+      <button class="seg" data-tab="venta">Venta: qué ofrecer y a quién</button>
+      <button class="seg" data-tab="armar">Armar campaña</button>
+      <button class="seg on" data-tab="clientes">Clientes inactivos</button>
+    </div></div>
+    </div>
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
     <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
@@ -9767,6 +9778,7 @@ async function secCampana() {
         <button class="seg${CAMP_TAB === 'plan' ? ' on' : ''}" data-tab="plan">Plan: qué producir</button>
         <button class="seg${CAMP_TAB === 'venta' ? ' on' : ''}" data-tab="venta">Venta: qué ofrecer y a quién</button>
         <button class="seg${CAMP_TAB === 'armar' ? ' on' : ''}" data-tab="armar" data-admin-only>Armar campaña</button>
+        <button class="seg" data-tab="clientes" data-admin-only title="Quién no ha comprado la colección, con su deuda y sus notas">Clientes inactivos</button>
       </div></div>
       <div class="fgrp"><span class="flbl">Comparar con</span>
       <div class="segs" id="campCmpSegs">
@@ -14591,6 +14603,7 @@ function bindContent(secId) {
   // Campaña: las dos pestañas y el filtro de arriba, que vale para las dos
   if (secId === 'campana') {
     document.querySelectorAll('#campTabs .seg').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.tab === 'clientes') { go('clientes', 'Clientes Inactivos'); return; }   // la pestaña vive en su propia sección
       if (b.dataset.tab === CAMP_TAB) return;
       CAMP_TAB = b.dataset.tab;
       try { localStorage.setItem('adecom_campana_tab', CAMP_TAB); } catch (e) {}
@@ -15308,6 +15321,13 @@ function bindContent(secId) {
 
   // Clientes Inactivos — filters
   if (secId === 'clientes') {
+    /* La misma barra de pestañas que Campaña: desde aquí se salta a las otras (17-11, "juntar secciones") */
+    document.querySelectorAll('#clCampTabs .seg').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.tab === 'clientes') return;
+      CAMP_TAB = b.dataset.tab;
+      try { localStorage.setItem('adecom_campana_tab', CAMP_TAB); } catch (e) {}
+      go('campana', 'Campaña');
+    }));
     /* Estado: inactivos, activos o ambos (Manu, 10-11-2026) */
     document.querySelectorAll('#clEstadoSegs [data-ce]').forEach(b => b.addEventListener('click', () => {
       CL_MODO = b.dataset.ce;
