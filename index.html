@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-17-7">
+<meta name="adecom-build" content="2026-11-18-1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -4900,6 +4900,16 @@ async function secClientes() {
    La tienda Kennedy lleva su inventario en su propio sistema, aparte del ERP.
    El código de allá son los mismos 8 dígitos del artículo sin el prefijo "01",
    con la talla pegada al final, así que se puede comparar artículo por artículo. */
+/* Observaciones de la tienda Kennedy (18-11-2026, Manu: "una sección nueva en donde escriban el
+   nombre y la observación... esto en el apartado de kennedy"): nombre + texto, compartidas. Viven
+   en Supabase (tabla observaciones_kennedy, solo admin, igual que las de clientes). */
+async function knObsCargar() {
+  const { data, error } = await sb.from('observaciones_kennedy')
+    .select('id,nombre,texto,created_at').order('created_at', { ascending: false }).limit(200);
+  if (error) throw error;
+  return data || [];
+}
+
 async function secKennedy() {
   const [d] = await Promise.all([load('stock_bsale.json'), load('pedidos.json')]);
   const ICO = '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21v-6h6v6"/>';
@@ -5000,6 +5010,17 @@ async function secKennedy() {
       <div class="tbl-foot" id="knFoot">${filas.length} artículos · ${fmt(totU)} prendas</div>
     </div>
     <div class="tbl-foot">Kennedy = lo que tiene la tienda · ADECOM = lo que figura en el ERP, sumando todas sus bodegas · Dif. = Kennedy − ADECOM · Valor aprox. = Kennedy × el precio mayorista neto medio del artículo, sin IVA (no es el costo). Toca un artículo para ver sus tallas y un encabezado para ordenar.</div>
+  </div>
+  <div class="tbl-card" style="margin-top:14px">
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Observaciones de la tienda</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px">
+      <input id="knObsNombre" class="finput" placeholder="Nombre" style="width:130px">
+      <input id="knObsTexto" class="finput" placeholder="Observación… (Enter guarda)" style="flex:1;min-width:180px">
+      <button class="seg" id="knObsGuardar" style="border:1px solid var(--bd2)">Guardar</button>
+      <span class="td-dim" id="knObsEstado" style="font-size:11px"></span>
+    </div>
+    <div id="knObsLista"><div class="td-dim" style="padding:10px 14px">Cargando…</div></div>
+    <div class="tbl-foot">Lo que anote el equipo de la tienda queda acá para todos, con su fecha; lo más nuevo arriba.</div>
   </div>`;
 }
 
@@ -14799,6 +14820,59 @@ function bindContent(secId) {
       const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
     }));
     applyKn();
+
+    // Observaciones de la tienda (18-11-2026): nombre + texto, lo más nuevo arriba
+    const obsLista = document.getElementById('knObsLista');
+    if (obsLista) {
+      const escO = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+      const nom = document.getElementById('knObsNombre'), txt = document.getElementById('knObsTexto'),
+            est = document.getElementById('knObsEstado'), btn = document.getElementById('knObsGuardar');
+      try { nom.value = localStorage.getItem('adecom_kn_obs_nombre') || ''; } catch (e) {}
+      const p2 = n => String(n).padStart(2, '0');
+      const fechaO = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${p2(d.getDate())}/${p2(d.getMonth() + 1)} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+      const pintarObs = async () => {
+        try {
+          const filas = await knObsCargar();
+          obsLista.innerHTML = filas.length ? filas.map(o => `
+            <div style="display:flex;gap:8px;align-items:baseline;padding:7px 14px;border-top:1px solid var(--bd)">
+              <span style="font-weight:600;white-space:nowrap">${escO(o.nombre) || '—'}</span>
+              <span style="flex:1;min-width:120px">${escO(o.texto)}</span>
+              <span class="td-dim" style="font-size:11px;white-space:nowrap">${fechaO(o.created_at)}</span>
+              <button class="seg" data-id="${o.id}" title="Borrar la observación (se borra para todos)" style="border:none;color:var(--tx3);padding:0 4px">✕</button>
+            </div>`).join('')
+            : '<div class="td-dim" style="padding:10px 14px">Todavía no hay observaciones: la primera que se guarde queda acá.</div>';
+          obsLista.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', async () => {
+            if (!confirm('¿Borrar esta observación? Se borra para todos.')) return;
+            try {
+              const { error } = await sb.from('observaciones_kennedy').delete().eq('id', b.dataset.id);
+              if (error) throw error;
+              pintarObs();
+            } catch (e) { est.textContent = 'No se pudo borrar'; }
+          }));
+        } catch (e) {
+          obsLista.innerHTML = '<div class="td-dim" style="padding:10px 14px">No se pudieron cargar: falta crear la tabla en Supabase (sql/observaciones_kennedy.sql) o no hay permiso.</div>';
+        }
+      };
+      const guardarObsK = async () => {
+        const nombre = nom.value.trim(), texto = txt.value.trim();
+        if (!nombre) { est.textContent = 'Escribe tu nombre'; nom.focus(); return; }
+        if (!texto) { est.textContent = 'Escribe la observación'; txt.focus(); return; }
+        est.textContent = 'Guardando…'; btn.disabled = true;
+        try {
+          const { error } = await sb.from('observaciones_kennedy').insert({ nombre, texto });
+          if (error) throw error;
+          try { localStorage.setItem('adecom_kn_obs_nombre', nombre); } catch (e) {}
+          txt.value = '';
+          est.textContent = 'Guardada ✓';
+          setTimeout(() => { if (est.textContent === 'Guardada ✓') est.textContent = ''; }, 2500);
+          pintarObs();
+        } catch (e) { est.textContent = 'No se pudo guardar: falta crear la tabla en Supabase (sql/observaciones_kennedy.sql) o no hay permiso'; }
+        btn.disabled = false;
+      };
+      btn.addEventListener('click', guardarObsK);
+      txt.addEventListener('keydown', e => { if (e.key === 'Enter') guardarObsK(); });
+      pintarObs();
+    }
   }
 
   // Fotos pendientes
