@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-2">
+<meta name="adecom-build" content="2026-11-19-3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -12633,7 +12633,8 @@ async function go(secId, title) {
     let g = btn && btn.previousElementSibling;
     while (g && !(g.classList && g.classList.contains('sb-grp'))) g = g.previousElementSibling;
     const grp = g ? (g.dataset.grp || g.textContent.trim()) : '';
-    if (mg) mg.textContent = title === 'Inicio' ? 'Inicio' : grp && grp !== title && grp !== 'Inicio' ? `Inicio › ${grp} › ${title}` : `Inicio › ${title}`;
+    const grpVis = (g && g.querySelector('span')?.textContent) || grp;   // en la vista Kennedy el grupo se muestra corto
+    if (mg) mg.textContent = title === 'Inicio' ? 'Inicio' : grpVis && grpVis !== title && grp !== 'Inicio' ? `Inicio › ${grpVis} › ${title}` : `Inicio › ${title}`;
     document.querySelectorAll('#modBar button').forEach(b => b.classList.toggle('on', b.dataset.grp === grp));
     const TAB_GRP = { 'Inicio': 'inicio', 'Pedidos': 'detalle-color', 'Producción': 'tabla', 'Cobranza': 'deudas' };
     const tabOn = secId === 'inicio' ? 'inicio' : (TAB_GRP[grp] || 'mas');
@@ -17084,6 +17085,18 @@ function aplicarVista(v, navegar = true) {
     const st = document.getElementById('stSuc'); if (st) st.textContent = 'Vista: ' + ({ ambos: 'Ambos', sg: 'San Gerardo', k: 'Kennedy', at: 'Atención' }[v] || v); }
   const ver = sec => v === 'at' ? VISTA_ATENCION.has(sec) : !VISTA_ATENCION.has(sec) && (v === 'ambos' || (v === 'k') === VISTA_KENNEDY.has(sec));
   document.querySelectorAll('.sb-nav .nav-item[data-sec]').forEach(b => b.classList.toggle('vista-oculta', !ver(b.dataset.sec)));
+  // 19-11 (Manu: "mucho Kennedy si sabemos que esta sesión es de la tienda"): dentro de la vista
+  // Kennedy las etiquetas van sin el apellido; en las demás vistas se queda, para distinguir de San Gerardo
+  const esK = v === 'k';
+  const KN_NOMBRES = { 'venta-kennedy': ['Venta Kennedy', 'Venta'], 'kennedy': ['Stock Kennedy', 'Stock'], 'kn-obs': ['Observaciones Kennedy', 'Observaciones'] };
+  for (const [sec, [largo, corto]] of Object.entries(KN_NOMBRES)) {
+    const b = document.querySelector(`.sb-nav .nav-item[data-sec="${sec}"]`);
+    if (!b) continue;
+    b.dataset.ttl = esK ? corto : largo;
+    b.lastChild.textContent = ' ' + (esK ? corto : largo);
+  }
+  const gT = document.querySelector('.sb-nav .sb-grp[data-grp="Tienda Kennedy"]');
+  if (gT) { const s = gT.querySelector('span'); if (s) s.textContent = esK ? 'Tienda' : 'Tienda Kennedy'; }
   // Un título de grupo sin ninguna sección visible debajo también se esconde
   let grp = null, alguna = false;
   const cerrarGrp = () => { if (grp) grp.classList.toggle('vista-oculta', !alguna); };
@@ -17149,7 +17162,7 @@ function erpModbar() {
   bar.innerHTML = menuGrupos().map(g => {
     const vis = g.items.filter(b => !b.classList.contains('vista-oculta') && b.style.display !== 'none' && !b.classList.contains('solo-movil'));
     if (!vis.length) return '';
-    return `<button data-grp="${g.nombre}" class="${g.nombre === actGrp ? 'on' : ''}">${g.nombre}</button>`;
+    return `<button data-grp="${g.nombre}" class="${g.nombre === actGrp ? 'on' : ''}">${g.el.querySelector('span')?.textContent || g.nombre}</button>`;
   }).join('');
   bar.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     const g = menuGrupos().find(x => x.nombre === b.dataset.grp);
