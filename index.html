@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-18-1">
+<meta name="adecom-build" content="2026-11-19-1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1097,6 +1097,10 @@ body.menu-oculto .fbar.fija{left:24px}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21v-6h6v6"/></svg>
       Stock Kennedy
     </button>
+    <button class="nav-item" data-sec="kn-obs" data-ttl="Observaciones Kennedy" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+      Observaciones Kennedy
+    </button>
     <button class="nav-item" data-sec="cajas" data-ttl="Cajas en Bodega" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       Cajas en Bodega
@@ -2142,6 +2146,7 @@ async function secInicio() {
     card('atencion', '📣 Campañas', '', 'Cómo va cada campaña y quién compró', 'campanas-atencion', 'Campañas'),
     card('tienda', '🏬 Venta Kennedy', '', 'La tienda día a día', 'venta-kennedy', 'Venta Kennedy'),
     card('tienda', '👖 Stock Kennedy', '', 'Lo que hay en la tienda', 'kennedy', 'Stock Kennedy'),
+    card('tienda', '📝 Observaciones', '', 'Lo que el equipo de la tienda deja anotado', 'kn-obs', 'Observaciones Kennedy'),
   ].join('');
   const chips = [['todo', 'Todo'], ['venta', '💵 Venta'], ['produccion', '✂️ Producción'], ['bodega', '📦 Bodega'], ['atencion', '💬 Atención'], ['tienda', '🏬 Tienda']]
     .map(([id, nom]) => `<button class="ini-chip${INI_CHIP === id ? ' on' : ''}" data-chip="${id}">${nom}</button>`).join('');
@@ -5010,15 +5015,25 @@ async function secKennedy() {
       <div class="tbl-foot" id="knFoot">${filas.length} artículos · ${fmt(totU)} prendas</div>
     </div>
     <div class="tbl-foot">Kennedy = lo que tiene la tienda · ADECOM = lo que figura en el ERP, sumando todas sus bodegas · Dif. = Kennedy − ADECOM · Valor aprox. = Kennedy × el precio mayorista neto medio del artículo, sin IVA (no es el costo). Toca un artículo para ver sus tallas y un encabezado para ordenar.</div>
+  </div>`;
+}
+
+/* Sección propia de observaciones (19-11-2026, Manu: "debería quedar una sección nueva de
+   observaciones"): el 18-11 era una tarjeta al final de Stock Kennedy; ahora es su entrada
+   "Observaciones Kennedy" en el menú. Misma tabla observaciones_kennedy. */
+function secKnObs() {
+  return `
+  <div class="tbl-card">
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Escribir una observación</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:12px 14px">
+      <input id="knObsNombre" class="finput" placeholder="Nombre" style="width:150px">
+      <textarea id="knObsTexto" class="finput" rows="2" placeholder="Observación… (Enter guarda; Shift+Enter, salto de línea)" style="flex:1;min-width:220px;resize:vertical;box-sizing:border-box"></textarea>
+      <button class="seg" id="knObsGuardar" style="border:1px solid var(--bd2)">Guardar</button>
+      <span class="td-dim" id="knObsEstado" style="font-size:11px;align-self:center"></span>
+    </div>
   </div>
   <div class="tbl-card" style="margin-top:14px">
-    <div class="tbl-head"><div class="card-ttl" style="margin:0">Observaciones de la tienda</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px">
-      <input id="knObsNombre" class="finput" placeholder="Nombre" style="width:130px">
-      <input id="knObsTexto" class="finput" placeholder="Observación… (Enter guarda)" style="flex:1;min-width:180px">
-      <button class="seg" id="knObsGuardar" style="border:1px solid var(--bd2)">Guardar</button>
-      <span class="td-dim" id="knObsEstado" style="font-size:11px"></span>
-    </div>
+    <div class="tbl-head"><div class="card-ttl" style="margin:0">Lo anotado</div></div>
     <div id="knObsLista"><div class="td-dim" style="padding:10px 14px">Cargando…</div></div>
     <div class="tbl-foot">Lo que anote el equipo de la tienda queda acá para todos, con su fecha; lo más nuevo arriba.</div>
   </div>`;
@@ -11689,6 +11704,7 @@ const SECS = {
   'pvc':            () => secPVC(),
   'stock':          () => secStock(),
   'kennedy':        () => secKennedy(),
+  'kn-obs':         () => Promise.resolve(secKnObs()),
   'cajas':          () => secCajas(),
   'telas':          () => secTelas(),
   'consumo':        () => secConsumo(),
@@ -14820,8 +14836,10 @@ function bindContent(secId) {
       const chv = row.querySelector('.chv'); if (chv) chv.textContent = open ? '▸' : '▾';
     }));
     applyKn();
+  }
 
-    // Observaciones de la tienda (18-11-2026): nombre + texto, lo más nuevo arriba
+  // Observaciones Kennedy (19-11-2026): sección propia; nombre + texto, lo más nuevo arriba
+  if (secId === 'kn-obs') {
     const obsLista = document.getElementById('knObsLista');
     if (obsLista) {
       const escO = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -14870,7 +14888,7 @@ function bindContent(secId) {
         btn.disabled = false;
       };
       btn.addEventListener('click', guardarObsK);
-      txt.addEventListener('keydown', e => { if (e.key === 'Enter') guardarObsK(); });
+      txt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); guardarObsK(); } });
       pintarObs();
     }
   }
@@ -17044,7 +17062,7 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
    venta, y abre en Venta Kennedy: el Resumen es de San Gerardo (despachos, su venta, producción) y Manu lo vio
    ahí con los datos de San Gerardo. San Gerardo esconde lo de Kennedy; Ambos muestra todo. Se recuerda en este
    computador y es solo para el administrador. Cambia el menú, no los datos de cada sección. */
-const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy']);
+const VISTA_KENNEDY = new Set(['kennedy', 'venta-kennedy', 'bi-kennedy', 'kn-obs']);
 /* Atención (Manu, 27-10-2026: "debería verse aparte de todo eso"): una vista solo con lo de las agentes de Nexor
    (Conversaciones; después el CRM tienda, los casos y las campañas). Esas secciones no salen en las otras vistas. */
 const VISTA_ATENCION = new Set(['conversaciones', 'reporte-atencion', 'formularios-atencion', 'campanas-atencion', 'plantillas-atencion']);
@@ -17093,6 +17111,7 @@ const PG_PROPOSITO = {
   pvc: 'Pedido contra corte: qué falta cubrir y qué cortar primero.',
   stock: 'El stock libre por artículo y talla en San Gerardo.',
   kennedy: 'Lo que hay en la tienda Kennedy.',
+  'kn-obs': 'Lo que el equipo de la tienda deja anotado.',
   cajas: 'Las cajas ya armadas en bodega que esperan despacho.',
   telas: 'Stock de telas, su consumo y los metros por prenda.',
   consumo: 'Qué tela y qué plata se consume por orden de corte.',
