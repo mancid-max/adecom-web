@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-4">
+<meta name="adecom-build" content="2026-11-19-5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1170,8 +1170,9 @@ body.menu-oculto .fbar.fija{left:24px}
       Proyecciones
     </button>
 
-    <!-- 19-11 (Manu: "¿y por qué quedó en la parte de stock?"): lo de la tienda junto, en su propio grupo -->
-    <div class="sb-grp" data-admin-only>Tienda Kennedy</div>
+    <!-- 19-11 (Manu: "¿y por qué quedó en la parte de stock?"): lo de la tienda junto, en su propio grupo.
+         El grupo y Observaciones no llevan data-admin-only: bodega también las ve (Manu, 19-11), solo lectura -->
+    <div class="sb-grp">Tienda Kennedy</div>
     <button class="nav-item" data-sec="venta-kennedy" data-ttl="Venta Kennedy" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       Venta Kennedy
@@ -1180,7 +1181,7 @@ body.menu-oculto .fbar.fija{left:24px}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21v-6h6v6"/></svg>
       Stock Kennedy
     </button>
-    <button class="nav-item" data-sec="kn-obs" data-ttl="Observaciones Kennedy" data-admin-only>
+    <button class="nav-item" data-sec="kn-obs" data-ttl="Observaciones Kennedy">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
       Observaciones Kennedy
     </button>
@@ -5026,7 +5027,7 @@ async function secKennedy() {
    "Observaciones Kennedy" en el menú. Misma tabla observaciones_kennedy. */
 function secKnObs() {
   return `
-  <div class="tbl-card">
+  ${window._bodegaMode ? '' : `<div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Escribir una observación</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:12px 14px">
       <input id="knObsNombre" class="finput" placeholder="Nombre" style="width:150px">
@@ -5034,8 +5035,8 @@ function secKnObs() {
       <button class="seg" id="knObsGuardar" style="border:1px solid var(--bd2)">Guardar</button>
       <span class="td-dim" id="knObsEstado" style="font-size:11px;align-self:center"></span>
     </div>
-  </div>
-  <div class="tbl-card" style="margin-top:14px">
+  </div>`}
+  <div class="tbl-card" ${window._bodegaMode ? '' : 'style="margin-top:14px"'}
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Lo anotado</div></div>
     <div id="knObsLista"><div class="td-dim" style="padding:10px 14px">Cargando…</div></div>
     <div class="tbl-foot">Lo que anote el equipo de la tienda queda acá para todos, con su fecha; lo más nuevo arriba.</div>
@@ -14860,7 +14861,7 @@ function bindContent(secId) {
               <span style="font-weight:600;white-space:nowrap">${escO(o.nombre) || '—'}</span>
               <span style="flex:1;min-width:120px">${escO(o.texto)}</span>
               <span class="td-dim" style="font-size:11px;white-space:nowrap">${fechaO(o.created_at)}</span>
-              <button class="seg" data-id="${o.id}" title="Borrar la observación (se borra para todos)" style="border:none;color:var(--tx3);padding:0 4px">✕</button>
+              ${window._bodegaMode ? '' : `<button class="seg" data-id="${o.id}" title="Borrar la observación (se borra para todos)" style="border:none;color:var(--tx3);padding:0 4px">✕</button>`}
             </div>`).join('')
             : '<div class="td-dim" style="padding:10px 14px">Todavía no hay observaciones: la primera que se guarde queda acá.</div>';
           obsLista.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', async () => {
@@ -14901,8 +14902,10 @@ function bindContent(secId) {
         } catch (e) { est.textContent = 'No se pudo guardar: falta crear la tabla en Supabase (sql/observaciones_kennedy.sql) o no hay permiso'; }
         btn.disabled = false;
       };
-      btn.addEventListener('click', guardarObsK);
-      txt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); guardarObsK(); } });
+      if (btn) {   // bodega entra solo a mirar: no hay formulario que conectar
+        btn.addEventListener('click', guardarObsK);
+        txt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); guardarObsK(); } });
+      }
       pintarObs();
     }
   }
