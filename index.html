@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-6">
+<meta name="adecom-build" content="2026-11-19-7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -12220,7 +12220,11 @@ function cuaGrafico(pend) {
    búsqueda). Las unidades se leen de la columna de la tabla, que es lo que se ve. */
 const dcCap = s => (s ? s[0].toUpperCase() + s.slice(1) : '');
 let DC_FT = null;   // el mapa de cortes por artículo, armado una vez por carga de datos
-function dcAbrir(base) {   // abre los colores de un modelo y lo deja a la vista
+function dcAbrir(base) {   /* abre los colores de un modelo y deja SOLO ese modelo a la vista: antes se expandía en
+     medio de la lista completa y los demás modelos parecían ser sus colores (Manu, 19-11: "cuando se abre en
+     colores son distintos modelos"). El buscador queda con el modelo escrito: borrar lo escrito trae el resto. */
+  const s = document.getElementById('dcSearch');
+  if (s) { s.value = base; s.dispatchEvent(new Event('input')); }
   const row = [...document.querySelectorAll('#dcBody tr[data-expandable]')].find(r => r.dataset.base === base);
   if (!row) return;
   const sig = row.nextElementSibling, abierta = sig && sig.classList.contains('variant-row') && sig.style.display !== 'none';
