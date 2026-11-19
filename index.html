@@ -4,11 +4,11 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-7">
+<meta name="adecom-build" content="2026-11-19-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 #loginOv{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
 #loginOv.hidden{display:none}
@@ -181,6 +181,36 @@
   --wa:#7A3E06;--wa10:#FEF0C7;
   --er:#B42318;--er10:#FEE4E2;
   --sw:216px;--hh:46px;--mb:38px;--sb:26px;--r:3px;--rsm:2px;--iaw:400px;--marino:#17324D;--bdwa:#DC9B2F;
+  /* 19-11 (Manu: "la página tiene que ser blanca"): el modo oscuro de la prueba se probó y se descartó;
+     la página declara SOLO tema claro, así ningún navegador en oscuro le pinta controles oscuros */
+  color-scheme: light;
+}
+/* PRUEBA 19-11 (responsive-table): las tablas largas ruedan dentro de su tarjeta y la fila de títulos queda
+   fija arriba; el borde va en box-shadow porque los bordes no viajan con el encabezado pegajoso */
+.tbl-scroll{overflow:auto;max-block-size:min(72vh,720px)}
+.tbl-scroll thead th{position:sticky;inset-block-start:0;z-index:2;border-bottom:none;box-shadow:0 1px 0 var(--bd)}
+/* PRUEBA 19-11 (responsive-table): en una ventana angosta, la tabla de etapas de la orden se apila en
+   tarjetas — una por etapa, con su nombre arriba y cada dato con su etiqueta — en vez de apretarse ilegible.
+   "Días ERP" (dato de control) se esconde en angosto. El color de atraso de la fila se mantiene. */
+.trz-eta-wrap{container-type:inline-size}
+@container (width < 560px){
+  .trz-etapas thead{display:none}
+  .trz-etapas,.trz-etapas tbody,.trz-etapas tr,.trz-etapas td{display:block;width:100%}
+  .trz-etapas tr{border:1px solid var(--bd);border-radius:6px;margin:0 0 8px;padding:7px 10px}
+  .trz-etapas td{padding:1px 0;border:none;text-align:left}
+  .trz-etapas td:nth-child(1){font-weight:700;font-size:13px;margin-bottom:2px}
+  .trz-etapas td:nth-child(6){display:none}
+  .trz-etapas td::before{color:var(--tx3);font-size:11px}
+  .trz-etapas td:nth-child(2)::before{content:"Entró: "}
+  .trz-etapas td:nth-child(3)::before{content:"Salió: "}
+  .trz-etapas td:nth-child(4)::before{content:"Días: "}
+  .trz-etapas td:nth-child(5)::before{content:"Estándar: "}
+  .trz-etapas td:nth-child(7)::before{content:"Pendiente: "}
+}
+/* PRUEBA 19-11 (same-document-transitions): fundido breve al cambiar de sección; sin movimiento si el usuario lo pidió */
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}
+@media (prefers-reduced-motion: reduce){
+  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none !important}
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx1);font-size:13px;line-height:1.5;min-height:100vh}
@@ -307,6 +337,12 @@ html,body{overflow-x:hidden;max-width:100%}
 
 /* ── TABLE CARD ──────────────────────────────────────────────── */
 .tbl-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+/* PRUEBA 19-11 (modern-web-guidance): las tablas grandes quedan bajo el pliegue (arriba van tarjetas y gráfico);
+   el navegador se salta pintarlas hasta que el usuario se acerque. contain-intrinsic-size evita saltos del scroll. */
+.kpi-grid ~ .tbl-card{content-visibility:auto;contain-intrinsic-size:auto none auto 600px}
+/* PRUEBA 19-11: el cuadro de la observación crece solo con lo escrito (2 a 8 líneas); donde no exista
+   field-sizing, se queda con sus 2 líneas fijas de siempre */
+#knObsTexto{field-sizing:content;height:auto;min-block-size:2lh;max-block-size:8lh}
 .tbl-head{display:flex;align-items:center;gap:12px;padding:16px 20px 14px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
 /* Encabezado con el botón de Excel justo al centro, igual en todas las secciones: título a la izquierda, lo demás a la derecha */
 .tbl-head.xl-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}
@@ -356,7 +392,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 #iaChat{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
 #iaChat:empty{display:none}
 #iaForm{display:flex;gap:6px;align-items:flex-end;margin-top:8px}
-#iaInput{flex:1;resize:none;font:inherit;font-size:13px;line-height:1.4;max-height:110px;padding:7px 10px}
+#iaInput{flex:1;resize:none;font:inherit;font-size:13px;line-height:1.4;max-height:110px;padding:7px 10px;field-sizing:content;min-block-size:1lh}
 #iaSend{padding:7px 12px;border-radius:7px;border:0;background:var(--ac);color:#fff;font-weight:700;font-size:12.5px;cursor:pointer}
 #iaSend:disabled{opacity:.5;cursor:default}
 .guia-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
@@ -738,6 +774,14 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
 .det-close:hover{background:var(--bd)}
 .det-body{overflow-y:auto;flex:1}
 
+/* 19-11 (Manu: "si presionan en las opciones de arriba se olvidan que tienen los 3 guiones"): cuando el menú
+   lateral se esconde, bajo el título va la fila con las secciones del grupo activo */
+.grp-secs{display:none;gap:6px;overflow-x:auto;padding:10px 0 0;scrollbar-width:none}
+.grp-secs::-webkit-scrollbar{display:none}
+.grp-secs button{font:inherit;font-size:12.5px;white-space:nowrap;padding:6px 12px;border:1px solid var(--bd2);border-radius:14px;background:var(--sf);color:var(--tx2);font-weight:600;flex-shrink:0}
+.grp-secs button.on{background:var(--marino);border-color:var(--marino);color:#fff}
+@media(max-width:1100px){.grp-secs{display:flex}}
+
 /* ── MOBILE ──────────────────────────────────────────────────── */
 @media(max-width:1100px){
   .hd-menu{display:flex}
@@ -900,7 +944,7 @@ tr.lu-fila{display:table-row;padding:0;border:0}
 .tabbar button{min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:#414B58;border-top:3px solid transparent}
 .tabbar svg{width:20px;height:20px}
 .tabbar button.on{color:var(--marino);font-weight:700;border-top-color:var(--ac)}
-.smv-cab,.smv-user{display:none}
+.smv-cab,.smv-user,.smv-vista{display:none}
 .sb-badge{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--er);color:#fff;padding:1px 7px;border-radius:2px}
 .sb-badge:empty{display:none}
 @media(max-width:767px){
@@ -920,6 +964,11 @@ tr.lu-fila{display:table-row;padding:0;border:0}
   .smv-cab .x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#fff}
   .smv-user{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--sf2);border-bottom:1px solid var(--bd2);padding:8px 14px;flex-shrink:0}
   .smv-user .badge-t{background:var(--ok10);color:var(--ok);font-size:12px;font-weight:600;padding:3px 8px;border-radius:3px}
+  /* 19-11 (Manu: "en celular no se puede ver por sucursal, está todo junto"): el selector de vista, en el menú */
+  .smv-vista{display:flex;align-items:center;gap:10px;background:var(--sf2);border-bottom:1px solid var(--bd2);padding:8px 14px;flex-shrink:0}
+  .smv-vista>span{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+  .smv-vista .segs{flex:1;display:flex}
+  .smv-vista .seg{flex:1;font-size:11.5px;padding:6px 2px;text-align:center}
   .sb-nav{padding:0}
   .sb-grp{min-height:48px;display:flex;align-items:center;font-size:15px;background:var(--sf2);border-bottom:1px solid var(--bd);padding:0 14px}
   .nav-item{min-height:44px;font-size:15px;padding:0 14px 0 30px;border-bottom:1px solid var(--bd);align-items:center}
@@ -1050,6 +1099,8 @@ body.menu-oculto .fbar.fija{left:24px}
 <aside class="sidebar" id="sidebar">
   <div class="smv-cab"><div class="logo">A</div><div><div style="font-weight:700;letter-spacing:.04em">ADECOM</div><div style="font-size:12px;color:#C9D6E4">Mohicano Jeans</div></div><button class="x" id="menuCerrar" aria-label="Cerrar menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
   <div class="smv-user"><div><div id="smvNombre" style="font-weight:600">—</div><div id="smvRol" style="font-size:12px;color:var(--tx2)">—</div></div><span class="badge-t" id="smvTemp">—</span></div>
+  <div class="smv-vista" data-admin-only><span>Sucursal</span><div class="segs">
+    <button class="seg" data-smv="ambos">Ambos</button><button class="seg" data-smv="sg">S. Gerardo</button><button class="seg" data-smv="k">Kennedy</button><button class="seg" data-smv="at">Atención</button></div></div>
   <div class="sb-logo">
     <div class="logo-mark">A</div>
     <div><div class="logo-name">ADECOM</div><div class="logo-sub">Mohicano Jeans</div></div>
@@ -1066,13 +1117,11 @@ body.menu-oculto .fbar.fija{left:24px}
       Resumen
     </button>
 
-<div class="sb-grp" data-admin-only>Inteligencia BI</div>
+<div class="sb-grp" data-admin-only>Panel BI</div>
     <button class="nav-item" data-sec="bi-panel" data-ttl="Panel ejecutivo" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Panel ejecutivo</button>
     <button class="nav-item" data-sec="bi-alertas" data-ttl="Alertas y decisiones" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alertas y decisiones</button>
     <button class="nav-item" data-sec="bi-clientes" data-ttl="Clientes y cartera" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Clientes y cartera</button>
-    <button class="nav-item" data-sec="bi-kennedy" data-ttl="Tienda Kennedy BI" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6"/></svg>Tienda Kennedy</button>
     <button class="nav-item" data-sec="bi-prod" data-ttl="Producción BI" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg>Producción</button>
-    <button class="nav-item" data-sec="bi-er" data-ttl="Rentabilidad" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/></svg>Rentabilidad</button>
 
     <div class="sb-grp" data-admin-only>Pedidos</div>
     <button class="nav-item" data-sec="detalle-color" data-ttl="Detalle Pedido Color" data-admin-only>
@@ -1104,10 +1153,6 @@ body.menu-oculto .fbar.fija{left:24px}
     <button class="nav-item" data-sec="consumo" data-ttl="Consumo de tela" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/></svg>
       Consumo de tela
-    </button>
-    <button class="nav-item" data-sec="fotos" data-ttl="Fotos pendientes" data-admin-only>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      Fotos pendientes
     </button>
 
     <div class="sb-grp">Producción</div>
@@ -1142,9 +1187,8 @@ body.menu-oculto .fbar.fija{left:24px}
     </button>
     <!-- 17-11 ("hace eso de pedido para ver como queda"): el tablero de Pedidos — Reporte, Venta vs Despacho y
          Qué le debemos son pestañas de una sola entrada; los botones escondidos siguen para migas y permisos -->
-    <button class="nav-item" data-sec="rep-pedidos" data-ttl="Pedidos" data-admin-only>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      Pedidos
+    <button class="nav-item" data-sec="rep-pedidos" data-ttl="Despachos" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Despachos
     </button>
     <button class="nav-item" data-sec="venta-despacho" data-ttl="Venta vs Despacho" data-admin-only style="display:none">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -1161,6 +1205,10 @@ body.menu-oculto .fbar.fija{left:24px}
       Clientes Inactivos
     </button>
 
+    <button class="nav-item" data-sec="fotos" data-ttl="Fotos pendientes" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Fotos pendientes
+    </button>
     <button class="nav-item" data-sec="campana" data-ttl="Campaña" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
       Campaña
@@ -1173,6 +1221,8 @@ body.menu-oculto .fbar.fija{left:24px}
     <!-- 19-11 (Manu: "¿y por qué quedó en la parte de stock?"): lo de la tienda junto, en su propio grupo.
          El grupo y Observaciones no llevan data-admin-only: bodega también las ve (Manu, 19-11), solo lectura -->
     <div class="sb-grp">Tienda Kennedy</div>
+    <button class="nav-item" data-sec="bi-kennedy" data-ttl="Panel Tienda Kennedy" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6"/></svg>Panel
+    </button>
     <button class="nav-item" data-sec="venta-kennedy" data-ttl="Venta Kennedy" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       Venta Kennedy
@@ -1191,9 +1241,9 @@ body.menu-oculto .fbar.fija{left:24px}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Conversaciones
     </button>
-    <button class="nav-item" data-sec="reporte-atencion" data-ttl="Reporte de Atención" data-admin-only>
+    <button class="nav-item" data-sec="reporte-atencion" data-ttl="Performance de Atención" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
-      Reporte
+      Performance
     </button>
     <button class="nav-item" data-sec="campanas-atencion" data-ttl="Campañas" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-5 0-8 3-8 7.5S7 21 12 21s8-3 8-7.5S17 6 12 6z"/><path d="M12 6c0-1.5.5-3 2-3.5"/><path d="M9 12l1.5 1.5L12 12l1.5 1.5L15 12"/></svg>
@@ -1215,6 +1265,7 @@ body.menu-oculto .fbar.fija{left:24px}
     </button>
 
     <div class="sb-grp" data-admin-only>Finanzas</div>
+    <button class="nav-item" data-sec="bi-er" data-ttl="Rentabilidad" data-admin-only><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/></svg>Rentabilidad</button>
     <button class="nav-item" data-sec="er" data-ttl="Estado de Resultado" data-admin-only>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
       Estado Resultado
@@ -1258,6 +1309,7 @@ body.menu-oculto .fbar.fija{left:24px}
   <nav class="modbar" id="modBar" aria-label="Módulos" data-admin-only></nav>
   <div class="pg-cab"><div><div class="pg-migas" id="pgMigas">Inicio</div><h1 class="pg-h1" id="hdTitle">Resumen General</h1><div class="pg-prop" id="pgProp"></div></div>
     <div class="pg-tools"><button class="pg-btn" id="btnF5" title="Vuelve a pedir los datos sin recargar la página">Actualizar <kbd>F5</kbd></button></div></div>
+  <nav id="grpSecs" class="grp-secs" aria-label="Secciones del módulo"></nav>
   <div class="content" id="content">
     <div style="padding:60px;text-align:center;color:var(--tx2)">Cargando…</div>
   </div>
@@ -1827,7 +1879,7 @@ function resDetCortesMes(m) {
     </div>`;
   if (!r.lista.length) return volver + resumen + '<div class="td-dim" style="padding:6px 16px 18px;font-size:12px">Todavía no hay órdenes emitidas en este mes.</div>';
   // Las que no se han cortado arriba: son las que hay que ir a mirar
-  const lista = [...r.lista].sort((a, b) => ((a.proceso || 0) > 0) - ((b.proceso || 0) > 0)
+  const lista = r.lista.toSorted((a, b) => ((a.proceso || 0) > 0) - ((b.proceso || 0) > 0)
                                          || (b.programa || 0) - (a.programa || 0));
   const chip = (t, bg, fg) => `<span style="background:${bg};color:${fg};border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${t}</span>`;
   return volver + resumen + vTabla(
@@ -1878,7 +1930,7 @@ function resDetClientes(cual) {
   return vTabla(
     '<th>Cliente</th><th class="r" title="Unidades que se le pueden mandar">Se le puede mandar</th><th class="r">Artículos</th><th></th><th></th>',
     filas.map((f, i) => {
-      const arts = f.detalle.slice().sort((a, b) => b.u - a.u);
+      const arts = f.detalle.toSorted((a, b) => b.u - a.u);
       // Las lineas de articulos vienen plegadas: son muchas y lo primero que se mira
       // es a quien mandarle, no que exactamente.
       const sub = arts.map(a => `<tr class="res-art no-click" data-de="${i}" style="display:none;background:var(--sf2)">
@@ -2175,7 +2227,7 @@ function bindInicio() {
   const lla = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const buscar = () => {
     const t = lla(q.value.trim());
-    if (t.length < 2) { res.style.display = 'none'; res.innerHTML = ''; return; }
+    if (t.length < 2) { res.style.display = 'none'; res.replaceChildren(); return; }
     const arts = (PEDS_ART || []).filter(p => lla(p.base).includes(t)).slice(0, 5)
       .map(p => ({ tipo: 'art', k: p.base, sub: `T${p.temp} · saldo ${fmt(p.saldo)} · stock ${fmt(p.stock)}` }));
     const clis = INI_CLI.filter(c => lla(c.n).includes(t)).slice(0, 5)
@@ -2215,7 +2267,7 @@ async function secResumen() {
   const tPrev = byTemp[tAnterior] || { total:0, modelos:0 };
   const dTemp = deltaInfo(tSel.total, tPrev.total);
 
-  const top15 = (tSel.items || []).slice().sort((a,b)=>b.total-a.total);
+  const top15 = (tSel.items || []).toSorted((a,b)=>b.total-a.total);
   const top8  = top15.slice(0, 8);
 
   const variantesT = (tSel.items || []).reduce((s,i) => s + i.colores, 0);
@@ -2304,7 +2356,7 @@ function secDetalleColor() {
   function buildColorRows(t) {
     const info = byTemp[t];
     if (!info?.items?.length) return '<tr class="no-click"><td colspan="5" style="text-align:center;padding:20px;color:var(--tx3)">Sin datos</td></tr>';
-    const sorted = info.items.slice().sort((a,b) => b.total - a.total);
+    const sorted = info.items.toSorted((a,b) => b.total - a.total);
     const tc = tcFor(t);
     return sorted.map(item => {
       const variantRows = (item.modelos || []).map(v => {
@@ -2498,7 +2550,7 @@ async function secStock() {
 
   // Filas de tabla — atributos data-s01, data-s04, etc. por sucursal
   const rowsHtml = data
-    .slice().sort((a,b) => (b.prendas||0) - (a.prendas||0))
+    .toSorted((a,b) => (b.prendas||0) - (a.prendas||0))
     .map(r => {
       const tc = tcFor(r.temp);
       const sucAttrs = sucList.map(s => `data-s${s}="${r.suc?.[s]||0}"`).join(' ');
@@ -2743,7 +2795,7 @@ const tblTotMvHtml = tots => tots.map((v, i) => (i < 4 || v > 0) ? `<div><span c
   ${(() => {
     const COLS = [['Corte','Corte','p_corte'],['Costura','Costura','p_taller'],['T.Externo','T. Externo','p_texterno'],['Limpiado','Limpiado','p_limpiado'],['Lavandería','Lavandería','p_lavanderia'],['Terminación','Terminación','p_terminacion']];
     const cols = COLS.map(([key, lbl, pk]) => {
-      const en = rows.filter(r => r.etapa === key).slice().sort((a, b) => ((atrDe(b) || {}).dias || 0) - ((atrDe(a) || {}).dias || 0));
+      const en = rows.filter(r => r.etapa === key).toSorted((a, b) => ((atrDe(b) || {}).dias || 0) - ((atrDe(a) || {}).dias || 0));
       const cards = en.slice(0, 6).map(r => {
         const x = atrDe(r), d = desdeDe(r);
         return `<div class="trz-oc" role="button" tabindex="0" data-oc="${(r.corte || '').trim()}" data-art="${(r.articulo || '').trim()}" title="Toca para ver los días en cada etapa y el corte por talla" style="border:1px solid var(--bd2);border-left:4px solid ${x ? 'var(--er)' : '#9DB3CB'};padding:6px 8px;background:var(--sf);cursor:pointer">
@@ -3484,7 +3536,7 @@ function cuaBase(toc) {
     const fines  = et.map(x => x.fin).filter(Boolean).sort();
     const inicio = (et.find(x => x.n === 'Corte') || {}).ini || cuaISO(r.fecha);
     const cuadro = (cort > 0 && falta === 0) ? (fines[fines.length - 1] || '') : '';
-    const donde  = [...et].reverse().find(x => x.pend > 0);
+    const donde  = et.findLast(x => x.pend > 0);
     lista.push({
       oc: String(r.oc || '').trim(), art: String(r.articulo || '').trim(),
       temp: String(r.articulo || '').slice(2, 4), emitida: cuaISO(r.fecha),
@@ -3618,7 +3670,7 @@ function cuaDetDias(cuadradas) {
                   [61, 90, 'De 61 a 90'], [91, 1e9, 'Más de 90']];
   const filas = tramos.map(([a, b, l]) => [l, con.filter(r => r.dias >= a && r.dias <= b)]);
   const max = Math.max(...filas.map(([, g]) => g.length));
-  const lentas = [...con].sort((a, b) => b.dias - a.dias).slice(0, 5);
+  const lentas = con.toSorted((a, b) => b.dias - a.dias).slice(0, 5);
   const tabla = vTabla(
     '<th>Tramo</th><th class="r">Órdenes</th><th class="r">Prendas</th><th></th>',
     filas.map(([l, g]) => `<tr>
@@ -4214,7 +4266,7 @@ async function secMetas() {
   MT = mtBase(toc);
   if (!MT.meses.length) return makePH('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>', 'Metas de Producción', 'Sin movimientos de producción');
 
-  const meses = MT.meses.slice().reverse(), hoyMes = today().slice(0, 7);
+  const meses = MT.meses.toReversed(), hoyMes = today().slice(0, 7);
   const def = meses.includes(hoyMes) ? hoyMes : meses[0];
   const metas = mtMetas();
 
@@ -4537,8 +4589,7 @@ async function secCajas() {
   const tempsCj = [...new Set(cajas.flatMap(c => c.temps || []))].sort((a, b) => b.localeCompare(a));
   const rowsHtml = cajas.map(c => {
     // Contenido agrupado por artículo: 01441800 → 36×2 · 38×2 · …
-    const byArt = {};
-    (c.lineas || []).forEach(l => { (byArt[l.art] = byArt[l.art] || []).push(l); });
+    const byArt = Object.groupBy(c.lineas || [], l => l.art);   // agrupado por artículo
     const lineRows = Object.entries(byArt).map(([art, ls]) => {
       const tot = ls.reduce((s, l) => s + l.cant, 0);
       const tallas = ls.map(l => `${l.talla}×${l.cant}`).join(' · ');
@@ -5210,7 +5261,7 @@ function cvTCard(l, T) {
 function cvTableroHtml(T) {
   if (!T || !T.ok) return `<div class="cv-vacio">${cvEsc((T && T.mensaje) || 'No pude leer el tablero.')}</div>`;
   const xs = cvTFiltrar(T);
-  const por = {}; for (const l of xs) (por[l.etapa] = por[l.etapa] || []).push(l);
+  const por = Object.groupBy(xs, l => l.etapa);
   const col = e => { const ls = por[e.key] || []; return `<div class="cv-tcol" data-tetapa="${cvEsc(e.key)}" data-tmover="${e.mover ? 1 : 0}">
       <h5><i style="background:${['necesita_ayuda', 'awaiting_human_response'].includes(e.key) ? 'var(--wa)' : CV_TCOLOR[e.categoria] || 'var(--tx3)'}"></i><span>${cvEsc(e.label)}</span><small>${fmt(ls.length)}</small></h5>
       <div class="cv-tcards">${ls.map(l => cvTCard(l, T)).join('')}</div></div>`; };
@@ -5311,7 +5362,7 @@ function cvTEventos(ag) {
       const b = e.currentTarget, dl = 'cvTdl' + Math.random().toString(36).slice(2, 7);
       b.outerHTML = `<input list="${dl}" placeholder="Etiqueta y Enter" data-tnueva><datalist id="${dl}">${(CV_TAB.etiquetas || []).filter(t => !(l.tags || []).includes(t)).map(t => `<option value="${cvEsc(t)}">`).join('')}</datalist>`;
       const inp = c.querySelector('[data-tnueva]'); inp.focus();
-      inp.addEventListener('keydown', ev => { if (ev.key === 'Enter' && inp.value.trim()) guardarTags(l, [...(l.tags || []), inp.value.trim()]); if (ev.key === 'Escape') { const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } });
+      inp.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.isComposing && ev.keyCode !== 229 && inp.value.trim()) guardarTags(l, [...(l.tags || []), inp.value.trim()]); if (ev.key === 'Escape') { const bd = document.getElementById('cvTBoard'); bd.innerHTML = cvTableroHtml(CV_TAB); cvTEventos(ag); } });
     });
     c.querySelectorAll('[data-trhecho]').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation();
@@ -5338,7 +5389,7 @@ function cvTEventos(ag) {
         l.recordatorios = [...(l.recordatorios || []), r.recordatorio].sort((a, b) => a.fecha.localeCompare(b.fecha)); cerrar();
       };
       f.querySelector('[data-trok]').addEventListener('click', guardar);
-      f.querySelector('[data-trn]').addEventListener('keydown', ev => { if (ev.key === 'Enter') guardar(); if (ev.key === 'Escape') cerrar(); });
+      f.querySelector('[data-trn]').addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.isComposing && ev.keyCode !== 229) guardar(); if (ev.key === 'Escape') cerrar(); });
     });
     c.querySelector('[data-tresp]')?.addEventListener('click', e => {
       e.stopPropagation();
@@ -5609,7 +5660,7 @@ async function secConversaciones() {
 /* Reporte de Atención (29-10, Manu: "en esa misma sección de Atención deja una de reporte: cuántas personas hablaron, cuántas
    necesitan una persona, cuánto concretó Valentina en venta y Sofía"). Lo calcula la página (reporte-atencion-background,
    ~1,5 min, cada 15 min como máximo); acá se muestra el último. */
-let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_PER = 'd7', RA_TIMER = null;
+let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_PER = 'd7', RA_TIMER = null, RA_TAB = 'chats';
 const RA_ESTILO = `
     .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .ra-hd .td-dim{font-size:12px}
@@ -5635,6 +5686,12 @@ const RA_ESTILO = `
     .ra-tabla th{text-align:left;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
     .ra-tabla td{padding:8px;border-bottom:1px solid var(--bd);vertical-align:middle}
     .ra-tabla tr[data-ralead]{cursor:pointer}.ra-tabla tr[data-ralead]:hover td{background:var(--sf2)}
+    .ra-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--bd)}
+    .ra-tab{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--tx2);padding:8px 14px;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px}
+    .ra-tab.on{color:var(--ac);border-bottom-color:var(--ac)}
+    .ra-vk{display:flex;gap:12px;align-items:flex-start}
+    .ra-ico{flex:0 0 36px;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px}
+    .ra-ver{display:inline-block;margin-top:7px;font-size:12px;font-weight:600;color:var(--ac);cursor:pointer}
     .ra-nom{display:flex;align-items:center;gap:9px;min-width:0}.ra-nom b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
     .ra-av{flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:var(--ac);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;position:relative}
     .ra-av span{position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;background:var(--sf);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--bd)}
@@ -5647,7 +5704,7 @@ const RA_ESTILO = `
 async function secReporteAtencion() {
   const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
   const [d, c, f] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1')]);
-  if (!d.ok) return makePH(ICO, 'Reporte de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
+  if (!d.ok) return makePH(ICO, 'Performance de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
   RA_DATA = d; RA_CAMP = c && c.ok ? c : null; RA_FORM = f && f.ok ? f : null;
   return `<style>${RA_ESTILO}</style><div id="raBody">${raRender()}</div>`;
 }
@@ -5680,32 +5737,37 @@ function raRender() {
   const neto = n => Math.round(n / 1.19);
   const confNeto = neto(vConfM) + sConfM, posNeto = neto(vPosM) + sPosM;
   const nConf = (vr.pedidos || 0) + sConf.length, nPos = (vp.pedidos || 0) + sPos.length;
-  return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
-      <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
+  /* 19-11 (Manu, vía la sesión PAGINA WEB): "Dashboard de Performance" estilo Versu — pestañas,
+     tarjetas con ícono + número grande + fuente + "Ver detalle". Mismos datos y cálculos de siempre. */
+  const kV = (ico, bg, n, t2, sub, color2, ver2 = '') => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
+    <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${ver2}</div></div></div>`;
+  const ver = (sec2, ttl) => `<span class="ra-ver" data-rair="${sec2}" data-rairt="${ttl}">Ver detalle ›</span>`;
+  const tab = (k2, l) => `<button class="ra-tab${RA_TAB === k2 ? ' on' : ''}" data-ratab="${k2}">${l}</button>`;
+  const solas = H.total ? Math.max(0, Math.round((1 - (R.total || 0) / H.total) * 100)) : null;
+  const pie = `<div class="ra-pie">Fuentes: conversaciones de Nexor (sin pruebas ni el chat de la tienda; ${fmt(d.conversaciones)} con movimiento en 30 días) · aviso por WhatsApp: estado del mensaje en Nexor · correo: píxel de apertura (aproximado) y clics anotados en el CRM · Valentina: compras en mohicano.cl con el mismo celular o entrando por su link · Sofía: pedidos del ERP (bi/pedidos.json) y de la página; el RUT sale del celular.</div>`;
 
-    <section class="ra-bloque"><div class="ra-bt"><h3>Atención</h3><span>Sofía (mayoristas) y Valentina (tienda), por WhatsApp e Instagram</span></div>
+  const tabChats = `<section class="ra-bloque">
       <div class="ra-ks">
-        ${k(fmt(H.total), `personas escribieron ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)} · WhatsApp ${fmt(H.whatsapp)} · Instagram ${fmt(H.instagram)}`, '--tx1')}
-        ${k(fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta · el equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', R.total ? '<button class="ra-link" data-raconv>Ver en Conversaciones →</button>' : '')}
-        ${k(fmtM(confNeto), `ventas confirmadas ${per}`, `${fmt(nConf)} ${nConf === 1 ? 'pedido' : 'pedidos'}, neto<br>Valentina ${fmtM(vConfM)} con IVA (${fmt(vr.pedidos || 0)}) · Sofía ${fmtM(sConfM)} neto (${fmt(sConf.length)})`, '--ok')}
-        ${k(fmtM(posNeto), `ventas posibles ${per}`, `${fmt(nPos)} ${nPos === 1 ? 'pedido' : 'pedidos'}, neto · pueden ser por las agentes o no<br>Valentina ${fmtM(vPosM)} con IVA (${fmt(vp.pedidos || 0)}: abrió su link y compró otra cuenta) · Sofía ${fmtM(sPosM)} neto (${fmt(sPos.length)}: pedidos del vendedor de quien le escribió)`, '--wa')}
+        ${kV('💬', 'var(--ac10)', fmt(H.total), `conversaciones ${per}`, `Sofía ${fmt(H.sofia)} · Valentina ${fmt(H.valentina)}`, '--tx1', ver('conversaciones', 'Conversaciones'))}
+        ${kV('🙋', R.total ? 'var(--er10)' : 'var(--ok10)', fmt(R.total), 'requieren una persona ahora', `${fmt(R.pidio_persona)} pidieron una persona · ${fmt(R.sin_respuesta)} sin respuesta · el equipo atiende ${fmt(d.tomadas)}`, R.total ? '--er' : '--ok', ver('conversaciones', 'Conversaciones'))}
+        ${kV('🤖', 'var(--ok10)', solas === null ? '—' : solas + '%', 'atendidas solas', `aproximado: las que requieren una persona ahora, contra las que escribieron ${per}`, '--ok')}
+        ${kV('📱', 'var(--sf2)', fmt(H.whatsapp), 'por WhatsApp', `Instagram ${fmt(H.instagram)} · de lo que escribió ${per}`, '--tx1')}
+      </div>
+      <div class="ra-g2">
+        <div class="ra-col"><div class="ra-ct">Conversaciones iniciadas por día <small>${P === 'd30' ? 'últimos 30 días' : 'últimos 7 días'}</small></div><div class="ra-chart"><canvas id="raDias"></canvas></div></div>
+        <div class="ra-col"><div class="ra-ct">A qué hora escriben <small>mensajes de clientes, 30 días</small></div><div class="ra-chart"><canvas id="raHoras"></canvas></div></div>
+      </div>
+    </section>${pie}`;
+
+  const tabVentas = `<section class="ra-bloque">
+      <div class="ra-ks" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+        ${kV('✅', 'var(--ok10)', fmtM(confNeto), `ventas confirmadas ${per}`, `${fmt(nConf)} ${nConf === 1 ? 'pedido' : 'pedidos'}, neto<br>Valentina ${fmtM(vConfM)} con IVA (${fmt(vr.pedidos || 0)}) · Sofía ${fmtM(sConfM)} neto (${fmt(sConf.length)})`, '--ok')}
+        ${kV('🤝', 'var(--wa10)', fmtM(posNeto), `ventas posibles ${per}`, `${fmt(nPos)} ${nPos === 1 ? 'pedido' : 'pedidos'}, neto · pueden ser por las agentes o no<br>Valentina ${fmtM(vPosM)} con IVA (${fmt(vp.pedidos || 0)}: abrió su link y compró otra cuenta) · Sofía ${fmtM(sPosM)} neto (${fmt(sPos.length)}: pedidos del vendedor de quien le escribió)`, '--wa')}
       </div>
       <div class="ra-k" style="margin:12px 0;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:20px 24px">
         <div><div class="ra-t" style="font-size:14px">Total ${per} · confirmado + posible</div><div class="ra-n" style="font-size:44px;line-height:1.1;color:var(--ok)">${fmtM(confNeto + posNeto)}</div><div class="ra-s">${fmt(nConf + nPos)} pedidos · neto (lo de mohicano.cl sin IVA)</div></div>
         <div style="font-size:15px;line-height:1.7"><div><b style="color:var(--ok)">${fmtM(confNeto)}</b> confirmado</div><div><b style="color:var(--wa)">${fmtM(posNeto)}</b> posible</div></div>
       </div>
-      ${VC ? `<div class="td-dim" style="margin:-4px 0 12px">Valentina además pasó casos a la tienda: <b>${fmt(vc.resueltos || 0)} resueltos ${per}</b> (${fmtM(vc.monto_resuelto || 0)} en pedidos que no se perdieron) · ${fmt(VC.pendientes || 0)} pendientes${VC.pendientes ? ` (${fmtM(VC.monto_pendiente || 0)})` : ''}</div>` : ''}
-      <div class="ra-g2">
-        <div class="ra-col"><div class="ra-ct">Personas que escribieron cada día <small>${P === 'd30' ? 'últimos 30 días' : 'últimos 7 días'}</small></div><div class="ra-chart"><canvas id="raDias"></canvas></div></div>
-        <div class="ra-col"><div class="ra-ct">A qué hora escriben <small>mensajes de clientes, 30 días</small></div><div class="ra-chart"><canvas id="raHoras"></canvas></div></div>
-      </div>
-    </section>
-
-    <section class="ra-bloque"><div class="ra-col" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· cada campaña tiene su reporte y se comparan entre ellas</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div></section>
-
-    ${raFormularios(ini, per)}
-
-    <section class="ra-bloque"><div class="ra-bt"><h3>Ventas</h3><span>${per}</span></div>
       <div class="ra-g11">
         <div class="ra-col"><div class="ra-ct">Valentina · mohicano.cl <small>${fmt(vC.length)} confirmadas</small></div>
           ${vC.length ? vC.map(o => fila(o, fmtCLP(o.total))).join('') : '<div class="td-dim">Sin ventas confirmadas en el período</div>'}
@@ -5717,10 +5779,33 @@ function raRender() {
         </div>
       </div>
     </section>
+    ${raMayoristas(S.mayoristas, ini, per)}${pie}`;
 
-    ${raMayoristas(S.mayoristas, ini, per)}
+  const tabCasos = VC ? `<section class="ra-bloque">
+      <div class="ra-ks">
+        ${kV('🛠️', 'var(--ok10)', fmt(vc.resueltos || 0), `casos resueltos ${per}`, 'problemas de la tienda que Valentina pasó al equipo y se resolvieron', '--ok')}
+        ${kV('💰', 'var(--ok10)', fmtM(vc.monto_resuelto || 0), 'en pedidos que no se perdieron', 'el valor de lo que estaba en riesgo en esos casos', '--ok')}
+        ${kV('⏳', (VC.pendientes || 0) ? 'var(--wa10)' : 'var(--sf2)', fmt(VC.pendientes || 0), 'casos pendientes', (VC.pendientes || 0) ? `${fmtM(VC.monto_pendiente || 0)} en juego · los atiende la tienda` : 'nada esperando', (VC.pendientes || 0) ? '--wa' : '--tx2', ver('conversaciones', 'Conversaciones'))}
+      </div>
+    </section>${pie}` : `<section class="ra-bloque"><div class="ra-col td-dim">Valentina todavía no registra casos de la tienda.</div></section>`;
 
-    <div class="ra-pie">Fuentes: conversaciones de Nexor (sin pruebas ni el chat de la tienda; ${fmt(d.conversaciones)} con movimiento en 30 días) · aviso por WhatsApp: estado del mensaje en Nexor · correo: píxel de apertura (aproximado) y clics anotados en el CRM · Valentina: compras en mohicano.cl con el mismo celular o entrando por su link · Sofía: pedidos del ERP (bi/pedidos.json) y de la página; el RUT sale del celular.</div>`;
+  const camp = RA_CAMP && RA_CAMP.hay ? RA_CAMP : null;
+  const cw = camp ? (camp.whatsapp || {}) : {}, cv2 = camp ? (camp.ventas || {}) : {};
+  const tabCampanas = `${camp ? `<section class="ra-bloque">
+      <div class="ra-ks">
+        ${kV('📨', 'var(--ac10)', fmt(cw.llegaron), 'les llegó el aviso', `de ${fmt(cw.enviados)} enviados por WhatsApp (${raPct(cw.llegaron, cw.enviados)})`, '--tx1')}
+        ${kV('💬', 'var(--ac10)', fmt(camp.conversando_ahora), 'conversan con Sofía', 'escribieron en las últimas 72 h', '--ac')}
+        ${kV('🛒', 'var(--ok10)', fmt(cv2.clientes), 'compraron', cv2.clientes ? `${fmtM(cv2.valor)} neto · ${fmt(cv2.unidades)} prendas` : 'por Sofía, la página, o después de responder', '--ok')}
+        ${kV('🔥', 'var(--wa10)', fmt((camp.tibios || []).length), 'para seguir', 'abrieron o tocaron y no escribieron', '--wa', ver('campanas-atencion', 'Campañas'))}
+      </div>
+      <div class="ra-col" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· cada campaña tiene su reporte completo y se comparan entre ellas</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div>
+    </section>` : `<section class="ra-bloque"><div class="ra-col" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· todavía no hay una campaña andando</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div></section>`}
+    ${raFormularios(ini, per)}${pie}`;
+
+  return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
+      <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
+    <div class="ra-tabs">${tab('chats', '💬 Chats')}${tab('ventas', '💵 Ventas')}${tab('casos', '🛠️ Casos')}${tab('campanas', '📣 Campañas')}</div>
+    ${{ chats: tabChats, ventas: tabVentas, casos: tabCasos, campanas: tabCampanas }[RA_TAB] || tabChats}`;
 }
 /* la campaña de despacho inmediato (29-10, Manu: "el reporte para saber cómo nos va a ir en la campaña y cómo mejorarla"):
    desde que salió, no depende del período */
@@ -5833,7 +5918,8 @@ function raGraficos() {
   raGraficosCampana(true);
   /* tocar las cifras abre la lista con los nombres (02-11) */
   const TOCA = { 'no recibir más': 'bajas', 'lo leyeron': 'leyeron', 'respondieron': 'respondieron' };
-  body.querySelectorAll('.ra-k').forEach(card => { const t = (card.querySelector('.ra-t')?.textContent || '').trim(); if (TOCA[t]) { card.style.cursor = 'pointer'; card.title = 'Toca para ver los nombres'; card.addEventListener('click', () => cpVerLista(TOCA[t])); } });
+  /* 19-11: acá nunca existió "body" (ReferenceError tragado por el try/catch del bind): estos clics no andaban */
+  document.querySelectorAll('.ra-k').forEach(card => { const t = (card.querySelector('.ra-t')?.textContent || '').trim(); if (TOCA[t]) { card.style.cursor = 'pointer'; card.title = 'Toca para ver los nombres'; card.addEventListener('click', () => cpVerLista(TOCA[t])); } });
 }
 function raGraficosCampana(conClic = false) {
   const c = RA_CAMP;
@@ -5854,6 +5940,8 @@ function raGraficosCampana(conClic = false) {
 function raMontar() {
   const body = document.getElementById('raBody'); if (!body) return;
   body.querySelectorAll('[data-raper]').forEach(b => b.addEventListener('click', () => { RA_PER = b.dataset.raper; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); }));
+  body.querySelectorAll('[data-ratab]').forEach(b => b.addEventListener('click', () => { RA_TAB = b.dataset.ratab; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); }));
+  body.querySelectorAll('[data-rair]').forEach(b => b.addEventListener('click', () => go(b.dataset.rair, b.dataset.rairt)));
   body.querySelector('[data-raconv]')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
   body.querySelector('[data-racamp]')?.addEventListener('click', () => go('campanas-atencion', 'Campañas'));
   body.querySelectorAll('[data-ralead]').forEach(r => r.addEventListener('click', () => { CV_SEL = r.dataset.ralead; go('conversaciones', 'Conversaciones'); }));
@@ -6033,7 +6121,7 @@ function cpCompras(xs, conCampana) {
   const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-CL');
   if (!xs.length) return `<section class="ra-bloque"><div class="ra-bt"><h3>Quiénes compraron</h3><span>todavía nadie</span></div></section>`;
   const cols = conCampana ? 7 : 6;
-  const filas = xs.slice().sort((a, b) => (cpSeguro(b) - cpSeguro(a)) || ((b.valor || 0) - (a.valor || 0))).map((o, i) => {
+  const filas = xs.toSorted((a, b) => (cpSeguro(b) - cpSeguro(a)) || ((b.valor || 0) - (a.valor || 0))).map((o, i) => {
     const camp = conCampana ? ((CAMPANAS.find(x => x.id === o.campana) || {}).nombre || '') : '';
     const pos = !cpSeguro(o);
     const excel = o.quote_id ? `<button class="cv-fbtn" data-cpexcel="${cvEsc(o.quote_id)}">📥 Excel</button>`
@@ -6375,7 +6463,7 @@ async function cvFormularios(forzar) {
     const b0 = document.getElementById('cvFormBody'); if (b0) b0.innerHTML = '<div class="td-dim" style="padding:6px 0">La función que entrega los formularios todavía no está publicada en la página: Netlify no publica cambios hasta que se renueven los créditos (ciclo del 7 al 7) o se compren más. Apenas se publique, aparecen acá.</div>';
     CV_FORM = null; return;
   }
-  const fs = (d.formularios || []).slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const fs = (d.formularios || []).toSorted((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   const sin = fs.filter(f => !f.tomado);
   n.innerHTML = `${fmt(sin.length)} sin tomar · ${fmt(fs.length)} desde agosto`;
   const body = document.getElementById('cvFormBody'); if (!body || body.hidden) return;
@@ -6488,7 +6576,7 @@ var cvCampanaCliente = async function (d) {   // var: el tramo está dentro de u
     const conProd = Object.keys(plan.cat).sort((a, b) => +b - +a);
     const T = conProd.find(t => !soloM(t)) || Object.keys(plan.temps).sort((a, b) => +b - +a)[0];
     const cmp = T ? planComparables(plan.temps, T).filter(t => plan.temps[t]) : [];
-    if (!T || !cmp.length) { cont.innerHTML = ''; return; }
+    if (!T || !cmp.length) { cont.replaceChildren(); return; }
     const C = cmp.map(t => plan.temps[t]), P = plan.temps[T] || { t: T, lineas: [], total: 0, porMes: {}, lanzo: '' };
     const sg = cmp.map(t => 'T' + t).join(' y ');
     const lanzoP = P.lanzo || today().slice(0, 7);
@@ -6536,7 +6624,7 @@ var cvCampanaCliente = async function (d) {   // var: el tramo está dentro de u
       ${yaL.length ? `<div class="td-dim cv-fuente">Ya pidió de la T${T}: ${yaL.map(([m, n]) => `${esc(m)} ${fmt(n)}`).join(' · ')}</div>` : ''}
       ${botas.length ? `<div class="td-dim cv-fuente">Compra ${botas.map(x => `${esc(x.k)} ${x.pct}%`).join(' · ')}</div>` : ''}`;
     document.getElementById('cvDet')?._cvPick?.(cont);
-  } catch (e) { console.error('cvCampanaCliente', e); cont.innerHTML = ''; }
+  } catch (e) { console.error('cvCampanaCliente', e); cont.replaceChildren(); }
 };
 
 function cvRender(d) {
@@ -7506,7 +7594,7 @@ async function secER() {
   const money = v => (v < 0 ? '−' : '') + fmtM(Math.abs(v));
 
   const filas = secs.map(x => {
-    const cuentas = (x.cuentas || []).slice().sort((a, b) => b.acum - a.acum);
+    const cuentas = (x.cuentas || []).toSorted((a, b) => b.acum - a.acum);
     const detalle = cuentas.map(c => `<tr class="no-click er-cta" data-mes="${c.mes}" data-acum="${c.acum}" style="display:none;background:var(--sf2)">
         <td class="td-dim" style="padding-left:30px;font-size:11px;white-space:normal"><span class="td-code">${c.cuenta}</span> ${c.nombre}</td>
         <td class="r td-num td-dim" style="font-size:11px">${fmtCLP(c.mes)}</td>
@@ -8299,7 +8387,7 @@ function pintarPlan() {
       + sinMeta.map(x => `<tr><td data-v="${dv(x.k)}" style="font-weight:600">${x.k}</td><td class="r td-dim" data-v="">sin historia</td>
         <td class="r td-num" data-v="${x.prog}">${x.prog ? fmt(x.prog) : '—'}<span class="pl-sub">${x.cort ? fmt(x.cort) + ' cortadas' : ''}</span></td><td class="r td-dim" data-v="">—</td><td class="pl-sec"></td></tr>`).join('')
       + `<tr class="pl-total"><td>Total</td><td class="r td-num">${fmt(promedio)}</td><td class="r td-num">${fmt(totProg)}<span class="pl-sub">${fmt(totCort)} cortadas</span></td><td class="r td-num" style="color:${faltaTot ? 'var(--er)' : 'var(--ok)'}">${faltaTot ? fmt(faltaTot) : '✓'}</td><td class="pl-sec"></td></tr>`;
-    const mods = prodN.slice().sort((a, b) => (botaDe(a.base) || a.bota || '~').localeCompare(botaDe(b.base) || b.bota || '~') || b.prog - a.prog);
+    const mods = prodN.toSorted((a, b) => (botaDe(a.base) || a.bota || '~').localeCompare(botaDe(b.base) || b.bota || '~') || b.prog - a.prog);
     return vTabla(
       `<th data-ord="t">Bota</th><th class="r" data-ord="n" title="La meta repartida como se vendió la T${prev ? prev.t : ''}">Cortar</th><th class="r" data-ord="n">Programado T${PLAN_TEMP}</th><th class="r" data-ord="n">Falta</th><th class="pl-sec" data-ord="n" title="De lo cortado de esa bota en la T${prev ? prev.t : ''}, cuánto se vendió">Cómo se vendió T${prev ? prev.t : ''}</th>`,
       filas,
@@ -8516,7 +8604,7 @@ function pintarPlan() {
     clientes: [`Clientes que compraron ${sg}`, () => {
       const uP = {};
       P.lineas.forEach(l => { uP[l.cli] = (uP[l.cli] || 0) + l.u; });
-      const lista = [...clientes].sort((a, b) => (yaP.has(b.cli) - yaP.has(a.cli)) || (b.u - a.u));   // los que ya pidieron, primero
+      const lista = clientes.toSorted((a, b) => (yaP.has(b.cli) - yaP.has(a.cli)) || (b.u - a.u));   // los que ya pidieron, primero
       return vTabla(
         `<th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="r" data-ord="n">T${PLAN_TEMP}</th><th class="pl-sec">Ofrecer</th>`,
         lista.map(c => `<tr>
@@ -9445,7 +9533,7 @@ function caCurva(c) {   // las tallas que acostumbra pedir, de sus pedidos de la
 function caModelosPara(c, n = 8) {   // primero los modelos con las botas que más le compró; se completa con los más pedidos
   const pref = Object.entries(c.botasA).sort((a, b) => b[1] - a[1]).map(x => x[0]);
   const puntaje = m => (pref.includes(m.bota) ? (pref.length - pref.indexOf(m.bota)) * 10000 : 0) + m.total;
-  return CA.modelos.filter(m => !CA.modelosFuera.has(m.base)).slice().sort((a, b) => puntaje(b) - puntaje(a)).slice(0, n);
+  return CA.modelos.filter(m => !CA.modelosFuera.has(m.base)).toSorted((a, b) => puntaje(b) - puntaje(a)).slice(0, n);
 }
 function caPrecio(m) {   // precio neto por prenda del modelo: el promedio de sus colores con precio
   const ps = m.colores.map(cc => precioDe('01' + m.base + cc)).filter(v => v > 0);
@@ -9587,7 +9675,7 @@ function caModalHtml(prev, lista) {
     : (prev.plantilla.texto || 'Hola {{nombre}}, soy Sofía de Mohicano Jeans. Ya está disponible nuestra colección nueva y te separé modelos de lo que más vendes en tu tienda: {{producto}}. ¿Te mando las fotos, las tallas disponibles y los precios?')
     .replace('{{nombre}}', `<b>${caTx(ej.saludo)}</b>`).replace('{{producto}}', `<b>${caTx(ej.producto)}</b>`);
   const r = prev.resumen, est = { listo: ['Listo', 'var(--ok)'], sin_celular: ['Sin celular', 'var(--er)'], sin_correo: ['Sin correo', 'var(--er)'], ya_enviado: ['Ya recibió', 'var(--tx3)'], duplicado: [correo ? 'Mismo correo que otro' : 'Mismo celular que otro', 'var(--wa)'] };
-  const filas = prev.filas.slice().sort((a, b) => (a.estado === 'listo' ? 0 : 1) - (b.estado === 'listo' ? 0 : 1)).map(f => `<tr><td><span class="badge" style="background:var(--sf2);color:${est[f.estado][1]};font-size:10px">${est[f.estado][0]}</span></td>
+  const filas = prev.filas.toSorted((a, b) => (a.estado === 'listo' ? 0 : 1) - (b.estado === 'listo' ? 0 : 1)).map(f => `<tr><td><span class="badge" style="background:var(--sf2);color:${est[f.estado][1]};font-size:10px">${est[f.estado][0]}</span></td>
     <td class="pl-wrap"><b>${caTx(f.nombre)}</b><span class="pl-sub">${caTx(f.saludo || '')} · ${caTx(CA.grupos[f.grupo]?.ttl.split(':')[0].split(' y ')[0] || '')}</span></td>
     <td class="td-num">${(correo ? f.correo : f.telefono) ? caTx(correo ? f.correo : f.telefono) + `<span class="pl-sub">${f.origen === 'crm' ? 'del CRM' : 'de la ficha'}</span>` : '<span class="td-dim">—</span>'}</td><td style="white-space:normal;font-size:11.5px;color:var(--tx2)">${caTx(f.producto || '')}</td></tr>`).join('');
   const costo = correo ? 0 : Math.round(r.listos * 85);
@@ -10277,7 +10365,7 @@ function pedArticulosHtml(ps, filtro = '', temp = '') {
 
 /* 17-11: el tablero de Pedidos. Las tres secciones del tema comparten esta barra de pestañas (como Campaña con
    Clientes Inactivos): en el menú queda una sola entrada, Pedidos. El bind es uno solo, en bindContent. */
-const PED_TABS = [['rep-pedidos', 'Pedidos', 'Reporte: cuánto llevamos'], ['venta-despacho', 'Venta vs Despacho', 'A quién despachar primero'], ['debemos', 'Qué le debemos', 'Qué le debemos']];
+const PED_TABS = [['rep-pedidos', 'Despachos', 'Reporte: cuánto llevamos'], ['venta-despacho', 'Venta vs Despacho', 'A quién despachar primero'], ['debemos', 'Qué le debemos', 'Qué le debemos']];
 const pedTabsHtml = sec => `<div class="fgrp"><span class="flbl">Pestaña</span><div class="segs" id="pedTabs">${PED_TABS.map(([s, t, lbl]) => `<button class="seg${s === sec ? ' on' : ''}" data-sec="${s}" data-ttl="${t}">${lbl}</button>`).join('')}</div></div>`;
 
 async function secRepPedidos() {
@@ -11159,7 +11247,7 @@ function ddFicha(c) {
     .filter(([, v]) => v).map(([l, v]) => `<div><span class="td-dim">${l}:</span> ${ddTx(v)}</div>`).join('');
   const f = c.cli, otras = (f.fichas || 1) > 1 ? `<div class="td-dim" style="font-size:11px;padding:0 16px 10px">Este RUT tiene ${f.fichas} fichas en el ERP (sucursales o razones sociales): se muestra la de mayor cupo.`
     + `${f.deuda_otras ? ` En las otras hay ${fmtCLP(Math.abs(f.deuda_otras))}${f.deuda_otras < 0 ? ' a favor' : ' de deuda'}.` : ''}</div>` : '';
-  const peds = c.peds.slice().sort((a, b) => (b.dias || 0) - (a.dias || 0));
+  const peds = c.peds.toSorted((a, b) => (b.dias || 0) - (a.dias || 0));
   const tabla = peds.length ? vTabla(
     '<th>Pedido</th><th>Fecha</th><th class="r">Días</th><th class="r">Por despachar</th><th class="r">Saldo</th><th></th>',
     peds.map(p => `<tr><td class="td-code">${p.pedido}</td><td>${p.fecha || ''}</td><td class="r td-num">${fmt(p.dias || 0)}</td><td class="r td-num">${fmt(p.saldo || 0)}</td>`
@@ -11433,7 +11521,7 @@ function debArticulo(c, art) {
   const tbl = (enc, filas, pie = '') => `<div class="tbl-scroll"><table><thead><tr>${enc}</tr></thead><tbody>${filas}</tbody></table>${pie ? `<div class="tbl-foot">${pie}</div>` : ''}</div>`;
 
   // Sus pedidos de este artículo
-  const peds = it.peds.slice().sort((a, b) => b.dias - a.dias).map(p => `<tr>
+  const peds = it.peds.toSorted((a, b) => b.dias - a.dias).map(p => `<tr>
       <td class="pl-wrap" data-v="${p.pedido}"><b>${p.pedido.replace(/^0+/, '')}</b>${p.bloq ? ' <span class="pl-tag" style="background:var(--er10);color:var(--er)">🔒 bloqueado</span>' : ''}<span class="pl-sub">${p.fecha} · hace ${fmt(p.dias)} días</span></td>
       <td class="r td-num" data-v="${p.sol}">${fmt(p.sol)}</td>
       <td class="r td-num td-dim" data-v="${p.desp}">${p.desp ? fmt(p.desp) : '—'}</td>
@@ -11985,7 +12073,7 @@ function pvcGrafico(rows) {
 function progGrafico(rows) {
   const card = document.getElementById('progGrafCard');
   if (!card) return;
-  const xs = rows.slice().sort((a, b) => +b.dataset.dias - +a.dataset.dias).slice(0, 20);
+  const xs = rows.toSorted((a, b) => +b.dataset.dias - +a.dataset.dias).slice(0, 20);
   card.style.display = xs.length ? '' : 'none';
   if (!xs.length) return;
   document.getElementById('progGrafBox').style.height = `${xs.length * 26 + 40}px`;
@@ -12081,7 +12169,7 @@ function vdGrafico() {
 function clGrafico(rows) {
   const card = document.getElementById('clGrafCard');
   if (!card) return;
-  const xs = rows.slice().sort((a, b) => (+b.dataset.u || 0) - (+a.dataset.u || 0)).slice(0, 15);
+  const xs = rows.toSorted((a, b) => (+b.dataset.u || 0) - (+a.dataset.u || 0)).slice(0, 15);
   card.style.display = xs.length ? '' : 'none';
   if (!xs.length) return;
   document.getElementById('clGrafBox').style.height = `${xs.length * 26 + 40}px`;
@@ -12205,7 +12293,7 @@ function trzMolde(alc, etapa, final, vis = alc) {
 function cuaGrafico(pend) {
   const card = document.getElementById('cuaGrafCard');
   if (!card) return;
-  const xs = pend.slice().sort((a, b) => (b.dias || 0) - (a.dias || 0)).slice(0, 15);
+  const xs = pend.toSorted((a, b) => (b.dias || 0) - (a.dias || 0)).slice(0, 15);
   card.style.display = xs.length ? '' : 'none';
   if (!xs.length) return;
   document.getElementById('cuaGrafBox').style.height = `${xs.length * 26 + 40}px`;
@@ -12252,7 +12340,7 @@ function dcMolde() {
   poner('dck-tiro-val', tiro ? dcCap(tiro[0]) : '—'); poner('dck-tiro-sub', tiro ? `${pct(tiro[1])}% de lo pedido · ${fmt(tiro[1])} unidades` : 'sin tiro registrado');
   const card = document.getElementById('dcGrafCard');
   if (!card) return;
-  const xs = rows.slice().sort((a, b) => u(b) - u(a)).slice(0, 15);
+  const xs = rows.toSorted((a, b) => u(b) - u(a)).slice(0, 15);
   card.style.display = xs.length ? '' : 'none';
   if (!xs.length) return;
   // Lo cortado de cada modelo (todas las órdenes de corte de todos sus colores) y lo que falta por cubrir (Manu, 26-10-2026)
@@ -12504,7 +12592,7 @@ let IA_OK = false;   // el chat de Mohi es solo para el administrador (la funci�
 function guiaChips(secId) {   // preguntas sugeridas para esta sección
   const c = document.getElementById('guiaChips');
   if (!c) return;
-  if (!IA_OK) { c.innerHTML = ''; return; }
+  if (!IA_OK) { c.replaceChildren(); return; }
   const t = GUIA_TEXTOS[secId] || {};
   const qs = [...(secId === 'resumen' ? ['¿Qué hago primero hoy?', 'Dame el reporte del día: qué hago primero y a quién le cobro.'] : []), ...(t.preguntas || []), '¿Qué significa lo que estoy viendo?'].slice(0, 4);
   c.innerHTML = qs.map(q => `<button type="button" class="guia-chip" data-q="${guiaTx(q)}">${guiaTx(q)}</button>`).join('');
@@ -12618,7 +12706,7 @@ document.getElementById('guia')?.addEventListener('click', e => {
   if (g === 'cerrar' || g === 'fin') { GUIA_ABIERTA = false; b.classList.add('oculta'); guiaAviso(false); return; }
   if (g === 'sig') { GUIA_PASO++; guiaPinta(); return; }
   if (g === 'ant') { GUIA_PASO = Math.max(0, GUIA_PASO - 1); guiaPinta(); return; }
-  if (g === 'limpiar') { IA_HIST = []; const ch = document.getElementById('iaChat'); if (ch) ch.innerHTML = ''; guiaPinta(); return; }
+  if (g === 'limpiar') { IA_HIST = []; const ch = document.getElementById('iaChat'); if (ch) ch.replaceChildren(); guiaPinta(); return; }
   if (g === 'ir') { const a = LU[GUIA_PASO]; if (a && a.sec) irA(a.sec, a.ttl, a.tocar); return; }
   if (g === 'urgente') { guiaUrgente(); return; }
   if (g === 'volver') { guiaPinta(); return; }
@@ -12644,6 +12732,17 @@ async function go(secId, title) {
     const TAB_GRP = { 'Inicio': 'inicio', 'Pedidos': 'detalle-color', 'Producción': 'tabla', 'Cobranza': 'deudas' };
     const tabOn = secId === 'inicio' ? 'inicio' : (TAB_GRP[grp] || 'mas');
     document.querySelectorAll('#tabBar button').forEach(b => b.classList.toggle('on', b.dataset.tab === tabOn));
+    { const gs = document.getElementById('grpSecs');   // las hermanas del grupo, para pantallas sin menú lateral
+      if (gs) {
+        let el = g && g.nextElementSibling; const bs = [];
+        while (el && !(el.classList && el.classList.contains('sb-grp'))) {
+          if (el.classList.contains('nav-item') && !el.classList.contains('vista-oculta') && !el.classList.contains('solo-movil') && el.style.display !== 'none')
+            bs.push(`<button class="${el.dataset.sec === secId ? 'on' : ''}" data-gs="${el.dataset.sec}" data-gst="${el.dataset.ttl}">${(el.lastChild.textContent || '').trim()}</button>`);
+          el = el.nextElementSibling;
+        }
+        gs.innerHTML = bs.length > 1 ? bs.join('') : '';
+        gs.querySelectorAll('button').forEach(b => b.addEventListener('click', () => go(b.dataset.gs, b.dataset.gst)));
+      } }
     const pp = document.getElementById('pgProp'); if (pp) pp.textContent = PG_PROPOSITO[secId] || ''; }
   /* 28-10 (Manu: "que el menú de la izquierda quede escondido mientras trabajo en esa sección, como en el celular con
      las 3 rayas"): en Conversaciones el menú se esconde y se abre con ☰; en las demás secciones se ve como siempre */
@@ -12668,7 +12767,13 @@ async function go(secId, title) {
     return;
   }
   if (seq !== _goSeq) return;
-  document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`;
+  /* PRUEBA 19-11 (same-document-transitions): el cambio de sección entra con un fundido breve; sin soporte
+     o con "reducir movimiento" activado, pinta directo. El foco pasa al contenido nuevo (lectores de pantalla). */
+  const pinta = () => { document.getElementById('content').innerHTML = `<div class="sec on">${html}</div>`; };
+  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    await document.startViewTransition(pinta).updateCallbackDone;
+  } else pinta();
+  { const c = document.getElementById('content'); c.tabIndex = -1; c.focus({ preventScroll: true }); }
   try { movilListas(); movilFiltros(); erpFbarPrep();
     document.getElementById('fabFiltros')?.classList.toggle('ver', matchMedia('(max-width: 767px)').matches && !!document.querySelector('#content .fbar.mv-hoja')); } catch (e) { console.error('móvil', e); }
   try { bindContent(secId); } catch (e) { console.error('Falló al activar la sección', secId, e); }
@@ -12696,6 +12801,11 @@ async function go(secId, title) {
 function bindContent(secId) {
   // El tablero de Pedidos: la barra de pestañas compartida entre sus tres secciones (17-11)
   document.querySelectorAll('#pedTabs .seg').forEach(b => b.addEventListener('click', () => { if (!b.classList.contains('on')) go(b.dataset.sec, b.dataset.ttl); }));
+  // PRUEBA 19-11 (responsive-table): la tabla que rueda dentro de su tarjeta se puede recorrer con el teclado
+  document.querySelectorAll('.tbl-scroll:not([tabindex])').forEach(w => {
+    w.tabIndex = 0; w.setAttribute('role', 'region');
+    w.setAttribute('aria-label', w.closest('.tbl-card')?.querySelector('.card-ttl')?.textContent.trim() || 'Tabla de datos');
+  });
   // Mini mensaje junto a cada buscador, derivado de su placeholder: "← Busca por cliente o ciudad"
   document.querySelectorAll('input.fsearch:not([data-hinted])').forEach(inp => {
     inp.dataset.hinted = '1';
@@ -13008,7 +13118,7 @@ function bindContent(secId) {
         <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 6px">${chip('Tipo', `${o.tipo || '—'}${o.m ? ' ' + o.m : ''}`)}${chip('Orden emitida', o.fecha || '—')}${chip('Programado', fmt(o.prog || 0))}${chip('Cortado', fmt(o.cort || 0))}${chip('A bodega', fmt(o.ent || 0), (o.ent || 0) > 0 ? 'var(--ok)' : '')}${chip('Saldo', fmt(o.saldo || 0), (o.saldo || 0) > 0 ? 'var(--wa)' : '')}${o.totDias ? chip('Días (ERP)', fmt(o.totDias)) : ''}</div>
         <div style="padding:6px 16px 4px;font-size:13px">${llegada}</div>
         ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${o.inc}</div>` : ''}
-        <div style="padding:6px 16px 4px"><div class="tbl-scroll"><table class="tbl-compacta" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Los días que debería durar cada etapa según la empresa; el de Corte se cuenta desde que se programó la orden">Estándar</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
+        <div style="padding:6px 16px 4px"><div class="tbl-scroll trz-eta-wrap"><table class="tbl-compacta trz-etapas" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Los días que debería durar cada etapa según la empresa; el de Corte se cuenta desde que se programó la orden">Estándar</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
           <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Estándar = los días que debería durar cada etapa; el de Corte corre desde que se programó la orden. En rojo, la etapa donde la orden lleva más que el estándar. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
         ${matHtml}
         ${tallasHtml}`;
@@ -13503,7 +13613,7 @@ function bindContent(secId) {
         row.style.display = ok ? '' : 'none';
         // Al buscar un artículo: mostrar en la fila cuánto pidió ese cliente de ese artículo
         const hit = row.querySelector('.vd-arthit');
-        if (hit) hit.innerHTML = '';
+        if (hit) hit.replaceChildren();
         if (ok) {
           vis++;
           if (hits.length && hit) {
@@ -13654,7 +13764,7 @@ function bindContent(secId) {
         const inp = document.createElement('input');
         inp.className = 'finput'; inp.placeholder = `Artículo ${list.children.length + 1} (ej. 4222)`; inp.value = val;
         inp.style.cssText = 'width:100%'; inp.inputMode = 'numeric';
-        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (e.isComposing || e.keyCode === 229) return; go(); } });
         list.appendChild(inp); return inp;
       };
       const codes = () => [...new Set([...list.querySelectorAll('input')].flatMap(i => i.value.split(/[\s,;\-\/]+/)).map(v => v.replace(/\D/g, '')).filter(v => v.length >= 4))];
@@ -13664,7 +13774,7 @@ function bindContent(secId) {
         box.value = c.join(' '); box.dispatchEvent(new Event('input')); ov.classList.remove('open');
       };
       const open = () => {
-        list.innerHTML = '';
+        list.replaceChildren();
         const cur = (document.getElementById('vdSearch')?.value || '').split(/[\s,;]+/).filter(t => /^\d{4,}$/.test(t));
         (cur.length ? cur : ['', '']).forEach(v => addRow(v));
         if (cur.length === 1) addRow('');
@@ -13673,7 +13783,7 @@ function bindContent(secId) {
       ov._open = open;
       document.getElementById('vdMultiBtn')?.addEventListener('click', open);
       document.getElementById('vdMultiAdd')?.addEventListener('click', () => addRow('').focus());
-      document.getElementById('vdMultiClear')?.addEventListener('click', () => { list.innerHTML = ''; addRow(''); addRow(''); const box = document.getElementById('vdSearch'); box.value = ''; box.dispatchEvent(new Event('input')); });
+      document.getElementById('vdMultiClear')?.addEventListener('click', () => { list.replaceChildren(); addRow(''); addRow(''); const box = document.getElementById('vdSearch'); box.value = ''; box.dispatchEvent(new Event('input')); });
       document.getElementById('vdMultiGo')?.addEventListener('click', go);
       document.getElementById('vdMultiClose')?.addEventListener('click', () => ov.classList.remove('open'));
       ov.addEventListener('click', e => { if (e.target === e.currentTarget) ov.classList.remove('open'); });
@@ -14348,7 +14458,7 @@ function bindContent(secId) {
     revisarPar();
     document.getElementById('mtSave')?.addEventListener('click', guardarMetas);
     document.querySelectorAll('.mt-meta').forEach(i => i.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); guardarMetas(); }
+      if (e.key === 'Enter') { e.preventDefault(); if (e.isComposing || e.keyCode === 229) return; guardarMetas(); }
     }));
 
     document.getElementById('mtReset')?.addEventListener('click', () => {
@@ -14477,7 +14587,7 @@ function bindContent(secId) {
     const inp = document.getElementById('ddSearch');
     inp?.addEventListener('input', filtrar);
     // Enter con un solo cliente a la vista: se abre su ficha
-    inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
+    inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
     document.querySelectorAll('#ddSegs .seg').forEach(b => b.addEventListener('click', () => {
       fVer = b.dataset.f;
       document.querySelectorAll('#ddSegs .seg').forEach(x => x.classList.toggle('on', x === b));
@@ -14518,7 +14628,7 @@ function bindContent(secId) {
     const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     // Las tarjetas y las cuentas de los botones, con lo que entra por colección y búsqueda
     const tarjetas = rs => {
-      const d = tr => +tr.dataset.dias, vieja = rs.slice().sort((a, b) => d(b) - d(a) || +b.dataset.prog - +a.dataset.prog)[0];
+      const d = tr => +tr.dataset.dias, vieja = rs.toSorted((a, b) => d(b) - d(a) || +b.dataset.prog - +a.dataset.prog)[0];
       const conCli = rs.filter(tr => +tr.dataset.sal > 0), arts = new Map(conCli.map(tr => [tr.dataset.part, +tr.dataset.sal]));
       const n30 = rs.filter(tr => d(tr) > 10).length;
       const vProg = rs.reduce((a, tr) => a + (+tr.dataset.prog) * (precioDe(tr.dataset.part) || 0), 0);
@@ -14663,7 +14773,7 @@ function bindContent(secId) {
       filtrar();
     }));
     // Enter con un solo cliente a la vista: se abre directo
-    inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
+    inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && filtrar() === 1) abrir(filas.find(tr => tr.style.display !== 'none')); });
     filas.forEach(tr => tr.addEventListener('click', () => abrir(tr)));
     filtrar();   // dibuja los gráficos
     // Con o sin Magic World: se rearma todo, porque cambia lo que alcanza para los demás
@@ -14908,7 +15018,12 @@ function bindContent(secId) {
       };
       if (btn) {   // bodega entra solo a mirar: no hay formulario que conectar
         btn.addEventListener('click', guardarObsK);
-        txt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); guardarObsK(); } });
+        txt.addEventListener('keydown', e => {
+          if (e.key !== 'Enter' || e.shiftKey) return;
+          e.preventDefault();
+          if (e.isComposing || e.keyCode === 229) return;   // escribiendo con editor de idioma (IME): ese Enter confirma la letra, no guarda
+          guardarObsK();
+        });
       }
       pintarObs();
     }
@@ -15357,7 +15472,7 @@ function bindContent(secId) {
       set('pTblTtl', label);
       pdGrafico(ps);
       const TOPE = 200;   // la tabla lista los mas recientes; las tarjetas suman todo el periodo
-      const orden = ps.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
+      const orden = ps.toSorted((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
       document.getElementById('rpBody').innerHTML = buildPedTabla(orden.slice(0, TOPE));
       const base = `${ps.length} pedidos · ${fmt(pSum(ps, 'unidades'))} prendas · ${fmtCLP(pSum(ps, 'valor'))}`;
       set('pedFoot', ps.length > TOPE
@@ -15779,6 +15894,7 @@ function bindContent(secId) {
       obsTxt.addEventListener('keydown', async e => {   // Enter guarda y cierra; Shift+Enter hace salto de línea
         if (e.key !== 'Enter' || e.shiftKey) return;
         e.preventDefault();
+        if (e.isComposing || e.keyCode === 229) return;   // Enter de un editor de idioma (IME): confirma la letra, no guarda
         if (await guardarObs()) setTimeout(() => document.getElementById('cliOv').classList.remove('open'), 400);
       });
       document.getElementById('cliObsSel')?.addEventListener('change', e => { if (e.target.value) { obsTxt.value = e.target.value; obsTxt.focus(); } });
@@ -16042,7 +16158,7 @@ function bindContent(secId) {
       rvGrafico(filtered);
       document.getElementById('vTblTtl').textContent = label;
       const TOPE = 200;   // la tabla muestra los TOPE más recientes; los totales de arriba son de todo el período
-      const orden = filtered.slice().sort((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
+      const orden = filtered.toSorted((a, b) => String(b.fecha_iso || '').localeCompare(String(a.fecha_iso || '')));
       document.getElementById('ventaBody').innerHTML = buildVentaTable(orden.slice(0, TOPE));
       const tp = document.getElementById('ventaTotPr'); if (tp) tp.textContent = fmt(prendas);
       const tn = document.getElementById('ventaTotNe'); if (tn) tn.textContent = fmtCLP(neto);
@@ -16147,7 +16263,7 @@ function buildColorRowsForTemp(byTemp, t) {
   const tc = tcFor(t);
   const art = (base, color) => `01${t}${String(base).slice(-2)}${String(color).padStart(2,'0')}`;
   const tag = (txt, bg, fg) => txt ? `<span style="background:${bg};color:${fg};border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;white-space:nowrap">${txt}</span>` : '';
-  return info.items.slice().sort((a,b) => b.total-a.total).map(item => {
+  return info.items.toSorted((a,b) => b.total-a.total).map(item => {
     const variantRows = (item.modelos || []).map(v => {
       const a = art(item.base, v.mod);
       return `<tr class="variant-row dc-color" data-art="${a}" title="Toca para ver lo pedido por talla y por cliente" style="display:none;background:var(--sf2);cursor:pointer">
@@ -16204,6 +16320,11 @@ function bindMobile() {
     if ($('smvDatos')) $('smvDatos').textContent = ($('hdTs')?.textContent || '').split('·')[0].trim(); };
   const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); document.body.classList.remove('menu-abierto'); };
   document.getElementById('menuCerrar')?.addEventListener('click', close);
+  // Sucursal en el menú del celular (19-11): marca la vista actual y al tocar cambia y cierra
+  const smvVistaMarcar = () => document.querySelectorAll('.smv-vista .seg').forEach(b => b.classList.toggle('on', b.dataset.smv === leerVista()));
+  document.querySelectorAll('.smv-vista .seg').forEach(b => b.addEventListener('click', () => { aplicarVista(b.dataset.smv); smvVistaMarcar(); close(); }));
+  sidebar.addEventListener('transitionend', smvVistaMarcar);
+  smvVistaMarcar();
   document.querySelectorAll('#tabBar button').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.tab === 'mas') { sidebar.classList.contains('open') ? close() : open(); return; }
     close(); go(b.dataset.tab, b.dataset.ttl);
@@ -16305,7 +16426,7 @@ async function init(role) {
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const sum = (a, f) => a.reduce((s, x) => s + (+f(x) || 0), 0);
   const fP = n => (isFinite(n) ? n : 0).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + '%';
-  const grp = (a, f) => { const m = {}; a.forEach(x => { const k = f(x); (m[k] = m[k] || []).push(x); }); return m; };
+  const grp = (a, f) => Object.groupBy(a, f);
   const arr = d => Array.isArray(d) ? d : [];
   const ncK = d => /CR[EÉ]DITO/i.test(d.tipo || '');
   const netoK = d => ncK(d) ? -Math.abs(d.neto || 0) : (d.neto || 0);
@@ -16815,7 +16936,7 @@ async function init(role) {
         <div class="erp-ph"><h2>Órdenes abiertas más antiguas</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="sub">Producción normal con saldo, de la más antigua a la más nueva</span>${btnExcel()}<button class="erp-fbtn" data-bi-go="tabla">Ver Trazabilidad</button></div></div>
         <div style="overflow-x:auto"><table class="erp-tabla" style="min-width:880px">
           <thead><tr>${['OC', 'Artículo', 'Fecha', 'Programado', 'Cortado', 'Entregado', 'Saldo', 'Días'].map((c, j) => `<th${j >= 3 ? ' class="num"' : ''}>${c}</th>`).join('')}</tr></thead>
-          <tbody>${abiertas.slice().sort((a, b) => b.totDias - a.totDias).slice(0, 12).map(o => [String(o.oc).replace(/^0+/, ''), `<div style="display:flex;align-items:center">${artImg(o.articulo)}<span class="td-code">${cod(o.articulo)}</span></div>`, o.fecha, fmt(o.prog), fmt(o.cort), fmt(o.ent), `<b>${fmt(o.saldo)}</b>`, `<b style="color:var(--${o.totDias > 60 ? 'er' : o.totDias > 30 ? 'wa' : 'tx1'})">${o.totDias}</b>`]).map(r => `<tr>${r.map((v, j) => `<td${j >= 3 ? ' class="num"' : (j === 0 || j === 2) ? ' style="font-family:\'IBM Plex Mono\',monospace"' : ''}>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+          <tbody>${abiertas.toSorted((a, b) => b.totDias - a.totDias).slice(0, 12).map(o => [String(o.oc).replace(/^0+/, ''), `<div style="display:flex;align-items:center">${artImg(o.articulo)}<span class="td-code">${cod(o.articulo)}</span></div>`, o.fecha, fmt(o.prog), fmt(o.cort), fmt(o.ent), `<b>${fmt(o.saldo)}</b>`, `<b style="color:var(--${o.totDias > 60 ? 'er' : o.totDias > 30 ? 'wa' : 'tx1'})">${o.totDias}</b>`]).map(r => `<tr>${r.map((v, j) => `<td${j >= 3 ? ' class="num"' : (j === 0 || j === 2) ? ' style="font-family:\'IBM Plex Mono\',monospace"' : ''}>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
         <div class="erp-pf">${fmt(abiertas.length)} registros · se muestran las 12 más antiguas</div>
       </section>`;
   }
@@ -17003,7 +17124,7 @@ function iaBurbuja(clase, html) {
 function iaBienvenida() {
   const chat = document.getElementById('iaChat');
   if (!chat) return;
-  chat.innerHTML = '';
+  chat.replaceChildren();
   IA_HIST = [];
   iaBurbuja('ia-bot', 'Hola. Pregúntame qué hacer primero, a quién cobrar, qué cortar, o por pedidos, stock, cajas y ventas. Si quieres enseñarme una regla, dime «recuerda que…».');
   const cont = document.createElement('div');
@@ -17072,9 +17193,12 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
   if (!form || !input || form.dataset.listo) return;
   form.dataset.listo = '1'; IA_OK = true; form.style.display = '';
   form.addEventListener('submit', e => { e.preventDefault(); iaPreguntar(); });
-  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px'; });
+  // field-sizing hace crecer el cuadro desde CSS; el cálculo a mano queda solo para navegadores sin soporte
+  if (!CSS.supports('field-sizing', 'content')) {
+    input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px'; });
+  }
   input.addEventListener('keydown', e => {   // Enter envía, Shift+Enter hace salto de línea
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); iaPreguntar(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (e.isComposing || e.keyCode === 229) return; iaPreguntar(); }
   });
   if (GUIA_SEC) guiaChips(GUIA_SEC);   // si Mohi ya estaba hablando, que aparezcan las preguntas
 }
@@ -17165,7 +17289,7 @@ const PG_PROPOSITO = {
   deudas: 'La cuenta corriente: quién debe, hace cuánto y su cupo.',
   er: 'El estado de resultados del período.',
   conversaciones: 'El tablero de Sofía y Valentina al día.',
-  'reporte-atencion': 'Cómo atienden las agentes: tiempos, casos y resultados.',
+  'reporte-atencion': 'La performance de la atención: chats, ventas, casos y campañas.',
   'formularios-atencion': 'Los mini-mayoristas que llegan por el formulario.',
   'plantillas-atencion': 'Las plantillas de WhatsApp aprobadas.',
   'campanas-atencion': 'Cómo va cada campaña y quién compró.',
@@ -17212,7 +17336,7 @@ function erpBuscarBind() {
   };
   const pintar = () => {
     const t = lla(q.value.trim());
-    if (t.length < 2) { res.style.display = 'none'; res.innerHTML = ''; return; }
+    if (t.length < 2) { res.style.display = 'none'; res.replaceChildren(); return; }
     const pantallas = [...document.querySelectorAll('.sb-nav .nav-item[data-sec]')]
       .filter(b => !b.classList.contains('vista-oculta') && b.style.display !== 'none' && !b.classList.contains('solo-movil') && lla(b.dataset.ttl || '').includes(t))
       .slice(0, 4).map(b => ({ tipo: 'sec', k: b.dataset.ttl, sub: 'Pantalla', sec: b.dataset.sec }));
@@ -17234,7 +17358,7 @@ function erpBuscarBind() {
   });
   q.addEventListener('input', pintar);
   q.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && ultimos.length && res.style.display !== 'none') { e.preventDefault(); abrir(ultimos[0]); }
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && ultimos.length && res.style.display !== 'none') { e.preventDefault(); abrir(ultimos[0]); }
     if (e.key === 'Escape') { res.style.display = 'none'; q.blur(); document.querySelector('.hd-buscar')?.classList.remove('abierta'); }
   });
   q.addEventListener('blur', () => setTimeout(() => { res.style.display = 'none'; }, 150));
@@ -17439,7 +17563,7 @@ async function erpFichaArt(base) {
         if (!vs.length) return '';
         return `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Colores · T${esc2(String(f0.temp))}</div>
         <table class="erp-tabla"><thead><tr><th>Color</th><th>Artículo</th><th class="num">Pedidas</th><th></th></tr></thead>
-        <tbody>${vs.slice().sort((x, y) => (y.qty || 0) - (x.qty || 0)).map(v => { const a = `01${f0.temp}${String(base).slice(-2)}${String(v.mod).padStart(2, '0')}`;
+        <tbody>${vs.toSorted((x, y) => (y.qty || 0) - (x.qty || 0)).map(v => { const a = `01${f0.temp}${String(base).slice(-2)}${String(v.mod).padStart(2, '0')}`;
           return `<tr style="cursor:pointer" onclick="dcTallas('${a}')" title="Lo pedido por talla y por cliente">
             <td style="font-weight:600">${esc2(String(v.mod))}${v.tela ? `<span class="td-dim" style="font-weight:400;font-size:11px;margin-left:6px">${esc2(v.tela)}</span>` : ''}</td>
             <td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${a}</td>
@@ -17640,7 +17764,7 @@ async function authInit() {
   document.getElementById('cortina')?.remove();   // sin sesión: el login ya está pintado detrás
   // Enter key en inputs
   ['loginEmail','loginPass'].forEach(id =>
-    document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') authLogin(); })
+    document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) authLogin(); })
   );
 }
 authInit();
@@ -18150,7 +18274,7 @@ function plIniciar(datos) {
     return v.pts.at(-1);
   }
   const enviar = (i, j, item) => { const pts = camino(i, j); viajes.push({ i, j, item, pts, ini: st.simMs, dur: Math.max(1400, largo(pts) * 240) }); };
-  const anotar = txt => { const tk = document.getElementById('plTicker'); if (!tk) return; tk.innerHTML = ''; const a = document.createElement('time'); a.textContent = new Date().toTimeString().slice(0, 5); const b = document.createElement('span'); b.textContent = txt; tk.append(a, b); };
+  const anotar = txt => { const tk = document.getElementById('plTicker'); if (!tk) return; tk.replaceChildren(); const a = document.createElement('time'); a.textContent = new Date().toTimeString().slice(0, 5); const b = document.createElement('span'); b.textContent = txt; tk.append(a, b); };
   const avisar = txt => { if (st.simMs - ultAviso > 2600) { ultAviso = st.simMs; anotar(txt); } };
   function trabajar() {
     if (st.simMs > proxFuente) { proxFuente = st.simMs + 4800; enviar(-1, 1, { tipo: 'rollo' }); }
@@ -18327,7 +18451,7 @@ function plIniciar(datos) {
     return [['ficha', 'Ficha'], ['kpi', 'KPI'], ['problemas', 'Problemas']];
   }
   function pintarCajon() {
-    const cab = document.getElementById('plCab'); if (!cab) return; cab.innerHTML = '';
+    const cab = document.getElementById('plCab'); if (!cab) return; cab.replaceChildren();
     const dd = st.datos;
     if (st.sel.tipo === 'meta' || st.sel.tipo === 'sim') {
       cab.append(el('div', 'pl-icono', st.sel.tipo === 'sim' ? '¿?' : 'META'));
@@ -18340,7 +18464,7 @@ function plIniciar(datos) {
       const c = document.createElement('canvas'); c.width = 22; c.height = 38; avatar(c, monoDe(i).look); cab.append(c);
       const d = el('div'); d.append(el('div', 'pl-rol', `Etapa ${i + 1} de 12`), el('h2', null, et.nombre), chip(d0.estado, `${d0.corto} · ${NOMBRE_EST[d0.estado]}`)); cab.append(d);
     }
-    const tabs = document.getElementById('plTabs'); tabs.innerHTML = '';
+    const tabs = document.getElementById('plTabs'); tabs.replaceChildren();
     for (const [id, nom] of pestanas()) { const b = el('button', null, nom); b.type = 'button'; b.classList.toggle('on', st.pestana === id); b.onclick = () => { st.pestana = id; pintarCajon(); }; tabs.append(b); }
     pintarPanel();
   }
@@ -18352,7 +18476,7 @@ function plIniciar(datos) {
   }
   function barra(r, est, marca) { const b = el('div', 'pl-barra-av ' + est), i = el('i'); i.style.width = Math.min(100, r * 100) + '%'; b.append(i); if (marca != null) { const u = el('u'); u.style.left = Math.min(100, marca * 100) + '%'; b.append(u); } return b; }
   function pintarPanel() {
-    const pn = document.getElementById('plPanel'); if (!pn) return; pn.innerHTML = ''; pn.scrollTop = 0;
+    const pn = document.getElementById('plPanel'); if (!pn) return; pn.replaceChildren(); pn.scrollTop = 0;
     if (st.sel.tipo === 'sim') return pintarSim(pn);
     if (st.sel.tipo === 'meta') return st.pestana === 'mapa' ? pintarMapa(pn) : pintarCascada(pn);
     const i = PL_ETAPAS.findIndex(e => e.id === st.sel.id), et = PL_ETAPAS[i], d = D()[et.id];
@@ -18411,7 +18535,7 @@ function plIniciar(datos) {
     const cf = el('div', 'pl-cifras'); const cifra = (v, l, c) => { const x = el('div', 'pl-cifra ' + (c || '')); x.append(el('b', null, v), el('span', null, l)); return x; };
     cf.append(cifra(plN(pr.v), 'Saldrían en el mes', plEstado(r)), cifra(pct(r), 'De la meta', plEstado(r)), cifra(cu ? cu.corto : '—', 'Cuello de botella', r >= 1 ? '' : 'rojo')); pn.append(cf);
     if (cu) {
-      const prueba = JSON.parse(JSON.stringify(SIMG)); prueba[cu.id].sim += 1; const pr2 = simProy(prueba);
+      const prueba = structuredClone(SIMG); prueba[cu.id].sim += 1; const pr2 = simProy(prueba);
       const s = el('div', 'pl-sug'); s.append(el('p', null, `Con una persona más en ${cu.corto}, el mes cerraría en ${plN(pr2.v)}${pr2.cuello !== pr.cuello && pr2.cuello >= 0 ? ` y el cuello pasaría a ${PL_ETAPAS[pr2.cuello].corto}` : ''}.`));
       const b = el('button', 'pl-btn pl-prim', `Probar +1 en ${cu.corto}`); b.type = 'button'; b.onclick = () => { SIMG[cu.id].sim += 1; guardarSim(); repintarSim(); }; s.append(b); pn.append(s);
     }
@@ -18433,7 +18557,7 @@ function plIniciar(datos) {
   }
   function repintarSim() { const pn = document.getElementById('plPanel'), y = pn ? pn.scrollTop : 0; pintarCajon(); const p2 = document.getElementById('plPanel'); if (p2) p2.scrollTop = y; pintarPlantel(); }
   function pintarPlantel() {
-    const f = document.getElementById('plPlantel'); if (!f) return; f.innerHTML = '';
+    const f = document.getElementById('plPlantel'); if (!f) return; f.replaceChildren();
     const tarjeta = (nombre, sub, est, txt, look, activo, onclick, icono) => { const b = el('button', 'pl-tarjeta'); b.type = 'button'; b.classList.toggle('on', activo);
       if (look) { const c = document.createElement('canvas'); c.width = 22; c.height = 38; avatar(c, look); b.append(c); } else b.append(el('span', 'pl-icono-ch', icono));
       const t = el('div'); t.append(el('b', null, nombre), el('span', null, sub), chip(est, txt)); b.append(t); b.onclick = onclick; f.append(b); };
