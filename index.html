@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-3">
+<meta name="adecom-build" content="2026-11-19-4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -14864,7 +14864,17 @@ function bindContent(secId) {
             </div>`).join('')
             : '<div class="td-dim" style="padding:10px 14px">Todavía no hay observaciones: la primera que se guarde queda acá.</div>';
           obsLista.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', async () => {
-            if (!confirm('¿Borrar esta observación? Se borra para todos.')) return;
+            if (!b.dataset.arm) {   // primer toque: la confirmación aparece en la misma fila, sin el cuadro del navegador
+              b.dataset.arm = '1';
+              b.textContent = 'Borrar para todos';
+              b.style.cssText = 'border:1px solid var(--er);color:var(--er);padding:2px 8px;font-size:11px;border-radius:4px';
+              const no = document.createElement('button');
+              no.className = 'seg'; no.textContent = 'Cancelar';
+              no.style.cssText = 'border:1px solid var(--bd2);padding:2px 8px;font-size:11px;border-radius:4px';
+              no.addEventListener('click', e => { e.stopPropagation(); pintarObs(); });
+              b.after(no);
+              return;
+            }
             try {
               const { error } = await sb.from('observaciones_kennedy').delete().eq('id', b.dataset.id);
               if (error) throw error;
