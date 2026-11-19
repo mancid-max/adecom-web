@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-8">
+<meta name="adecom-build" content="2026-11-19-9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1370,6 +1370,7 @@ body.menu-oculto .fbar.fija{left:24px}
 
 /* ── CACHE ──────────────────────────────────────────────────── */
 const CACHE = {};
+const CACHE_ESTATICO = new Set();   // 19-11: qué quedó cargado desde la copia estática del repo (vieja si el ThinkPad no corre)
 const _VER = Date.now();
 /* Datos: se leen del bucket privado 'bi' de Supabase Storage con la sesión del usuario
    (sin login no hay acceso). Si falla (p.ej. serve.py local), cae al archivo relativo. */
@@ -1385,12 +1386,14 @@ async function load(file) {
         }
       }
     } catch { data = null; }
+    let delBucket = data !== null;
     if (data === null) {
       try { data = await (await fetch(file + '?v=' + _VER, { cache: 'no-cache' })).json(); }
       catch { data = null; }
     }
     if (data === null) return [];   // un fallo NO se cachea: si no, queda vacío para toda la sesión
     CACHE[file] = data;
+    if (delBucket) CACHE_ESTATICO.delete(file); else CACHE_ESTATICO.add(file);
   }
   return CACHE[file];
 }
@@ -16338,11 +16341,8 @@ function bindMobile() {
 /* Arranca SOLO con sesión iniciada (lo llama applyRole). Antes corría en DOMContentLoaded y,
    sin sesión, dejaba los datos cacheados en vacío: al iniciar sesión el dashboard salía en cero. */
 let _appLista = false;
-async function init(role) {
-  if (_appLista) return;
-  _appLista = true;
-  const esBodega = role === 'bodega' || role === 'trazabilidad';
-
+let _ES_BODEGA = false;
+async function cargarBase(esBodega) {
   // Cargar datos base en paralelo + meta para timestamp real del build.
   // Bodega no pide los documentos de venta: no ve ninguna seccion que los use y el
   // permiso del bucket ya no se los entrega, asi que pedirlos seria un viaje perdido.
@@ -16370,6 +16370,7 @@ async function init(role) {
         ? ` <span style="color:${mismoDia ? 'inherit' : 'var(--wa)'};${mismoDia ? '' : 'font-weight:700'}" title="Hora en que el ERP escribió sus archivos. Es hasta donde llegan los datos, y no cambia porque esta página se recargue">· ERP ${mismoDia ? meta.erp_time : meta.erp_date + ' ' + meta.erp_time}</span>`
         : '')
     : '—';
+  if (CACHE_ESTATICO.has('meta.json')) tsEl.innerHTML += ' <span style="color:var(--er);font-weight:700" title="No se pudo leer el dato en vivo: lo que se ve es la copia guardada con la página, que puede estar vieja">· copia local</span>';
   tsEl.title = meta?.updated_str ? 'Hora en que corrió la carga de datos' : '';
 
   // Venta hoy
@@ -16396,6 +16397,16 @@ async function init(role) {
       VENTA_HOY = resumenDia(docsSG.filter(x=>x.fecha_iso===last), `${d}/${m}`);
     }
   }
+
+}
+
+async function init(role) {
+  if (_appLista) return;
+  _appLista = true;
+  const esBodega = role === 'bodega' || role === 'trazabilidad';
+
+  _ES_BODEGA = esBodega;
+  await cargarBase(esBodega);
 
   // Recién ahora se habilita el menú: antes un click quedaba descartado al pintar la sección inicial
   document.querySelectorAll('.nav-item[data-sec]').forEach(btn => {
@@ -17036,6 +17047,23 @@ async function init(role) {
 const SUPA_URL  = 'https://kdtydxihrflhziclgiof.supabase.co';
 const SUPA_KEY  = 'sb_publishable_37ce4uK_RG8o9pP-Jdf2Xw_3eWgqJQy';
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+/* 19-11 (Manu vio datos del 17/11 con el bucket al día): si la página abrió con el token vencido, la primera
+   tanda cayó a la copia estática y quedaba cacheada para siempre. Cuando la sesión sana, se bota y se repinta. */
+let _sanando = false;
+sb.auth.onAuthStateChange((ev, session) => {
+  if (!session || !CACHE_ESTATICO.size || _sanando || !_appLista) return;
+  _sanando = true;
+  setTimeout(async () => {
+    try {
+      for (const f of [...CACHE_ESTATICO]) delete CACHE[f];
+      CACHE_ESTATICO.clear();
+      await cargarBase(_ES_BODEGA);
+      const act = document.querySelector('.sb-nav .nav-item.active');
+      if (act) go(act.dataset.sec, act.dataset.ttl);
+    } catch (e) { console.error('al refrescar con la sesión sana', e); }
+    _sanando = false;
+  }, 100);
+});
 
 /* ── Asistente ─────────────────────────────────────────────────────────────
    La pregunta va a una función en Supabase que consulta los datos y responde.
