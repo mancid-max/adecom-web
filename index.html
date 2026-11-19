@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-5">
+<meta name="adecom-build" content="2026-11-19-6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -17429,6 +17429,18 @@ async function erpFichaArt(base) {
         return partes.length ? `<div style="font-size:12px;color:var(--tx2);margin-bottom:8px">${partes.join(' · ')}</div>` : '<div style="margin-bottom:8px"></div>'; })()}
       ${filas.length ? `<table class="erp-tabla"><thead><tr><th>Temp.</th><th class="num">Pedido</th><th class="num">Despachado</th><th class="num">Saldo</th><th class="num">Stock</th></tr></thead>
       <tbody>${filas.map(p => `<tr><td style="font-weight:600">T${p.temp}</td><td class="num">${fmt(p.total)}</td><td class="num">${fmt(p.desp)}</td><td class="num">${fmt(p.saldo)}</td><td class="num">${fmt(p.stock)}</td></tr>`).join('')}</tbody></table>` : '<div class="td-dim">Sin pedidos en el ERP para este modelo.</div>'}
+      ${(() => {   /* 19-11 (Manu: "esta sección de colores no me aparece en celular"): el desglose por color
+           que el escritorio muestra al expandir la fila, ahora también en la ficha; tocar un color abre sus tallas */
+        const vs = (f0.modelos || []).filter(v => (v.qty || 0) > 0);
+        if (!vs.length) return '';
+        return `<div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Colores · T${esc2(String(f0.temp))}</div>
+        <table class="erp-tabla"><thead><tr><th>Color</th><th>Artículo</th><th class="num">Pedidas</th><th></th></tr></thead>
+        <tbody>${vs.slice().sort((x, y) => (y.qty || 0) - (x.qty || 0)).map(v => { const a = `01${f0.temp}${String(base).slice(-2)}${String(v.mod).padStart(2, '0')}`;
+          return `<tr style="cursor:pointer" onclick="dcTallas('${a}')" title="Lo pedido por talla y por cliente">
+            <td style="font-weight:600">${esc2(String(v.mod))}${v.tela ? `<span class="td-dim" style="font-weight:400;font-size:11px;margin-left:6px">${esc2(v.tela)}</span>` : ''}</td>
+            <td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${a}</td>
+            <td class="num">${fmt(v.qty || 0)}</td>
+            <td style="color:var(--ac);font-size:11px;font-weight:600;white-space:nowrap">Tallas ›</td></tr>`; }).join('')}</tbody></table></div>`; })()}
       ${(() => { const quien = {};
         for (const p of (peds || [])) {
           let u = 0, dd = 0;
