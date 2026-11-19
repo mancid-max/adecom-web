@@ -4,8 +4,12 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-9">
+<meta name="adecom-build" content="2026-11-19-10">
+<meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://kdtydxihrflhziclgiof.supabase.co">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -781,6 +785,12 @@ body.menu-oculto .main{margin-left:0;max-width:100vw}
 .grp-secs button{font:inherit;font-size:12.5px;white-space:nowrap;padding:6px 12px;border:1px solid var(--bd2);border-radius:14px;background:var(--sf);color:var(--tx2);font-weight:600;flex-shrink:0}
 .grp-secs button.on{background:var(--marino);border-color:var(--marino);color:#fff}
 @media(max-width:1100px){.grp-secs{display:flex}}
+
+/* 19-11 (web-design-guidelines de Vercel): foco visible con teclado donde el outline estaba apagado,
+   sin demora del doble toque en el celular, y los paneles con scroll propio no arrastran la página */
+.finput:focus-visible,.login-card input:focus-visible,.ini-buscar input:focus-visible,select:focus-visible,textarea:focus-visible,.seg:focus-visible,.ra-tab:focus-visible,.grp-secs button:focus-visible,.nav-item:focus-visible,.modbar button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+body{touch-action:manipulation}
+.sidebar,.det-ov,.tbl-scroll{overscroll-behavior:contain}
 
 /* ── MOBILE ──────────────────────────────────────────────────── */
 @media(max-width:1100px){
@@ -5087,7 +5097,7 @@ function secKnObs() {
       <input id="knObsNombre" class="finput" placeholder="Nombre" style="width:150px">
       <textarea id="knObsTexto" class="finput" rows="2" placeholder="Observación… (Enter guarda; Shift+Enter, salto de línea)" style="flex:1;min-width:220px;resize:vertical;box-sizing:border-box"></textarea>
       <button class="seg" id="knObsGuardar" style="border:1px solid var(--bd2)">Guardar</button>
-      <span class="td-dim" id="knObsEstado" style="font-size:11px;align-self:center"></span>
+      <span class="td-dim" id="knObsEstado" aria-live="polite" style="font-size:11px;align-self:center"></span>
     </div>
   </div>`}
   <div class="tbl-card" ${window._bodegaMode ? '' : 'style="margin-top:14px"'}
@@ -12804,6 +12814,12 @@ async function go(secId, title) {
 function bindContent(secId) {
   // El tablero de Pedidos: la barra de pestañas compartida entre sus tres secciones (17-11)
   document.querySelectorAll('#pedTabs .seg').forEach(b => b.addEventListener('click', () => { if (!b.classList.contains('on')) go(b.dataset.sec, b.dataset.ttl); }));
+  // 19-11 (web-design-guidelines): nombres accesibles — inputs toman su placeholder o etiqueta, íconos su title
+  document.querySelectorAll('#content input:not([aria-label]):not([type="hidden"]), #content textarea:not([aria-label]), #content select:not([aria-label])').forEach(el => {
+    const n = (el.getAttribute('placeholder') || el.closest('.fgrp')?.querySelector('.flbl')?.textContent || '').trim();
+    if (n) el.setAttribute('aria-label', n);
+  });
+  document.querySelectorAll('#content button[title]:not([aria-label])').forEach(b => { if (!b.textContent.trim()) b.setAttribute('aria-label', b.title); });
   // PRUEBA 19-11 (responsive-table): la tabla que rueda dentro de su tarjeta se puede recorrer con el teclado
   document.querySelectorAll('.tbl-scroll:not([tabindex])').forEach(w => {
     w.tabIndex = 0; w.setAttribute('role', 'region');
@@ -15860,7 +15876,7 @@ function bindContent(secId) {
           <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
             <button class="seg" id="cliObsGuardar" style="border:1px solid var(--bd2)">Guardar observación</button>
             <button class="seg" id="cliObsBorrar" style="border:1px solid var(--bd2);color:var(--er)" title="La quita para todos; se puede volver a escribir cuando quieras">Borrar observación</button>
-            <span class="td-dim" id="cliObsEstado" style="font-size:11px"></span>
+            <span class="td-dim" id="cliObsEstado" aria-live="polite" style="font-size:11px"></span>
           </div>
         </div>`;
       const rutn = row.dataset.rutn || '';
