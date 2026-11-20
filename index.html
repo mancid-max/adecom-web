@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-19-11">
+<meta name="adecom-build" content="2026-11-20-1">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -793,6 +793,12 @@ body{touch-action:manipulation}
 /* 19-11 (Manu: "cuando llegue abajo debería seguir para abajo, no quedarse en la misma tabla"):
    el contain va solo en paneles flotantes; en las tablas de la página el scroll debe continuar hacia la página */
 .sidebar,.det-ov{overscroll-behavior:contain}
+
+/* Qué le debemos · vista por pedido (20-11) */
+.db-ped{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);margin-bottom:10px}
+.db-ped-hd{display:flex;gap:10px;align-items:baseline;padding:9px 12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.db-ped-f{display:flex;gap:10px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.db-ped-f:last-child{border-bottom:none}
 
 /* ── MOBILE ──────────────────────────────────────────────────── */
 @media(max-width:1100px){
@@ -11399,7 +11405,7 @@ function debDatos(peds, ft, ftMap, sinMagic = false) {
       if (x) { x.cajas.forEach(n => it.cajas.add(n)); for (const [t, n] of Object.entries(x.t)) it.cajaT[t] = (it.cajaT[t] || 0) + n; }
       if (l.st) { it.hayST = true; for (const [t, n] of Object.entries(l.st)) it.st[t] = (it.st[t] || 0) + n; }
       it.pedidos.add(p.pedido); it.dias = Math.max(it.dias, p.dias || 0);
-      it.peds.push({ pedido: p.pedido, fecha: p.fecha || '', dias: p.dias || 0, sol: l.sol || 0, desp: l.desp || 0, sal: l.sal, caja: enC, cajas: x ? [...x.cajas] : [], bloq: !!p.bloqueo });
+      it.peds.push({ pedido: p.pedido, fecha: p.fecha || '', dias: p.dias || 0, sol: l.sol || 0, desp: l.desp || 0, sal: l.sal, caja: enC, cajas: x ? [...x.cajas] : [], bloq: !!p.bloqueo, st: l.st || null, cajaT: x ? { ...x.t } : {} });
       c.debe += l.sal - enC; c.enCaja += enC; c.pedidos.add(p.pedido); c.dias = Math.max(c.dias, p.dias || 0);
     }
   }
@@ -11504,6 +11510,27 @@ function debDetalle(c) {
           : est === 'cortar' ? `<span class="pl-sub">${f.bota ? 'Sin otro modelo de esa bota que sobre' : 'El ERP todavía no le asigna bota: no hay con qué compararlo'}</span>` : ''}</td></tr>`;
   }).join('');
 
+  /* 20-11 (Manu: "¿se puede ver cuánto le debemos por número de pedido y por talla?"): la misma deuda,
+     agrupada por pedido — cada pedido con sus artículos, las tallas que se le deben y lo ya en caja */
+  const porPed = new Map();
+  for (const { it } of items) for (const pd of it.peds) {
+    const g = porPed.get(pd.pedido) || { pedido: pd.pedido, fecha: pd.fecha, dias: 0, bloq: false, arts: [] };
+    g.dias = Math.max(g.dias, pd.dias); if (pd.bloq) g.bloq = true;
+    g.arts.push({ art: it.art, sal: pd.sal, caja: pd.caja, cajas: pd.cajas, st: pd.st, cajaT: pd.cajaT });
+    porPed.set(pd.pedido, g);
+  }
+  const vistaPed = [...porPed.values()].sort((a, b) => b.dias - a.dias).map(g => `
+    <div class="db-ped">
+      <div class="db-ped-hd"><b>Pedido ${String(g.pedido).replace(/^0+/, '')}</b><span class="pl-sub">${g.fecha}${g.dias ? ` · esperando ${fmt(g.dias)} días` : ''}</span>${g.bloq ? ' <span class="erp-etq er">BLOQUEADO</span>' : ''}<span class="pl-sub" style="margin-left:auto">${fmt(g.arts.reduce((a, x) => a + x.sal, 0))} prendas pendientes</span></div>
+      ${g.arts.sort((x, y) => y.sal - x.sal).map(x => {
+        const ts = Object.entries(x.st || {}).filter(([, n]) => n > 0).sort((a, b) => +a[0] - +b[0]);
+        const cj2 = Object.entries(x.cajaT || {}).filter(([, n]) => n > 0).sort((a, b) => +a[0] - +b[0]);
+        return `<div class="db-ped-f">${artImg(x.art)}<span class="td-code">${cod(x.art)}</span>
+          <span class="db-tallas" style="margin:0">${ts.length ? ts.map(([t2, n]) => `<span class="db-t db-t2"><i>${t2}</i><b>${fmt(n)}</b></span>`).join('') : `<b>${fmt(x.sal)}</b>&nbsp;<span class="pl-sub">prendas (el ERP no trae la talla de este pedido)</span>`}</span>
+          ${x.caja ? `<span class="pl-sub" style="color:var(--ok);font-weight:600">📦 ${fmt(x.caja)} en caja ${x.cajas.map(n2 => String(n2).replace(/^0+/, '')).join(', ')}${cj2.length ? ': ' + cj2.map(([t2, n]) => `${t2}×${fmt(n)}`).join(' ') : ''}</span>` : ''}</div>`;
+      }).join('')}
+    </div>`).join('');
+
   const cuenta = k => k ? items.filter(x => x.it.cats.includes(k)).length : items.length;
   const segs = DEB_FILTROS.filter(([k]) => !k || cuenta(k)).map(([k, t]) => `<button class="seg${k ? '' : ' on'}" data-f="${k}">${t} <span class="db-n">${cuenta(k)}</span></button>`).join('');
   return `<div class="pc">
@@ -11516,11 +11543,19 @@ function debDetalle(c) {
       </div>
       ${conTallas ? '' : '<div class="db-aviso">Por talla: los pedidos de hoy todavía no traen la talla. Aparece con la próxima actualización de datos.</div>'}
       ${totTallas}
-      <div class="segs db-segs">${segs}</div></div>
-    <div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
+      <div class="segs" style="margin-bottom:8px"><button class="seg on" onclick="dbVistaT(this, 'art')">Por artículo</button><button class="seg" onclick="dbVistaT(this, 'ped')">Por pedido <span class="db-n">${porPed.size}</span></button></div>
+      <div class="segs db-segs" data-db-vista="art">${segs}</div></div>
+    <div data-db-vista="ped" class="db-vista-ped" style="display:none">${vistaPed || '<div class="td-dim" style="padding:18px">No se le debe nada</div>'}</div>
+    <div data-db-vista="art"><div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Artículo</th><th class="pl-sec" data-ord="n" title="Días desde el pedido más antiguo que todavía lo debe">Esperando</th><th data-ord="n">Le debemos${conTallas ? '<span class="pl-sub">por talla</span>' : ''}</th><th data-ord="n">Dónde está</th></tr></thead>
       <tbody>${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
-    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar; las que siguen a 📦 ya están en su caja. En lo que se puede ofrecer, el número es lo que sobra de esa talla: verde alcanza para lo que se le debe, amarillo alcanza en parte, rojo no hay. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div>`;
+    <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar; las que siguen a 📦 ya están en su caja. En lo que se puede ofrecer, el número es lo que sobra de esa talla: verde alcanza para lo que se le debe, amarillo alcanza en parte, rojo no hay. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div></div>`;
+}
+/* el conmutador Por artículo / Por pedido del detalle del cliente (20-11) */
+function dbVistaT(b, k) {
+  b.parentElement.querySelectorAll('.seg').forEach(x => x.classList.toggle('on', x === b));
+  const r = b.closest('.det-body') || document;
+  r.querySelectorAll('[data-db-vista]').forEach(d => { d.style.display = d.dataset.dbVista === k ? '' : 'none'; });
 }
 
 /* El detalle de un artículo para un cliente (Manu, 22-10-2026: "cuando presione en uno me muestre más
