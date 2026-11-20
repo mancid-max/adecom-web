@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-20-1">
+<meta name="adecom-build" content="2026-11-20-2">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11543,10 +11543,10 @@ function debDetalle(c) {
       </div>
       ${conTallas ? '' : '<div class="db-aviso">Por talla: los pedidos de hoy todavía no traen la talla. Aparece con la próxima actualización de datos.</div>'}
       ${totTallas}
-      <div class="segs" style="margin-bottom:8px"><button class="seg on" onclick="dbVistaT(this, 'art')">Por artículo</button><button class="seg" onclick="dbVistaT(this, 'ped')">Por pedido <span class="db-n">${porPed.size}</span></button></div>
-      <div class="segs db-segs" data-db-vista="art">${segs}</div></div>
-    <div data-db-vista="ped" class="db-vista-ped" style="display:none">${vistaPed || '<div class="td-dim" style="padding:18px">No se le debe nada</div>'}</div>
-    <div data-db-vista="art"><div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
+      <div class="segs" style="margin-bottom:8px"><button class="seg on" onclick="dbVistaT(this, 'ped')">Por pedido <span class="db-n">${porPed.size}</span></button><button class="seg" onclick="dbVistaT(this, 'art')">Por artículo</button></div>
+      <div class="segs db-segs" data-db-vista="art" style="display:none">${segs}</div></div>
+    <div data-db-vista="ped" class="db-vista-ped">${vistaPed || '<div class="td-dim" style="padding:18px">No se le debe nada</div>'}</div>
+    <div data-db-vista="art" style="display:none"><div class="tbl-scroll"><table data-ord-col="1" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Artículo</th><th class="pl-sec" data-ord="n" title="Días desde el pedido más antiguo que todavía lo debe">Esperando</th><th data-ord="n">Le debemos${conTallas ? '<span class="pl-sub">por talla</span>' : ''}</th><th data-ord="n">Dónde está</th></tr></thead>
       <tbody>${filas || '<tr><td colspan="4" class="td-dim" style="text-align:center;padding:22px">No se le debe nada</td></tr>'}</tbody></table>
     <div class="tbl-foot">${conTallas ? 'Tallas en verde: hay en bodega para todos los que la deben; en azul: viene en producción; en rojo: falta cortar; las que siguen a 📦 ya están en su caja. En lo que se puede ofrecer, el número es lo que sobra de esa talla: verde alcanza para lo que se le debe, amarillo alcanza en parte, rojo no hay. ' : ''}Lo que hay se compara con lo que se les debe a todos los clientes, como en Pedido vs Corte, y lo que está en una caja armada ya no se debe.</div></div></div>`;
