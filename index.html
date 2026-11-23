@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-19">
+<meta name="adecom-build" content="2026-11-23-20">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4763,6 +4763,14 @@ async function clObsCargar() {
   } catch (e) { CL_OBS = {}; }   // sin tabla o sin permiso: la sección funciona igual, sin notas
 }   // inactivos / activos / todos (Manu, 10-11-2026: "que se pueda ver también los activos y ambos")   // Clientes Inactivos: sin Magic World, la tienda propia (Manu, 09-11-2026)
 let CL_BASE = [1, 2, 3, 4].map(i => String(+TEMP_ACTIVA + 1 - i)).reverse();   // "comparar con": las elige el usuario; parten como las 4 anteriores a la base
+/* La elección de base y comparadas se recuerda en este navegador (Manu, 23-11: "¿por qué comparar con
+   siempre está preseleccionado con 41,42,43,44?" — era el valor de partida y no se guardaba). */
+const clSelGuardar = () => { try { localStorage.setItem('clTempSel', JSON.stringify({ b: CL_ACTS, c: CL_BASE })); } catch (e) {} };
+try {
+  const _s = JSON.parse(localStorage.getItem('clTempSel'));
+  const _ok = a => Array.isArray(a) && a.length && a.every(t => /^\d{2}$/.test(String(t)));
+  if (_s && _ok(_s.b) && _s.b.length === 1 && _ok(_s.c)) { CL_ACTS = _s.b.map(String); CL_BASE = _s.c.map(String); }
+} catch (e) {}
 
 function clInactivos(peds) {
   const gm = new Map();
@@ -15902,12 +15910,14 @@ function bindContent(secId) {
       CL_ACTS = [tt];
       CL_BASE = [1, 2, 3, 4].map(i => String(+tt - i)).filter(t => +t >= 37).reverse();   // al cambiar la base, comparar parte con sus 4 anteriores
       if (!CL_BASE.length) CL_BASE = [String(+tt + 1)];
+      clSelGuardar();
       go('clientes', 'Clientes Inactivos');
     }));
     document.querySelectorAll('#clActSegs [data-cla]').forEach(b => b.addEventListener('click', () => {
       const tt = String(b.dataset.cla);
       if (CL_BASE.includes(tt)) { if (CL_BASE.length > 1) CL_BASE = CL_BASE.filter(x => x !== tt); }
       else CL_BASE = [...CL_BASE, tt].sort((a, b) => +a - +b);
+      clSelGuardar();
       go('clientes', 'Clientes Inactivos');
     }));
     /* Zona y ciudad: mueven la tabla de clientes y la lista de los que faltan la T45 (Manu, 09-11-2026) */
