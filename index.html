@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-6">
+<meta name="adecom-build" content="2026-11-23-7">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5871,8 +5871,10 @@ function raRender() {
         ${kV('📨', 'var(--ac10)', fmt(cw.llegaron), 'les llegó el aviso', `de ${fmt(cw.enviados)} enviados por WhatsApp (${raPct(cw.llegaron, cw.enviados)})`, '--tx1')}
         ${kV('💬', 'var(--ac10)', fmt(camp.conversando_ahora), 'conversan con Sofía', 'escribieron en las últimas 72 h', '--ac')}
         ${kV('🛒', 'var(--ok10)', fmt(cv2.clientes), 'compraron', cv2.clientes ? `${fmtM(cv2.valor)} neto · ${fmt(cv2.unidades)} prendas` : 'por Sofía, la página, o después de responder', '--ok')}
-        ${kV('🔥', 'var(--wa10)', fmt((camp.tibios || []).length), 'para seguir', 'abrieron o tocaron y no escribieron', '--wa', ver('campanas-atencion', 'Campañas'))}
+        ${kV('🔥', 'var(--wa10)', fmt((camp.tibios || []).length), 'para seguir', 'abrieron o tocaron y no escribieron', '--wa', (camp.tibios || []).length ? `<span class="ra-ver" data-ratib>Ver detalle ›</span>` : '')}
       </div>
+      <div class="ra-col" id="raTibios" style="display:none;margin-top:12px"><div class="ra-ct">Para llamar o escribirles <small>${fmt((camp.tibios || []).length)}</small></div>
+        <div style="max-height:260px;overflow-y:auto">${(camp.tibios || []).map(x => `<div class="ra-f"><small>${x.etiqueta != null ? cvEsc(x.etiqueta) : x.grupo === 1 ? '44' : '40-43'}</small><span>${cvEsc(x.cliente)}</span><small>${x.toco ? 'tocó el botón' : 'abrió el correo'}</small></div>`).join('')}</div></div>
       <div class="ra-col" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· cada campaña tiene su reporte completo y se comparan entre ellas</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div>
     </section>` : `<section class="ra-bloque"><div class="ra-col" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· todavía no hay una campaña andando</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div></section>`}
     ${raBloquesCat45()}
@@ -6020,6 +6022,7 @@ function raMontar() {
   body.querySelectorAll('[data-rair]').forEach(b => b.addEventListener('click', () => go(b.dataset.rair, b.dataset.rairt)));
   body.querySelector('[data-raconv]')?.addEventListener('click', () => go('conversaciones', 'Conversaciones'));
   body.querySelector('[data-racamp]')?.addEventListener('click', () => go('campanas-atencion', 'Campañas'));
+  body.querySelector('[data-ratib]')?.addEventListener('click', () => { const t = body.querySelector('#raTibios'); if (t) t.style.display = t.style.display === 'none' ? '' : 'none'; });
   body.querySelectorAll('[data-ralead]').forEach(r => r.addEventListener('click', () => { CV_SEL = r.dataset.ralead; go('conversaciones', 'Conversaciones'); }));
   body.querySelector('[data-raact]')?.addEventListener('click', async () => { const r = await cvFetch('?reporte=1&forzar=1'); cvFetch('?campana=1'); if (r.ok) { RA_DATA = { ...RA_DATA, actualizando: true }; cerrarGraficos(); body.innerHTML = raRender(); raMontar(); raEsperar(); } });
   raGraficos();
