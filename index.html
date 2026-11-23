@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-11">
+<meta name="adecom-build" content="2026-11-23-12">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -531,6 +531,7 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 /* Clientes Inactivos: filtros uno debajo del otro (Manu, 10-11-2026: "ordenar los filtros de arriba hasta abajo") */
 .cl-fbar, .cl-fbar .fbar-row{display:flex;flex-direction:column;align-items:stretch;gap:10px}
 .cl-fbar .fgrp{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.cl-fbar .fgrp+.fgrp{border-top:1px solid var(--bd);padding-top:10px;width:100%}   /* una línea entre filtro y filtro (Manu, 23-11: "se ven muy juntos") */
 .cl-fbar .segs{flex-wrap:wrap}
 .pl .db-tot-t{margin:0 0 12px;padding:10px 12px;background:var(--sf2);border-radius:10px}
 .pl .db-tot-t .db-tallas{margin-top:0}
