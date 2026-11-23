@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-16">
+<meta name="adecom-build" content="2026-11-23-17">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4906,7 +4906,7 @@ function clMapaHtml(peds) {
   const filaL = (r, d) => `<button type="button" class="clmap-fila" data-fr="${r}"${d.a + d.n ? '' : ' style="opacity:.45"'}><span class="clmap-pto" style="background:${col(d.a, d.n)}"></span>${r}<span class="clmap-nums"><b style="color:var(--ok)">${d.a}</b> sí / <b style="color:var(--er)">${d.n}</b> no</span></button>`;
   const sr = m.get('Sin región');
   return `<div class="tbl-card" id="clMapaCard" style="margin-top:14px">
-    <div class="erp-ph"><h2>Mapa de Chile: atendidos y sin atender</h2><div class="xl-der"><span class="td-dim">de Arica a Magallanes</span></div></div>
+    <div class="erp-ph"><h2>Mapa de Chile: atendidos y sin atender</h2>${btnExcel('clMapaExcel', 'Baja a Excel el resumen por región y los clientes, tal como los dejan los filtros')}<div class="xl-der"><span class="td-dim">de Arica a Magallanes</span></div></div>
     <div style="padding:6px 14px 0"><span class="td-dim" style="font-size:11px">Mientras más verde la región, más de sus clientes ya pidieron la ${clActsTxt(' o ')}; rojo: compraron en ${clCompTxt(', ')} y aún no la piden. Toca una región (en el mapa o en la lista) y se abre la ventana con sus clientes.</span></div>
     <div class="clmap-wrap">
       <svg id="clMapaSvg" viewBox="${CL_GEO.viewBox}" preserveAspectRatio="xMidYMid meet">${svg}</svg>
@@ -16067,8 +16067,8 @@ function bindContent(secId) {
       if (!filas.length) return;
       if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de Excel. Revisa la conexión y vuelve a intentar.'); return; }
 
-      const temps = ['40', '41', '42', '43'];
-      const enc = ['Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Unidades T40-T43',
+      const temps = CL_BASE;
+      const enc = ['Cliente', 'RUT', 'Ciudad', 'Vendedor', `Unidades ${clCompTxt('-')}`,
                    ...temps.map(t => 'T' + t), 'Deuda', 'Cupo disponible',
                    'Días sin comprar', 'Última compra', 'Motivo'];
       const MOT = { 'bloqueado': 'Bloqueado', 'sin cupo': 'Sin cupo', 'con deuda': 'Con deuda', 'sin motivo visible': '' };
@@ -16105,6 +16105,38 @@ function bindContent(secId) {
       const suf = mot === 'bloq' ? ' bloqueados' : mot === 'nobloq' ? ' no bloqueados'
                 : mot === 'deuda' ? ' con deuda' : mot === 'cupo' ? ' sin cupo' : '';
       XLSX.writeFile(libro, `Clientes inactivos ${clActsTxt('-')}${suf} ${fecha}.xlsx`);
+    });
+
+    // Excel del mapa: resumen por región + clientes, con el filtro vivo (Manu, 23-11: "descargando lo que se debe mostrar con los filtros")
+    document.getElementById('clMapaExcel')?.addEventListener('click', () => {
+      if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de Excel. Revisa la conexión y vuelve a intentar.'); return; }
+      if (!CL_MAPA_L) return;
+      const f = CL_MAPA_F || (() => true);
+      const MOT = { 'bloqueado': 'Bloqueado', 'sin cupo': 'Sin cupo', 'con deuda': 'Con deuda', 'sin motivo visible': '' };
+      const resumen = [['Región', 'Atendidos', 'Sin atender', 'Total', '% atendido']];
+      const cli = [['Región', 'Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', `Compraba ${clCompTxt('-')}`, 'Deuda', 'Última colección', 'Motivo']];
+      for (const r of [...Object.keys(REGIONES_CHILE), 'Sin región']) {
+        const d = CL_MAPA_L.get(r); if (!d) continue;
+        const la = d.la.filter(f), ln = d.ln.filter(f);
+        if (!la.length && !ln.length && r === 'Sin región') continue;
+        resumen.push([r, la.length, ln.length, la.length + ln.length,
+                      { v: (la.length + ln.length) ? la.length / (la.length + ln.length) : 0, t: 'n', z: '0%' }]);
+        for (const [lista, est] of [[ln, 'Sin atender'], [la, 'Atendido']])
+          for (const c of lista) cli.push([r, c.nombre, c.rut || '', c.ciudad || '', c.vendedor || '', est, c.unidades,
+                                           { v: c.deuda || 0, t: 'n', z: '#,##0' }, c.ultTemp ? 'T' + c.ultTemp : '', MOT[c.motivo] ?? '']);
+      }
+      const libro = XLSX.utils.book_new();
+      const h1 = XLSX.utils.aoa_to_sheet(resumen);
+      h1['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 11 }, { wch: 8 }, { wch: 11 }];
+      const h2 = XLSX.utils.aoa_to_sheet(cli);
+      h2['!cols'] = [{ wch: 20 }, { wch: 38 }, { wch: 13 }, { wch: 16 }, { wch: 18 }, { wch: 11 }, { wch: 14 }, { wch: 12 }, { wch: 9 }, { wch: 12 }];
+      h2['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: cli.length - 1, c: 9 } }) };
+      h2['!freeze'] = { xSplit: 0, ySplit: 1 };
+      XLSX.utils.book_append_sheet(libro, h1, 'Por región');
+      XLSX.utils.book_append_sheet(libro, h2, 'Clientes');
+      const hoy = new Date();
+      const fecha = `${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${hoy.getFullYear()}`;
+      XLSX.writeFile(libro, `Mapa Chile ${clActsTxt('-')} ${fecha}.xlsx`);
     });
 
     // Copiar la lista visible al portapapeles, lista para pegar en un chat o en Excel
