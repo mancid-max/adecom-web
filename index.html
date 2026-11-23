@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-10">
+<meta name="adecom-build" content="2026-11-23-11">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15904,14 +15904,16 @@ function bindContent(secId) {
         (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
       const conM = m => alc.filter(r => pasaMotivo(r, m));
       const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
-      const libres = conM('nobloq'), bloq = conM('bloq'), conDeuda = conM('deuda');
+      // Las tarjetas siguen al Motivo elegido (Manu, 23-11: "cuando presiono en bloqueados debería cambiarse el dato")
+      const alcM = conM(mot);
+      const libres = alcM.filter(r => pasaMotivo(r, 'nobloq')), bloq = alcM.filter(r => pasaMotivo(r, 'bloq')), conDeuda = alcM.filter(r => pasaMotivo(r, 'deuda'));
       const poner = (id, v) => { const e = el(id); if (e) e.textContent = v; };
-      poner('clk-all-val', fmt(alc.length));
-      poner('clk-all-sub', `compraban ${fmt(sumU(alc))} unidades en ${clCompTxt('/')} · ${fmt(alc.length ? Math.round(sumU(alc) / alc.length) : 0)} por cliente`);
+      poner('clk-all-val', fmt(alcM.length));
+      poner('clk-all-sub', `compraban ${fmt(sumU(alcM))} unidades en ${clCompTxt('/')} · ${fmt(alcM.length ? Math.round(sumU(alcM) / alcM.length) : 0)} por cliente`);
       poner('clk-nobloq-val', fmt(libres.length)); poner('clk-nobloq-sub', `no están bloqueados · compraban ${fmt(sumU(libres))} unidades`);
       poner('clk-bloq-val', fmt(bloq.length)); poner('clk-bloq-sub', bloq.length ? `deben ${fmtM(sumD(bloq))}` : 'ninguno');
-      poner('clk-deuda-val', fmtM(sumD(alc)));
-      poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda · ${fmt(alc.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
+      poner('clk-deuda-val', fmtM(sumD(alcM)));
+      poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda · ${fmt(alcM.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
       document.querySelectorAll('#clMotSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(conM(b.dataset.m).length); });
       clGrafico(filasVisibles());
     }
