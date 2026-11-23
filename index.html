@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-8">
+<meta name="adecom-build" content="2026-11-23-9">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6654,11 +6654,11 @@ async function cvCampana() {
    panel, cuando los datos están; sus modelos se tocan para sumarlos al mensaje como los demás. */
 var CV_CAMPCLI = null;
 var cvCampanaCliente = async function (d) {   // var: el tramo está dentro de un bloque y así queda visible para toda la página
-  const cont = document.getElementById('cvCamp'); if (!cont) return;
+  const cont = document.getElementById('cvCampCli'); if (!cont) return;
   const O = d.ofrecer || {}, esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   try {
     const [peds, pa, ft, hist] = await Promise.all([load('pedidos.json'), load('pedidos_art.json'), load('full_table.json'), load('cortes_hist.json')]);
-    if (!document.getElementById('cvCamp')) return;   // ya se cambió de conversación
+    if (!cont.isConnected) return;   // ya se cambió de conversación
     const nums = new Set((O.pedidos_erp || []).map(p => String(p.numero || '').replace(/^0+/, '')).filter(Boolean));
     const nombre = String(O.cliente || '').trim().toUpperCase();
     let cli = '';
@@ -6822,7 +6822,7 @@ function cvRender(d) {
   const PE = O.pedidos_erp || [], peU = PE.reduce((a, p) => a + (p.unidades || 0), 0), peD = PE.reduce((a, p) => a + (p.despachado || 0), 0);
   const despachoHtml = peU ? `<div class="cv-avance"><div class="cv-av-l1"><span>Sus pedidos del último año</span><b>${fmt(peU)}</b></div><div class="td-dim cv-av-l2"><b>${fmt(peD)}</b> despachadas (${Math.round(peD / peU * 100)}%) · <b style="color:var(--${peU - peD > 0 ? 'wa' : 'ok'})">${fmt(Math.max(0, peU - peD))}</b> le debemos${O.cumplir ? `: ${fmt(O.cumplir.hoy)} hay en bodega${O.cumplir.produccion ? `, ${fmt(O.cumplir.produccion)} en producción` : ''}${O.cumplir.sin ? `, ${fmt(O.cumplir.sin)} sin stock` : ''}` : ''}</div></div>` : '';
   const pedidosHtml = O.tipo === 'mayorista' ? sec('📦', 'Pedidos', A && A.pct != null ? chipS(`${A.pct}% de la ${cvEsc(A.ref_cole)}`, colorPct(A.pct)) : '',
-      [avanceHtml, '<div id="cvCamp"></div>', despachoHtml,
+      [avanceHtml, '<div id="cvCampCli"></div>', despachoHtml,
        faltaHtml ? `<div class="cv-sub">Falta despachar</div>${O.cumplir ? `<div class="cv-avance"><div class="cv-av-l1"><span>Se le puede despachar hoy</span><b style="color:var(--${O.cumplir.completo ? 'ok' : O.cumplir.pct >= 50 ? 'wa' : 'er'})">${O.cumplir.pct}%</b></div><div class="cv-barra"><i style="width:${O.cumplir.pct}%;background:var(--${O.cumplir.completo ? 'ok' : O.cumplir.pct >= 50 ? 'wa' : 'er'})"></i></div><div class="td-dim cv-av-l2">${O.cumplir.completo ? `Todo: hay las ${fmt(O.cumplir.falta)} prendas que faltan.` : `${fmt(O.cumplir.hoy)} de ${fmt(O.cumplir.falta)} prendas hay${O.cumplir.produccion ? ` · ${fmt(O.cumplir.produccion)} en producción` : ''}${O.cumplir.sin ? ` · <b class="cv-er">${fmt(O.cumplir.sin)} sin stock</b>` : ''}`}</div></div>` : ''}${faltaHtml}<div class="td-dim cv-fuente">Últimos 180 días · 44: Excel de Pato (ERP en rojo si no calza) · 40-43: ERP</div>` : '',
        pedErp ? `<div class="cv-sub">Sus últimos pedidos</div>${pedErp}` : '',
        R ? `<div class="td-dim cv-fuente">12 meses: ${fmt(R.unidades_12m)} prendas${R.facturado_12m ? ` · ${fmtCLP(R.facturado_12m)}` : ''}${(R.estilos || []).length ? ` · ${cvEsc(R.estilos.join(', '))}` : ''}</div>` : ''].join('')) : '';
