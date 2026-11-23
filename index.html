@@ -4,14 +4,14 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-1">
+<meta name="adecom-build" content="2026-11-23-2">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://kdtydxihrflhziclgiof.supabase.co">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js" integrity="sha384-7i/4BYWz4Mn+lJfg2HWfEPfZQ7tmFKF3CTSKlXBpxWjNlLjcg+T6smpHG4gLmU1u" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 #loginOv{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
@@ -1349,6 +1349,8 @@ body.menu-oculto .fbar.fija{left:24px}
   const corre = mt ? mt.content : '';
   if (!corre || location.protocol === 'file:') return;
   const ruta = location.pathname.endsWith('/') ? location.pathname + 'index.html' : location.pathname;
+  // texto libre del ERP (nombres, ciudades, telas, incidencias) SIEMPRE pasa por aqui antes de innerHTML
+  const escT = window.escT = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const recargar = () => location.replace(location.pathname + '?v=' + Date.now() + location.hash);
   async function servidor() {
     try {
@@ -1470,7 +1472,7 @@ function printTable({ table, title, subtitle = '', landscape = true }) {
     @media screen{body{padding:0 10px 10px}.barra{margin:0 -10px 10px}}
     @media print{.barra{display:none}}
   </style></head><body>
-  <div class="barra"><button type="button" class="volver" onclick="if (history.length > 1) history.back(); else { window.close(); setTimeout(() => location.replace('${location.href}'), 300); }">‹ Volver</button><button type="button" onclick="window.print()">🖨 Imprimir o guardar como PDF</button><span>Si no se abre el diálogo (iPhone, iPad), toca el botón o usa Compartir → Imprimir.</span></div>
+  <div class="barra"><button type="button" class="volver" onclick="if (history.length > 1) history.back(); else { window.close(); setTimeout(() => location.replace('${location.href.replace(/[&\x27\x22<>\\]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())}'), 300); }">‹ Volver</button><button type="button" onclick="window.print()">🖨 Imprimir o guardar como PDF</button><span>Si no se abre el diálogo (iPhone, iPad), toca el botón o usa Compartir → Imprimir.</span></div>
   <h1>${title} <span style="font-weight:400;color:#777;font-size:11px">· ADECOM Mohicano Jeans</span></h1>
   <div class="sub">${subtitle}${subtitle ? ' · ' : ''}${rows} filas · ${meta} · Impreso ${new Date().toLocaleString('es-CL')}</div>
   ${t.outerHTML}
@@ -1960,7 +1962,7 @@ function resDetClientes(cual) {
           <td class="td-dim" colspan="3" style="font-size:11px">${a.u < a.pedia ? `de ${fmt(a.pedia)} que espera` : 'completo'}</td>
         </tr>`).join('');
       return `<tr class="res-cli" data-i="${i}" style="cursor:pointer" title="Toca para ver qué artículos mandarle">
-        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${f.nombre}</td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${escT(f.nombre)}</td>
         <td class="r td-num">${fmt(f.u)}</td>
         <td class="r td-num td-dim">${f.arts}</td>
         <td style="width:28%">${vBarra(f.u, max, false)}</td>
@@ -2384,7 +2386,7 @@ function secDetalleColor() {
         const a = dcArt(t, item.base, v.mod);
         return `<tr class="variant-row dc-color" data-art="${a}" title="Toca para ver lo pedido por talla y por cliente" style="display:none;background:var(--sf2);cursor:pointer">
           <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
-          <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${v.tela}</span>` : ''}</td>
+          <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${escT(v.tela)}</span>` : ''}</td>
           <td></td>
           <td class="r td-num td-dim">${fmt(v.qty)}</td>
           <td class="r" style="white-space:nowrap"><span style="color:var(--ac);font-size:11px;font-weight:600">Tallas ›</span></td>
@@ -2888,7 +2890,7 @@ function buildVentaTable(filtered) {
     <td style="border-left:3px solid ${color}"><span class="td-code">${d.dcto}</span></td>
     <td>${tipoBadge(d.tipo, d.esp)}</td>
     <td class="td-dim">${d.fecha}</td>
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${d.razon}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${escT(d.razon)}</td>
     <td class="r td-dim">${d.esp ? '<span title="Las facturas especiales son un cobro, no llevan prendas">—</span>' : fmt(d.prendas)}</td>
     <td class="r td-num" style="font-weight:700;color:${d.neto < 0 ? 'var(--er)' : 'var(--tx1)'}">${fmtCLP(d.neto)}</td>
   </tr>`; }).join('');
@@ -3515,8 +3517,8 @@ function vdArtDetalle(r) {
     r.clientes.map(c => {
       const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
       return `<tr>
-        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
-        <td class="td-dim">${c.ciudad || '—'}</td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${escT(c.nombre)}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}</td>
+        <td class="td-dim">${escT(c.ciudad) || '—'}</td>
         <td class="r td-num">${fmt(c.sol)}</td>
         <td class="r td-num td-dim">${fmt(c.desp)}</td>
         <td class="r td-num" style="color:var(--wa);font-weight:700">${fmt(c.sal)}</td>
@@ -4630,9 +4632,9 @@ async function secCajas() {
       <td><span class="td-code">${String(c.caja).replace(/^0+/, '')}</span><span class="chv" style="font-size:10px;color:var(--tx3);margin-left:8px">▸</span></td>
       <td class="td-dim">${c.fecha}</td>
       <td class="r td-num" style="color:${cajasDiasClr(c.dias)};font-weight:700">${c.dias}</td>
-      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.cliente}${pedWarn}</td>
-      <td class="td-dim">${c.ciudad || '—'}</td>
-      <td class="td-dim">${c.vendedor || '—'}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${escT(c.cliente)}${pedWarn}</td>
+      <td class="td-dim">${escT(c.ciudad) || '—'}</td>
+      <td class="td-dim">${escT(c.vendedor) || '—'}</td>
       <td><span class="td-code">${c.pedido}</span>${fact}</td>
       <td class="r td-num">${fmt(c.prendas)}</td>
       <td class="r td-num">${fmtCLP(c.valor)}</td>
@@ -4898,9 +4900,9 @@ async function secClientes() {
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-rutn="${vRut(c)}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid ${c.motivo === 'bloqueado' || c.motivo === 'sin cupo' ? 'var(--er)' : c.motivo === 'con deuda' ? 'var(--wa)' : 'transparent'}">${c.nombre}${fichasBadge(c.cli)}</td>
-    <td class="td-dim">${c.rut||'—'}</td>
-    <td class="td-dim">${c.ciudad || '—'}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid ${c.motivo === 'bloqueado' || c.motivo === 'sin cupo' ? 'var(--er)' : c.motivo === 'con deuda' ? 'var(--wa)' : 'transparent'}">${escT(c.nombre)}${fichasBadge(c.cli)}</td>
+    <td class="td-dim">${escT(c.rut)||'—'}</td>
+    <td class="td-dim">${escT(c.ciudad) || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.slice(0, 4).map(t=>`<span class="badge ${tcFor(t).cls}" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;margin-right:2px;vertical-align:middle"><span>${t}</span><b style="font-size:10px">${fmt(c.u[t] || 0)}</b></span>`).join('')}${c.compradas.length > 4 ? `<span class="badge" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;background:var(--sf2);color:var(--tx2);vertical-align:middle" title="También: ${c.compradas.slice(4).map(x => `T${x}: ${fmt(c.u[x] || 0)}`).join(' · ')}"><span>+${c.compradas.length - 4}</span><b style="font-size:10px">${fmt(c.compradas.slice(4).reduce((a, x) => a + (c.u[x] || 0), 0))}</b></span>` : ''}</td>
     <td class="r td-num">${fmt(c.unidades)}</td>
     <td class="r td-num" style="color:${c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td>
@@ -5219,6 +5221,7 @@ const CV_URL = 'https://mohicanojeans.netlify.app/.netlify/functions/conversacio
 const CV_MOT = { persona: ['Pidió una persona', '--er', '--er10'], sin_respuesta: ['Sin respuesta', '--er', '--er10'], contenido: ['Solo compartió contenido', '--tx2', '--sf2'], tomada: ['La atiende una persona', '--ac', '--ac10'], baja: ['Se dio de baja', '--tx2', '--sf2'] };
 let CV_SEL = null, CV_TIMER = null;
 const cvEsc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const cvHref = u => /^https?:\/\//i.test(u || '') ? cvEsc(u) : '#';   // un enlace sin esquema http(s) no se vuelve clicable
 const cvHora = t => t ? new Date(t).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 function cvHace(t) {
   if (!t) return '—';
@@ -5735,6 +5738,46 @@ const RA_EST = { conversando: ['Conversando', '--ok', '--ok10'], requiere: ['Req
 const raChip = (txt, col, bg) => `<span class="ra-chip" style="color:var(${col});background:var(${bg})">${txt}</span>`;
 const raFecha = t => { const x = new Date(t); return `${String(x.getDate()).padStart(2, '0')}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
 const raPct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+/* 23-11 (Manu, mirando la pantalla Campañas: "¿dónde está el dato?"): los bloques del Catálogo 45 y el Landing
+   Amalfi en UNA función, para la pestaña Campañas de Atención y la pantalla "Ver campañas". */
+function raBloquesCat45() {
+  const kV = (ico, bg, n, t2, sub, color2, ver2 = '') => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
+    <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${ver2}</div></div></div>`;
+  const ver = () => '';
+  return `${(() => {   /* 20-11 (vía la sesión PAGINA WEB): el envío del catálogo de la Cole 45 "Amalfi" por WhatsApp.
+        Se enciende solo cuando bi/campanas/catalogo-45.json exista. */
+      const ct = RA_CAT45;
+      if (!ct) return '';
+      const cs = ct.clientes || [], ok = cs.filter(x => x.ok), mal = cs.filter(x => !x.ok), resp = cs.filter(x => x.respuesta);
+      const nuevos = cs.filter(x => x.nueva).length;
+      return `<section class="ra-bloque"><div class="ra-bt"><h3>Catálogo 45 (Amalfi)</h3><span>PDF por WhatsApp a mayoristas${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
+        <div class="ra-ks">
+          ${kV('📖', 'var(--ac10)', fmt(ok.length), 'se les mandó el catálogo', `de ${fmt(cs.length)} en la lista${nuevos ? ` · ${fmt(nuevos)} entraron nuevos a Nexor` : ''}`, '--tx1')}
+          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'todos recibieron el envío', mal.length ? '--er' : '--ok')}
+          ${kV('💬', 'var(--ok10)', resp.length ? fmt(resp.length) : '—', 'respondieron', resp.length ? raPct(resp.length, ok.length) + ' de los enviados' : 'se verá acá cuando el registro traiga las respuestas', resp.length ? '--ok' : '--tx2', ver('conversaciones', 'Conversaciones'))}
+        </div>
+        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
+          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
+      </section>`; })()}
+    ${(() => {   /* 21-11 (Manu: "¿tenemos ese dato en el dashboard?"): la segunda ola — la plantilla con el link del
+        landing Amalfi. Se enciende cuando bi/campanas/landing-45.json exista. En "no se les mandó" van las guardias
+        (tomadas por el equipo, conversando con Sofía, "No recibir más"); los que esperan el espaciado de 16 h
+        entre plantillas no salen acá: entran solos durante el día y se suman al llegar. */
+      const ct = RA_LAND45;
+      if (!ct) return '';
+      const cs = ct.clientes || [], ok = cs.filter(x => x.ok);
+      const guardia = cs.filter(x => !x.ok && /no se le manda|No recibir/i.test(x.detalle || ''));
+      const mal = cs.filter(x => !x.ok && !guardia.includes(x));
+      return `<section class="ra-bloque"><div class="ra-bt"><h3>Landing Amalfi (segunda ola)</h3><span>link del catálogo web por WhatsApp${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
+        <div class="ra-ks">
+          ${kV('🔗', 'var(--ac10)', fmt(ok.length), 'les llegó el landing', 'los que esperan el espaciado de 16 h entran solos durante el día', '--tx1')}
+          ${kV('🛡️', 'var(--sf2)', fmt(guardia.length), 'no se les mandó', 'tomadas por el equipo, conversando con Sofía o pidieron no recibir', '--tx2')}
+          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
+        </div>
+        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
+          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
+      </section>`; })()}`;
+}
 function raRender() {
   const d = RA_DATA || {};
   if (d.vacio) return '<div class="cv-vacio">Calculando el primer reporte: tarda como 2 minutos. Se muestra solo cuando esté.</div>';
@@ -5823,39 +5866,7 @@ function raRender() {
       </div>
       <div class="ra-col" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· cada campaña tiene su reporte completo y se comparan entre ellas</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div>
     </section>` : `<section class="ra-bloque"><div class="ra-col" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>Campañas</b> <span class="td-dim">· todavía no hay una campaña andando</span></span><button class="ra-link" data-racamp>Ver campañas →</button></div></section>`}
-    ${(() => {   /* 20-11 (vía la sesión PAGINA WEB): el envío del catálogo de la Cole 45 "Amalfi" por WhatsApp.
-        Se enciende solo cuando bi/campanas/catalogo-45.json exista. */
-      const ct = RA_CAT45;
-      if (!ct) return '';
-      const cs = ct.clientes || [], ok = cs.filter(x => x.ok), mal = cs.filter(x => !x.ok), resp = cs.filter(x => x.respuesta);
-      const nuevos = cs.filter(x => x.nueva).length;
-      return `<section class="ra-bloque"><div class="ra-bt"><h3>Catálogo 45 (Amalfi)</h3><span>PDF por WhatsApp a mayoristas${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
-        <div class="ra-ks">
-          ${kV('📖', 'var(--ac10)', fmt(ok.length), 'se les mandó el catálogo', `de ${fmt(cs.length)} en la lista${nuevos ? ` · ${fmt(nuevos)} entraron nuevos a Nexor` : ''}`, '--tx1')}
-          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'todos recibieron el envío', mal.length ? '--er' : '--ok')}
-          ${kV('💬', 'var(--ok10)', resp.length ? fmt(resp.length) : '—', 'respondieron', resp.length ? raPct(resp.length, ok.length) + ' de los enviados' : 'se verá acá cuando el registro traiga las respuestas', resp.length ? '--ok' : '--tx2', ver('conversaciones', 'Conversaciones'))}
-        </div>
-        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
-          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
-      </section>`; })()}
-    ${(() => {   /* 21-11 (Manu: "¿tenemos ese dato en el dashboard?"): la segunda ola — la plantilla con el link del
-        landing Amalfi. Se enciende cuando bi/campanas/landing-45.json exista. En "no se les mandó" van las guardias
-        (tomadas por el equipo, conversando con Sofía, "No recibir más"); los que esperan el espaciado de 16 h
-        entre plantillas no salen acá: entran solos durante el día y se suman al llegar. */
-      const ct = RA_LAND45;
-      if (!ct) return '';
-      const cs = ct.clientes || [], ok = cs.filter(x => x.ok);
-      const guardia = cs.filter(x => !x.ok && /no se le manda|No recibir/i.test(x.detalle || ''));
-      const mal = cs.filter(x => !x.ok && !guardia.includes(x));
-      return `<section class="ra-bloque"><div class="ra-bt"><h3>Landing Amalfi (segunda ola)</h3><span>link del catálogo web por WhatsApp${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
-        <div class="ra-ks">
-          ${kV('🔗', 'var(--ac10)', fmt(ok.length), 'les llegó el landing', 'los que esperan el espaciado de 16 h entran solos durante el día', '--tx1')}
-          ${kV('🛡️', 'var(--sf2)', fmt(guardia.length), 'no se les mandó', 'tomadas por el equipo, conversando con Sofía o pidieron no recibir', '--tx2')}
-          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
-        </div>
-        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
-          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
-      </section>`; })()}
+    ${raBloquesCat45()}
     ${raFormularios(ini, per)}${pie}`;
 
   return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
@@ -6339,10 +6350,14 @@ function cpRender() {
     RA_CAMP = CPD[CP_SEL] && CPD[CP_SEL].ok ? CPD[CP_SEL] : null;
     det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + cpConversaciones((CP_DATA[CP_SEL] || {}).conversaciones || [], false) + cpBajasIgnoran([CP_SEL]) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
   }
-  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${tabs}<div id="cpDet">${det}</div>`;
+  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${raBloquesCat45()}${tabs}<div id="cpDet">${det}</div>`;
 }
 async function secCampanas() {
   const rs = await Promise.all(CAMPANAS.map(x => cvFetch(x.fuente).catch(() => null)));
+  /* 23-11: la campaña del catálogo Amalfi (45) también se ve acá */
+  const [c45, l45] = await Promise.all([load('campanas/catalogo-45.json').catch(() => null), load('campanas/landing-45.json').catch(() => null)]);
+  RA_CAT45 = c45 && !Array.isArray(c45) && c45.clientes ? c45 : RA_CAT45;
+  RA_LAND45 = l45 && !Array.isArray(l45) && l45.clientes ? l45 : RA_LAND45;
   CP_DATA = {}; CAMPANAS.forEach((x, i) => { CP_DATA[x.id] = rs[i]; });
   CP_DATA._actualizando = rs.some(r => r && r.actualizando);
   return `<style>${RA_ESTILO}${HW_ESTILO}</style><div id="cpBody">${cpRender()}</div>`;
@@ -6711,7 +6726,7 @@ function cvRender(d) {
     : d.responder && d.responder.fuera_24h ? `<div class="cv-aviso cv-aviso-24"><b>⏰ No se le puede escribir libre.</b> ${cvEsc(d.responder.motivo)}
         ${d.responder.plantilla ? `<div style="margin-top:6px">Puedes mandarle la plantilla de seguimiento de ${ag} (~US$0,09): toca hasta 3 modelos en <b>Qué mandarle</b> y aprieta el botón. Si contesta, se abren 24 h.</div>
         <button class="cv-btn pri" data-cvplantilla="1" style="margin-top:8px">📨 Mandar plantilla</button>` : '<div style="margin-top:6px">A las clientas de la tienda no hay plantilla aprobada: hay que esperar a que ella escriba.</div>'}</div>`
-    : `<div class="cv-aviso">${cvEsc((d.responder && d.responder.motivo) || 'No se le puede escribir desde acá.')} <a href="${cvEsc(L.nexor)}" target="_blank" rel="noopener" style="color:var(--ac);font-weight:600">Abrir en Nexor ›</a></div>`;
+    : `<div class="cv-aviso">${cvEsc((d.responder && d.responder.motivo) || 'No se le puede escribir desde acá.')} <a href="${cvHref(L.nexor)}" target="_blank" rel="noopener" style="color:var(--ac);font-weight:600">Abrir en Nexor ›</a></div>`;
   /* el contexto (27-10, Manu: "¿dónde veo ese contexto, para saber qué decirle a la clienta?") */
   const fila = (lbl, val, cls = '') => val ? `<div class="cv-cx-f"><span>${lbl}</span><div class="${cls}">${val}</div></div>` : '';
   const ped0 = (K && K.pedido) || ((d.pedidos || [])[0] ? `${d.pedidos[0].numero} · ${d.pedidos[0].estado}` : '');
@@ -6734,7 +6749,7 @@ function cvRender(d) {
   const porTalla = pt => { const xs = Object.entries(pt || {}).filter(([, n]) => Number(n) > 0); return xs.length ? `<div class="cv-pt">${xs.map(([t, n]) => `<span><small>${cvEsc(t)}</small>${fmt(n)}</span>`).join('')}</div>` : ''; };
   const sugO = (O.sugeridos || []).map((m, i) => O.tipo === 'mayorista'
       ? `<div class="cv-fila cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tallas ${cvEsc(m.tallas)} · tócalo para sumarlo al mensaje"><b>${cvEsc(m.codigo)} ${cvEsc(m.nombre)}</b> · ${cvEsc(m.estilo)} · ${cvEsc(String(m.precio).replace(' + IVA', ''))}<span class="td-dim"> · ${fmt(m.stock)} u.</span>${i < 3 ? ' <span class="cv-sug">para él</span>' : ''}${m.ya_lo_pidio ? ' <span class="cv-sug cv-sug-ok">ya lo pidió</span>' : ''}${porTalla(m.por_talla)}</div>`
-      : `<div class="cv-caso cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje">${cvEsc(m.nombre)}${m.link ? `<br><a href="${cvEsc(m.link)}" target="_blank" rel="noopener" style="color:var(--ac)">ver en la tienda ›</a>` : ''}</div>`).join('');
+      : `<div class="cv-caso cv-pick" data-cvpick="s${i}" role="button" tabindex="0" title="Tócalo para sumarlo al mensaje">${cvEsc(m.nombre)}${m.link ? `<br><a href="${cvHref(m.link)}" target="_blank" rel="noopener" style="color:var(--ac)">ver en la tienda ›</a>` : ''}</div>`).join('');
   /* su cuenta en el ERP y lo que viene en producción (28-10, Manu: "si está bloqueado, si está con deuda y con saldo a
      favor, qué ofrecerle de la nueva cole… si tenemos programado o en producción y en qué parte está") */
   /* la columna en secciones (28-10, Manu: "más ordenada por sección: Cobranza… después Pedidos, lo que pidió, qué
@@ -6847,7 +6862,7 @@ function cvRender(d) {
         <div class="cv-btns">
           ${L.tomada || L.pausada ? `<button class="cv-btn" data-cva="devolver" title="${ag} le vuelve a responder">↩ Devolver a ${ag}</button>` : `<button class="cv-btn pri" data-cva="tomar" title="${ag} deja de responderle y la atiendes tú">Tomar</button>`}
           <button class="cv-btn cv-vctx" data-cvctx="1">Contexto</button>
-          <a class="cv-btn" href="${cvEsc(L.nexor)}" target="_blank" rel="noopener" title="Abrir en Nexor">Nexor ↗</a>
+          <a class="cv-btn" href="${cvHref(L.nexor)}" target="_blank" rel="noopener" title="Abrir en Nexor">Nexor ↗</a>
         </div>
       </div>
       <div class="cv-chat" id="cvChat">${chat}</div>
@@ -7284,7 +7299,7 @@ async function dcTallas(art) {
   const cli = `<div style="padding:10px 16px 4px;font-size:11px;font-weight:700">Por cliente</div>
     ${clientes.length ? `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--sf2)">${th('CLIENTE')}${th('PEDIDO', 1)}${th('DESPACHADO', 1)}${th('SALDO', 1)}${th('POR TALLA')}</tr></thead>
     <tbody>${clientes.map(c => `<tr>
-      <td style="padding:6px 10px;max-width:220px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${c.nombre}</div><div class="td-dim" style="font-size:10px">${c.ciudad || ''}${c.pedidos.size > 1 ? ` · ${c.pedidos.size} pedidos` : ''}</div></td>
+      <td style="padding:6px 10px;max-width:220px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${escT(c.nombre)}</div><div class="td-dim" style="font-size:10px">${c.ciudad || ''}${c.pedidos.size > 1 ? ` · ${c.pedidos.size} pedidos` : ''}</div></td>
       ${td(c.sol)}${td(c.desp, 'var(--ok)')}${td(c.sal, c.sal > 0 ? 'var(--wa)' : '')}
       <td style="padding:4px 10px">${c.hayPt ? chipsTalla('Pidió', c.pt, { tit: tit(c) }) : (chipsTalla('Se le debe', c.st, { color: 'var(--wa)' }) || '<span class="td-dim" style="font-size:11px">Sin detalle por talla</span>')}</td>
     </tr>`).join('')}</tbody></table>
@@ -7515,9 +7530,9 @@ function pvcDetalle(art) {
         clientes.map(c => {
           const deuda = c.cli ? ((c.cli.deuda || 0) + (c.cli.cheques || 0)) : 0;
           return `<tr class="pvc-cli" onclick="pvcVerTallas(this)" title="Toca para ver lo que se le debe por talla">
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${c.nombre}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}${c.caja
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${escT(c.nombre)}${c.bloqueo ? ' <span class="badge" style="background:var(--er10);color:var(--er);font-size:9px;padding:1px 5px">🔒</span>' : ''}${fichasBadge(c.cli)}${deuda > 0 ? ` <span class="td-dim" style="font-size:10px">debe ${fmtM(deuda)}</span>` : ''}${c.caja
               ? `<div style="font-size:11px;font-weight:600;color:var(--ok)">📦 caja ${c.cajas.join(', ')} · ${fmt(c.caja)} en caja</div>` : ''}</td>
-            <td class="td-dim">${c.ciudad || '—'}</td>
+            <td class="td-dim">${escT(c.ciudad) || '—'}</td>
             <td class="r td-num">${fmt(c.sol)}</td>
             <td class="r td-num td-dim">${fmt(c.desp)}</td>
             <td class="r td-num" style="color:${c.debe ? 'var(--wa)' : 'var(--ok)'};font-weight:700">${c.debe ? fmt(c.debe) : '✓ en caja'}</td>
@@ -7652,7 +7667,7 @@ async function secER() {
   const filas = secs.map(x => {
     const cuentas = (x.cuentas || []).toSorted((a, b) => b.acum - a.acum);
     const detalle = cuentas.map(c => `<tr class="no-click er-cta" data-mes="${c.mes}" data-acum="${c.acum}" style="display:none;background:var(--sf2)">
-        <td class="td-dim" style="padding-left:30px;font-size:11px;white-space:normal"><span class="td-code">${c.cuenta}</span> ${c.nombre}</td>
+        <td class="td-dim" style="padding-left:30px;font-size:11px;white-space:normal"><span class="td-code">${escT(c.cuenta)}</span> ${escT(c.nombre)}</td>
         <td class="r td-num td-dim" style="font-size:11px">${fmtCLP(c.mes)}</td>
         <td class="r td-dim" style="font-size:11px">${ing.mes ? (c.mes / ing.mes * 100).toFixed(1) + '%' : '—'}</td>
       </tr>`).join('');
@@ -7915,7 +7930,7 @@ function proyRender(ano, crec) {
   const filasCli = clientes.map((c, i) => `<tr data-i="${i}" data-est="${c.estado}" data-nom="${esc(String(c.nombre).toLowerCase())}"
       data-nombre="${esc(c.nombre)}" data-ciudad="${esc(c.ciudad)}" data-vend="${esc(c.vend)}"
       data-v="${Math.round(c.v)}" data-va="${Math.round(c.va)}" data-u="${c.u}" data-obj="${c.objetivo}" data-dif="${Math.round(c.dif)}">
-      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.ciudad)}${c.ciudad && c.vend ? ' · ' : ''}${esc(c.vend)}">${c.nombre}</td>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.ciudad)}${c.ciudad && c.vend ? ' · ' : ''}${esc(c.vend)}">${escT(c.nombre)}</td>
       <td class="r td-num td-dim">${c.va ? pyM(c.va) : '—'}</td>
       <td class="r td-num">${c.v ? pyM(c.v) : '—'}</td>
       <td class="r">${chip(c.va ? pct(c.v, c.va) : null)}</td>
@@ -8588,7 +8603,7 @@ function pintarPlan() {
   };
   const filasCli = clientes.slice(0, 40).map((c, i) => { const a = avanceCli(c), d = decisionDe(c); return `<tr data-pcli="${i}" title="Toca para ver qué hacer y mandarle un mensaje">
       <td class="td-dim pl-sec" data-v="${i + 1}">${i + 1}</td>
-      <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${lugar(c)}</span></td>
+      <td class="pl-wrap" data-v="${dv(c.nombre)}"><span style="font-weight:600">${escT(c.nombre)}</span><span class="pl-sub">${lugar(c)}</span></td>
       ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
       <td class="r td-num pl-sec" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
       <td class="r td-num" data-v="${a.meta}" style="font-weight:700;color:var(--ac)">${fmt(Math.round(a.meta))}</td>
@@ -8664,7 +8679,7 @@ function pintarPlan() {
       return vTabla(
         `<th data-ord="t">Cliente</th>${cmp.map(t => `<th class="r pl-sec" data-ord="n">T${t}</th>`).join('')}<th class="r" data-ord="n">Total</th><th class="r" data-ord="n">T${PLAN_TEMP}</th><th class="pl-sec">Ofrecer</th>`,
         lista.map(c => `<tr>
-          <td class="pl-wrap" data-v="${dv(c.nombre)}">${c.nombre}<span class="pl-sub">${lugar(c)}</span></td>
+          <td class="pl-wrap" data-v="${dv(c.nombre)}">${escT(c.nombre)}<span class="pl-sub">${lugar(c)}</span></td>
           ${cmp.map(t => `<td class="r td-num td-dim pl-sec" data-v="${c.por[t] || ''}">${c.por[t] ? fmt(c.por[t]) : '—'}</td>`).join('')}
           <td class="r td-num" data-v="${c.u}" style="font-weight:700">${fmt(c.u)}</td>
           <td class="r td-num" data-v="${yaP.has(c.cli) ? uP[c.cli] || 0 : ''}">${yaP.has(c.cli) ? `<span style="font-weight:700;color:var(--ok)">${fmt(uP[c.cli] || 0)}</span>` : '<span class="td-dim">—</span>'}</td>
@@ -9191,6 +9206,7 @@ const repCargarExcelJS = (() => {
   return () => p || (p = new Promise((ok, mal) => {
     if (window.ExcelJS) return ok(window.ExcelJS);
     const s = document.createElement('script');
+    s.integrity = 'sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz'; s.crossOrigin = 'anonymous';
     s.src = REP_EXCELJS;
     s.onload = () => window.ExcelJS ? ok(window.ExcelJS) : mal(new Error('sin ExcelJS'));
     s.onerror = () => { p = null; mal(new Error('No se pudo cargar el generador de Excel')); };
@@ -9307,10 +9323,10 @@ function rvClientes() {
       <div class="rv-lista">${compraron.map(fila).join('')}</div></div>` : ''}
     ${rec.length ? `<div class="rv-grupo">${ttl(`Dejaron de comprar · ${fmt(rec.length)} para recuperar${est ? ` · ${fmt(est)} estratégicos` : ''}`)}
       <div class="rv-lista">${rec.map(c => `<div class="rv-cli"${dq(c.nombre, c.ciudad)}>
-        <div class="rv-cli-n"><b>${c.nombre}</b><span>${rvNombre(c.ciudad) || '—'} · última compra hace ${fmt(c.dias)} días</span></div>
+        <div class="rv-cli-n"><b>${escT(c.nombre)}</b><span>${rvNombre(c.ciudad) || '—'} · última compra hace ${fmt(c.dias)} días</span></div>
         <div class="rv-cli-u"><b>${fmt(c.unidades)}</b> en T${CL_BASE[0]}–T${CL_BASE[CL_BASE.length - 1]}<span>${c.seg === 'Estratégico' ? 'cliente estratégico' : ''}</span></div>
         <div class="rv-cli-e">${c.desc === 'Cobrar antes' ? '<span class="pl-tag" style="background:var(--wa10);color:var(--wa)">Cobrar antes</span>'
-          : c.desc.includes('%') ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">${c.desc}</span>` : '<span class="td-dim">Sin descuento</span>'}</div>
+          : c.desc.includes('%') ? `<span class="pl-tag" style="background:var(--ok10);color:var(--ok)">${escT(c.desc)}</span>` : '<span class="td-dim">Sin descuento</span>'}</div>
         <div class="rv-cli-o"><span class="td-dim">${c.motivo === 'sin motivo visible' ? 'Sin motivo visible: llamar' : rvNombre(c.motivo)}</span></div></div>`).join('')}</div></div>` : ''}
     <div class="td-dim rv-nada" style="padding:18px 0${compraron.length || rec.length ? ';display:none' : ''}">${compraron.length || rec.length ? 'Ningún cliente con ese nombre o ciudad' : 'Sin clientes en las últimas cuatro colecciones'}</div>`;
 }
@@ -9646,7 +9662,7 @@ function caCatalogoHtml(clientes, conPrecios = true) {
   @media print{body{background:#fff}.mc-barra{display:none}.mc-pagina{box-shadow:none;margin:0;border-radius:0;max-width:none;padding:0}}
   @media(max-width:640px){.mc-grid{grid-template-columns:repeat(2,1fr)}.mc-cab{flex-direction:column}.mc-para{text-align:left}}
   </style></head><body>
-  <div class="mc-barra"><button type="button" class="volver" onclick="if (history.length > 1) history.back(); else { window.close(); setTimeout(() => location.replace('${location.href}'), 300); }">‹ Volver</button><button type="button" onclick="window.print()">🖨 Imprimir o guardar como PDF</button><span>${clientes.length === 1 ? '1 minicatálogo' : clientes.length + ' minicatálogos, uno por página'}${conPrecios ? ' · precios netos, sin IVA' : ' · sin precios'} · Mohicano Jeans</span></div>
+  <div class="mc-barra"><button type="button" class="volver" onclick="if (history.length > 1) history.back(); else { window.close(); setTimeout(() => location.replace('${location.href.replace(/[&\x27\x22<>\\]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())}'), 300); }">‹ Volver</button><button type="button" onclick="window.print()">🖨 Imprimir o guardar como PDF</button><span>${clientes.length === 1 ? '1 minicatálogo' : clientes.length + ' minicatálogos, uno por página'}${conPrecios ? ' · precios netos, sin IVA' : ' · sin precios'} · Mohicano Jeans</span></div>
   ${clientes.map(pagina).join('')}
   </body></html>`;
 }
@@ -11658,7 +11674,7 @@ function debArticulo(c, art) {
         `${it.hayST ? 'A él: en verde hay en bodega, en azul viene en producción, en rojo falta cortar. ' : 'Lo que se le debe a él por talla aparece con la próxima actualización de datos. '}Falta cortar se calcula talla por talla, como en Pedido vs Corte.`)
       : '<div class="td-dim" style="font-size:12px;padding:6px 18px 0">Este artículo todavía no tiene el detalle por talla del ERP.</div>'}
     <div class="pc" style="padding-top:14px">
-      ${otros.length ? `<div><div class="pc-h">También lo esperan</div><div class="pc-chips">${otros.slice(0, 8).map(x => `<span class="pc-chip"><b>${x.c.nombre}</b>${fmt(x.debe)}</span>`).join('')}${otros.length > 8 ? `<span class="pc-chip">y ${fmt(otros.length - 8)} más</span>` : ''}</div></div>` : ''}
+      ${otros.length ? `<div><div class="pc-h">También lo esperan</div><div class="pc-chips">${otros.slice(0, 8).map(x => `<span class="pc-chip"><b>${escT(x.c.nombre)}</b>${fmt(x.debe)}</span>`).join('')}${otros.length > 8 ? `<span class="pc-chip">y ${fmt(otros.length - 8)} más</span>` : ''}</div></div>` : ''}
       ${alt.length ? `<div><div class="pc-h">${est === 'cortar' ? 'Ofrecerle en su lugar' : 'Si no le alcanza, ofrecerle'}</div>
         ${alt.map(a => `<div class="pc-mod"><div class="pl-mod">${artImg(a.f.art)}<div><span class="td-code">${cod(a.f.art)}</span><span class="pl-sub">${a.mismo ? '<b>Mismo modelo, otro color</b> · ' : ''}${[a.f.bota, a.f.tiro, a.f.tela].filter(Boolean).join(' · ')} · T${a.f.art.slice(2, 4)} · sobran ${fmt(a.f.diff)}</span>
           ${debDisp(a.tallasOk, suyo)}</div></div></div>`).join('')}</div>`
@@ -11694,7 +11710,7 @@ function debTarjeta(k) {
     const tot = filas.reduce((a, x) => a + x.caja + x.bod, 0), totC = filas.reduce((a, x) => a + x.caja, 0);
     const nCajas = new Set(filas.flatMap(x => x.cajas)).size;
     const rows = filas.map(x => `<tr data-kcli="${idx.get(x.c)}" data-kf="bodega" data-f=" ${x.caja ? 'caja' : ''} ${x.bod ? 'bod' : ''} " title="Toca para ver qué le debemos, talla por talla">
-        <td class="pl-wrap" data-v="${dv(x.c.nombre)}"><b>${x.c.nombre}</b>${bloq(x.c)}<span class="pl-sub">${x.c.ciudad || '—'} · le debemos ${fmt(x.c.debe + x.c.enCaja)} en total</span>
+        <td class="pl-wrap" data-v="${dv(x.c.nombre)}"><b>${escT(x.c.nombre)}</b>${bloq(x.c)}<span class="pl-sub">${escT(x.c.ciudad) || '—'} · le debemos ${fmt(x.c.debe + x.c.enCaja)} en total</span>
           <span class="pl-sub db-movil">${[x.caja ? `📦 ${fmt(x.caja)} en caja` : '', x.bod ? `${fmt(x.bod)} en bodega` : '', dias(x.c.dias)].filter(Boolean).join(' · ')}</span>
           <div class="db-tallas">${x.arts.slice(0, 6).map(a => `<span class="db-t${a.caja ? ' ok' : ''}">${a.caja ? '📦 ' : ''}${cod(a.art)} <b>${fmt(a.n)}</b></span>`).join('')}${x.arts.length > 6 ? `<span class="db-t">y ${x.arts.length - 6} más</span>` : ''}</div></td>
         <td class="r td-num pl-sec" data-v="${x.caja}" style="color:var(--ok);font-weight:700">${x.caja ? fmt(x.caja) : '—'}${x.cajas.length ? `<span class="pl-sub">caja ${x.cajas.join(', ')}</span>` : ''}</td>
@@ -11845,8 +11861,8 @@ async function secDebemos() {
     <div class="tbl-scroll"><table data-ord-col="6" data-ord-dir="-1" data-ord-num="1">
       <thead><tr><th data-ord="t">Cliente</th><th data-ord="t">Ciudad</th><th class="r" data-ord="n" title="Todo lo que falta despacharle, contando lo que ya está en cajas">Le debemos</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que ya está armado en cajas">En caja</th><th class="r pl-sec" data-ord="n" title="De lo que le debemos, lo que todavía no está en una caja">Sin caja</th><th class="r pl-sec" data-ord="n">Artículos</th><th class="r pl-sec" data-ord="n" title="Días desde su pedido más antiguo con algo pendiente">Más antiguo</th><th title="Por la antigüedad del pedido más viejo: crítico con más de 90 días, atención de 61 a 90 (la regla de Pendientes urgentes)">Estado</th></tr></thead>
       <tbody id="debBody">${cl.map((c, i) => `<tr data-deb="${i}" data-ed="${debEdades(c)}" data-q="${rvSinTilde(c.nombre).replace(/"/g, '')}" data-f=" ${[...c.cats].join(' ')} " data-pcli title="Toca para ver qué le debemos">
-        <td class="pl-wrap" data-v="${dvDeb(c.nombre)}"><span style="font-weight:600">${c.nombre}</span><span class="pl-sub">${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span>${c.bloq.size ? ' <span class="erp-etq er">BLOQUEADO</span>' : ''}${c.sinCupo ? ' <span class="erp-etq er">SIN CUPO</span>' : ''}</td>
-        <td data-v="${dvDeb(c.ciudad || '')}" style="font-size:12px">${c.ciudad || '—'}</td>
+        <td class="pl-wrap" data-v="${dvDeb(c.nombre)}"><span style="font-weight:600">${escT(c.nombre)}</span><span class="pl-sub">${c.pedidos.size} pedido${c.pedidos.size === 1 ? '' : 's'}</span>${c.bloq.size ? ' <span class="erp-etq er">BLOQUEADO</span>' : ''}${c.sinCupo ? ' <span class="erp-etq er">SIN CUPO</span>' : ''}</td>
+        <td data-v="${dvDeb(c.ciudad || '')}" style="font-size:12px">${escT(c.ciudad) || '—'}</td>
         <td class="r td-num" data-v="${c.debe + c.enCaja}" style="font-weight:700;color:${c.debe ? 'var(--wa)' : 'var(--ok)'}">${fmt(c.debe + c.enCaja)}${vCli.get(c) ? `<span class="pl-sub" style="color:var(--tx2)">≈ ${fmtM(vCli.get(c))}</span>` : ''}${!c.debe ? '<span class="pl-sub" style="color:var(--ok)">todo en caja</span>' : c.enCaja ? `<span class="pl-sub db-movil">${fmt(c.enCaja)} en caja</span>` : ''}</td>
         <td class="r td-num pl-sec" data-v="${c.enCaja}" style="color:var(--ok)">${c.enCaja ? fmt(c.enCaja) : '—'}</td>
         <td class="r td-num pl-sec" data-v="${c.debe}">${c.debe ? fmt(c.debe) : '—'}</td>
@@ -12051,6 +12067,7 @@ const rgba = (hex, a) => { const h = String(hex).replace('#', ''), n = parseInt(
 const cargarChart = () => CHART_JS || (CHART_JS = new Promise((ok, mal) => {
   if (window.Chart) return ok(window.Chart);
   const sc = document.createElement('script');
+  sc.integrity = 'sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD'; sc.crossOrigin = 'anonymous';
   sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
   sc.onload = () => { const C = window.Chart; C.defaults.font.family = getComputedStyle(document.body).fontFamily; C.defaults.color = color('--tx2'); ok(C); };
   sc.onerror = () => { CHART_JS = null; mal(new Error('no se pudo cargar la librería de gráficos')); };
@@ -13208,7 +13225,7 @@ function bindContent(secId) {
       body.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 6px">${chip('Tipo', `${o.tipo || '—'}${o.m ? ' ' + o.m : ''}`)}${chip('Orden emitida', o.fecha || '—')}${chip('Programado', fmt(o.prog || 0))}${chip('Cortado', fmt(o.cort || 0))}${chip('A bodega', fmt(o.ent || 0), (o.ent || 0) > 0 ? 'var(--ok)' : '')}${chip('Saldo', fmt(o.saldo || 0), (o.saldo || 0) > 0 ? 'var(--wa)' : '')}${o.totDias ? chip('Días (ERP)', fmt(o.totDias)) : ''}</div>
         <div style="padding:6px 16px 4px;font-size:13px">${llegada}</div>
-        ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${o.inc}</div>` : ''}
+        ${o.inc ? `<div style="margin:4px 16px;padding:8px 12px;background:var(--er10);color:var(--er);border-radius:8px;font-size:12px"><b>Incidencia:</b> ${escT(o.inc)}</div>` : ''}
         <div style="padding:6px 16px 4px"><div class="tbl-scroll trz-eta-wrap"><table class="tbl-compacta trz-etapas" style="width:100%"><thead><tr><th>Etapa</th><th>Entró</th><th>Salió</th><th class="r">Días</th><th class="r" title="Los días que debería durar cada etapa según la empresa; el de Corte se cuenta desde que se programó la orden">Estándar</th><th class="r" title="La columna de días que trae el ERP">Días ERP</th><th class="r">Pendiente</th></tr></thead><tbody>${filas}</tbody></table></div>
           <div class="td-dim" style="font-size:11px;margin-top:6px">Días = de la fecha de entrada a la de salida de cada etapa. Estándar = los días que debería durar cada etapa; el de Corte corre desde que se programó la orden. En rojo, la etapa donde la orden lleva más que el estándar. Las etapas se traslapan cuando la orden avanza por partes.</div></div>
         ${matHtml}
@@ -14255,7 +14272,7 @@ function bindContent(secId) {
         <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--sf2)">${th('CAJA')}${th('CLIENTE')}${th('PEDIDO')}${th('FECHA')}${th('DÍAS', 1)}${th('PRENDAS', 1)}${th('TALLAS')}${th('ESTADO')}</tr></thead>
         <tbody>${cajas.map(e => `<tr>
           <td style="padding:6px 10px"><span class="td-code">${String(e.c.caja).replace(/^0+/, '')}</span></td>
-          <td style="padding:6px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${e.c.cliente}<div class="td-dim" style="font-size:10px">${e.c.ciudad || ''}</div></td>
+          <td style="padding:6px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${escT(e.c.cliente)}<div class="td-dim" style="font-size:10px">${escT(e.c.ciudad) || ''}</div></td>
           <td style="padding:6px 10px"><span class="td-code">${e.c.pedido}</span></td>
           <td class="td-dim" style="padding:6px 10px;white-space:nowrap">${e.c.fecha}</td>
           <td class="r td-num" style="padding:6px 10px;color:${cajasDiasClr(e.c.dias)};font-weight:700">${e.c.dias}</td>
@@ -16359,7 +16376,7 @@ function buildColorRowsForTemp(byTemp, t) {
       const a = art(item.base, v.mod);
       return `<tr class="variant-row dc-color" data-art="${a}" title="Toca para ver lo pedido por talla y por cliente" style="display:none;background:var(--sf2);cursor:pointer">
         <td style="padding-left:28px">${artImg(a)}<span class="td-dim" style="font-size:11px">└ color ${v.mod}</span></td>
-        <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${v.tela}</span>` : ''}</td>
+        <td class="td-dim" style="font-size:11px"><span class="td-code">${a}</span>${v.tela ? `<span style="margin-left:8px">${escT(v.tela)}</span>` : ''}</td>
         <td></td>
         <td class="r td-num td-dim">${fmt(v.qty)}</td>
         <td class="r" style="white-space:nowrap"><span style="color:var(--ac);font-size:11px;font-weight:600">Tallas ›</span></td>
@@ -16454,7 +16471,7 @@ async function cargarBase(esBodega) {
      es de ayer, por mas que la carga haya corrido hace diez minutos. */
   const mismoDia = (meta?.erp_iso || '').slice(0, 10) === (meta?.updated_iso || '').slice(0, 10);
   tsEl.innerHTML = meta?.updated_str
-    ? `Datos: ${meta.updated_str}` + (meta.erp_time
+    ? `Datos: ${escT(meta.updated_str)}` + (meta.erp_time
         ? ` <span style="color:${mismoDia ? 'inherit' : 'var(--wa)'};${mismoDia ? '' : 'font-weight:700'}" title="Hora en que el ERP escribió sus archivos. Es hasta donde llegan los datos, y no cambia porque esta página se recargue">· ERP ${mismoDia ? meta.erp_time : meta.erp_date + ' ' + meta.erp_time}</span>`
         : '')
     : '—';
@@ -17862,7 +17879,7 @@ async function authLogin() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Ingresar';
   if (error) { err.textContent = 'Correo o contraseña incorrectos'; return; }
-  const role = data.user?.user_metadata?.role || 'bodega';   // sin rol asignado → el acceso más restringido
+  const role = data.user?.app_metadata?.role || 'bodega';   // app_metadata: solo lo escribe el servidor; sin rol → el acceso más restringido
   applyRole(role, email);
 }
 
@@ -17874,7 +17891,7 @@ async function authLogout() {
 async function authInit() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    const role = session.user?.user_metadata?.role || 'bodega';   // sin rol asignado → el acceso más restringido
+    const role = session.user?.app_metadata?.role || 'bodega';   // app_metadata: solo lo escribe el servidor; sin rol → el acceso más restringido
     applyRole(role, session.user.email);
   }
   document.getElementById('cortina')?.remove();   // sin sesión: el login ya está pintado detrás
