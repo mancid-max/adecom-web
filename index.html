@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-4">
+<meta name="adecom-build" content="2026-11-23-5">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5743,13 +5743,13 @@ const raFecha = t => { const x = new Date(t); return `${String(x.getDate()).padS
 const raPct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
 /* 23-11 (Manu, mirando la pantalla Campañas: "¿dónde está el dato?"): los bloques del Catálogo 45 y el Landing
    Amalfi en UNA función, para la pestaña Campañas de Atención y la pantalla "Ver campañas". */
-function raBloquesCat45() {
+function raBloquesCat45(lista) {
   /* 23-11 (Manu: "cada campaña tiene que ir con su dato dentro del dashboard de manera automática"):
      un bloque por CADA campaña anotada en bi/campanas/indice.json (lo llenan solos los scripts de envío).
      Cada registro trae clientes[{cliente, ok, detalle, respuesta?, en}]. */
   const kV = (ico, bg, n, t2, sub, color2, ver2 = '') => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
     <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${ver2}</div></div></div>`;
-  return (RA_SUELTAS || []).map(({ nombre, sub, datos }) => {
+  return (lista || RA_SUELTAS || []).map(({ nombre, sub, datos }) => {
     const cs = (datos && datos.clientes) || [];
     if (!cs.length) return '';
     const ok = cs.filter(x => x.ok), resp = cs.filter(x => x.respuesta);
@@ -6311,7 +6311,9 @@ async function cpVerLista(tipo) {
 }
 function cpRender() {
   const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
-  const tabs = `<div class="segs" style="margin:0 0 14px"><button class="seg${CP_SEL === 'todas' ? ' on' : ''}" data-cptab="todas">Todas</button>${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
+  /* 23-11 (Manu: "ese dato debería quedar dentro de los filtros, se desordena todo"): las campañas del
+     índice (bi/campanas/indice.json) entran como pestañas; su detalle sale al elegirlas y al final de "Todas" */
+  const tabs = `<div class="segs" style="margin:0 0 14px"><button class="seg${CP_SEL === 'todas' ? ' on' : ''}" data-cptab="todas">Todas</button>${CAMPANAS.map(x => `<button class="seg${CP_SEL === x.id ? ' on' : ''}" data-cptab="${x.id}">${cvEsc(x.nombre)}</button>`).join('')}${(RA_SUELTAS || []).map(x => `<button class="seg${CP_SEL === 's:' + x.id ? ' on' : ''}" data-cptab="s:${x.id}">${cvEsc(x.nombre)}</button>`).join('')}</div>`;
   const A = cpAsignar();
   /* 30-10 (Manu: "ponle específico que no compró los dos artículos con oferta pero sí entró por el llamado de esa campaña") */
   const notaPromo = (id) => { const xs = (A[id] && A[id].detalle) || []; if (!xs.length || !xs.some(o => o.promo != null)) return '';
@@ -6320,8 +6322,9 @@ function cpRender() {
   const tarjeta = (titulo, v, extra, sel) => `<div class="ra-k" ${sel ? `data-cptab="${sel}" style="cursor:pointer"` : ''}><div class="ra-n" style="color:var(--ok)">${fmtM(v ? v.valor : 0)}</div><div class="ra-t">${titulo} <span class="td-dim" style="font-weight:400">confirmado</span></div><div class="ra-s">${v && v.pedidos ? `${fmt(v.pedidos)} ${v.pedidos === 1 ? 'pedido' : 'pedidos'} · ${fmt(v.clientes)} ${v.clientes === 1 ? 'mayorista' : 'mayoristas'} · ${fmt(v.unidades)} prendas` : 'sin ventas confirmadas'}${v && v.posible && v.posible.pedidos ? `<br><b style="color:var(--warn,#b7791f)">+ ${fmtM(v.posible.valor)} posible</b> · ${fmt(v.posible.pedidos)} ${v.posible.pedidos === 1 ? 'pedido' : 'pedidos'} del vendedor, no se sabe si fue por la campaña<br><b>Total con posibles: ${fmtM(v.valor + v.posible.valor)}</b>` : ''}${extra || ''}</div></div>`;
   /* 02-11 (Manu: "también un total entre posibles y venta confirmada"): la cuarta tarjeta, en grande */
   /* 11-11 (Manu: "arriba me dice ese total… cuando presione en las otras vaya cambiando"): el bloque grande sigue a la pestaña */
-  const G = CP_SEL === 'todas' ? A.total : (A[CP_SEL] || { valor: 0, pedidos: 0, unidades: 0 });
-  const gNom = CP_SEL === 'todas' ? 'Total de las campañas' : cvEsc((CAMPANAS.find(x => x.id === CP_SEL) || {}).nombre || CP_SEL);
+  const suelta = String(CP_SEL).startsWith('s:') ? (RA_SUELTAS || []).find(x => 's:' + x.id === CP_SEL) : null;
+  const G = CP_SEL === 'todas' || suelta ? A.total : (A[CP_SEL] || { valor: 0, pedidos: 0, unidades: 0 });
+  const gNom = CP_SEL === 'todas' || suelta ? 'Total de las campañas' : cvEsc((CAMPANAS.find(x => x.id === CP_SEL) || {}).nombre || CP_SEL);
   const P = G.posible || { valor: 0, pedidos: 0 };
   /* en grande y arriba (Manu: "debería ser una tarjeta en grande para saber cuál es el total") */
   const tarjetaSuma = `<div class="ra-k" data-cptab="todas" style="cursor:pointer;margin-bottom:14px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:20px 24px">
@@ -6342,12 +6345,14 @@ function cpRender() {
       </table><div class="hw-pie">Les llegó: sobre los WhatsApp mandados · lo leyeron y respondieron: sobre los que les llegó · abrieron: sobre los correos enviados · compraron: por Sofía, la página o después de responder el aviso (los pedidos que el vendedor ingresa directo al ERP van aparte). Toca una campaña para ver su detalle.</div></div></section>` : '';
     const extraBI = () => cpBajasIgnoran(CAMPANAS.map(x => x.id));
     const convs = CAMPANAS.flatMap(x => ((CP_DATA[x.id] || {}).conversaciones || []).map(o => ({ ...o, campana: x.nombre }))).sort((a, b) => String(b.ultimo).localeCompare(String(a.ultimo)));
-    det = cpCompras(A.total.detalle || [], true) + cpConversaciones(convs, true) + extraBI() + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp;
+    det = cpCompras(A.total.detalle || [], true) + cpConversaciones(convs, true) + extraBI() + raCampana(RA_CAMP, { titulo: 'Todas las campañas', sub: filas.map(f => f.nombre).join(' + ') || '—', correoNota: 'cada campaña con su propio correo', boton: 'tocaron el botón', alcanceTxt: 'avisos llegaron (un mayorista que estuvo en dos campañas cuenta dos veces)' }) + comp + raBloquesCat45();
+  } else if (suelta) {
+    det = raBloquesCat45([suelta]);
   } else {
     RA_CAMP = CPD[CP_SEL] && CPD[CP_SEL].ok ? CPD[CP_SEL] : null;
     det = cpCompras((A[CP_SEL] || {}).detalle || [], false) + cpConversaciones((CP_DATA[CP_SEL] || {}).conversaciones || [], false) + cpBajasIgnoran([CP_SEL]) + raCampana(RA_CAMP, CP_OPC[CP_SEL] || {}) + (CP_SEL === 'halloween' ? hwExtras(CPD.halloween) : '');
   }
-  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${raBloquesCat45()}${tabs}<div id="cpDet">${det}</div>`;
+  return `<div class="hw-hd"><h3>Campañas</h3><span class="td-dim">${CP_DATA._actualizando ? 'actualizando… · ' : ''}se recalculan cada 10 minutos al abrir · <button class="cv-fbtn pri" data-cpcopiar>📋 Copiar para WhatsApp</button> <button class="cv-fbtn" data-cpwa>Enviar por WhatsApp</button></span></div>${tarjetas}${tabs}<div id="cpDet">${det}</div>`;
 }
 async function secCampanas() {
   const rs = await Promise.all(CAMPANAS.map(x => cvFetch(x.fuente).catch(() => null)));
