@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-9">
+<meta name="adecom-build" content="2026-11-23-10">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18327,7 +18327,18 @@ async function secPlanta() {
   </div>`;
 }
 
+/* 23-11: si el dibujo falla en un equipo, que se vea el porqué y quede la Tabla, no una sala vacía */
+function plFallo(e) {
+  console.error('planta', e);
+  const t = document.getElementById('plTicker');
+  if (t) t.textContent = '⚠ La planta no se pudo dibujar en este equipo: ' + ((e && e.message) || e) + ' — mándale una foto de este texto a Claude.';
+  const tb = document.getElementById('plTabla');
+  if (tb) tb.style.display = '';
+}
 function plIniciar(datos) {
+  try { plIniciarReal(datos); } catch (e) { plFallo(e); }
+}
+function plIniciarReal(datos) {
   const cv = document.getElementById('plCv');
   if (!cv) return;
   if (PL && PL.raf) cancelAnimationFrame(PL.raf);
@@ -18846,10 +18857,12 @@ function plIniciar(datos) {
   if (reduce) st.vel = 0;
   function bucle(ts) {
     if (!document.body.contains(cv) || PL !== st) return;
-    if (st.ultimo == null) st.ultimo = ts;
-    const dt = Math.min(64, ts - st.ultimo) * st.vel; st.ultimo = ts;
-    if (dt > 0) { st.simMs += dt; for (const p of monos) { paso(p, dt); vida(p); } trabajar(); }
-    dibujar(ts); capas();
+    try {
+      if (st.ultimo == null) st.ultimo = ts;
+      const dt = Math.min(64, ts - st.ultimo) * st.vel; st.ultimo = ts;
+      if (dt > 0) { st.simMs += dt; for (const p of monos) { paso(p, dt); vida(p); } trabajar(); }
+      dibujar(ts); capas();
+    } catch (e) { plFallo(e); return; }
     st.raf = requestAnimationFrame(bucle);
   }
   pintarCajon(); pintarPlantel();
