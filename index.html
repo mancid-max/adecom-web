@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-12">
+<meta name="adecom-build" content="2026-11-23-13">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -532,6 +532,9 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 .cl-fbar, .cl-fbar .fbar-row{display:flex;flex-direction:column;align-items:stretch;gap:10px}
 .cl-fbar .fgrp{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .cl-fbar .fgrp+.fgrp{border-top:1px solid var(--bd);padding-top:10px;width:100%}   /* una línea entre filtro y filtro (Manu, 23-11: "se ven muy juntos") */
+#clMapaCard [data-fr]{cursor:pointer}
+#clMapaCard g[data-fr]:hover .clmap-borde,#clMapaCard g[data-fr]:focus-visible .clmap-borde{stroke:var(--ac)}
+#clMapaCard .clmap-sel .clmap-borde{stroke:var(--ac);stroke-width:2.5}
 .cl-fbar .segs{flex-wrap:wrap}
 .pl .db-tot-t{margin:0 0 12px;padding:10px 12px;background:var(--sf2);border-radius:10px}
 .pl .db-tot-t .db-tallas{margin-top:0}
@@ -4795,6 +4798,7 @@ function clInactivos(peds) {
       const motivo = g.bloq ? 'bloqueado' : sinCupo ? 'sin cupo' : deuda > 0 ? 'con deuda' : 'sin motivo visible';
       const dias = g.ult ? Math.round((Date.now() - new Date(g.ult + 'T00:00:00').getTime()) / 86400000) : 0;
       return { ...g, compradas, ultTemp: compradas[0] || '', unidades: CL_BASE.reduce((s,t)=>s+(g.u[t]||0),0),
+               at: CL_ACTS.some(tt => (tempsNombre.get(g.nombre.trim()) || g.temps).has(String(tt))),
                deuda, cupo: c.disponible || 0, sinCupo, motivo, dias };
     })
     .sort((a,b) => b.unidades - a.unidades);
@@ -4833,6 +4837,41 @@ function regionDeCiudad(c) {
   const n = String(c || '').trim().toUpperCase();
   for (const [r, lista] of Object.entries(REGIONES_CHILE)) if (lista.includes(n)) return r;
   return 'Sin región';
+}
+/* Mapa de Chile de la sección Clientes (Manu, 23-11-2026: "me están pidiendo mostrar los clientes
+   de extremo a extremo del país"): por región, cuántos ya pidieron la base (atendidos, verde) y
+   cuántos compraron las comparadas pero aún no piden (rojo). Tocar una región filtra la tabla. */
+function clMapaDatos(peds) {
+  const modo = CL_MODO;
+  CL_MODO = 'activos'; const act = clInactivos(peds);
+  CL_MODO = 'inactivos'; const ina = clInactivos(peds);
+  CL_MODO = modo;
+  const m = new Map([...Object.keys(REGIONES_CHILE), 'Sin región'].map(r => [r, { a: 0, n: 0 }]));
+  act.forEach(c => m.get(regionDeCiudad(c.ciudad)).a++);
+  ina.forEach(c => m.get(regionDeCiudad(c.ciudad)).n++);
+  return m;
+}
+function clMapaHtml(peds) {
+  const m = clMapaDatos(peds);
+  const regs = Object.keys(REGIONES_CHILE);
+  const xs = [34, 32, 30, 28, 26, 22, 20, 20, 22, 24, 26, 28, 26, 28, 32, 36];   // el quiebre de la costa, de norte a sur
+  const H = 34, W = 96;
+  const filas = regs.map((r, i) => {
+    const d = m.get(r), tot = d.a + d.n, y = 6 + i * H, x = xs[i] || 26;
+    const wa = tot ? Math.max(d.a ? 3 : 0, Math.round(W * d.a / tot)) : 0;
+    return `<g data-fr="${r}"${tot ? '' : ' style="opacity:.35"'} role="button" tabindex="0" aria-label="${r}: ${d.a} atendidos, ${d.n} sin atender">
+      <rect class="clmap-borde" x="${x}" y="${y}" width="${W}" height="${H - 4}" rx="3" fill="var(--er10)" stroke="var(--bd2)"/>
+      ${wa ? `<rect x="${x}" y="${y}" width="${wa}" height="${H - 4}" rx="3" fill="var(--ok)"/>` : ''}
+      <text x="${x + W + 8}" y="${y + (H - 4) / 2 + 4}" font-size="11" fill="var(--tx2)">${r}${tot ? ` · <tspan font-weight="700" fill="var(--ok)">${d.a}</tspan> sí / <tspan font-weight="700" fill="var(--er)">${d.n}</tspan> no` : ' · sin clientes'}</text>
+    </g>`;
+  }).join('');
+  const sr = m.get('Sin región'), srTot = sr.a + sr.n;
+  return `<div class="tbl-card" id="clMapaCard" style="margin-top:14px">
+    <div class="erp-ph"><h2>Mapa de Chile: atendidos y sin atender</h2><div class="xl-der"><span class="td-dim">de Arica a Magallanes</span></div></div>
+    <div style="padding:8px 14px 0"><span class="td-dim" style="font-size:11px">Verde: ya pidieron la ${clActsTxt(' o ')}. Rojo: compraron en ${clCompTxt(', ')} y aún no la piden. Toca una región para ver abajo sus clientes, atendidos y sin atender.</span></div>
+    <svg id="clMapaSvg" viewBox="0 0 560 ${12 + regs.length * H}" style="width:100%;max-width:560px;display:block;margin:0 auto 6px">${filas}</svg>
+    ${srTot ? `<div class="erp-pf">Sin región (ciudad no mapeada): ${sr.a} atendidos, ${sr.n} sin atender — <button class="seg" data-fr="Sin región" style="border:1px solid var(--bd2)">verlos</button></div>` : ''}
+  </div>`;
 }
 const ordenMapa = (a, b) => { const ia = CIUDAD_ORDEN.indexOf(a), ib = CIUDAD_ORDEN.indexOf(b); return ((ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib)) || a.localeCompare(b, 'es'); };
 function zonaDeCiudad(c) {
@@ -4907,7 +4946,7 @@ async function secClientes() {
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-rutn="${vRut(c)}" data-obs="${(CL_OBS[vRut(c)] && CL_OBS[vRut(c)].texto) ? 1 : 0}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid ${c.motivo === 'bloqueado' || c.motivo === 'sin cupo' ? 'var(--er)' : c.motivo === 'con deuda' ? 'var(--wa)' : 'transparent'}">${escT(c.nombre)}${fichasBadge(c.cli)}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid ${c.motivo === 'bloqueado' || c.motivo === 'sin cupo' ? 'var(--er)' : c.motivo === 'con deuda' ? 'var(--wa)' : 'transparent'}">${escT(c.nombre)}${fichasBadge(c.cli)}${CL_MODO === 'todos' ? (c.at ? ' <span class="erp-etq" style="background:var(--ok10);color:var(--ok)">ATENDIDO</span>' : ' <span class="erp-etq er">SIN ATENDER</span>') : ''}</td>
     <td class="td-dim">${escT(c.rut)||'—'}</td>
     <td class="td-dim">${escT(c.ciudad) || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.slice(0, 4).map(t=>`<span class="badge ${tcFor(t).cls}" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;margin-right:2px;vertical-align:middle"><span>${t}</span><b style="font-size:10px">${fmt(c.u[t] || 0)}</b></span>`).join('')}${c.compradas.length > 4 ? `<span class="badge" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;background:var(--sf2);color:var(--tx2);vertical-align:middle" title="También: ${c.compradas.slice(4).map(x => `T${x}: ${fmt(c.u[x] || 0)}`).join(' · ')}"><span>+${c.compradas.length - 4}</span><b style="font-size:10px">${fmt(c.compradas.slice(4).reduce((a, x) => a + (c.u[x] || 0), 0))}</b></span>` : ''}</td>
@@ -4972,6 +5011,7 @@ async function secClientes() {
     <div class="kpi" data-clk="bloq" id="clk-bloq" role="button" tabindex="0" title="Ver cuáles"><span class="v" id="clk-bloq-val">${fmt(base.filter(c => c.motivo === 'bloqueado').length)}</span><span class="n" id="clk-bloq-lbl">Bloqueados</span><span class="s" id="clk-bloq-sub">&nbsp;</span></div>
     <div class="kpi" data-clk="deuda" id="clk-deuda" role="button" tabindex="0" title="Ver los que deben"><span class="v" id="clk-deuda-val">${fmtM(base.reduce((s, c) => s + c.deuda, 0))}</span><span class="n" id="clk-deuda-lbl">Deuda de estos clientes</span><span class="s" id="clk-deuda-sub">&nbsp;</span></div>
   </div>
+  ${clMapaHtml(peds)}
   ${grafCard('clGraf', '¿A quién llamar primero?', 'Los 15 que más compraban de lo que se ve: en verde a los que se les puede vender hoy, en amarillo los que deben y en rojo los bloqueados. Toca una barra para ver cuánto compró.', 420)}
   <div class="tbl-card">
     <div class="tbl-head xl-head erp-ph" style="gap:8px">
@@ -15845,6 +15885,19 @@ function bindContent(secId) {
       const c = document.getElementById('ftCount'); if (c) c.textContent = fmt(total) + ' clientes';
     }
     document.getElementById('clCiudad')?.addEventListener('change', () => { aplicarFt(); applyClFilters(); });
+    const clMapaIr = r => {
+      document.querySelector('#clRegSegs [data-fr=""]')?.click();
+      document.querySelector(`#clRegSegs .seg[data-fr="${r}"]`)?.click();
+      document.querySelectorAll('#clMapaCard [data-fr]').forEach(x => x.classList.toggle('clmap-sel', x.dataset.fr === r));
+      document.getElementById('clBody')?.closest('.tbl-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    document.querySelectorAll('#clMapaCard [data-fr]').forEach(g => {
+      const ir = () => { const r = g.dataset.fr;
+        if (CL_MODO !== 'todos') { CL_MODO = 'todos'; irA('clientes', 'Clientes Inactivos', () => clMapaIr(r)); }
+        else clMapaIr(r); };
+      g.addEventListener('click', ir);
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+    });
     document.querySelectorAll('#clRegSegs [data-fr]').forEach(b => b.addEventListener('click', () => {
       const todas = document.querySelector('#clRegSegs [data-fr=""]');
       if (!b.dataset.fr) document.querySelectorAll('#clRegSegs .seg').forEach(x => x.classList.toggle('on', x === b));
