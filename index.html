@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-18">
+<meta name="adecom-build" content="2026-11-23-19">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18478,7 +18478,14 @@ function plFallo(e) {
   const tb = document.getElementById('plTabla');
   if (tb) tb.style.display = '';
 }
-function plIniciar(datos) {
+function plIniciar(datos, intento) {
+  /* 23-11: go() pinta el HTML tras un startViewTransition (19-11), así que este arranque puede correr ANTES de que
+     el lienzo exista: se espera a que aparezca (en el equipo de Manu el setTimeout(0) ganaba y la sala quedaba vacía) */
+  const n = intento || 0;
+  if (!document.getElementById('plCv')) {
+    if (n < 40) { setTimeout(() => plIniciar(datos, n + 1), 50); return; }
+    plFallo(new Error('el lienzo de la planta nunca apareció (plCv)')); return;
+  }
   try { plIniciarReal(datos); } catch (e) { plFallo(e); }
 }
 function plIniciarReal(datos) {
