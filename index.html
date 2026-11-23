@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-3">
+<meta name="adecom-build" content="2026-11-23-4">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5689,7 +5689,7 @@ async function secConversaciones() {
 /* Reporte de Atención (29-10, Manu: "en esa misma sección de Atención deja una de reporte: cuántas personas hablaron, cuántas
    necesitan una persona, cuánto concretó Valentina en venta y Sofía"). Lo calcula la página (reporte-atencion-background,
    ~1,5 min, cada 15 min como máximo); acá se muestra el último. */
-let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_CAT45 = null, RA_LAND45 = null, RA_PER = 'd7', RA_TIMER = null, RA_TAB = 'chats';
+let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_CAT45 = null, RA_LAND45 = null, RA_SUELTAS = [], RA_PER = 'd7', RA_TIMER = null, RA_TAB = 'chats';
 const RA_ESTILO = `
     .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .ra-hd .td-dim{font-size:12px}
@@ -5732,11 +5732,9 @@ const RA_ESTILO = `
   `;
 async function secReporteAtencion() {
   const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
-  const [d, c, f, cat, lan] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1'),
-    load('campanas/catalogo-45.json').catch(() => null), load('campanas/landing-45.json').catch(() => null)]);
+  const [d, c, f] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1'), raCargarSueltas()]);
   if (!d.ok) return makePH(ICO, 'Performance de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
-  RA_DATA = d; RA_CAMP = c && c.ok ? c : null; RA_FORM = f && f.ok ? f : null; RA_CAT45 = cat && !Array.isArray(cat) && cat.clientes ? cat : null;
-  RA_LAND45 = lan && !Array.isArray(lan) && lan.clientes ? lan : null;
+  RA_DATA = d; RA_CAMP = c && c.ok ? c : null; RA_FORM = f && f.ok ? f : null;
   return `<style>${RA_ESTILO}</style><div id="raBody">${raRender()}</div>`;
 }
 const RA_EST = { conversando: ['Conversando', '--ok', '--ok10'], requiere: ['Requiere una persona', '--er', '--er10'], pausa: ['En pausa', '--tx2', '--sf2'], baja: ['Se dio de baja', '--tx3', '--sf2'] };
@@ -5746,42 +5744,36 @@ const raPct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
 /* 23-11 (Manu, mirando la pantalla Campañas: "¿dónde está el dato?"): los bloques del Catálogo 45 y el Landing
    Amalfi en UNA función, para la pestaña Campañas de Atención y la pantalla "Ver campañas". */
 function raBloquesCat45() {
+  /* 23-11 (Manu: "cada campaña tiene que ir con su dato dentro del dashboard de manera automática"):
+     un bloque por CADA campaña anotada en bi/campanas/indice.json (lo llenan solos los scripts de envío).
+     Cada registro trae clientes[{cliente, ok, detalle, respuesta?, en}]. */
   const kV = (ico, bg, n, t2, sub, color2, ver2 = '') => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
     <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${ver2}</div></div></div>`;
-  const ver = () => '';
-  return `${(() => {   /* 20-11 (vía la sesión PAGINA WEB): el envío del catálogo de la Cole 45 "Amalfi" por WhatsApp.
-        Se enciende solo cuando bi/campanas/catalogo-45.json exista. */
-      const ct = RA_CAT45;
-      if (!ct) return '';
-      const cs = ct.clientes || [], ok = cs.filter(x => x.ok), mal = cs.filter(x => !x.ok), resp = cs.filter(x => x.respuesta);
-      const nuevos = cs.filter(x => x.nueva).length;
-      return `<section class="ra-bloque"><div class="ra-bt"><h3>Catálogo 45 (Amalfi)</h3><span>PDF por WhatsApp a mayoristas${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
-        <div class="ra-ks">
-          ${kV('📖', 'var(--ac10)', fmt(ok.length), 'se les mandó el catálogo', `de ${fmt(cs.length)} en la lista${nuevos ? ` · ${fmt(nuevos)} entraron nuevos a Nexor` : ''}`, '--tx1')}
-          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'todos recibieron el envío', mal.length ? '--er' : '--ok')}
-          ${kV('💬', 'var(--ok10)', resp.length ? fmt(resp.length) : '—', 'respondieron', resp.length ? raPct(resp.length, ok.length) + ' de los enviados' : 'se verá acá cuando el registro traiga las respuestas', resp.length ? '--ok' : '--tx2', ver('conversaciones', 'Conversaciones'))}
-        </div>
-        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
-          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
-      </section>`; })()}
-    ${(() => {   /* 21-11 (Manu: "¿tenemos ese dato en el dashboard?"): la segunda ola — la plantilla con el link del
-        landing Amalfi. Se enciende cuando bi/campanas/landing-45.json exista. En "no se les mandó" van las guardias
-        (tomadas por el equipo, conversando con Sofía, "No recibir más"); los que esperan el espaciado de 16 h
-        entre plantillas no salen acá: entran solos durante el día y se suman al llegar. */
-      const ct = RA_LAND45;
-      if (!ct) return '';
-      const cs = ct.clientes || [], ok = cs.filter(x => x.ok);
-      const guardia = cs.filter(x => !x.ok && /no se le manda|No recibir/i.test(x.detalle || ''));
-      const mal = cs.filter(x => !x.ok && !guardia.includes(x));
-      return `<section class="ra-bloque"><div class="ra-bt"><h3>Landing Amalfi (segunda ola)</h3><span>link del catálogo web por WhatsApp${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
-        <div class="ra-ks">
-          ${kV('🔗', 'var(--ac10)', fmt(ok.length), 'les llegó el landing', 'los que esperan el espaciado de 16 h entran solos durante el día', '--tx1')}
-          ${kV('🛡️', 'var(--sf2)', fmt(guardia.length), 'no se les mandó', 'tomadas por el equipo, conversando con Sofía o pidieron no recibir', '--tx2')}
-          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
-        </div>
-        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
-          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
-      </section>`; })()}`;
+  return (RA_SUELTAS || []).map(({ nombre, sub, datos }) => {
+    const cs = (datos && datos.clientes) || [];
+    if (!cs.length) return '';
+    const ok = cs.filter(x => x.ok), resp = cs.filter(x => x.respuesta);
+    const guardia = cs.filter(x => !x.ok && /no se le manda|No recibir|queda para la próxima/i.test(x.detalle || ''));
+    const mal = cs.filter(x => !x.ok && !guardia.includes(x));
+    return `<section class="ra-bloque"><div class="ra-bt"><h3>${cvEsc(nombre)}</h3><span>${cvEsc(sub || '')}${datos.generado ? ` · al ${cvEsc(cvHora(datos.generado))}` : ''}${datos.plantilla ? ` · plantilla ${cvEsc(datos.plantilla)}` : ''}</span></div>
+      <div class="ra-ks">
+        ${kV('📨', 'var(--ac10)', fmt(ok.length), 'les llegó', `de ${fmt(cs.length)} en la lista`, '--tx1')}
+        ${kV('💬', 'var(--ok10)', resp.length ? fmt(resp.length) : '—', 'respondieron', resp.length ? raPct(resp.length, ok.length) + ' de los enviados' : 'se verá cuando el registro traiga las respuestas', resp.length ? '--ok' : '--tx2')}
+        ${kV('🛡️', 'var(--sf2)', fmt(guardia.length), 'no se les mandó', 'tomadas por el equipo, conversando con Sofía o pidieron no recibir', '--tx2')}
+        ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
+      </div>
+      ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
+        <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
+    </section>`; }).join('');
+}
+/* carga el índice y el registro de cada campaña anotada; sin índice, las dos conocidas de la Cole 45 */
+async function raCargarSueltas() {
+  const ind = await load('campanas/indice.json').catch(() => null);
+  const lista = ind && Array.isArray(ind.campanas) && ind.campanas.length ? ind.campanas
+    : [{ nombre: 'Catálogo 45 (Amalfi)', sub: 'PDF por WhatsApp a mayoristas', archivo: 'campanas/catalogo-45.json' },
+       { nombre: 'Landing Amalfi (segunda ola)', sub: 'link del catálogo web por WhatsApp', archivo: 'campanas/landing-45.json' }];
+  const ds = await Promise.all(lista.map(x => load(x.archivo).catch(() => null)));
+  RA_SUELTAS = lista.map((x, i) => ({ ...x, datos: ds[i] && !Array.isArray(ds[i]) && ds[i].clientes ? ds[i] : null })).filter(x => x.datos);
 }
 function raRender() {
   const d = RA_DATA || {};
@@ -6359,10 +6351,8 @@ function cpRender() {
 }
 async function secCampanas() {
   const rs = await Promise.all(CAMPANAS.map(x => cvFetch(x.fuente).catch(() => null)));
-  /* 23-11: la campaña del catálogo Amalfi (45) también se ve acá */
-  const [c45, l45] = await Promise.all([load('campanas/catalogo-45.json').catch(() => null), load('campanas/landing-45.json').catch(() => null)]);
-  RA_CAT45 = c45 && !Array.isArray(c45) && c45.clientes ? c45 : RA_CAT45;
-  RA_LAND45 = l45 && !Array.isArray(l45) && l45.clientes ? l45 : RA_LAND45;
+  /* 23-11: toda campaña anotada en el índice se ve acá, automática */
+  await raCargarSueltas();
   CP_DATA = {}; CAMPANAS.forEach((x, i) => { CP_DATA[x.id] = rs[i]; });
   CP_DATA._actualizando = rs.some(r => r && r.actualizando);
   return `<style>${RA_ESTILO}${HW_ESTILO}</style><div id="cpBody">${cpRender()}</div>`;
@@ -11888,6 +11878,7 @@ async function secDebemos() {
 
 
 /* ── ROUTER ─────────────────────────────────────────────────── */
+
 /* ── CORTADO POR CALCE ──────────────────────────────────────────
    Cuánto llevamos cortado por bota (Pitillo, Flare, Wide Leg...) y por tiro,
    para la temporada elegida. Fuentes: traza_oc (cortado/programado por orden; su
