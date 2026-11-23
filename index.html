@@ -5681,7 +5681,7 @@ async function secConversaciones() {
 /* Reporte de Atención (29-10, Manu: "en esa misma sección de Atención deja una de reporte: cuántas personas hablaron, cuántas
    necesitan una persona, cuánto concretó Valentina en venta y Sofía"). Lo calcula la página (reporte-atencion-background,
    ~1,5 min, cada 15 min como máximo); acá se muestra el último. */
-let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_CAT45 = null, RA_PER = 'd7', RA_TIMER = null, RA_TAB = 'chats';
+let RA_DATA = null, RA_CAMP = null, RA_FORM = null, RA_CAT45 = null, RA_LAND45 = null, RA_PER = 'd7', RA_TIMER = null, RA_TAB = 'chats';
 const RA_ESTILO = `
     .ra-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .ra-hd .td-dim{font-size:12px}
@@ -5724,10 +5724,11 @@ const RA_ESTILO = `
   `;
 async function secReporteAtencion() {
   const ICO = '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>';
-  const [d, c, f, cat] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1'),
-    load('campanas/catalogo-45.json').catch(() => null)]);
+  const [d, c, f, cat, lan] = await Promise.all([cvFetch('?reporte=1'), cvFetch('?campana=1'), cvFetch('?formularios=1'),
+    load('campanas/catalogo-45.json').catch(() => null), load('campanas/landing-45.json').catch(() => null)]);
   if (!d.ok) return makePH(ICO, 'Performance de Atención', cvEsc(d.mensaje || 'No se pudo leer el reporte.'));
   RA_DATA = d; RA_CAMP = c && c.ok ? c : null; RA_FORM = f && f.ok ? f : null; RA_CAT45 = cat && !Array.isArray(cat) && cat.clientes ? cat : null;
+  RA_LAND45 = lan && !Array.isArray(lan) && lan.clientes ? lan : null;
   return `<style>${RA_ESTILO}</style><div id="raBody">${raRender()}</div>`;
 }
 const RA_EST = { conversando: ['Conversando', '--ok', '--ok10'], requiere: ['Requiere una persona', '--er', '--er10'], pausa: ['En pausa', '--tx2', '--sf2'], baja: ['Se dio de baja', '--tx3', '--sf2'] };
@@ -5833,6 +5834,24 @@ function raRender() {
           ${kV('📖', 'var(--ac10)', fmt(ok.length), 'se les mandó el catálogo', `de ${fmt(cs.length)} en la lista${nuevos ? ` · ${fmt(nuevos)} entraron nuevos a Nexor` : ''}`, '--tx1')}
           ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'todos recibieron el envío', mal.length ? '--er' : '--ok')}
           ${kV('💬', 'var(--ok10)', resp.length ? fmt(resp.length) : '—', 'respondieron', resp.length ? raPct(resp.length, ok.length) + ' de los enviados' : 'se verá acá cuando el registro traiga las respuestas', resp.length ? '--ok' : '--tx2', ver('conversaciones', 'Conversaciones'))}
+        </div>
+        ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
+          <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
+      </section>`; })()}
+    ${(() => {   /* 21-11 (Manu: "¿tenemos ese dato en el dashboard?"): la segunda ola — la plantilla con el link del
+        landing Amalfi. Se enciende cuando bi/campanas/landing-45.json exista. En "no se les mandó" van las guardias
+        (tomadas por el equipo, conversando con Sofía, "No recibir más"); los que esperan el espaciado de 16 h
+        entre plantillas no salen acá: entran solos durante el día y se suman al llegar. */
+      const ct = RA_LAND45;
+      if (!ct) return '';
+      const cs = ct.clientes || [], ok = cs.filter(x => x.ok);
+      const guardia = cs.filter(x => !x.ok && /no se le manda|No recibir/i.test(x.detalle || ''));
+      const mal = cs.filter(x => !x.ok && !guardia.includes(x));
+      return `<section class="ra-bloque"><div class="ra-bt"><h3>Landing Amalfi (segunda ola)</h3><span>link del catálogo web por WhatsApp${ct.generado ? ` · al ${cvEsc(cvHora(ct.generado))}` : ''}${ct.plantilla ? ` · plantilla ${cvEsc(ct.plantilla)}` : ''}</span></div>
+        <div class="ra-ks">
+          ${kV('🔗', 'var(--ac10)', fmt(ok.length), 'les llegó el landing', 'los que esperan el espaciado de 16 h entran solos durante el día', '--tx1')}
+          ${kV('🛡️', 'var(--sf2)', fmt(guardia.length), 'no se les mandó', 'tomadas por el equipo, conversando con Sofía o pidieron no recibir', '--tx2')}
+          ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
         </div>
         ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
           <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
