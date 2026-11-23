@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-2">
+<meta name="adecom-build" content="2026-11-23-3">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1181,6 +1181,11 @@ body.menu-oculto .fbar.fija{left:24px}
     <button class="nav-item" data-sec="tabla" data-ttl="Trazabilidad">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       Trazabilidad
+    </button>
+
+    <button class="nav-item" data-sec="calce" data-ttl="Cortado por calce" data-admin-only>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.1" y2="15.9"/><line x1="14.5" y1="14.5" x2="20" y2="20"/><line x1="8.1" y1="8.1" x2="12" y2="12"/></svg>
+      Cortado por calce
     </button>
 
     <button class="nav-item" data-sec="programado" data-ttl="Programado sin cortar" data-admin-only>
@@ -11883,6 +11888,86 @@ async function secDebemos() {
 
 
 /* ── ROUTER ─────────────────────────────────────────────────── */
+/* ── CORTADO POR CALCE ──────────────────────────────────────────
+   Cuánto llevamos cortado por bota (Pitillo, Flare, Wide Leg...) y por tiro,
+   para la temporada elegida. Fuentes: traza_oc (cortado/programado por orden; su
+   campo cort es lo realmente cortado) y pedidos_art (bota/tiro de cada modelo). */
+let CAL_T = null, CAL_TIPO = 'Producción';
+let CAL_FT = [], CAL_ATTR = {};
+async function secCalce() {
+  const [ft, pa] = await Promise.all([load('traza_oc.json'), load('pedidos_art.json')]);
+  if (!ft.length) return makePH('✂️', 'Cortado por calce', 'Sin datos de producción');
+  CAL_FT = ft; CAL_ATTR = {};
+  for (const x of pa) CAL_ATTR[x.temp + '|' + x.base] = { bota: x.bota || '', tiro: x.tiro || '' };
+  const temps = [...new Set(ft.map(r => String(r.articulo || '').slice(2, 4)))].filter(t => /^\d\d$/.test(t)).sort((a, b) => b.localeCompare(a));
+  if (!CAL_T || !temps.includes(CAL_T)) CAL_T = temps.includes(TEMP_ACTIVA) ? TEMP_ACTIVA : temps[0];
+  const tipos = ['Producción', 'Muestras', 'Set', 'Todas'];
+  return `
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">
+    <label class="td-dim" style="font-size:12px">Temporada
+      <select onchange="calceSetT(this.value)" style="margin-left:6px">${temps.map(t =>
+        `<option value="${t}"${t === CAL_T ? ' selected' : ''}>T${t}</option>`).join('')}</select>
+    </label>
+    <div id="calceSegs" style="display:flex;gap:6px">${tipos.map(t =>
+      `<button type="button" class="seg${t === CAL_TIPO ? ' on' : ''}" onclick="calceSetTipo(this)">${t}</button>`).join('')}</div>
+  </div>
+  <div id="calceBody">${calceCuerpo()}</div>`;
+}
+function calceCuerpo() {
+  const MAPA_TIPO = { 'PRODUCCION NORMAL': 'Producción', 'MUESTRAS': 'Muestras', 'SET': 'Set' };
+  const filas = CAL_FT.filter(r => String(r.articulo || '').slice(2, 4) === CAL_T
+    && (CAL_TIPO === 'Todas' || (MAPA_TIPO[r.tipo] || r.tipo) === CAL_TIPO));
+  const gB = new Map(), gT = new Map();
+  let totC = 0, totP = 0;
+  for (const r of filas) {
+    const base = String(r.articulo || '').slice(2, 6);
+    const a = CAL_ATTR[CAL_T + '|' + base] || {};
+    const cort = +r.cort || 0, prog = +r.prog || 0;
+    totC += cort; totP += prog;
+    for (const [mapa, clave] of [[gB, a.bota || 'Sin ficha'], [gT, a.tiro || 'Sin ficha']]) {
+      let g = mapa.get(clave);
+      if (!g) mapa.set(clave, g = { cort: 0, prog: 0, bases: new Map() });
+      g.cort += cort; g.prog += prog;
+      g.bases.set(base, (g.bases.get(base) || 0) + cort);
+    }
+  }
+  if (!filas.length) return `<div class="td-dim" style="padding:30px 10px">Sin órdenes de ${CAL_TIPO === 'Todas' ? 'ningún tipo' : CAL_TIPO} en la T${CAL_T}.</div>`;
+  const bloque = (titulo, mapa, pref) => {
+    const grupos = [...mapa.entries()].sort((a, b) => b[1].cort - a[1].cort);
+    const max = Math.max(1, ...grupos.map(([, g]) => g.cort));
+    return `<div style="background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px 18px">
+      <div style="font-weight:700;margin-bottom:12px">${titulo}</div>
+      ${grupos.map(([nombre, g], i) => {
+        const avance = g.prog ? Math.round(g.cort / g.prog * 100) : 0;
+        const det = [...g.bases.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+          .map(([b, u]) => `<span class="td-code">${escT(b)}</span> ${fmt(u)}`).join(' · ');
+        return `<div style="margin-bottom:10px;cursor:pointer" onclick="calceVer('${pref}${i}')">
+          <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px">
+            <span style="font-weight:600">${escT(nombre)}</span>
+            <span><b>${fmt(g.cort)}</b> <span class="td-dim">· ${totC ? Math.round(g.cort / totC * 100) : 0}% de lo cortado</span></span>
+          </div>
+          <div class="pl-barra-av${avance >= 85 ? '' : avance >= 60 ? ' ambar' : ' rojo'}" title="${avance}% de lo programado ya está cortado"><i style="width:${Math.round(g.cort / max * 100)}%"></i></div>
+          <div class="td-dim" style="font-size:11px">de ${fmt(g.prog)} programadas · ${avance}% cortado</div>
+          <div id="calDet-${pref}${i}" style="display:none;font-size:11px;color:var(--tx2);padding:4px 0 2px">${det || '—'}</div>
+        </div>`; }).join('')}
+    </div>`;
+  };
+  return `
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+    <div style="background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px 18px"><div style="font-size:22px;font-weight:800">${fmt(totC)}</div><div class="td-dim" style="font-size:12px">prendas cortadas · T${CAL_T}${CAL_TIPO === 'Todas' ? '' : ' · ' + CAL_TIPO}</div></div>
+    <div style="background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px 18px"><div style="font-size:22px;font-weight:800">${fmt(totP)}</div><div class="td-dim" style="font-size:12px">programadas · ${totP ? Math.round(totC / totP * 100) : 0}% ya cortado</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+    ${bloque('Por bota', gB, 'b')}${bloque('Por tiro', gT, 't')}
+  </div>
+  <div class="td-dim" style="font-size:11px;margin-top:10px">El largo de la barra compara prendas cortadas entre calces; el color dice cuánto de lo programado ya se cortó (verde ≥85%, ámbar ≥60%, rojo menos). Toca una fila para ver sus modelos.</div>`;
+}
+window.calceSetT = v => { CAL_T = v; const b = document.getElementById('calceBody'); if (b) b.innerHTML = calceCuerpo(); };
+window.calceSetTipo = btn => { CAL_TIPO = btn.textContent.trim();
+  document.querySelectorAll('#calceSegs .seg').forEach(x => x.classList.toggle('on', x === btn));
+  const b = document.getElementById('calceBody'); if (b) b.innerHTML = calceCuerpo(); };
+window.calceVer = id => { const d = document.getElementById('calDet-' + id); if (d) d.style.display = d.style.display === 'none' ? 'block' : 'none'; };
+
 const SECS = {
   'inicio':         () => secInicio(),
   'resumen':        () => secResumen(),
@@ -11916,6 +12001,7 @@ const SECS = {
   'venta-despacho': () => secVentaDespacho(),
   'debemos':        () => secDebemos(),
   'programado':     () => secProgramado(),
+  'calce':          () => secCalce(),
   'deudas':         () => secDeudas(),
   'clientes':       () => secClientes(),
   'campana':        () => secCampana(),
