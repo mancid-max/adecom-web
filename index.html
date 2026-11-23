@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-5">
+<meta name="adecom-build" content="2026-11-23-6">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5749,6 +5749,18 @@ function raBloquesCat45(lista) {
      Cada registro trae clientes[{cliente, ok, detalle, respuesta?, en}]. */
   const kV = (ico, bg, n, t2, sub, color2, ver2 = '') => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
     <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}${ver2}</div></div></div>`;
+  /* 23-11 (Manu: "el dato es muy confuso, mejorar ese tipo de cosas"): el motivo en español, no el código */
+  const motivo = (t) => {
+    const x = String(t || '');
+    if (/unreachable|131026/i.test(x)) return 'su celular no tiene WhatsApp';
+    if (/131049/i.test(x)) return 'Meta lo frenó: recibió otro aviso hace poco (se reintenta en la próxima corrida)';
+    if (/duplicate_recent_send/i.test(x)) return 'Nexor no deja dos plantillas seguidas: se reintenta solo';
+    if (/run_paused/i.test(x)) return 'su conversación estaba pausada';
+    if (/429/.test(x)) return 'error pasajero al enviar (se reintenta)';
+    if (/payment|pago|131042/i.test(x)) return 'problema de pago de Meta';
+    if (/no se pudo crear su ficha/i.test(x)) return 'no se pudo crear su ficha en Nexor';
+    return x.replace(/\(\[.*?\]\s*/,'(').slice(0, 90) || 'sin detalle';
+  };
   return (lista || RA_SUELTAS || []).map(({ nombre, sub, datos }) => {
     const cs = (datos && datos.clientes) || [];
     if (!cs.length) return '';
@@ -5763,7 +5775,7 @@ function raBloquesCat45(lista) {
         ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
       </div>
       ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
-        <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(String(x.en || '').slice(5, 16))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(x.detalle || 'sin detalle')}</small></div>`).join('')}</div></div>` : ''}
+        <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(cvHora(x.en))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(motivo(x.detalle))}</small></div>`).join('')}</div></div>` : ''}
     </section>`; }).join('');
 }
 /* carga el índice y el registro de cada campaña anotada; sin índice, las dos conocidas de la Cole 45 */
