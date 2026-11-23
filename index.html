@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-21">
+<meta name="adecom-build" content="2026-11-23-22">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5795,6 +5795,7 @@ const RA_ESTILO = `
     .ra-bt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px}.ra-bt h3{margin:0;font-size:16px}.ra-bt span{font-size:12px;color:var(--tx3)}
     .ra-ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
     .ra-ks.ra-7{grid-template-columns:repeat(7,minmax(0,1fr))}
+    .ra-ks.ra-5{grid-template-columns:repeat(5,minmax(0,1fr))}
     .ra-k{border:1px solid var(--bd);border-radius:var(--r);background:var(--sf);padding:13px 15px;min-width:0}
     .ra-n{font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}.ra-7 .ra-n{font-size:22px}
     .ra-t{font-size:13px;font-weight:600;margin-top:3px}.ra-s{font-size:11.5px;color:var(--tx3);margin-top:5px;line-height:1.45}
@@ -5824,7 +5825,7 @@ const RA_ESTILO = `
     .ra-av span{position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;background:var(--sf);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--bd)}
     .ra-chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
     .ra-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-    @media(max-width:1200px){.ra-ks.ra-7{grid-template-columns:repeat(4,minmax(0,1fr))}}
+    @media(max-width:1200px){.ra-ks.ra-7,.ra-ks.ra-5{grid-template-columns:repeat(4,minmax(0,1fr))}}
     @media(max-width:1000px){.ra-ks{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-g2,.ra-g11{grid-template-columns:1fr}}
     @media(max-width:700px){.ra-ks.ra-7{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-tabla .ra-ocultar{display:none}}
   `;
@@ -5859,19 +5860,24 @@ function raBloquesCat45(lista) {
     if (/no se pudo crear su ficha/i.test(x)) return 'no se pudo crear su ficha en Nexor';
     return x.replace(/\(\[.*?\]\s*/,'(').slice(0, 90) || 'sin detalle';
   };
-  return (lista || RA_SUELTAS || []).map(({ nombre, sub, datos }) => {
+  return (lista || RA_SUELTAS || []).map(({ nombre, sub, datos, ventas }) => {
     const cs = (datos && datos.clientes) || [];
     if (!cs.length) return '';
     const ok = cs.filter(x => x.ok), resp = cs.filter(x => x.respuesta);
+    const vs = ventas || [], vConf = vs.filter(v => v.confirmado), vPos = vs.filter(v => !v.confirmado);
+    const vPrendas = vs.reduce((a, v) => a + (v.prendas || 0), 0);
     const guardia = cs.filter(x => !x.ok && /no se le manda|No recibir|queda para la próxima/i.test(x.detalle || ''));
     const mal = cs.filter(x => !x.ok && !guardia.includes(x));
     return `<section class="ra-bloque"><div class="ra-bt"><h3>${cvEsc(nombre)}</h3><span>${cvEsc(sub || '')}${datos.generado ? ` · al ${cvEsc(cvHora(datos.generado))}` : ''}${datos.plantilla ? ` · plantilla ${cvEsc(datos.plantilla)}` : ''}</span></div>
-      <div class="ra-ks">
+      <div class="ra-ks ra-5">
         ${kV('📨', 'var(--ac10)', fmt(ok.length), 'les llegó', `de ${fmt(cs.length)} en la lista`, '--tx1')}
         ${kV('💬', 'var(--ok10)', resp.length ? fmt(resp.length) : '—', 'respondieron', resp.length ? raPct(resp.length, ok.length) + ' de los enviados' : 'se verá cuando el registro traiga las respuestas', resp.length ? '--ok' : '--tx2')}
         ${kV('🛡️', 'var(--sf2)', fmt(guardia.length), 'no se les mandó', 'tomadas por el equipo, conversando con Sofía o pidieron no recibir', '--tx2')}
         ${kV('⚠️', mal.length ? 'var(--er10)' : 'var(--ok10)', fmt(mal.length), 'no les salió', mal.length ? 'el detalle abajo' : 'sin fallas de envío', mal.length ? '--er' : '--ok')}
+        ${kV('🛒', vs.length ? 'var(--ok10)' : 'var(--sf2)', vs.length ? fmt(vs.length) : '—', 'pedidos después del aviso', vs.length ? `${fmt(vPrendas)} prendas · ${vConf.length} con respuesta al aviso${vPos.length ? ` · ${vPos.length} posibles` : ''}` : 'ninguno todavía (ERP)', vs.length ? '--ok' : '--tx2')}
       </div>
+      ${vs.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">🛒 Pedidos en el ERP después del aviso <small>${fmt(vs.length)}</small></div>
+        <div style="max-height:220px;overflow-y:auto">${vs.map(v => `<div class="ra-f"><small>${cvEsc(String(v.fecha || '').slice(0, 10).split('-').reverse().join('/'))}</small><span>${cvEsc(v.cliente || '—')}</span><small>${fmt(v.prendas)} prendas · ${v.confirmado ? 'respondió el aviso' : 'posible: no respondió, pudo ingresarlo el vendedor'}</small></div>`).join('')}</div></div>` : ''}
       ${mal.length ? `<div class="ra-col" style="margin-top:12px"><div class="ra-ct">A quiénes no les salió <small>${fmt(mal.length)}</small></div>
         <div style="max-height:220px;overflow-y:auto">${mal.map(x => `<div class="ra-f"><small>${cvEsc(cvHora(x.en))}</small><span>${cvEsc(x.cliente || x.cel8 || '—')}</span><small>${cvEsc(motivo(x.detalle))}</small></div>`).join('')}</div></div>` : ''}
     </section>`; }).join('');
@@ -5884,6 +5890,35 @@ async function raCargarSueltas() {
        { nombre: 'Landing Amalfi (segunda ola)', sub: 'link del catálogo web por WhatsApp', archivo: 'campanas/landing-45.json' }];
   const ds = await Promise.all(lista.map(x => load(x.archivo).catch(() => null)));
   RA_SUELTAS = lista.map((x, i) => ({ ...x, datos: ds[i] && !Array.isArray(ds[i]) && ds[i].clientes ? ds[i] : null })).filter(x => x.datos);
+  /* 23-11 (Manu: "que quede de manera automática si ha generado ventas Sofía"): cada campaña se cruza con los
+     pedidos del ERP posteriores al aviso de cada cliente (por su RUT o su razón social). Con respuesta al aviso
+     el pedido cuenta como de la campaña; sin respuesta queda como posible (regla del 02-11). */
+  try {
+    const peds = await load('pedidos.json');
+    const porRut = {}, porNom = {};
+    for (const p of (Array.isArray(peds) ? peds : [])) {
+      const ru = String(p.rut || '').replace(/\D/g, '');
+      if (ru) (porRut[ru] = porRut[ru] || []).push(p);
+      const no = String(p.nombre || '').trim().toUpperCase();
+      if (no) (porNom[no] = porNom[no] || []).push(p);
+    }
+    for (const sx of RA_SUELTAS) {
+      const vs = [], vistos = new Set();
+      for (const c of (sx.datos.clientes || [])) {
+        if (!c.ok) continue;
+        const desde = String(c.en || c.ultima || '').slice(0, 10);
+        if (!desde) continue;
+        const cand = (c.rut && porRut[String(c.rut).replace(/\D/g, '')]) || porNom[String(c.cliente || '').trim().toUpperCase()] || [];
+        for (const p of cand) {
+          const k = String(p.pedido || '') + '·' + String(p.fecha_iso || '');
+          if (vistos.has(k) || String(p.fecha_iso || '').slice(0, 10) < desde) continue;
+          vistos.add(k);
+          vs.push({ cliente: c.cliente, fecha: p.fecha_iso, pedido: p.pedido, prendas: p.unidades || 0, confirmado: !!c.respuesta });
+        }
+      }
+      sx.ventas = vs.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    }
+  } catch (e) {}
 }
 function raRender() {
   const d = RA_DATA || {};
@@ -5965,7 +6000,7 @@ function raRender() {
   const camp = RA_CAMP && RA_CAMP.hay ? RA_CAMP : null;
   const cw = camp ? (camp.whatsapp || {}) : {}, cv2 = camp ? (camp.ventas || {}) : {};
   const tabCampanas = `${camp ? `<section class="ra-bloque">
-      <div class="ra-ks">
+      <div class="ra-ks ra-5">
         ${kV('📨', 'var(--ac10)', fmt(cw.llegaron), 'les llegó el aviso', `de ${fmt(cw.enviados)} enviados por WhatsApp (${raPct(cw.llegaron, cw.enviados)})`, '--tx1')}
         ${kV('💬', 'var(--ac10)', fmt(camp.conversando_ahora), 'conversan con Sofía', 'escribieron en las últimas 72 h', '--ac')}
         ${kV('🛒', 'var(--ok10)', fmt(cv2.clientes), 'compraron', cv2.clientes ? `${fmtM(cv2.valor)} neto · ${fmt(cv2.unidades)} prendas` : 'por Sofía, la página, o después de responder', '--ok')}
