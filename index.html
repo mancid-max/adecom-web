@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-15">
+<meta name="adecom-build" content="2026-11-23-16">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4862,8 +4862,29 @@ function clMapaDatos(peds) {
   return m;
 }
 let CL_MAPA_L = null;   // lo último pintado, para la ventana de cada región
+let CL_MAPA_F = null;   // el filtro vivo de la sección (motivo, observación, ciudad, búsqueda, última colección)
+const clMapaCol = (a, n) => { const t = a + n; if (!t) return '#E6EAF0'; const p = a / t; return `hsl(${Math.round(p * 120)} 52% ${Math.round(42 - p * 6)}%)`; };
+function clMapaRefresco() {   // repinta el mapa y la lista con el filtro vivo (Manu, 23-11: "cuando selecciono los filtros también funciona para ese mapa")
+  if (!CL_MAPA_L || !document.getElementById('clMapaSvg')) return;
+  const f = CL_MAPA_F || (() => true);
+  document.querySelectorAll('#clMapaCard [data-fr]').forEach(el => {
+    const d = CL_MAPA_L.get(el.dataset.fr); if (!d) return;
+    const a2 = d.la.filter(f).length, n2 = d.ln.filter(f).length;
+    if (el.tagName.toLowerCase() === 'path') {
+      el.setAttribute('fill', clMapaCol(a2, n2));
+      el.setAttribute('aria-label', `${el.dataset.fr}: ${a2} atendidos, ${n2} sin atender`);
+      const t = el.querySelector('title'); if (t) t.textContent = `${el.dataset.fr} · ${a2} sí / ${n2} no`;
+    } else {
+      const pto = el.querySelector('.clmap-pto'); if (pto) pto.style.background = clMapaCol(a2, n2);
+      const nm = el.querySelector('.clmap-nums'); if (nm) nm.innerHTML = `<b style="color:var(--ok)">${a2}</b> sí / <b style="color:var(--er)">${n2}</b> no`;
+      el.style.opacity = (a2 + n2) ? '' : '.45';
+    }
+  });
+}
 function clMapaVentana(r) {
-  const d = CL_MAPA_L && CL_MAPA_L.get(r); if (!d) return;
+  const d0 = CL_MAPA_L && CL_MAPA_L.get(r); if (!d0) return;
+  const fv = CL_MAPA_F || (() => true);
+  const d = { la: d0.la.filter(fv), ln: d0.ln.filter(fv) }; d.a = d.la.length; d.n = d.ln.length;
   const fila = (c, at) => `<tr><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${escT(c.nombre)}</td><td class="td-dim">${escT(c.ciudad) || '—'}</td><td class="r td-num">${fmt(c.unidades)}</td><td class="r td-num" style="color:${c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td><td>${at ? '<span class="erp-etq" style="background:var(--ok10);color:var(--ok)">ATENDIDO</span>' : c.motivo === 'bloqueado' ? '<span class="erp-etq er">BLOQUEADO</span>' : c.motivo === 'sin cupo' ? '<span class="erp-etq er">SIN CUPO</span>' : c.motivo === 'con deuda' ? '<span class="erp-etq wa">CON DEUDA</span>' : '<span class="erp-etq er">SIN ATENDER</span>'}</td></tr>`;
   const cab = '<tr><th>Cliente</th><th>Ciudad</th><th class="r">Compraba</th><th class="r">Deuda</th><th>Estado</th></tr>';
   document.getElementById('clMapOvTtl').textContent = `${r} — ${d.a} atendidos · ${d.n} sin atender`;
@@ -4879,7 +4900,7 @@ function clMapaVentana(r) {
 function clMapaHtml(peds) {
   const m = clMapaDatos(peds);
   const regs = Object.keys(REGIONES_CHILE);
-  const col = (a, n) => { const t = a + n; if (!t) return '#E6EAF0'; const p = a / t; return `hsl(${Math.round(p * 120)} 52% ${Math.round(42 - p * 6)}%)`; };
+  const col = clMapaCol;
   const svg = regs.map(r => { const d = m.get(r);
     return `<path data-fr="${r}" d="${CL_GEO.paths[r]}" fill="${col(d.a, d.n)}" stroke="#fff" stroke-width=".7" role="button" tabindex="0" aria-label="${r}: ${d.a} atendidos, ${d.n} sin atender"><title>${r} · ${d.a} sí / ${d.n} no</title></path>`; }).join('');
   const filaL = (r, d) => `<button type="button" class="clmap-fila" data-fr="${r}"${d.a + d.n ? '' : ' style="opacity:.45"'}><span class="clmap-pto" style="background:${col(d.a, d.n)}"></span>${r}<span class="clmap-nums"><b style="color:var(--ok)">${d.a}</b> sí / <b style="color:var(--er)">${d.n}</b> no</span></button>`;
@@ -15996,6 +16017,12 @@ function bindContent(secId) {
       poner('clk-deuda-val', fmtM(sumD(alcM)));
       poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda · ${fmt(alcM.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
       document.querySelectorAll('#clMotSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(conM(b.dataset.m).length); });
+      CL_MAPA_F = c => (ult === 'all' || String(c.ultTemp) === ult)
+        && (mot === 'all' || (mot === 'bloq' ? c.motivo === 'bloqueado' : mot === 'nobloq' ? c.motivo !== 'bloqueado' : mot === 'deuda' ? c.deuda > 0 : mot === 'cupo' ? c.motivo === 'sin cupo' : true))
+        && (obsF === 'all' || ((CL_OBS[vRut(c)] && CL_OBS[vRut(c)].texto) ? '1' : '0') === obsF)
+        && (!ciuF || String(c.ciudad || '').trim().toLowerCase() === ciuF)
+        && (!q || (c.nombre || '').toLowerCase().includes(q) || (c.ciudad || '').toLowerCase().includes(q) || (c.vendedor || '').toLowerCase().includes(q));
+      clMapaRefresco();
       clGrafico(filasVisibles());
     }
     document.getElementById('clSearch')?.addEventListener('input', applyClFilters);
