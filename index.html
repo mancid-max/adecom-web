@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-17">
+<meta name="adecom-build" content="2026-11-23-18">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1078,7 +1078,7 @@ body.menu-oculto .fbar.fija{left:24px}
   <button data-tab="deudas" data-ttl="Deudas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 6H9.5a3 3 0 000 6h5a3 3 0 010 6H6"/></svg><span>Cobranza</span></button>
   <button data-tab="mas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg><span>Más</span></button>
 </nav>
-<footer class="statusbar"><span id="hdTs">—</span><span id="stSuc">—</span><span id="stTemp"></span><span class="st-atajos">F3 Buscar · F5 Actualizar · Enter Abrir</span></footer>
+<footer class="statusbar"><span id="hdTs">—</span><span id="stSuc">—</span><span id="stTemp"></span><span id="stBuild" title="Versión de la página"></span><span class="st-atajos">F3 Buscar · F5 Actualizar · Enter Abrir</span></footer>
 <div id="imgOv"><img id="imgOvImg" alt=""><div class="img-bar"><button class="img-nav" id="imgPrev" aria-label="Anterior">‹</button><span id="imgOvCap"></span><span class="img-cnt" id="imgOvCnt"></span><button class="img-nav" id="imgNext" aria-label="Siguiente">›</button><button class="img-nav" id="imgZoom" aria-label="Zoom" style="font-size:16px">⤢</button></div></div>
 <div class="det-ov" id="cliOv" style="z-index:250"><div class="det-panel"><div class="det-hd"><div class="det-ttl" id="cliTtl">Cliente</div><button class="det-close" id="cliClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="cliBody" style="padding:14px 16px"></div></div></div>
 <div class="det-ov" id="debKOv" style="z-index:245"><div class="det-panel" style="width:min(880px,96vw)"><div class="det-hd"><div class="det-ttl" id="debKOvTtl">Detalle</div><button class="det-close" id="debKOvClose" aria-label="Cerrar">✕</button></div><div class="det-body" id="debKOvBody" style="padding:0 0 4px"></div></div></div>
@@ -16720,6 +16720,7 @@ async function cargarBase(esBodega) {
   const pill = document.getElementById('hdTemp');
   if (pill) pill.innerHTML = `<div class="hd-dot"></div>T${TEMP_ACTIVA} activa`;
   { const stT = document.getElementById('stTemp'); if (stT) stT.textContent = `Temporada: T${TEMP_ACTIVA}`; }
+  { const stB = document.getElementById('stBuild'), mb = document.querySelector('meta[name="adecom-build"]'); if (stB && mb) stB.textContent = 'v' + mb.content.slice(5); }
   const tsEl = document.getElementById('hdTs');
   /* Dos horas distintas: cuando corrio la carga y hasta cuando llegan los datos. Si el
      ERP no exporto hoy, la segunda queda en ambar: es la unica senal de que lo que se ve
