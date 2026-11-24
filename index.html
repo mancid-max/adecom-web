@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-10">
+<meta name="adecom-build" content="2026-11-24-11">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17401,6 +17401,35 @@ async function init(role) {
     const ciclo = cerr.length ? sum(cerr, o => o.totDias) / cerr.length : 0;
     const rend = prod.filter(o => o.prog >= 10 && o.cort > 0), rProg = sum(rend, o => o.prog), rCort = sum(rend, o => o.cort);
     const m3 = meses.slice(-3), mE = sum(prod.filter(o => m3.some(m => o.iso.startsWith(m))), o => o.ent) / 3;
+    /* 24-11 (Manu: "¿podríamos saber qué entró hoy a cada etapa? por ejemplo qué entró hoy a bodega"):
+       órdenes cuya etapa PARTIÓ según las fechas del ERP; "A bodega" = terminación terminada ese día.
+       Se muestra hoy Y el día hábil anterior: el ERP suele registrar los movimientos con un día de desfase
+       (al armar esto, el 24-11, hoy iba en 0 y el 23-11 traía 45), y solo "hoy" se vería casi siempre vacío. */
+    const dmyHoy = hoy.split('-').reverse().join('/');
+    const ayerD = new Date(hoy + 'T12:00:00');
+    do { ayerD.setDate(ayerD.getDate() - 1); } while (ayerD.getDay() === 0 || ayerD.getDay() === 6);
+    const dmyAyer = ymd(ayerD).split('-').reverse().join('/');
+    const movs = [];
+    for (const o of prod) {
+      for (const s of (o.stages || [])) if (s.ini === dmyHoy || s.ini === dmyAyer)
+        movs.push({ dia: s.ini === dmyHoy ? 0 : 1, et: TRZ_ETAPA_NOMBRE[s.name] || s.name, i: etapas.indexOf(s.name), oc: o.oc, art: o.articulo, u: s.name === 'Corte' ? o.prog : o.cort });
+      const t = (o.stages || []).find(s => s.name === 'Terminacion');
+      if (t && (t.fin === dmyHoy || t.fin === dmyAyer)) movs.push({ dia: t.fin === dmyHoy ? 0 : 1, et: 'A bodega', i: 9, oc: o.oc, art: o.articulo, u: o.ent });
+    }
+    movs.sort((a, b) => a.dia - b.dia || a.i - b.i || b.u - a.u);
+    const movsHtml = `<section class="erp-panel tbl-card" style="margin-bottom:14px">
+      <div class="erp-ph"><h2>Qué entró a cada etapa · hoy y ${dmyAyer.slice(0, 5)}</h2><span class="sub">Órdenes cuya etapa partió ese día según el ERP · "A bodega" = terminación terminada · el ERP suele anotar con un día de desfase · toca una fila para abrir el artículo</span></div>
+      ${movs.length ? `<div style="overflow-x:auto"><table class="erp-tabla" style="min-width:560px">
+        <thead><tr><th>Día</th><th>Etapa</th><th>OC</th><th>Artículo</th><th class="num">Prendas</th></tr></thead>
+        <tbody>${movs.slice(0, 25).map(x => `<tr style="cursor:pointer" onclick="erpFichaArt('${esc(String(x.art).slice(2, 6))}')">
+          <td>${x.dia === 0 ? '<b>Hoy</b>' : esc(dmyAyer.slice(0, 5))}</td>
+          <td>${x.et === 'A bodega' ? `<b style="color:var(--ok)">A bodega</b>` : esc(x.et)}</td>
+          <td style="font-family:'IBM Plex Mono',monospace">${esc(String(x.oc).replace(/^0+/, ''))}</td>
+          <td><div style="display:flex;align-items:center">${artImg(x.art)}<span class="td-code">${cod(x.art)}</span></div></td>
+          <td class="num">${fmt(x.u)}</td></tr>`).join('')}</tbody></table></div>
+        ${movs.length > 25 ? `<div class="erp-pf">…y ${fmt(movs.length - 25)} movimientos más</div>` : ''}`
+      : `<div class="td-dim" style="padding:10px 14px">El ERP no registra entradas a etapas ni hoy ni el ${dmyAyer.slice(0, 5)} (lo que se mueva en la tarde aparece con la próxima carga).</div>`}
+    </section>`;
     after(() => {
       chart('biPm', { type: 'bar', data: { labels: meses.map(m => MES[+m.slice(5) - 1] + ' ' + m.slice(2, 4)), datasets: [
         { label: 'Programado', data: pm('prog'), backgroundColor: C.ac, borderRadius: 4 },
@@ -17423,6 +17452,7 @@ async function init(role) {
         <div class="kpi" data-bi-tabla="1" title="Ver abajo"><span class="v"${rCort / Math.max(1, rProg) >= .95 ? '' : ' style="color:var(--wa)"'}>${fP(rProg ? rCort / rProg * 100 : 0)}</span><span class="n">Cortado sobre lo programado</span><span class="s">órdenes de 10 prendas o más</span></div>
         <div class="kpi" data-bi-tabla="1" title="Ver abajo"><span class="v">${fmt(mE)}</span><span class="n">Entrega mensual a bodega</span><span class="s">promedio últimos 3 meses</span></div>
       </div>
+      ${movsHtml}
       <div class="erp-cols">
         <section class="erp-panel">
           <div class="erp-ph"><h2>Programado, cortado y entregado por mes</h2><span class="sub">Órdenes de producción normal según su fecha, últimos 12 meses</span></div>
@@ -18078,7 +18108,26 @@ function erpSaltoBind() {
 }
 async function erpFichaArt(base) {
   erpFichaAbrir(`Artículo ${base}`, '<div style="padding:30px;text-align:center;color:var(--tx2)">Cargando…</div>');
-  const [pa, sb2, ft, peds, pvcEx] = await Promise.all([load('pedidos_art.json'), load('saldos_bodega.json'), load('full_table.json'), load('pedidos.json'), load('pvc_ex.json')]);
+  const [pa, sb2, ft, peds, pvcEx, tz] = await Promise.all([load('pedidos_art.json'), load('saldos_bodega.json'), load('full_table.json'), load('pedidos.json'), load('pvc_ex.json'), load('traza_oc.json')]);
+  /* 24-11 (Manu: "podría salirme la alerta de días cuánto lleva"): días en la etapa actual, con la
+     regla única de Trazabilidad (estándar por etapa; amarillo pasado el estándar, rojo al doble) */
+  const trzM = {};
+  for (const o of (Array.isArray(tz) ? tz : [])) trzM[String(o.oc).trim() + '|' + String(o.articulo).trim()] = o;
+  const diasDe = (oc, art) => {
+    const o = trzM[String(oc).trim() + '|' + String(art).trim()];
+    if (!o) return null;
+    const hoyD = new Date(); hoyD.setHours(0, 0, 0, 0);
+    const st = o.stages || [];
+    for (let i = st.length - 1; i >= 0; i--) {   // la más avanzada con pendientes, como getEtapa
+      const s = st[i], a = trzFechaD(s.ini), b = trzFechaD(s.fin);
+      if (!a || a > hoyD || !((s.pend || 0) > 0 || !b)) continue;
+      const desde = s.name === 'Corte' ? (trzFechaD(o.fecha) || a) : a;   // corte corre desde que se programó
+      const dias = trzDiasD(desde, hoyD), u = TRZ_ESTANDAR[s.name] || 14;
+      return { dias, u, nivel: dias > 2 * u ? 'er' : dias > u ? 'wa' : '', etapa: TRZ_ETAPA_NOMBRE[s.name] || s.name,
+               desde: s.name === 'Corte' ? (o.fecha || s.ini) : s.ini };
+    }
+    return null;
+  };
   if (!Object.keys(STOCK_TALLA).length) buildStockMap(sb2 || []);
   const filas = (pa || []).filter(p => String(p.base) === String(base)).sort((a, b) => +b.temp - +a.temp);
   const pref = '01' + base;
@@ -18150,8 +18199,9 @@ async function erpFichaArt(base) {
       <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Producción</div>
       ${ocsAbiertas.length ? `
         <div style="font-size:12px;color:var(--tx2);margin-bottom:5px">${Object.entries(porEtapa).map(([e, u]) => `<b>${fmt(u)}</b> en ${esc2(e)}`).join(' · ')}</div>
-        <table class="erp-tabla"><thead><tr><th>OC</th><th title="Cuándo se programó la orden (la misma fecha de Trazabilidad)">Fecha</th><th>Artículo</th><th>Etapa</th><th class="num">Cortadas</th><th class="num">Por entregar</th></tr></thead>
-        <tbody>${ocsAbiertas.slice(0, 8).map(o => `<tr><td style="font-family:'IBM Plex Mono',monospace">${esc2(String(o.oc).replace(/^0+/, ''))}</td><td style="white-space:nowrap">${esc2(o.fecha || '—')}</td><td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${esc2(o.art)}</td><td>${esc2(o.etapa || '—')}</td><td class="num">${fmt(o.unidades)}</td><td class="num">${fmt(o.saldo)}</td></tr>`).join('')}</tbody></table>
+        <table class="erp-tabla"><thead><tr><th>OC</th><th title="Cuándo se programó la orden (la misma fecha de Trazabilidad)">Fecha</th><th>Artículo</th><th>Etapa</th><th class="num" title="Cuánto lleva en esa etapa: amarillo pasado el estándar de la empresa, rojo al doble (misma regla de Trazabilidad)">Días</th><th class="num">Cortadas</th><th class="num">Por entregar</th></tr></thead>
+        <tbody>${ocsAbiertas.slice(0, 8).map(o => { const dd2 = diasDe(o.oc, o.art);
+          return `<tr><td style="font-family:'IBM Plex Mono',monospace">${esc2(String(o.oc).replace(/^0+/, ''))}</td><td style="white-space:nowrap">${esc2(o.fecha || '—')}</td><td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${esc2(o.art)}</td><td>${esc2(o.etapa || '—')}</td><td class="num">${dd2 ? `<b style="color:var(--${dd2.nivel || 'tx1'})" title="En ${esc2(dd2.etapa)} desde el ${esc2(dd2.desde)} · estándar ${dd2.u} días">${fmt(dd2.dias)} d</b>` : '—'}</td><td class="num">${fmt(o.unidades)}</td><td class="num">${fmt(o.saldo)}</td></tr>`; }).join('')}</tbody></table>
         ${ocsAbiertas.length > 8 ? `<div class="td-dim" style="font-size:11px;margin-top:3px">…y ${ocsAbiertas.length - 8} órdenes más: el detalle completo está en Trazabilidad.</div>` : ''}`
       : ocsCerradas.length ? `
         <div style="font-size:12px;color:var(--tx2)">Nada en camino · entregadas: ${ocsCerradas.sort((a, b) => String(b.oc).localeCompare(String(a.oc))).slice(0, 3).map(o => `OC ${esc2(String(o.oc).replace(/^0+/, ''))} (${fmt(o.unidades)})`).join(' · ')}</div>`
