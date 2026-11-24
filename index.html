@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-5">
+<meta name="adecom-build" content="2026-11-24-6">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1465,9 +1465,9 @@ function printTable({ table, title, subtitle = '', landscape = true }) {
   const meta = document.getElementById('hdTs')?.textContent || '';
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${title}</title>
   <style>
-    /* Solo la orientación: el papel (carta, A4) lo pone la impresora. Con "A4" fijo, una impresora con carta avisaba
-       que el papel no era el adecuado y la tabla salía cortada (Manu, 03-11-2026). */
-    @page{size:${landscape ? 'landscape' : 'portrait'};margin:10mm}
+    /* Papel carta explícito: sin tamaño, Chrome manda el papel por defecto del diálogo (A4 en el Mac) y la Canon
+       con carta pide confirmar en el panel y corta el borde — A4 apaisado es más ancho que la carta (Manu, 24-11-2026). */
+    @page{size:letter ${landscape ? 'landscape' : 'portrait'};margin:10mm}
     body{font-family:Segoe UI,Arial,sans-serif;color:#111;font-size:10px;margin:0}
     h1{font-size:15px;margin:0 0 2px}
     .sub{color:#555;font-size:10px;margin-bottom:8px}
@@ -9813,7 +9813,7 @@ function caCatalogoHtml(clientes, conPrecios = true) {
   };
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Minicatálogo T${CA.T} · Mohicano Jeans</title><meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-  @page{margin:12mm}   /* el papel lo pone la impresora: carta o A4 (Manu, 03-11-2026) */
+  @page{size:letter;margin:12mm}   /* carta explícita: el A4 por defecto del diálogo hacía reclamar a la Canon y cortaba el borde (Manu, 24-11-2026) */
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1b2233;background:#f4f5f8}
   .mc-barra{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #e1e4ea;padding:10px 16px;display:flex;gap:12px;align-items:center;font-size:13px;color:#5e6675}
   .mc-barra button{padding:7px 14px;border-radius:8px;border:0;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;font-size:13px}
