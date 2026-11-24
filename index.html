@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-1">
+<meta name="adecom-build" content="2026-11-24-2">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5037,6 +5037,7 @@ async function secClientes() {
       <button class="seg" data-m="bloq" title="Tienen el pedido bloqueado">Bloqueados <span class="db-n"></span></button>
       <button class="seg" data-m="nobloq" title="No están bloqueados: se les puede vender hoy">No bloqueados <span class="db-n"></span></button>
       <button class="seg" data-m="deuda" title="Deben algo, estén bloqueados o no">Con deuda <span class="db-n"></span></button>
+      <button class="seg" data-m="sindeuda" title="No deben nada: están al día">Sin deuda <span class="db-n"></span></button>
       ${base.some(c => c.sinCupo) ? '<button class="seg" data-m="cupo" title="Tienen crédito pero ya no les queda cupo">Sin cupo <span class="db-n"></span></button>' : ''}
     </div></div>
     <div class="fgrp"><span class="flbl" title="Las notas escritas en la ficha de cada cliente">Observación</span>
@@ -16016,6 +16017,7 @@ function bindContent(secId) {
       if (m === 'bloq')  return row.dataset.motivo === 'bloqueado';
       if (m === 'nobloq') return row.dataset.motivo !== 'bloqueado';
       if (m === 'deuda') return (parseInt(row.dataset.deuda) || 0) > 0;
+      if (m === 'sindeuda') return (parseInt(row.dataset.deuda) || 0) <= 0;
       if (m === 'cupo')  return row.dataset.motivo === 'sin cupo';
       return true;
     }
@@ -16063,7 +16065,7 @@ function bindContent(secId) {
       poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda · ${fmt(alcM.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
       document.querySelectorAll('#clMotSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(conM(b.dataset.m).length); });
       CL_MAPA_F = c => (ult === 'all' || String(c.ultTemp) === ult)
-        && (mot === 'all' || (mot === 'bloq' ? c.motivo === 'bloqueado' : mot === 'nobloq' ? c.motivo !== 'bloqueado' : mot === 'deuda' ? c.deuda > 0 : mot === 'cupo' ? c.motivo === 'sin cupo' : true))
+        && (mot === 'all' || (mot === 'bloq' ? c.motivo === 'bloqueado' : mot === 'nobloq' ? c.motivo !== 'bloqueado' : mot === 'deuda' ? c.deuda > 0 : mot === 'sindeuda' ? !(c.deuda > 0) : mot === 'cupo' ? c.motivo === 'sin cupo' : true))
         && (obsF === 'all' || ((CL_OBS[vRut(c)] && CL_OBS[vRut(c)].texto) ? '1' : '0') === obsF)
         && (!ciuF || String(c.ciudad || '').trim().toLowerCase() === ciuF)
         && (!q || (c.nombre || '').toLowerCase().includes(q) || (c.ciudad || '').toLowerCase().includes(q) || (c.vendedor || '').toLowerCase().includes(q));
@@ -16148,7 +16150,7 @@ function bindContent(secId) {
       const fecha = `${String(hoy.getDate()).padStart(2,'0')}-${String(hoy.getMonth()+1).padStart(2,'0')}-${hoy.getFullYear()}`;
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
       const suf = mot === 'bloq' ? ' bloqueados' : mot === 'nobloq' ? ' no bloqueados'
-                : mot === 'deuda' ? ' con deuda' : mot === 'cupo' ? ' sin cupo' : '';
+                : mot === 'deuda' ? ' con deuda' : mot === 'sindeuda' ? ' sin deuda' : mot === 'cupo' ? ' sin cupo' : '';
       XLSX.writeFile(libro, `Clientes inactivos ${clActsTxt('-')}${suf} ${fecha}.xlsx`);
     });
 
