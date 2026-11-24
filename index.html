@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-9">
+<meta name="adecom-build" content="2026-11-24-10">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7205,7 +7205,7 @@ function buildFtMap(ft) {
     m[a].pend   += Math.max(0, r.saldo||0);   // cortado que todavía NO llega a bodega
     const et = getEtapa(r);
     // Guardar cada OC individual para mostrar en filas expandibles
-    m[a].ocs.push({ oc: (r.corte||'').trim(), unidades: r.proceso||0, saldo: r.saldo||0, programa: r.programa||0, etapa: et });
+    m[a].ocs.push({ oc: (r.corte||'').trim(), fecha: r.fecha||'', unidades: r.proceso||0, saldo: r.saldo||0, programa: r.programa||0, etapa: et });
     /* Programado y todavía sin cortar (Manu, 23-10-2026: "que me diga programado para apurar el corte"): órdenes de
        producción con programa y nada cortado. Solo las de los últimos 180 días: las más viejas quedaron sin hacerse
        (el 23-10 había de marzo de 2025). Las muestras y los sets no cuentan, ni las de menos de 10 prendas: son muestras
@@ -18150,8 +18150,8 @@ async function erpFichaArt(base) {
       <div style="margin-top:10px"><div class="flbl" style="margin-bottom:4px">Producción</div>
       ${ocsAbiertas.length ? `
         <div style="font-size:12px;color:var(--tx2);margin-bottom:5px">${Object.entries(porEtapa).map(([e, u]) => `<b>${fmt(u)}</b> en ${esc2(e)}`).join(' · ')}</div>
-        <table class="erp-tabla"><thead><tr><th>OC</th><th>Artículo</th><th>Etapa</th><th class="num">Cortadas</th><th class="num">Por entregar</th></tr></thead>
-        <tbody>${ocsAbiertas.slice(0, 8).map(o => `<tr><td style="font-family:'IBM Plex Mono',monospace">${esc2(String(o.oc).replace(/^0+/, ''))}</td><td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${esc2(o.art)}</td><td>${esc2(o.etapa || '—')}</td><td class="num">${fmt(o.unidades)}</td><td class="num">${fmt(o.saldo)}</td></tr>`).join('')}</tbody></table>
+        <table class="erp-tabla"><thead><tr><th>OC</th><th title="Cuándo se programó la orden (la misma fecha de Trazabilidad)">Fecha</th><th>Artículo</th><th>Etapa</th><th class="num">Cortadas</th><th class="num">Por entregar</th></tr></thead>
+        <tbody>${ocsAbiertas.slice(0, 8).map(o => `<tr><td style="font-family:'IBM Plex Mono',monospace">${esc2(String(o.oc).replace(/^0+/, ''))}</td><td style="white-space:nowrap">${esc2(o.fecha || '—')}</td><td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${esc2(o.art)}</td><td>${esc2(o.etapa || '—')}</td><td class="num">${fmt(o.unidades)}</td><td class="num">${fmt(o.saldo)}</td></tr>`).join('')}</tbody></table>
         ${ocsAbiertas.length > 8 ? `<div class="td-dim" style="font-size:11px;margin-top:3px">…y ${ocsAbiertas.length - 8} órdenes más: el detalle completo está en Trazabilidad.</div>` : ''}`
       : ocsCerradas.length ? `
         <div style="font-size:12px;color:var(--tx2)">Nada en camino · entregadas: ${ocsCerradas.sort((a, b) => String(b.oc).localeCompare(String(a.oc))).slice(0, 3).map(o => `OC ${esc2(String(o.oc).replace(/^0+/, ''))} (${fmt(o.unidades)})`).join(' · ')}</div>`
