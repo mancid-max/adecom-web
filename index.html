@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-3">
+<meta name="adecom-build" content="2026-11-24-4">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4772,6 +4772,9 @@ try {
   if (_s && _ok(_s.b) && _s.b.length === 1 && _ok(_s.c)) { CL_ACTS = _s.b.map(String); CL_BASE = _s.c.map(String); }
 } catch (e) {}
 
+/* La cuenta corriente real y las facturas, para partir la deuda por fecha de vencimiento (Manu, 24-11: "la deuda
+   termina en enero del 2027... aunque tengan deuda le podemos seguir vendiendo"). Las deja secClientes al cargar. */
+let CL_CT = null, CL_FACS = null;
 function clInactivos(peds) {
   const gm = new Map();
   if (CL_SIN_MAGIC) peds = peds.filter(p => !esMagic(p));
@@ -4807,16 +4810,35 @@ function clInactivos(peds) {
       const compradas = [...g.temps].filter(t => +t >= 37).sort((a,b)=>+b-+a);   // desde la T37: la historia completa que traen los pedidos (Manu, 10-11-2026)
       const c = g.cli || {};
       const deuda = (c.deuda || 0) + (c.cheques || 0);
+      // La deuda con fecha: vencida vs lo que vence en 30/60/90 días, con la cuenta corriente real si la hay
+      const hoyD = new Date(today() + 'T12:00:00');
+      const ctEnt = CL_CT ? CL_CT[vRut(g)] : null;
+      const v = (ctEnt && ctEnt.d && ctEnt.d.length) ? ddReal(ctEnt, hoyD)
+              : (CL_FACS && deuda > 0) ? ddVencido((c.deuda || 0), CL_FACS.get(vRut(g)) || [], hoyD) : null;
+      const dVenc = v ? v.v1 + v.v30 + v.v60 + v.v90 : 0;
+      let pv30 = 0, pv60 = 0, pv90 = 0, dUlt = '';
+      if (v) for (const d of v.docs) if (d.k === 'xv') {
+        const f = -d.dias;
+        if (f <= 30) pv30 += d.toma; else if (f <= 60) pv60 += d.toma; else pv90 += d.toma;
+        if ((d.vence || '') > dUlt) dUlt = d.vence || '';
+      }
       const sinCupo = !!(c.credito > 0 && c.disponible <= 0);
       // Se ordena de lo más accionable a lo menos: bloqueado y sin cupo no pueden comprar aunque quieran
       const motivo = g.bloq ? 'bloqueado' : sinCupo ? 'sin cupo' : deuda > 0 ? 'con deuda' : 'sin motivo visible';
       const dias = g.ult ? Math.round((Date.now() - new Date(g.ult + 'T00:00:00').getTime()) / 86400000) : 0;
       return { ...g, compradas, ultTemp: compradas[0] || '', unidades: CL_BASE.reduce((s,t)=>s+(g.u[t]||0),0),
                at: CL_ACTS.some(tt => (tempsNombre.get(g.nombre.trim()) || g.temps).has(String(tt))),
-               deuda, cupo: c.disponible || 0, sinCupo, motivo, dias };
+               deuda, cupo: c.disponible || 0, sinCupo, motivo, dias,
+               dVenc, pv30, pv60, pv90, dUlt, conCt: !!v };
     })
     .sort((a,b) => b.unidades - a.unidades);
 }
+/* El cuento de la deuda con fecha, para el título de la celda: cuánto está vencido, cuánto por vencer y hasta cuándo */
+const clFchCL = f => (f || '').split('-').reverse().join('-');
+const clDvTip = c => c.deuda > 0 ? [c.dVenc > 0 ? `vencida ${fmtM(c.dVenc)}` : '',
+  (c.pv30 + c.pv60 + c.pv90) > 0 ? `por vencer ${fmtM(c.pv30 + c.pv60 + c.pv90)}` : '',
+  c.dUlt ? `el último documento vence el ${clFchCL(c.dUlt)}` : '',
+  !c.conCt ? 'sin detalle en la cuenta corriente' : ''].filter(Boolean).join(' · ') : '';
 
 /* Zonas de Chile por ciudad (las ciudades vienen en mayúsculas, como en el ERP). Si una ciudad no está aquí, cae en "Sin zona". */
 /* Zonas de Chile, y dentro de cada una las ciudades de norte a sur: el orden del mapa, de arriba a abajo del país */
@@ -4893,7 +4915,7 @@ function clMapaVentana(r) {
   const d0 = CL_MAPA_L && CL_MAPA_L.get(r); if (!d0) return;
   const fv = CL_MAPA_F || (() => true);
   const d = { la: d0.la.filter(fv), ln: d0.ln.filter(fv) }; d.a = d.la.length; d.n = d.ln.length;
-  const fila = (c, at) => `<tr><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${escT(c.nombre)}</td><td class="td-dim">${escT(c.ciudad) || '—'}</td><td class="r td-num">${fmt(c.unidades)}</td><td class="r td-num" style="color:${c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td><td>${at ? '<span class="erp-etq" style="background:var(--ok10);color:var(--ok)">ATENDIDO</span>' : c.motivo === 'bloqueado' ? '<span class="erp-etq er">BLOQUEADO</span>' : c.motivo === 'sin cupo' ? '<span class="erp-etq er">SIN CUPO</span>' : c.motivo === 'con deuda' ? '<span class="erp-etq wa">CON DEUDA</span>' : '<span class="erp-etq er">SIN ATENDER</span>'}</td></tr>`;
+  const fila = (c, at) => `<tr><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${escT(c.nombre)}</td><td class="td-dim">${escT(c.ciudad) || '—'}</td><td class="r td-num">${fmt(c.unidades)}</td><td class="r td-num" title="${clDvTip(c).replace(/"/g, '&quot;')}" style="color:${c.dVenc > 0 ? 'var(--er)' : c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td><td>${at ? '<span class="erp-etq" style="background:var(--ok10);color:var(--ok)">ATENDIDO</span>' : c.motivo === 'bloqueado' ? '<span class="erp-etq er">BLOQUEADO</span>' : c.motivo === 'sin cupo' ? '<span class="erp-etq er">SIN CUPO</span>' : c.motivo === 'con deuda' ? '<span class="erp-etq wa">CON DEUDA</span>' : '<span class="erp-etq er">SIN ATENDER</span>'}</td></tr>`;
   const cab = '<tr><th>Cliente</th><th>Ciudad</th><th class="r">Compraba</th><th class="r">Deuda</th><th>Estado</th></tr>';
   document.getElementById('clMapOvTtl').textContent = `${r} — ${d.a} atendidos · ${d.n} sin atender`;
   document.getElementById('clMapOvBody').innerHTML = `
@@ -4975,8 +4997,13 @@ function faltanT45Tabla(peds) {
   </div>`;
 }
 async function secClientes() {
-  const peds = await load('pedidos.json');
+  const [peds, docsV, ctx] = await Promise.all([load('pedidos.json'), load('docs_venta.json'), load('ctacte.json')]);
   if (!peds.length) return makePH('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>','Clientes Inactivos','Sin datos disponibles');
+  // La cuenta corriente real y las facturas como respaldo, para la deuda con fecha (mismo criterio que la sección Deudas)
+  CL_CT = ctx && !Array.isArray(ctx) && ctx.clientes ? ctx.clientes : null;
+  CL_FACS = new Map();
+  for (const d of (docsV || [])) if (d.fecha_iso && /^(F\/Elec|FACT|Ndeb)$/.test(d.tipo || '')) { const r = vRut(d); if (r) { if (!CL_FACS.has(r)) CL_FACS.set(r, []); CL_FACS.get(r).push(d); } }
+  for (const xs of CL_FACS.values()) xs.sort((a, b) => b.fecha_iso.localeCompare(a.fecha_iso) || String(b.dcto).localeCompare(String(a.dcto)));
 
   const base = clInactivos(peds);
   await clObsCargar();
@@ -4994,13 +5021,14 @@ async function secClientes() {
     data-vend="${esc(c.vendedor.toLowerCase())}" data-ult="${c.ultTemp}" data-u="${c.unidades}"
     data-uds="${esc(c.compradas.map(t => `${t}:${c.u[t]||0}`).join(','))}" data-ultf="${esc(c.ultF||'')}"
     data-motivo="${c.motivo}" data-rutn="${vRut(c)}" data-obs="${(CL_OBS[vRut(c)] && CL_OBS[vRut(c)].texto) ? 1 : 0}" data-deuda="${c.deuda}" data-cupo="${c.cupo}" data-dias="${c.dias}"
+    data-dvenc="${c.dVenc}" data-pv30="${c.pv30}" data-pv60="${c.pv60}" data-pv90="${c.pv90}" data-dvcto="${esc(c.dUlt||'')}"
     data-ciudadtxt="${esc(c.ciudad||'')}" data-vendtxt="${esc(c.vendedor||'')}">
     <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid ${c.motivo === 'bloqueado' || c.motivo === 'sin cupo' ? 'var(--er)' : c.motivo === 'con deuda' ? 'var(--wa)' : 'transparent'}">${escT(c.nombre)}${fichasBadge(c.cli)}${CL_MODO === 'todos' ? (c.at ? ' <span class="erp-etq" style="background:var(--ok10);color:var(--ok)">ATENDIDO</span>' : ' <span class="erp-etq er">SIN ATENDER</span>') : ''}</td>
     <td class="td-dim">${escT(c.rut)||'—'}</td>
     <td class="td-dim">${escT(c.ciudad) || '—'}</td>
     <td style="white-space:nowrap">${c.compradas.slice(0, 4).map(t=>`<span class="badge ${tcFor(t).cls}" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;margin-right:2px;vertical-align:middle"><span>${t}</span><b style="font-size:10px">${fmt(c.u[t] || 0)}</b></span>`).join('')}${c.compradas.length > 4 ? `<span class="badge" style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.2;padding:2px 6px;font-size:9px;background:var(--sf2);color:var(--tx2);vertical-align:middle" title="También: ${c.compradas.slice(4).map(x => `T${x}: ${fmt(c.u[x] || 0)}`).join(' · ')}"><span>+${c.compradas.length - 4}</span><b style="font-size:10px">${fmt(c.compradas.slice(4).reduce((a, x) => a + (c.u[x] || 0), 0))}</b></span>` : ''}</td>
     <td class="r td-num">${fmt(c.unidades)}</td>
-    <td class="r td-num" style="color:${c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td>
+    <td class="r td-num" title="${esc(clDvTip(c))}" style="color:${c.dVenc > 0 ? 'var(--er)' : c.deuda > 0 ? 'var(--wa)' : 'var(--tx3)'}">${c.deuda > 0 ? fmtM(c.deuda) : '—'}</td>
     <td class="r td-dim" title="${esc(c.ultF||'')}">${c.dias ? c.dias + ' d' : '—'}</td>
     <td style="white-space:nowrap">${
       c.motivo === 'bloqueado' ? '<span class="erp-etq er">BLOQUEADO</span>'
@@ -5010,7 +5038,6 @@ async function secClientes() {
     <td>${obsChip(vRut(c))}</td>
   </tr>`).join('');
 
-  const ultimas = [...new Set(base.map(c => c.ultTemp).filter(Boolean))].sort((a,b)=>+b-+a);
   return `
   <div class="fbar cl-fbar">
     <div class="fbar-row">
@@ -5048,10 +5075,13 @@ async function secClientes() {
     </div></div>
     </div>
     <div class="fbar-row">
-    <div class="fgrp"><span class="flbl" title="La última colección que compró">Última colección</span>
-    <div class="segs" id="clUltSegs">
-      <button class="seg on" data-u="all">Todas</button>
-      ${ultimas.map(t => `<button class="seg" data-u="${t}">T${t}</button>`).join('')}
+    <div class="fgrp"><span class="flbl" title="Cuándo vence lo que deben, según la cuenta corriente: la vencida hay que cobrarla; a los que les vence más adelante se les puede seguir vendiendo">Deuda por días</span>
+    <div class="segs" id="clDvSegs">
+      <button class="seg on" data-dv="all">Todas</button>
+      <button class="seg" data-dv="venc" title="Ya venció: hay que cobrar">Vencida <span class="db-n"></span></button>
+      <button class="seg" data-dv="30" title="Les vence dentro de 30 días">30 días <span class="db-n"></span></button>
+      <button class="seg" data-dv="60" title="Les vence entre 31 y 60 días">60 días <span class="db-n"></span></button>
+      <button class="seg" data-dv="90" title="Les vence a 61 días o más">90 días <span class="db-n"></span></button>
     </div></div>
     </div>
   </div>
@@ -5073,7 +5103,7 @@ async function secClientes() {
     </div>
     <div class="tbl-scroll">
       <table>
-        <thead><tr id="clThead"><th>Cliente</th><th>RUT</th><th>Ciudad</th><th title="Las colecciones en que compró, desde la T37">Compró en</th><th class="r" data-sort="u" style="cursor:pointer" title="Unidades que compró en T40–T43 — de la más alta a la más baja">Unidades <span class="si">▼</span></th><th class="r" data-sort="deuda" style="cursor:pointer" title="Deuda en cuenta corriente más cheques">Deuda <span class="si">↕</span></th><th class="r" data-sort="dias" style="cursor:pointer" title="Días desde su último pedido">Sin comprar <span class="si">↕</span></th><th title="Lo que podría estar frenando la compra">Motivo</th><th title="Nota del equipo: se edita en la ficha del cliente">Observación</th></tr></thead>
+        <thead><tr id="clThead"><th>Cliente</th><th>RUT</th><th>Ciudad</th><th title="Las colecciones en que compró, desde la T37">Compró en</th><th class="r" data-sort="u" style="cursor:pointer" title="Unidades que compró en ${clCompTxt('–')} — de la más alta a la más baja">Unidades <span class="si">▼</span></th><th class="r" data-sort="deuda" style="cursor:pointer" title="Deuda en cuenta corriente más cheques. Rojo: tiene deuda ya vencida; ámbar: toda está por vencer y se le puede seguir vendiendo. Pasa el mouse por el monto para ver el detalle con fechas">Deuda <span class="si">↕</span></th><th class="r" data-sort="dias" style="cursor:pointer" title="Días desde su último pedido">Sin comprar <span class="si">↕</span></th><th title="Lo que podría estar frenando la compra">Motivo</th><th title="Nota del equipo: se edita en la ficha del cliente">Observación</th></tr></thead>
         <tbody id="clBody">${rowsHtml}</tbody>
       </table>
       <div class="erp-pf" id="clFoot" style="border-top:2px solid var(--marino);font-weight:600;color:var(--tx1)">${base.length} clientes · ${fmt(base.reduce((s,c)=>s+c.unidades,0))} unidades</div>
@@ -16021,16 +16051,25 @@ function bindContent(secId) {
       if (m === 'cupo')  return row.dataset.motivo === 'sin cupo';
       return true;
     }
+    // Deuda por días (Manu, 24-11): vencida, o que vence dentro de 30, de 31 a 60, o de 61 en adelante
+    function pasaDv(row, dv) {
+      if (dv === 'all')  return true;
+      if (dv === 'venc') return (parseInt(row.dataset.dvenc) || 0) > 0;
+      if (dv === '30')   return (parseInt(row.dataset.pv30) || 0) > 0;
+      if (dv === '60')   return (parseInt(row.dataset.pv60) || 0) > 0;
+      if (dv === '90')   return (parseInt(row.dataset.pv90) || 0) > 0;
+      return true;
+    }
     function applyClFilters() {
       const q   = (document.getElementById('clSearch')?.value||'').trim().toLowerCase();
-      const ult = document.querySelector('#clUltSegs .seg.on')?.dataset.u || 'all';
+      const dv  = document.querySelector('#clDvSegs .seg.on')?.dataset.dv || 'all';
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
       const obsF = document.querySelector('#clObsSegs .seg.on')?.dataset.o || 'all';
       const regsSel = [...document.querySelectorAll('#clRegSegs .seg.on')].map(b => b.dataset.fr).filter(Boolean);
       const ciuF = document.getElementById('clCiudad')?.value || '';
       let vis = 0, uds = 0, deuda = 0, frenados = 0;
       document.querySelectorAll('#clBody tr[data-nombre]').forEach(row => {
-        const show = (ult === 'all' || row.dataset.ult === ult) && pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
+        const show = pasaDv(row, dv) && pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
           (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q));
         row.style.display = show ? '' : 'none';
         if (show) {
@@ -16049,7 +16088,7 @@ function bindContent(secId) {
       if (el('clKFrenados')) el('clKFrenados').textContent = `${frenados} con algo que los frena`;
       if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades · ${fmtM(deuda)} de deuda`;
       // Las tarjetas y las cuentas de Motivo van con la búsqueda y la colección, no con Motivo (son esos mismos números)
-      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => (ult === 'all' || row.dataset.ult === ult) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
+      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => pasaDv(row, dv) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
         (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
       const conM = m => alc.filter(r => pasaMotivo(r, m));
       const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
@@ -16062,9 +16101,14 @@ function bindContent(secId) {
       poner('clk-nobloq-val', fmt(libres.length)); poner('clk-nobloq-sub', `no están bloqueados · compraban ${fmt(sumU(libres))} unidades`);
       poner('clk-bloq-val', fmt(bloq.length)); poner('clk-bloq-sub', bloq.length ? `deben ${fmtM(sumD(bloq))}` : 'ninguno');
       poner('clk-deuda-val', fmtM(sumD(alcM)));
-      poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda · ${fmt(alcM.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
+      const vencTot = alcM.reduce((a, r) => a + (parseInt(r.dataset.dvenc) || 0), 0);
+      poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda${vencTot > 0 ? ` · ${fmtM(vencTot)} ya vencida` : ''} · ${fmt(alcM.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
       document.querySelectorAll('#clMotSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(conM(b.dataset.m).length); });
-      CL_MAPA_F = c => (ult === 'all' || String(c.ultTemp) === ult)
+      // Las cuentas de Deuda por días ignoran su propio filtro (como Motivo), pero sí respetan el Motivo elegido
+      const alcDv = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
+        (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
+      document.querySelectorAll('#clDvSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(alcDv.filter(r => pasaDv(r, b.dataset.dv)).length); });
+      CL_MAPA_F = c => (dv === 'all' || (dv === 'venc' ? c.dVenc > 0 : dv === '30' ? c.pv30 > 0 : dv === '60' ? c.pv60 > 0 : dv === '90' ? c.pv90 > 0 : true))
         && (mot === 'all' || (mot === 'bloq' ? c.motivo === 'bloqueado' : mot === 'nobloq' ? c.motivo !== 'bloqueado' : mot === 'deuda' ? c.deuda > 0 : mot === 'sindeuda' ? !(c.deuda > 0) : mot === 'cupo' ? c.motivo === 'sin cupo' : true))
         && (obsF === 'all' || ((CL_OBS[vRut(c)] && CL_OBS[vRut(c)].texto) ? '1' : '0') === obsF)
         && (!ciuF || String(c.ciudad || '').trim().toLowerCase() === ciuF)
@@ -16073,7 +16117,7 @@ function bindContent(secId) {
       clGrafico(filasVisibles());
     }
     document.getElementById('clSearch')?.addEventListener('input', applyClFilters);
-    ['clUltSegs', 'clMotSegs', 'clObsSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
+    ['clDvSegs', 'clMotSegs', 'clObsSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyClFilters();
     })));
@@ -16116,7 +16160,7 @@ function bindContent(secId) {
 
       const temps = CL_BASE;
       const enc = ['Cliente', 'RUT', 'Ciudad', 'Vendedor', `Unidades ${clCompTxt('-')}`,
-                   ...temps.map(t => 'T' + t), 'Deuda', 'Cupo disponible',
+                   ...temps.map(t => 'T' + t), 'Deuda', 'Deuda vencida', 'Vence en 30 días', 'Vence en 31-60', 'Vence en 61-90+', 'Último vencimiento', 'Cupo disponible',
                    'Días sin comprar', 'Última compra', 'Motivo'];
       const MOT = { 'bloqueado': 'Bloqueado', 'sin cupo': 'Sin cupo', 'con deuda': 'Con deuda', 'sin motivo visible': '' };
       const datos = [enc];
@@ -16131,6 +16175,11 @@ function bindContent(secId) {
           parseInt(r.dataset.u) || 0,
           ...temps.map(t => porTemp[t] || 0),
           { v: parseInt(r.dataset.deuda) || 0, t: 'n', z: '#,##0' },
+          { v: parseInt(r.dataset.dvenc) || 0, t: 'n', z: '#,##0' },
+          { v: parseInt(r.dataset.pv30) || 0, t: 'n', z: '#,##0' },
+          { v: parseInt(r.dataset.pv60) || 0, t: 'n', z: '#,##0' },
+          { v: parseInt(r.dataset.pv90) || 0, t: 'n', z: '#,##0' },
+          clFchCL(r.dataset.dvcto || ''),
           { v: parseInt(r.dataset.cupo) || 0, t: 'n', z: '#,##0' },
           parseInt(r.dataset.dias) || 0,
           r.dataset.ultf || '',
@@ -16140,7 +16189,7 @@ function bindContent(secId) {
 
       const hoja = XLSX.utils.aoa_to_sheet(datos);
       hoja['!cols'] = [{ wch: 38 }, { wch: 13 }, { wch: 16 }, { wch: 18 }, { wch: 16 },
-                       ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 15 },
+                       ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 15 }, { wch: 15 },
                        { wch: 15 }, { wch: 13 }, { wch: 12 }];
       hoja['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: datos.length - 1, c: enc.length - 1 } }) };
       hoja['!freeze'] = { xSplit: 0, ySplit: 1 };
@@ -16151,7 +16200,9 @@ function bindContent(secId) {
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
       const suf = mot === 'bloq' ? ' bloqueados' : mot === 'nobloq' ? ' no bloqueados'
                 : mot === 'deuda' ? ' con deuda' : mot === 'sindeuda' ? ' sin deuda' : mot === 'cupo' ? ' sin cupo' : '';
-      XLSX.writeFile(libro, `Clientes inactivos ${clActsTxt('-')}${suf} ${fecha}.xlsx`);
+      const dvSel = document.querySelector('#clDvSegs .seg.on')?.dataset.dv || 'all';
+      const sufDv = dvSel === 'venc' ? ' deuda vencida' : dvSel === '30' ? ' vence en 30 días' : dvSel === '60' ? ' vence en 31-60' : dvSel === '90' ? ' vence en 61-90' : '';
+      XLSX.writeFile(libro, `Clientes inactivos ${clActsTxt('-')}${suf}${sufDv} ${fecha}.xlsx`);
     });
 
     // Excel del mapa: resumen por región + clientes, con el filtro vivo (Manu, 23-11: "descargando lo que se debe mostrar con los filtros")
@@ -16162,8 +16213,9 @@ function bindContent(secId) {
       const MOT = { 'bloqueado': 'Bloqueado', 'sin cupo': 'Sin cupo', 'con deuda': 'Con deuda', 'sin motivo visible': '' };
       const resumen = [['Región', 'Atendidos', 'Sin atender', 'Total', '% atendido']];
       const temps = CL_BASE;
-      const cli = [['Región', 'Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', ...temps.map(t => 'T' + t), `Total ${clCompTxt('-')}`, `T${CL_ACTS[0]} (base)`, 'Deuda', 'Última colección', 'Motivo']];
-      const encReg = ['Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', ...temps.map(t => 'T' + t), `Total ${clCompTxt('-')}`, `T${CL_ACTS[0]} (base)`, 'Deuda', 'Última colección', 'Motivo'];
+      const colsDeuda = ['Deuda', 'Deuda vencida', 'Vence en 30 días', 'Vence en 31-60', 'Vence en 61-90+', 'Último vencimiento'];
+      const cli = [['Región', 'Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', ...temps.map(t => 'T' + t), `Total ${clCompTxt('-')}`, `T${CL_ACTS[0]} (base)`, ...colsDeuda, 'Última colección', 'Motivo']];
+      const encReg = ['Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', ...temps.map(t => 'T' + t), `Total ${clCompTxt('-')}`, `T${CL_ACTS[0]} (base)`, ...colsDeuda, 'Última colección', 'Motivo'];
       const porRegion = [];
       for (const r of [...Object.keys(REGIONES_CHILE), 'Sin región']) {
         const d = CL_MAPA_L.get(r); if (!d) continue;
@@ -16176,7 +16228,9 @@ function bindContent(secId) {
           for (const c of lista) {
             const fila = [c.nombre, c.rut || '', c.ciudad || '', c.vendedor || '', est,
                           ...temps.map(t => c.u[t] || 0), c.unidades, c.u[String(CL_ACTS[0])] || 0,
-                          { v: c.deuda || 0, t: 'n', z: '#,##0' }, c.ultTemp ? 'T' + c.ultTemp : '', MOT[c.motivo] ?? ''];
+                          { v: c.deuda || 0, t: 'n', z: '#,##0' }, { v: c.dVenc || 0, t: 'n', z: '#,##0' },
+                          { v: c.pv30 || 0, t: 'n', z: '#,##0' }, { v: c.pv60 || 0, t: 'n', z: '#,##0' }, { v: c.pv90 || 0, t: 'n', z: '#,##0' },
+                          clFchCL(c.dUlt || ''), c.ultTemp ? 'T' + c.ultTemp : '', MOT[c.motivo] ?? ''];
             cli.push([r, ...fila]);
             filasReg.push(fila);
           }
@@ -16187,14 +16241,14 @@ function bindContent(secId) {
       h1['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 11 }, { wch: 8 }, { wch: 11 }];
       const h2 = XLSX.utils.aoa_to_sheet(cli);
       h2['!cols'] = [{ wch: 20 }, { wch: 38 }, { wch: 13 }, { wch: 16 }, { wch: 18 }, { wch: 11 },
-                     ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 9 }, { wch: 12 }];
+                     ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 15 }, { wch: 9 }, { wch: 12 }];
       h2['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: cli.length - 1, c: cli[0].length - 1 } }) };
       h2['!freeze'] = { xSplit: 0, ySplit: 1 };
       XLSX.utils.book_append_sheet(libro, h1, 'Por región');
       XLSX.utils.book_append_sheet(libro, h2, 'Clientes');
       // Una hoja por región con sus clientes, de Arica a Magallanes (Manu, 24-11: "ordenado por hojas como se ve en la imagen")
       const anchosReg = [{ wch: 38 }, { wch: 13 }, { wch: 16 }, { wch: 18 }, { wch: 11 },
-                         ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 9 }, { wch: 12 }];
+                         ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 15 }, { wch: 9 }, { wch: 12 }];
       for (const [r, filasReg] of porRegion) {
         const hr = XLSX.utils.aoa_to_sheet(filasReg);
         hr['!cols'] = anchosReg;
@@ -16233,9 +16287,9 @@ function bindContent(secId) {
     });
 
     document.getElementById('clPrint')?.addEventListener('click', () => {
-      const ult = document.querySelector('#clUltSegs .seg.on')?.textContent.trim() || 'Todas';
+      const dvTx = document.querySelector('#clDvSegs .seg.on')?.textContent.trim().replace(/\s*\d+$/, '') || 'Todas';
       const q   = (document.getElementById('clSearch')?.value||'').trim();
-      const parts = [`Última colección comprada: ${ult}`];
+      const parts = [`Deuda por días: ${dvTx}`];
       if (q) parts.push(`Búsqueda: ${q}`);
       printTable({ table: document.getElementById('clBody')?.closest('table'),
                    title: `Clientes que compraron en ${clCompTxt(', ')} y no la ${clActsTxt(' ni ')}`, subtitle: parts.join(' · ') });
