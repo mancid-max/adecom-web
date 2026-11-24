@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-6">
+<meta name="adecom-build" content="2026-11-24-7">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,8 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js" integrity="sha384-7i/4BYWz4Mn+lJfg2HWfEPfZQ7tmFKF3CTSKlXBpxWjNlLjcg+T6smpHG4gLmU1u" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- Copia local primero y el CDN de respaldo: si el CDN falla o lo bloquea una extensión, el Excel y los gráficos quedaban mudos (24-11-2026) -->
+<script src="lib/xlsx.full.min.js?v=0185" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.integrity='sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';document.head.appendChild(s)"></script>
 <style>
 #loginOv{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
 #loginOv.hidden{display:none}
@@ -12325,13 +12326,23 @@ const GRAFICOS = {};   // id del canvas → gráfico: se actualiza en vez de reh
 const color = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#98a2b3';
 const rgba = (hex, a) => { const h = String(hex).replace('#', ''), n = parseInt(h.length === 3 ? [...h].map(x => x + x).join('') : h, 16);
   return isNaN(n) ? hex : `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+/* Primero la copia local (lib/) y el CDN solo de respaldo: con el CDN solo, cualquier corte o extensión que lo
+   bloquee dejaba los recuadros de gráficos en blanco sin aviso (Manu, 24-11-2026: "no aparecen nada"). */
 const cargarChart = () => CHART_JS || (CHART_JS = new Promise((ok, mal) => {
   if (window.Chart) return ok(window.Chart);
+  const listo = () => { const C = window.Chart; C.defaults.font.family = getComputedStyle(document.body).fontFamily; C.defaults.color = color('--tx2'); ok(C); };
+  const cdn = () => {
+    const sc = document.createElement('script');
+    sc.integrity = 'sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD'; sc.crossOrigin = 'anonymous';
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+    sc.onload = listo;
+    sc.onerror = () => { CHART_JS = null; mal(new Error('no se pudo cargar la librería de gráficos')); };
+    document.head.appendChild(sc);
+  };
   const sc = document.createElement('script');
-  sc.integrity = 'sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD'; sc.crossOrigin = 'anonymous';
-  sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-  sc.onload = () => { const C = window.Chart; C.defaults.font.family = getComputedStyle(document.body).fontFamily; C.defaults.color = color('--tx2'); ok(C); };
-  sc.onerror = () => { CHART_JS = null; mal(new Error('no se pudo cargar la librería de gráficos')); };
+  sc.src = 'lib/chart.umd.min.js?v=441';
+  sc.onload = listo;
+  sc.onerror = cdn;
   document.head.appendChild(sc);
 }));
 function cerrarGraficos() { for (const k of Object.keys(GRAFICOS)) { try { GRAFICOS[k].destroy(); } catch (e) {} delete GRAFICOS[k]; } }
