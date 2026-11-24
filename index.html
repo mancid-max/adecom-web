@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-4">
+<meta name="adecom-build" content="2026-11-24-5">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1327,7 +1327,7 @@ body.menu-oculto .fbar.fija{left:24px}
     </select>
     <div class="hd-buscar">
       <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5B6573" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-      <input id="irGlobal" type="text" placeholder="Ir a… cliente, artículo o pantalla" autocomplete="off" aria-label="Ir a cliente, artículo o pantalla">
+      <input id="irGlobal" type="text" placeholder="Ir a… cliente, RUT, artículo o pantalla" autocomplete="off" aria-label="Ir a cliente, RUT, artículo o pantalla">
       <span class="hd-f3">F3</span>
       <div id="irRes" style="display:none"></div>
     </div>
@@ -5051,7 +5051,7 @@ async function secClientes() {
     </div>
     <div class="fbar-row">
     <div class="fgrp"><span class="flbl">Buscar</span>
-    <input id="clSearch" class="finput fsearch" placeholder="Cliente, ciudad o vendedor…" style="width:230px"></div>
+    <input id="clSearch" class="finput fsearch" placeholder="Cliente, RUT, ciudad o vendedor…" style="width:230px"></div>
     <div class="fgrp"><span class="flbl">Estado</span><div class="segs" id="clEstadoSegs"><button class="seg${CL_MODO === 'inactivos' ? ' on' : ''}" data-ce="inactivos">Inactivos</button><button class="seg${CL_MODO === 'activos' ? ' on' : ''}" data-ce="activos">Activos</button><button class="seg${CL_MODO === 'todos' ? ' on' : ''}" data-ce="todos">Ambos</button></div></div>
     <div class="fgrp"><span class="flbl" title="Con o sin Magic World, la tienda propia">Magic</span><div class="segs" id="clMagicSegs"><button class="seg${CL_SIN_MAGIC ? '' : ' on'}" data-cm="con">Con Magic</button><button class="seg${CL_SIN_MAGIC ? ' on' : ''}" data-cm="sin">Sin Magic</button></div></div>
     <div class="fgrp"><span class="flbl" title="La colección que se está vendiendo: el que no la pidió, falta">Colección base</span><div class="segs" id="clBaseSegs">${[37, 38, 39, 40, 41, 42, 43, 44, 45].map(tt => `<button class="seg${CL_ACTS.includes(String(tt)) ? ' on' : ''}" data-clb="${tt}">T${tt}</button>`).join('')}</div></div>
@@ -16062,6 +16062,8 @@ function bindContent(secId) {
     }
     function applyClFilters() {
       const q   = (document.getElementById('clSearch')?.value||'').trim().toLowerCase();
+      const qr  = /\d/.test(q) ? q.replace(/[.\-\s]/g, '').toUpperCase() : '';   // con dígitos también se busca por RUT (Manu, 24-11)
+      const pasaQ = row => !q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q) || (qr && (row.dataset.rutn || '').includes(qr));
       const dv  = document.querySelector('#clDvSegs .seg.on')?.dataset.dv || 'all';
       const mot = document.querySelector('#clMotSegs .seg.on')?.dataset.m || 'all';
       const obsF = document.querySelector('#clObsSegs .seg.on')?.dataset.o || 'all';
@@ -16069,8 +16071,7 @@ function bindContent(secId) {
       const ciuF = document.getElementById('clCiudad')?.value || '';
       let vis = 0, uds = 0, deuda = 0, frenados = 0;
       document.querySelectorAll('#clBody tr[data-nombre]').forEach(row => {
-        const show = pasaDv(row, dv) && pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
-          (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q));
+        const show = pasaDv(row, dv) && pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) && pasaQ(row);
         row.style.display = show ? '' : 'none';
         if (show) {
           vis++;
@@ -16088,8 +16089,7 @@ function bindContent(secId) {
       if (el('clKFrenados')) el('clKFrenados').textContent = `${frenados} con algo que los frena`;
       if (el('clFoot'))   el('clFoot').textContent   = `${vis} clientes · ${fmt(uds)} unidades · ${fmtM(deuda)} de deuda`;
       // Las tarjetas y las cuentas de Motivo van con la búsqueda y la colección, no con Motivo (son esos mismos números)
-      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => pasaDv(row, dv) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
-        (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
+      const alc = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => pasaDv(row, dv) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) && pasaQ(row));
       const conM = m => alc.filter(r => pasaMotivo(r, m));
       const sumU = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.u) || 0), 0), sumD = rs => rs.reduce((a, r) => a + (parseInt(r.dataset.deuda) || 0), 0);
       // Las tarjetas siguen al Motivo elegido (Manu, 23-11: "cuando presiono en bloqueados debería cambiarse el dato")
@@ -16105,14 +16105,13 @@ function bindContent(secId) {
       poner('clk-deuda-sub', `${fmt(conDeuda.length)} con deuda${vencTot > 0 ? ` · ${fmtM(vencTot)} ya vencida` : ''} · ${fmt(alcM.filter(r => r.dataset.motivo !== 'sin motivo visible').length)} con algo que los frena`);
       document.querySelectorAll('#clMotSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(conM(b.dataset.m).length); });
       // Las cuentas de Deuda por días ignoran su propio filtro (como Motivo), pero sí respetan el Motivo elegido
-      const alcDv = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) &&
-        (!q || row.dataset.nombre.includes(q) || row.dataset.ciudad.includes(q) || row.dataset.vend.includes(q)));
+      const alcDv = [...document.querySelectorAll('#clBody tr[data-nombre]')].filter(row => pasaMotivo(row, mot) && (obsF === 'all' || row.dataset.obs === obsF) && (!regsSel.length || regsSel.includes(regionDeCiudad(row.dataset.ciudad))) && (!ciuF || row.dataset.ciudad === ciuF) && pasaQ(row));
       document.querySelectorAll('#clDvSegs .seg').forEach(b => { const e = b.querySelector('.db-n'); if (e) e.textContent = fmt(alcDv.filter(r => pasaDv(r, b.dataset.dv)).length); });
       CL_MAPA_F = c => (dv === 'all' || (dv === 'venc' ? c.dVenc > 0 : dv === '30' ? c.pv30 > 0 : dv === '60' ? c.pv60 > 0 : dv === '90' ? c.pv90 > 0 : true))
         && (mot === 'all' || (mot === 'bloq' ? c.motivo === 'bloqueado' : mot === 'nobloq' ? c.motivo !== 'bloqueado' : mot === 'deuda' ? c.deuda > 0 : mot === 'sindeuda' ? !(c.deuda > 0) : mot === 'cupo' ? c.motivo === 'sin cupo' : true))
         && (obsF === 'all' || ((CL_OBS[vRut(c)] && CL_OBS[vRut(c)].texto) ? '1' : '0') === obsF)
         && (!ciuF || String(c.ciudad || '').trim().toLowerCase() === ciuF)
-        && (!q || (c.nombre || '').toLowerCase().includes(q) || (c.ciudad || '').toLowerCase().includes(q) || (c.vendedor || '').toLowerCase().includes(q));
+        && (!q || (c.nombre || '').toLowerCase().includes(q) || (c.ciudad || '').toLowerCase().includes(q) || (c.vendedor || '').toLowerCase().includes(q) || (qr && vRut(c).includes(qr)));
       clMapaRefresco();
       clGrafico(filasVisibles());
     }
@@ -17835,7 +17834,7 @@ function erpBuscarBind() {
     try {
       const peds = await load('pedidos.json'), vistos = new Set();
       INI_CLI = [];
-      for (const p of peds) { const n = String(p.nombre || '').trim(), k = n.toUpperCase(); if (n && !vistos.has(k)) { vistos.add(k); INI_CLI.push({ n, ciudad: p.ciudad || '' }); } }
+      for (const p of peds) { const n = String(p.nombre || '').trim(), k = n.toUpperCase(); if (n && !vistos.has(k)) { vistos.add(k); INI_CLI.push({ n, ciudad: p.ciudad || '', rut: String(p.rut || '') }); } }
     } catch (e) {}
   });
   let ultimos = [];
@@ -17854,8 +17853,11 @@ function erpBuscarBind() {
       .slice(0, 4).map(b => ({ tipo: 'sec', k: b.dataset.ttl, sub: 'Pantalla', sec: b.dataset.sec }));
     const arts = (typeof PEDS_ART !== 'undefined' && PEDS_ART || []).filter(p => lla(p.base).includes(t)).slice(0, 4)
       .map(p => ({ tipo: 'art', k: p.base, sub: `Artículo · T${p.temp} · stock ${fmt(p.stock)}` }));
-    const clis = (INI_CLI || []).filter(c => lla(c.n).includes(t)).slice(0, 4)
-      .map(c => ({ tipo: 'cli', k: c.n, sub: c.ciudad || 'Cliente' }));
+    // Con dígitos en lo escrito también se busca por RUT, con o sin puntos y guion (Manu, 24-11)
+    const tr = /\d/.test(t) ? t.replace(/[.\-\s]/g, '').toUpperCase() : '';
+    const rutN = r => String(r || '').replace(/[.\-\s]/g, '').toUpperCase();
+    const clis = (INI_CLI || []).filter(c => lla(c.n).includes(t) || (tr && rutN(c.rut).includes(tr))).slice(0, 4)
+      .map(c => ({ tipo: 'cli', k: c.n, sub: (c.rut ? c.rut + ' · ' : '') + (c.ciudad || 'Cliente') }));
     ultimos = [...pantallas, ...arts, ...clis].slice(0, 9);
     res.innerHTML = ultimos.length ? ultimos.map((x, i) => `<button data-iri="${i}"><b>${esc(x.k)}</b><span class="td-dim">${esc(x.sub)}</span></button>`).join('')
       : '<div class="td-dim" style="padding:10px 12px">Sin resultados: prueba el código del artículo, el cliente o el nombre de la pantalla.</div>';
