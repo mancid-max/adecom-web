@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-7">
+<meta name="adecom-build" content="2026-11-24-8">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -400,6 +400,9 @@ tbody td{padding:9px 16px;white-space:nowrap;vertical-align:middle}
 #iaInput{flex:1;resize:none;font:inherit;font-size:13px;line-height:1.4;max-height:110px;padding:7px 10px;field-sizing:content;min-block-size:1lh}
 #iaSend{padding:7px 12px;border-radius:7px;border:0;background:var(--ac);color:#fff;font-weight:700;font-size:12.5px;cursor:pointer}
 #iaSend:disabled{opacity:.5;cursor:default}
+#iaMic{padding:7px 8px;border-radius:7px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx2);cursor:pointer;line-height:0}
+#iaMic.grabando{background:#B42318;border-color:#B42318;color:#fff;animation:iaMicPulso 1.2s ease-in-out infinite}
+@keyframes iaMicPulso{50%{box-shadow:0 0 0 6px rgba(180,35,24,.18)}}
 .guia-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .guia-chips:empty{display:none}
 .guia-chip{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:4px 10px;font-size:11.5px;cursor:pointer;color:var(--tx2);text-align:left}
@@ -914,7 +917,8 @@ select#sbVista{font:inherit;font-size:12px;height:28px;padding:0 6px;border:1px 
 .erp-etq.er{background:#B42318;color:#fff}
 .erp-etq.wa{background:#FEF0C7;color:#7A3E06;border:1px solid var(--bdwa)}
 .erp-etq.ok{background:#fff;color:#05603A;border:1px solid #05603A}
-.erp-panel{background:var(--sf);border:1px solid var(--bd2)}
+.erp-panel{background:var(--sf);border:1px solid var(--bd2);display:flex;flex-direction:column}
+.erp-panel>.erp-pf{margin-top:auto}   /* el pie abajo: así los recuadros de una misma fila terminan parejos */
 .erp-ph{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--sf2);border-bottom:1px solid var(--bd2)}
 .erp-ph h2{margin:0;font-size:14px;font-weight:700;color:var(--marino)}
 .erp-ph .sub{font-size:12px;color:var(--tx2)}
@@ -1102,7 +1106,7 @@ body.menu-oculto .fbar.fija{left:24px}
     <div id="guiaCuerpo"></div>
     <div id="iaChat" class="guia-chat"></div>
     <div id="guiaChips" class="guia-chips"></div>
-    <form id="iaForm" class="guia-form" style="display:none" autocomplete="off"><textarea id="iaInput" class="finput" rows="1" placeholder="Pregúntale a Mohi sobre lo que ves…" maxlength="1000"></textarea><button id="iaSend" type="submit">Enviar</button></form>
+    <form id="iaForm" class="guia-form" style="display:none" autocomplete="off"><textarea id="iaInput" class="finput" rows="1" placeholder="Pregúntale a Mohi sobre lo que ves…" maxlength="1000"></textarea><button id="iaMic" type="button" style="display:none" title="Preguntar hablando: toca, habla y Mohi responde" aria-label="Preguntar por voz"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><path d="M12 18v4"/><path d="M8 22h8"/></svg></button><button id="iaSend" type="submit">Enviar</button></form>
   </div>
   <div class="guia-fila">
     <button type="button" class="guia-aviso" id="guiaAviso" aria-label="Abrir la guía"><span class="guia-mano">👋</span><span>Hola, soy <b>Mohi</b>. ¿Te ayudo con esta pantalla?</span><span class="guia-aviso-x" title="No mostrar más por hoy">✕</span></button>
@@ -16967,12 +16971,13 @@ async function init(role) {
     return tarjetaKpi({ attr: 'bik', k: 'k' + (nK++), val: o.v, lbl: o.l, sub: sub || '&nbsp;', color: COLOR_VAR[o.c] || 'var(--ac)',
       ver: o.go ? 'Ver ' + titulo(o.go) : 'Ver abajo', extra: o.go ? `data-bi-go="${o.go}"` : 'data-bi-tabla="1"' });
   };
-  const gcard = (id, t, s, h, right) => `<div class="graf-card" style="margin:0">
+  const gcard = (id, t, s, h, right) => `<div class="graf-card" style="margin:0;display:flex;flex-direction:column">
       <div class="graf-head" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
         <div><div class="card-ttl" style="margin:0">${t}</div><div class="card-sub" style="margin:2px 0 0">${s}</div></div>${right || ''}</div>
-      <div class="graf-box" style="height:${h}px"><canvas id="${id}"></canvas></div></div>`;
+      <div class="graf-box" style="flex:1;min-height:${h}px"><canvas id="${id}"></canvas></div></div>`;
   const chip = (t, c) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:var(--${c}10);color:var(--${c});white-space:nowrap">${t}</span>`;
-  const grid = (min, html) => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,${min}px),1fr));gap:14px;align-items:start">${html}</div>`;
+  /* stretch (sin align-items:start): los recuadros de una misma fila quedan del mismo alto (Manu, 24-11-2026: "siguen desordenados") */
+  const grid = (min, html) => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,${min}px),1fr));gap:14px">${html}</div>`;
   const note = t => `<div class="td-dim" style="line-height:1.5">${t}</div>`;
   const tabla = (titulo, sub, cols, rows, go) => `<div class="tbl-card">
       <div class="tbl-head xl-head" style="gap:8px"><div class="xl-izq"><div class="card-ttl" style="margin:0">${titulo}</div>${sub ? `<div class="card-sub" style="margin:2px 0 0">${sub}</div>` : ''}</div>
@@ -17093,7 +17098,7 @@ async function init(role) {
     const despPct = D.tot.ped ? D.tot.desp / D.tot.ped * 100 : 0;
     const epanel = (id, t, sub, h, foot) => `<section class="erp-panel">
       <div class="erp-ph"><h2>${t}</h2>${sub ? `<span class="sub">${sub}</span>` : ''}</div>
-      <div style="padding:10px 12px"><div class="graf-box" style="height:${h}px"><canvas id="${id}"></canvas></div></div>
+      <div style="padding:10px 12px;flex:1;display:flex;flex-direction:column"><div class="graf-box" style="flex:1;min-height:${h}px"><canvas id="${id}"></canvas></div></div>
       ${foot ? `<div class="erp-pf">${foot}</div>` : ''}</section>`;
     const barra = p => `<div style="height:10px;background:#E9ECF0;min-width:80px"><div style="height:10px;width:${Math.max(2, Math.min(100, p || 0)).toFixed(0)}%;background:var(--ac)"></div></div>`;
     const vmax = Math.max(1, ...vend.map(x => x.a));
@@ -17722,6 +17727,31 @@ function iaIniciar() {   // el chat vive dentro de la burbuja de Mohi; solo el a
   input.addEventListener('keydown', e => {   // Enter envía, Shift+Enter hace salto de línea
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (e.isComposing || e.keyCode === 229) return; iaPreguntar(); }
   });
+  /* Micrófono (Manu, 24-11-2026: "que la persona le hable y le muestre el dato"): dictado del navegador,
+     en español; al soltar la frase se envía sola. El botón solo aparece donde el navegador lo soporta. */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = document.getElementById('iaMic');
+  if (SR && mic) {
+    mic.style.display = '';
+    const ph = input.placeholder;
+    let rec = null, oyendo = false;
+    const fin = () => { oyendo = false; mic.classList.remove('grabando'); input.placeholder = ph; };
+    mic.addEventListener('click', () => {
+      if (oyendo) { try { rec.stop(); } catch (e) {} return; }
+      rec = new SR();
+      rec.lang = 'es-CL'; rec.interimResults = true; rec.maxAlternatives = 1;
+      let dicho = '';
+      rec.onstart = () => { oyendo = true; mic.classList.add('grabando'); input.value = ''; input.placeholder = 'Te escucho… toca de nuevo para parar'; };
+      rec.onresult = ev => {
+        let parcial = '';
+        for (const r of ev.results) { if (r.isFinal) dicho += r[0].transcript; else parcial += r[0].transcript; }
+        input.value = (dicho + ' ' + parcial).replace(/\s+/g, ' ').trim();
+      };
+      rec.onerror = ev => { fin(); if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') iaBurbuja('ia-err', 'El navegador no deja usar el micrófono: permítelo en el candado de la barra de direcciones.'); };
+      rec.onend = () => { fin(); if (input.value.trim()) iaPreguntar(); };
+      try { rec.start(); } catch (e) { fin(); }
+    });
+  }
   if (GUIA_SEC) guiaChips(GUIA_SEC);   // si Mohi ya estaba hablando, que aparezcan las preguntas
 }
 
