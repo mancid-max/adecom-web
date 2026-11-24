@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-8">
+<meta name="adecom-build" content="2026-11-24-9">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5239,8 +5239,9 @@ async function secKennedy() {
    observaciones"): el 18-11 era una tarjeta al final de Stock Kennedy; ahora es su entrada
    "Observaciones Kennedy" en el menú. Misma tabla observaciones_kennedy. */
 function secKnObs() {
+  /* 24-11 (Manu: "también necesito que ingrese datos de observación"): bodega también escribe; borrar sigue siendo del admin */
   return `
-  ${window._bodegaMode ? '' : `<div class="tbl-card">
+  <div class="tbl-card">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Escribir una observación</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:12px 14px">
       <input id="knObsNombre" class="finput" placeholder="Nombre" style="width:150px">
@@ -5248,8 +5249,8 @@ function secKnObs() {
       <button class="seg" id="knObsGuardar" style="border:1px solid var(--bd2)">Guardar</button>
       <span class="td-dim" id="knObsEstado" aria-live="polite" style="font-size:11px;align-self:center"></span>
     </div>
-  </div>`}
-  <div class="tbl-card" ${window._bodegaMode ? '' : 'style="margin-top:14px"'}
+  </div>
+  <div class="tbl-card" style="margin-top:14px">
     <div class="tbl-head"><div class="card-ttl" style="margin:0">Lo anotado</div></div>
     <div id="knObsLista"><div class="td-dim" style="padding:10px 14px">Cargando…</div></div>
     <div class="tbl-foot">Lo que anote el equipo de la tienda queda acá para todos, con su fecha; lo más nuevo arriba.</div>
@@ -15400,7 +15401,7 @@ function bindContent(secId) {
         } catch (e) { est.textContent = 'No se pudo guardar: falta crear la tabla en Supabase (sql/observaciones_kennedy.sql) o no hay permiso'; }
         btn.disabled = false;
       };
-      if (btn) {   // bodega entra solo a mirar: no hay formulario que conectar
+      if (btn) {   // 24-11: bodega también escribe (antes entraba solo a mirar)
         btn.addEventListener('click', guardarObsK);
         txt.addEventListener('keydown', e => {
           if (e.key !== 'Enter' || e.shiftKey) return;
