@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-23-22">
+<meta name="adecom-build" content="2026-11-24-1">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16161,16 +16161,24 @@ function bindContent(secId) {
       const resumen = [['Región', 'Atendidos', 'Sin atender', 'Total', '% atendido']];
       const temps = CL_BASE;
       const cli = [['Región', 'Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', ...temps.map(t => 'T' + t), `Total ${clCompTxt('-')}`, `T${CL_ACTS[0]} (base)`, 'Deuda', 'Última colección', 'Motivo']];
+      const encReg = ['Cliente', 'RUT', 'Ciudad', 'Vendedor', 'Estado', ...temps.map(t => 'T' + t), `Total ${clCompTxt('-')}`, `T${CL_ACTS[0]} (base)`, 'Deuda', 'Última colección', 'Motivo'];
+      const porRegion = [];
       for (const r of [...Object.keys(REGIONES_CHILE), 'Sin región']) {
         const d = CL_MAPA_L.get(r); if (!d) continue;
         const la = d.la.filter(f), ln = d.ln.filter(f);
         if (!la.length && !ln.length && r === 'Sin región') continue;
         resumen.push([r, la.length, ln.length, la.length + ln.length,
                       { v: (la.length + ln.length) ? la.length / (la.length + ln.length) : 0, t: 'n', z: '0%' }]);
+        const filasReg = [encReg];
         for (const [lista, est] of [[ln, 'Sin atender'], [la, 'Atendido']])
-          for (const c of lista) cli.push([r, c.nombre, c.rut || '', c.ciudad || '', c.vendedor || '', est,
-                                           ...temps.map(t => c.u[t] || 0), c.unidades, c.u[String(CL_ACTS[0])] || 0,
-                                           { v: c.deuda || 0, t: 'n', z: '#,##0' }, c.ultTemp ? 'T' + c.ultTemp : '', MOT[c.motivo] ?? '']);
+          for (const c of lista) {
+            const fila = [c.nombre, c.rut || '', c.ciudad || '', c.vendedor || '', est,
+                          ...temps.map(t => c.u[t] || 0), c.unidades, c.u[String(CL_ACTS[0])] || 0,
+                          { v: c.deuda || 0, t: 'n', z: '#,##0' }, c.ultTemp ? 'T' + c.ultTemp : '', MOT[c.motivo] ?? ''];
+            cli.push([r, ...fila]);
+            filasReg.push(fila);
+          }
+        if (filasReg.length > 1) porRegion.push([r, filasReg]);
       }
       const libro = XLSX.utils.book_new();
       const h1 = XLSX.utils.aoa_to_sheet(resumen);
@@ -16182,6 +16190,16 @@ function bindContent(secId) {
       h2['!freeze'] = { xSplit: 0, ySplit: 1 };
       XLSX.utils.book_append_sheet(libro, h1, 'Por región');
       XLSX.utils.book_append_sheet(libro, h2, 'Clientes');
+      // Una hoja por región con sus clientes, de Arica a Magallanes (Manu, 24-11: "ordenado por hojas como se ve en la imagen")
+      const anchosReg = [{ wch: 38 }, { wch: 13 }, { wch: 16 }, { wch: 18 }, { wch: 11 },
+                         ...temps.map(() => ({ wch: 7 })), { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 9 }, { wch: 12 }];
+      for (const [r, filasReg] of porRegion) {
+        const hr = XLSX.utils.aoa_to_sheet(filasReg);
+        hr['!cols'] = anchosReg;
+        hr['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filasReg.length - 1, c: encReg.length - 1 } }) };
+        hr['!freeze'] = { xSplit: 0, ySplit: 1 };
+        XLSX.utils.book_append_sheet(libro, hr, r.replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31));
+      }
       const hoy = new Date();
       const fecha = `${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${hoy.getFullYear()}`;
       XLSX.writeFile(libro, `Mapa Chile ${clActsTxt('-')} ${fecha}.xlsx`);
