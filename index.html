@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-5">
+<meta name="adecom-build" content="2026-11-25-6">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7940,7 +7940,7 @@ async function secPVC() {
   <div class="tbl-card">
     <div class="tbl-head xl-head" style="gap:8px">
       <div class="xl-izq"><div class="card-ttl" style="margin:0">Pedido vs Corte — una fila por artículo</div></div>
-      ${btnExcel()}
+      ${btnExcel('pvcExcel', 'Baja a Excel lo que estás viendo, con la foto de cada artículo (tarda unos segundos)')}
     </div>
     <div class="tbl-scroll">
       <!-- Ordenable desde los encabezados (Manu, 02-11-2026: "no tengo los filtros en los encabezados para ver de mayor a
@@ -12453,6 +12453,86 @@ function excelDeTablas(btn) {
 }
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-xl]'); if (b) excelDeTablas(b); });
 
+/* ── Excel con fotos (Pedido vs Corte) ──────────────────────────
+   25-11 (Manu: "¿en ese excel podrían ir asociadas imágenes?"): la miniatura de cada artículo incrustada en el
+   archivo. SheetJS no sabe incrustar imágenes, así que SOLO este Excel se arma con ExcelJS (local, CDN de
+   respaldo); se baja la foto de cada fila visible y el archivo queda más pesado y tarda unos segundos. */
+let EXCELJS = null;
+const cargarExcelJS = () => EXCELJS || (EXCELJS = new Promise((ok, mal) => {
+  if (window.ExcelJS) return ok(window.ExcelJS);
+  const cdn = () => {
+    const sc = document.createElement('script');
+    sc.integrity = 'sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz'; sc.crossOrigin = 'anonymous';
+    sc.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    sc.onload = () => ok(window.ExcelJS);
+    sc.onerror = () => { EXCELJS = null; mal(new Error('no se pudo cargar el generador de Excel con fotos')); };
+    document.head.appendChild(sc);
+  };
+  const sc = document.createElement('script');
+  sc.src = 'lib/exceljs.min.js?v=440';
+  sc.onload = () => ok(window.ExcelJS);
+  sc.onerror = cdn;
+  document.head.appendChild(sc);
+}));
+async function pvcExcelFotos(btn) {
+  const tb = document.getElementById('pvcBody'), t = tb && tb.closest('table');
+  if (!t) return;
+  const txt0 = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Armando con fotos…';
+  try {
+    const EJ = await cargarExcelJS();
+    const ths = [...t.tHead.rows[t.tHead.rows.length - 1].cells].filter(th => !th.hasAttribute('data-xl-no'));
+    const enc = ths.map(th => String(xlCelda(th) ?? '').replace(/\s*[↕▲▼]$/, ''));
+    const semIdx = ths.map((th, i) => th.hasAttribute('data-xl-sem') ? i : -1).filter(i => i >= 0);
+    const filas = [];
+    for (const tr of tb.rows) {
+      if (!tr.getClientRects().length) continue;
+      if (tr.cells.length === 1) continue;
+      filas.push({ vals: [...tr.cells].filter(td => !td.hasAttribute('data-xl-no')).map(xlCelda),
+                   foto: tr.cells[0].querySelector('img.art-thumb')?.currentSrc || '' });
+    }
+    if (!filas.length) { alert('No hay filas para bajar con los filtros que elegiste.'); return; }
+    const wb = new EJ.Workbook();
+    const ws = wb.addWorksheet('Pedido vs Corte');
+    ws.columns = [{ width: 7 }, ...enc.map((h, c) => ({ width: Math.min(44, Math.max(9, ...[h, ...filas.slice(0, 200).map(f => String(f.vals[c] ?? ''))].map(s => s.length + 2))) }))];
+    const cab = ws.addRow(['Foto', ...enc]);
+    cab.font = { bold: true };
+    cab.alignment = { vertical: 'middle' };
+    for (const f of filas) ws.addRow(['', ...f.vals]);
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: filas.length + 1, column: enc.length + 1 } };
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    for (const c of semIdx) for (let r = 0; r < filas.length; r++) {
+      const v = filas[r].vals[c];
+      if (typeof v === 'number' && v) ws.getCell(r + 2, c + 2).font = { bold: true, color: { argb: v < 0 ? 'FFB42318' : 'FF067647' } };
+    }
+    // las fotos: una sola descarga por imagen aunque se repita en varias filas
+    const unicos = new Map();
+    for (const f of filas) if (f.foto && !unicos.has(f.foto)) unicos.set(f.foto, null);
+    await Promise.all([...unicos.keys()].map(async u => {
+      try { const r = await fetch(u); if (r.ok) unicos.set(u, await r.arrayBuffer()); } catch (e) {}
+    }));
+    const ids = new Map();
+    for (const [u, buf] of unicos) if (buf) ids.set(u, wb.addImage({ buffer: buf, extension: 'jpeg' }));
+    filas.forEach((f, r) => {
+      ws.getRow(r + 2).height = 42;
+      ws.getRow(r + 2).alignment = { vertical: 'middle' };
+      const id = ids.get(f.foto);
+      if (id != null) ws.addImage(id, { tl: { col: 0.15, row: r + 1.08 }, ext: { width: 36, height: 48 }, editAs: 'oneCell' });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const d = new Date();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = `Pedido vs Corte con fotos ${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  } catch (e) {
+    alert('No se pudo armar el Excel con fotos. Revisa la conexión y vuelve a intentar.');
+  } finally {
+    btn.disabled = false; btn.textContent = txt0;
+  }
+}
+
 /* ── GRÁFICOS ───────────────────────────────────────────────── */
 /* Gráficos para decidir rápido (Manu, 23-10-2026: "gráficos en cada sección, que sean interactivos"). Chart.js se carga
    solo la primera vez que una sección lo necesita; pasar el mouse muestra el número y tocar una barra abre o filtra. */
@@ -16539,6 +16619,7 @@ function bindContent(secId) {
 
   // Pedido vs Corte — temp switcher
   if (secId === 'pvc') {
+    document.getElementById('pvcExcel')?.addEventListener('click', e => pvcExcelFotos(e.currentTarget));
     function applyPvcFilter() {
       const estado = document.querySelector('#pvcEstadoSegs .seg.on')?.dataset.estado || 'all';
       const etapa  = document.querySelector('#pvcEtapaSegs .seg.on')?.dataset.etapa  || 'all';
