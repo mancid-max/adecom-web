@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-2">
+<meta name="adecom-build" content="2026-11-25-3">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12371,12 +12371,14 @@ const xlNumero = s => {
 };
 const xlCelda = c => {
   const ls = String(c.innerText ?? c.textContent ?? '').split('\n').map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  if (!ls.length || (ls.length === 1 && /^[—–-]$/.test(ls[0]))) return '';   // "—" es que no hay nada
+  /* null = celda de verdad vacía (no el texto ''): con texto vacío Excel trataba la columna entera como letras
+     y el menú ofrecía "Ordenar de A a Z" en vez de "de menor a mayor" (Pato, 25-11) */
+  if (!ls.length || (ls.length === 1 && /^[—–-]$/.test(ls[0]))) return null;   // "—" es que no hay nada
   const n = xlNumero(ls[0]);
   return n != null ? n : ls.join(' · ');
 };
 function xlFilas(t) {
-  const enc = [...(t.tHead?.rows[t.tHead.rows.length - 1]?.cells || [])].filter(th => !th.hasAttribute('data-xl-no')).map(th => String(xlCelda(th)).replace(/\s*[↕▲▼]$/, ''));
+  const enc = [...(t.tHead?.rows[t.tHead.rows.length - 1]?.cells || [])].filter(th => !th.hasAttribute('data-xl-no')).map(th => String(xlCelda(th) ?? '').replace(/\s*[↕▲▼]$/, ''));
   const filas = [];
   for (const tr of (t.tBodies[0]?.rows || [])) {
     if (!tr.getClientRects().length) continue;                                                     // la esconde un filtro
