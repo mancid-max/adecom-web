@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-1">
+<meta name="adecom-build" content="2026-11-25-2">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5957,36 +5957,90 @@ async function raCargarSueltas() {
     }
   } catch (e) {}
 }
-/* 24-11 (Manu, vía la sesión PAGINA WEB: "¿cómo nos fue desde que llegó Nexor en la tienda? quiero saber ese dato"):
-   la venta mensual de mohicano.cl (PrestaShop, con IVA) marcando desde cuándo atiende Valentina. El dato viene en
-   tienda_online del reporte; si no viene (clave de la tienda caída), la tarjeta no se muestra. */
-function raTiendaOnline(TO) {
-  if (!TO || !TO.meses) return '';
+/* 24-11 (Manu: "¿cómo nos fue desde que llegó Nexor en la tienda?") y 25-11 ("mejórala, está horrible, y déjalo acá
+   como filtro… algo mucho mejor con gráficos y todo para mostrárselo a jefatura"): pestaña propia 🛍️ Tienda online
+   dentro de Performance. KPIs grandes, curva diaria con media móvil (campo dias, llega con el deploy de la página;
+   sin él la vista funciona igual con lo mensual), lo mensual de contexto, y las dos anotaciones honestas: la línea
+   "llega Valentina" (05-10) y el aviso de que el salto de octubre coincide con el Cyber. */
+function raTiendaTab(TO) {
+  if (!TO || !TO.meses || !Object.keys(TO.meses).length) return '';
   const ms = Object.keys(TO.meses).sort();
-  if (!ms.length) return '';
+  const hoyI = today(), hoyM = hoyI.slice(0, 7);
   const valM = String(TO.valentina_desde || '').slice(0, 7);
-  const hoyM = today().slice(0, 7);
-  const max = Math.max(1, ...ms.map(m => (TO.meses[m] || {}).venta || 0));
-  const antes = ms.filter(m => valM && m < valM), con = ms.filter(m => valM && m >= valM && m !== hoyM);
-  const prom = xs => xs.length ? xs.reduce((t, m) => t + ((TO.meses[m] || {}).venta || 0), 0) / xs.length : 0;
-  const pAntes = prom(antes), pCon = prom(con);
   const valDia = (TO.valentina_desde || '').slice(8, 10) + '-' + (TO.valentina_desde || '').slice(5, 7);
+  const v = m => (TO.meses[m] || {}).venta || 0, p = m => (TO.meses[m] || {}).pedidos || 0;
+  const mesAct = hoyM, mesAnt2 = mesAnt(hoyM);
+  const diaN = +hoyI.slice(8, 10), dim = new Date(+hoyI.slice(0, 4), +hoyI.slice(5, 7), 0).getDate();
+  const vAct = v(mesAct), pAct = p(mesAct), proy = diaN ? vAct / diaN * dim : 0;
+  const pre = ms.filter(m => valM && m < valM && m !== hoyM);
+  const pPre = pre.length ? pre.reduce((t, m) => t + v(m), 0) / pre.length : 0;
+  const ritmo = diaN ? vAct / diaN : 0;
+  const sepM = pre.length ? pre[pre.length - 1] : '';   // el último mes completo antes de Valentina
+  const ritmoSep = sepM ? v(sepM) / new Date(+sepM.slice(0, 4), +sepM.slice(5, 7), 0).getDate() : 0;
+  const bajo = ritmoSep && ritmo < ritmoSep;
   const nomMes = m => `${(MESES[+m.slice(5, 7)] || '').slice(0, 3)} ${m.slice(2, 4)}`;
-  return `<div class="ra-col" style="margin-top:12px">
-    <div class="ra-ct">🛍️ La tienda online desde Valentina <small>mohicano.cl por mes, con IVA${valM ? ` · atiende desde el ${cvEsc(valDia)}` : ''}</small></div>
-    ${pAntes && pCon ? `<div style="display:flex;gap:24px;flex-wrap:wrap;margin:2px 0 10px;font-size:13px">
-      <span>antes <b>${fmtM(pAntes)}</b>/mes</span>
-      <span>con Valentina <b style="color:var(--ok)">${fmtM(pCon)}</b>/mes</span>
-      <span class="td-dim">${pCon >= pAntes ? '▲ +' + Math.round((pCon / pAntes - 1) * 100) + '%' : '▼ −' + Math.round((1 - pCon / pAntes) * 100) + '%'} · meses completos</span>
-    </div>` : ''}
-    ${ms.map(m => { const x = TO.meses[m] || {}, conV = valM && m >= valM;
-      return `<div class="ra-f" style="grid-template-columns:58px minmax(0,1fr) auto;align-items:center">
-        <small>${cvEsc(nomMes(m))}</small>
-        <span style="overflow:visible"><span style="display:block;height:12px;border-radius:3px;background:var(--${conV ? 'ok' : 'bd2'});width:${Math.max(2, (x.venta || 0) / max * 100).toFixed(1)}%" title="${cvEsc(nomMes(m))}: ${fmtCLP(x.venta || 0)} · ${fmt(x.pedidos || 0)} pedidos"></span></span>
-        <small style="white-space:nowrap">${fmtM(x.venta || 0)} · ${fmt(x.pedidos || 0)} ped.${m === hoyM ? ' · a hoy' : ''}</small>
-      </div>`; }).join('')}
-    <div class="ra-pie">${valM ? `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--ok);vertical-align:baseline"></span> meses con Valentina (llegó el ${cvEsc(valDia)}) · ` : ''}${cvEsc(TO.nota || '')}</div>
-  </div>`;
+  const nomAct = (MESES[+mesAct.slice(5, 7)] || '');
+  const kV = (ico, bg, n, t2, sub, color2) => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
+    <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div></div></div>`;
+  const hayDias = TO.dias && Object.keys(TO.dias).length;
+  return `<section class="ra-bloque">
+    <div class="ra-ks ra-5">
+      ${kV('🛍️', 'var(--ac10)', fmtM(vAct), `venta de ${nomAct} a hoy`, `${fmt(pAct)} pedidos · al ritmo del mes cerraría en <b>${fmtM(proy)}</b>`, '--tx1')}
+      ${kV(bajo ? '📉' : '📈', bajo ? 'var(--er10)' : 'var(--ok10)', fmtM(ritmo), 'ritmo diario del mes', ritmoSep ? `${nomMes(sepM)}, el último mes sin Cyber, fue ${fmtM(ritmoSep)} al día` : 'venta del mes dividida por los días corridos', bajo ? '--er' : '--ok')}
+      ${kV('🗓️', 'var(--sf2)', fmtM(v(mesAnt2)), `${nomMes(mesAnt2)} completo`, mesAnt2 === '2026-10' ? 'incluye el Cyber: el salto no es solo de Valentina' : `${fmt(p(mesAnt2))} pedidos`, '--tx1')}
+      ${kV('📊', 'var(--sf2)', fmtM(pPre), 'promedio antes de Valentina', pre.length ? `${pre.map(nomMes).join(' · ')} · llegó el ${cvEsc(valDia)}` : '', '--tx1')}
+      ${kV('🎟️', 'var(--ac10)', pAct ? fmtCLP(Math.round(vAct / pAct)) : '—', 'ticket promedio del mes', pAct ? `${fmt(pAct)} pedidos en ${nomAct}` : 'sin pedidos todavía', '--ac')}
+    </div>
+    <div class="ra-g2" style="grid-template-columns:minmax(0,3fr) minmax(0,2fr)">
+      <div class="ra-col"><div class="ra-ct">Venta diaria de mohicano.cl <small>${hayDias ? 'con IVA · la línea gruesa es el promedio móvil de 7 días' : ''}</small></div>
+        ${hayDias ? '<div class="ra-chart alto"><canvas id="raTiendaDia"></canvas></div>' : '<div class="td-dim" style="padding:18px 0">La curva diaria llega con la próxima carga de la página; mientras, el mensual de al lado.</div>'}</div>
+      <div class="ra-col"><div class="ra-ct">Por mes <small>desde ${nomMes(ms[0])} · con IVA</small></div><div class="ra-chart alto"><canvas id="raTiendaMes"></canvas></div></div>
+    </div>
+    <div class="ra-pie">Fuente: ${cvEsc(TO.nota || 'pedidos de mohicano.cl (PrestaShop) con IVA')} · Valentina atiende la tienda desde el ${cvEsc(valDia)} · el peak de octubre coincide con el Cyber, no es solo efecto de Valentina · el mes en curso va parcial (a hoy).</div>
+  </section>`;
+}
+/* la línea vertical "llega Valentina" sobre la curva diaria */
+const RA_TIENDA_LINEA = { id: 'raTiendaLinea', afterDraw(ch, _a, opts) {
+  const i = opts && opts.idx; if (i == null || i < 0) return;
+  const x = ch.scales.x.getPixelForValue(i), { top, bottom } = ch.chartArea, ctx = ch.ctx;
+  ctx.save(); ctx.strokeStyle = '#c026d3'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#c026d3'; ctx.font = `600 11px ${(window.Chart && Chart.defaults.font.family) || 'sans-serif'}`;
+  ctx.textAlign = 'left'; ctx.fillText('llega Valentina', Math.min(x + 4, ch.chartArea.right - 92), top + 10); ctx.restore();
+} };
+function raTiendaGraficos() {
+  const TO = (RA_DATA || {}).tienda_online;
+  if (!TO || !document.getElementById('raTiendaMes')) return;
+  cargarChart().then(Chart => {
+    const nuevo = (id, cfg) => { const cv = document.getElementById(id); if (!cv) return;
+      if (GRAFICOS[id]) { try { GRAFICOS[id].destroy(); } catch (e) {} }
+      cfg.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+        interaction: { mode: 'index', intersect: false } }, cfg.options || {});
+      GRAFICOS[id] = new Chart(cv, cfg); };
+    const ejeP = { grid: { color: color('--bd') }, ticks: { callback: v => fmtM(v) }, beginAtZero: true };
+    const hoyM = today().slice(0, 7), valM = String(TO.valentina_desde || '').slice(0, 7);
+    const ms = Object.keys(TO.meses || {}).sort();
+    const nomMes = m => `${(MESES[+m.slice(5, 7)] || '').slice(0, 3)} ${m.slice(2, 4)}`;
+    nuevo('raTiendaMes', { type: 'bar', data: { labels: ms.map(m => nomMes(m) + (m === hoyM ? ' (a hoy)' : '')), datasets: [{
+        label: 'Venta', data: ms.map(m => (TO.meses[m] || {}).venta || 0),
+        backgroundColor: ms.map(m => m === hoyM ? rgba(color('--ok'), .45) : valM && m >= valM ? color('--ok') : color('--bd2')), borderRadius: 4 }] },
+      options: { scales: { x: { grid: { display: false } }, y: ejeP }, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => { const m = ms[c.dataIndex], x = TO.meses[m] || {};
+          return `${fmtCLP(x.venta || 0)} · ${fmt(x.pedidos || 0)} pedidos${m === '2026-10' ? ' · incluye el Cyber' : ''}${m === hoyM ? ' · a hoy' : ''}`; } } } } } });
+    const ds = Object.keys(TO.dias || {}).sort();
+    if (!ds.length || !document.getElementById('raTiendaDia')) return;
+    const vs = ds.map(k => (TO.dias[k] || {}).venta || 0);
+    const ma7 = vs.map((_, i) => { const w = vs.slice(Math.max(0, i - 6), i + 1); return w.reduce((a, b) => a + b, 0) / w.length; });
+    const idxVal = ds.findIndex(k => k >= (TO.valentina_desde || ''));
+    nuevo('raTiendaDia', { type: 'line', data: { labels: ds.map(k => k.slice(8, 10) + '-' + k.slice(5, 7)), datasets: [
+        { label: 'Venta del día', data: vs, borderColor: rgba(color('--ac'), .35), backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 0, tension: .2 },
+        { label: 'Promedio 7 días', data: ma7, borderColor: color('--ac'), backgroundColor: 'rgba(29,95,168,.08)', fill: true, borderWidth: 2.5, pointRadius: 0, tension: .35 }] },
+      options: { scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } }, y: ejeP },
+        plugins: { raTiendaLinea: { idx: idxVal }, legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmtCLP(Math.round(c.raw))}`,
+            footer: it => { const k = ds[it[0].dataIndex]; return `${fmt((TO.dias[k] || {}).pedidos || 0)} pedidos`; } } } } },
+      plugins: [RA_TIENDA_LINEA] });
+  }).catch(() => {});
 }
 function raRender() {
   const d = RA_DATA || {};
@@ -6054,7 +6108,6 @@ function raRender() {
           ${sPos.length ? `<div class="ra-sub">Posibles (los ingresó el vendedor al ERP; el cliente había hablado con Sofía) · van aparte</div>${sPos.map(o => fila(o, `<span class="td-dim">${o.total ? fmtCLP(o.total) : fmt(o.unidades) + ' u.'}</span>`)).join('')}` : ''}
         </div>
       </div>
-      ${raTiendaOnline(d.tienda_online)}
     </section>
     ${raMayoristas(S.mayoristas, ini, per)}${pie}`;
 
@@ -6084,8 +6137,8 @@ function raRender() {
 
   return `<div class="ra-hd"><div class="segs">${seg('hoy', 'Hoy')}${seg('d7', '7 días')}${seg('d30', '30 días')}</div>
       <div class="td-dim">Al ${cvEsc(cvHora(d.generado))}${d.actualizando ? ' · actualizando…' : ''} · <button class="ra-link" data-raact>↻ Actualizar</button></div></div>
-    <div class="ra-tabs">${tab('chats', '💬 Chats')}${tab('ventas', '💵 Ventas')}${tab('casos', '🛠️ Casos')}${tab('campanas', '📣 Campañas')}</div>
-    ${{ chats: tabChats, ventas: tabVentas, casos: tabCasos, campanas: tabCampanas }[RA_TAB] || tabChats}`;
+    <div class="ra-tabs">${tab('chats', '💬 Chats')}${tab('ventas', '💵 Ventas')}${d.tienda_online && d.tienda_online.meses ? tab('tienda', '🛍️ Tienda online') : ''}${tab('casos', '🛠️ Casos')}${tab('campanas', '📣 Campañas')}</div>
+    ${{ chats: tabChats, ventas: tabVentas, tienda: raTiendaTab(d.tienda_online), casos: tabCasos, campanas: tabCampanas }[RA_TAB] || tabChats}`;
 }
 /* la campaña de despacho inmediato (29-10, Manu: "el reporte para saber cómo nos va a ir en la campaña y cómo mejorarla"):
    desde que salió, no depende del período */
@@ -6196,6 +6249,7 @@ function raGraficos() {
     barras('raForm', ks.map(t => t.slice(8, 10) + '-' + t.slice(5, 7)), [{ label: 'Formularios', data: ks.map(t => dias[t]), backgroundColor: rgba(color('--ac'), .8), borderRadius: 3 }], null, { horizontal: false, apiladas: false, leyenda: false, sufijo: ' formularios', eje: raEnteros }).catch(() => {});
   }
   raGraficosCampana(true);
+  raTiendaGraficos();
   /* tocar las cifras abre la lista con los nombres (02-11) */
   const TOCA = { 'no recibir más': 'bajas', 'lo leyeron': 'leyeron', 'respondieron': 'respondieron' };
   /* 19-11: acá nunca existió "body" (ReferenceError tragado por el try/catch del bind): estos clics no andaban */
