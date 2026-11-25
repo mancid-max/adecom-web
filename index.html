@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-4">
+<meta name="adecom-build" content="2026-11-25-5">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5984,7 +5984,32 @@ function raTiendaTab(TO) {
   const kV = (ico, bg, n, t2, sub, color2) => `<div class="ra-k"><div class="ra-vk"><div class="ra-ico" style="background:${bg}">${ico}</div><div style="min-width:0">
     <div class="ra-n" style="color:var(${color2})">${n}</div><div class="ra-t">${t2}</div>${sub ? `<div class="ra-s">${sub}</div>` : ''}</div></div></div>`;
   const hayDias = TO.dias && Object.keys(TO.dias).length;
+  /* 25-11 (Manu: "¿acá dónde veo la diferencia? no lo veo claro"): la resta hecha, en grande, con las dos
+     lecturas honestas — con octubre (que trae el Cyber) y la limpia, sin Cyber. */
+  const conVal = ms.filter(m => valM && m >= valM && m !== hoyM).map(v);
+  const pCon2 = conVal.length || proy ? (conVal.reduce((a, b) => a + b, 0) + proy) / (conVal.length + (proy ? 1 : 0)) : 0;
+  const pct = (a, b) => b ? Math.round((a / b - 1) * 100) : 0;
+  const flecha = (n, inv) => { const malo = inv ? n > 0 : n < 0;
+    return `<div class="ra-n" style="color:var(--${malo ? 'er' : 'ok'});font-size:34px">${n >= 0 ? '▲ +' : '▼ −'}${Math.abs(n)}%</div>`; };
+  const difBloque = (pPre && pCon2) ? `<div class="ra-col" style="margin-bottom:12px">
+    <div class="ra-ct">¿Cambió la venta con Valentina? <small>llegó el ${cvEsc(valDia)} · mohicano.cl con IVA</small></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px">
+      <div>
+        <div class="ra-t">Mirando todos los meses*</div>
+        <div style="font-size:14.5px;margin:4px 0 2px">antes (${pre.map(nomMes).join('·')}) <b>${fmtM(pPre)}</b>/mes → con Valentina <b>${fmtM(pCon2)}</b>/mes</div>
+        ${flecha(pct(pCon2, pPre))}
+        <div class="ra-s">*con Valentina = ${conVal.length ? 'octubre' : ''}${conVal.length && proy ? ' + ' : ''}${proy ? nomAct + ' proyectado' : ''} · octubre incluye el Cyber: parte del salto es de la campaña, no de Valentina</div>
+      </div>
+      ${ritmoSep && proy ? `<div>
+        <div class="ra-t">Sin el efecto Cyber</div>
+        <div style="font-size:14.5px;margin:4px 0 2px">${nomAct} proyectado <b>${fmtM(proy)}</b> vs ${nomMes(sepM)} <b>${fmtM(v(sepM))}</b></div>
+        ${flecha(pct(proy, v(sepM)))}
+        <div class="ra-s">la comparación limpia: el último mes sin campaña contra este mes al ritmo de hoy</div>
+      </div>` : ''}
+    </div>
+  </div>` : '';
   return `<section class="ra-bloque">
+    ${difBloque}
     <div class="ra-ks ra-5">
       ${kV('🛍️', 'var(--ac10)', fmtM(vAct), `venta de ${nomAct} a hoy`, `${fmt(pAct)} pedidos · al ritmo del mes cerraría en <b>${fmtM(proy)}</b>`, '--tx1')}
       ${kV(bajo ? '📉' : '📈', bajo ? 'var(--er10)' : 'var(--ok10)', fmtM(ritmo), 'ritmo diario del mes', ritmoSep ? `${nomMes(sepM)}, el último mes sin Cyber, fue ${fmtM(ritmoSep)} al día` : 'venta del mes dividida por los días corridos', bajo ? '--er' : '--ok')}
@@ -6000,15 +6025,23 @@ function raTiendaTab(TO) {
     <div class="ra-pie">Fuente: ${cvEsc(TO.nota || 'pedidos de mohicano.cl (PrestaShop) con IVA')} · Valentina atiende la tienda desde el ${cvEsc(valDia)} · el peak de octubre coincide con el Cyber, no es solo efecto de Valentina · el mes en curso va parcial (a hoy).</div>
   </section>`;
 }
-/* la línea vertical "llega Valentina" sobre la curva diaria */
-const RA_TIENDA_LINEA = { id: 'raTiendaLinea', afterDraw(ch, _a, opts) {
-  const i = opts && opts.idx; if (i == null || i < 0) return;
-  const x = ch.scales.x.getPixelForValue(i), { top, bottom } = ch.chartArea, ctx = ch.ctx;
-  ctx.save(); ctx.strokeStyle = '#c026d3'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = '#c026d3'; ctx.font = `600 11px ${(window.Chart && Chart.defaults.font.family) || 'sans-serif'}`;
-  ctx.textAlign = 'left'; ctx.fillText('llega Valentina', Math.min(x + 4, ch.chartArea.right - 92), top + 10); ctx.restore();
-} };
+/* la línea vertical "llega Valentina" sobre la curva diaria, con el fondo del "antes" sombreado */
+const RA_TIENDA_LINEA = { id: 'raTiendaLinea',
+  beforeDatasetsDraw(ch, _a, opts) {
+    const i = opts && opts.idx; if (i == null || i <= 0) return;
+    const x = ch.scales.x.getPixelForValue(i), { top, bottom, left } = ch.chartArea, ctx = ch.ctx;
+    ctx.save(); ctx.fillStyle = 'rgba(152,162,179,.12)'; ctx.fillRect(left, top, Math.max(0, x - left), bottom - top);
+    ctx.fillStyle = 'rgba(152,162,179,.9)'; ctx.font = `600 10px ${(window.Chart && Chart.defaults.font.family) || 'sans-serif'}`;
+    ctx.textAlign = 'left'; ctx.fillText('antes', left + 4, bottom - 6); ctx.restore();
+  },
+  afterDatasetsDraw(ch, _a, opts) {
+    const i = opts && opts.idx; if (i == null || i < 0) return;
+    const x = ch.scales.x.getPixelForValue(i), { top, bottom } = ch.chartArea, ctx = ch.ctx;
+    ctx.save(); ctx.strokeStyle = '#c026d3'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#c026d3'; ctx.font = `600 11px ${(window.Chart && Chart.defaults.font.family) || 'sans-serif'}`;
+    ctx.textAlign = 'left'; ctx.fillText('llega Valentina', Math.min(x + 4, ch.chartArea.right - 92), top + 10); ctx.restore();
+  } };
 function raTiendaGraficos() {
   const TO = (RA_DATA || {}).tienda_online;
   if (!TO || !document.getElementById('raTiendaMes')) return;
