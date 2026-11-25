@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-7">
+<meta name="adecom-build" content="2026-11-25-8">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15158,11 +15158,13 @@ function bindContent(secId) {
     const filas = [...document.querySelectorAll('#ddBody tr[data-k]')];
     let fVer = document.querySelector('#ddSegs .seg.on')?.dataset.f ?? 'venc';
     const poner = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
-    const tarjetas = rs => {
+    /* 25-11 (Manu: "los filtros no me cambian el dato en la tarjeta"): las tarjetas siguen TAMBIÉN al filtro Ver
+       (rs = lo visible); las cuentas de los botones Ver van sobre el alcance sin ese filtro (rsSeg), como en Inactivos */
+    const tarjetas = (rs, rsSeg) => {
       const r = ddResumen(rs.map(tr => DD[tr.dataset.k]));
       for (const k of ['venc', 'v90', 'aldia', 'bloq']) { poner(`dk-${k}-val`, r[k][0]); poner(`dk-${k}-sub`, r[k][1]); }
       document.querySelectorAll('#ddSegs .seg').forEach(b => { const k = b.dataset.f, el = b.querySelector('.db-n');
-        if (el) el.textContent = k ? rs.filter(tr => tr.dataset.f.includes(` ${k} `)).length : rs.length; });
+        if (el) el.textContent = k ? rsSeg.filter(tr => tr.dataset.f.includes(` ${k} `)).length : rsSeg.length; });
     };
     const filtrar = () => {
       const q = rvSinTilde((document.getElementById('ddSearch')?.value || '').trim().toLowerCase());
@@ -15178,7 +15180,7 @@ function bindContent(secId) {
           for (const i of [4, 5, 6, 7, 8, 9, 10, 11]) { const s = vis.reduce((a, tr) => a + (Number(tr.children[i]?.dataset.v) || 0), 0);
             const celda = tot.querySelector(`[data-c="${i}"]`); if (celda) celda.textContent = s ? fmtCLP(s) : '—'; }
           const nn = tot.querySelector('[data-c="n"]'); if (nn) nn.textContent = `Total · ${fmt(vis.length)} a la vista`; } }
-      tarjetas(enAlcance);
+      tarjetas(filas.filter(tr => visibles.has(tr)), enAlcance);
       ddGrafico(filas.filter(tr => visibles.has(tr)));
       return visibles.size;
     };
