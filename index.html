@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-24-11">
+<meta name="adecom-build" content="2026-11-25-1">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5957,6 +5957,37 @@ async function raCargarSueltas() {
     }
   } catch (e) {}
 }
+/* 24-11 (Manu, vía la sesión PAGINA WEB: "¿cómo nos fue desde que llegó Nexor en la tienda? quiero saber ese dato"):
+   la venta mensual de mohicano.cl (PrestaShop, con IVA) marcando desde cuándo atiende Valentina. El dato viene en
+   tienda_online del reporte; si no viene (clave de la tienda caída), la tarjeta no se muestra. */
+function raTiendaOnline(TO) {
+  if (!TO || !TO.meses) return '';
+  const ms = Object.keys(TO.meses).sort();
+  if (!ms.length) return '';
+  const valM = String(TO.valentina_desde || '').slice(0, 7);
+  const hoyM = today().slice(0, 7);
+  const max = Math.max(1, ...ms.map(m => (TO.meses[m] || {}).venta || 0));
+  const antes = ms.filter(m => valM && m < valM), con = ms.filter(m => valM && m >= valM && m !== hoyM);
+  const prom = xs => xs.length ? xs.reduce((t, m) => t + ((TO.meses[m] || {}).venta || 0), 0) / xs.length : 0;
+  const pAntes = prom(antes), pCon = prom(con);
+  const valDia = (TO.valentina_desde || '').slice(8, 10) + '-' + (TO.valentina_desde || '').slice(5, 7);
+  const nomMes = m => `${(MESES[+m.slice(5, 7)] || '').slice(0, 3)} ${m.slice(2, 4)}`;
+  return `<div class="ra-col" style="margin-top:12px">
+    <div class="ra-ct">🛍️ La tienda online desde Valentina <small>mohicano.cl por mes, con IVA${valM ? ` · atiende desde el ${cvEsc(valDia)}` : ''}</small></div>
+    ${pAntes && pCon ? `<div style="display:flex;gap:24px;flex-wrap:wrap;margin:2px 0 10px;font-size:13px">
+      <span>antes <b>${fmtM(pAntes)}</b>/mes</span>
+      <span>con Valentina <b style="color:var(--ok)">${fmtM(pCon)}</b>/mes</span>
+      <span class="td-dim">${pCon >= pAntes ? '▲ +' + Math.round((pCon / pAntes - 1) * 100) + '%' : '▼ −' + Math.round((1 - pCon / pAntes) * 100) + '%'} · meses completos</span>
+    </div>` : ''}
+    ${ms.map(m => { const x = TO.meses[m] || {}, conV = valM && m >= valM;
+      return `<div class="ra-f" style="grid-template-columns:58px minmax(0,1fr) auto;align-items:center">
+        <small>${cvEsc(nomMes(m))}</small>
+        <span style="overflow:visible"><span style="display:block;height:12px;border-radius:3px;background:var(--${conV ? 'ok' : 'bd2'});width:${Math.max(2, (x.venta || 0) / max * 100).toFixed(1)}%" title="${cvEsc(nomMes(m))}: ${fmtCLP(x.venta || 0)} · ${fmt(x.pedidos || 0)} pedidos"></span></span>
+        <small style="white-space:nowrap">${fmtM(x.venta || 0)} · ${fmt(x.pedidos || 0)} ped.${m === hoyM ? ' · a hoy' : ''}</small>
+      </div>`; }).join('')}
+    <div class="ra-pie">${valM ? `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--ok);vertical-align:baseline"></span> meses con Valentina (llegó el ${cvEsc(valDia)}) · ` : ''}${cvEsc(TO.nota || '')}</div>
+  </div>`;
+}
 function raRender() {
   const d = RA_DATA || {};
   if (d.vacio) return '<div class="cv-vacio">Calculando el primer reporte: tarda como 2 minutos. Se muestra solo cuando esté.</div>';
@@ -6023,6 +6054,7 @@ function raRender() {
           ${sPos.length ? `<div class="ra-sub">Posibles (los ingresó el vendedor al ERP; el cliente había hablado con Sofía) · van aparte</div>${sPos.map(o => fila(o, `<span class="td-dim">${o.total ? fmtCLP(o.total) : fmt(o.unidades) + ' u.'}</span>`)).join('')}` : ''}
         </div>
       </div>
+      ${raTiendaOnline(d.tienda_online)}
     </section>
     ${raMayoristas(S.mayoristas, ini, per)}${pie}`;
 
