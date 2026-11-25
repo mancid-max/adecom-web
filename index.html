@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-3">
+<meta name="adecom-build" content="2026-11-25-4">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +12,9 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js" integrity="sha384-7i/4BYWz4Mn+lJfg2HWfEPfZQ7tmFKF3CTSKlXBpxWjNlLjcg+T6smpHG4gLmU1u" crossorigin="anonymous"></script>
-<!-- Copia local primero y el CDN de respaldo: si el CDN falla o lo bloquea una extensión, el Excel y los gráficos quedaban mudos (24-11-2026) -->
-<script src="lib/xlsx.full.min.js?v=0185" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.integrity='sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';document.head.appendChild(s)"></script>
+<!-- Copia local primero y el CDN de respaldo: si el CDN falla o lo bloquea una extensión, el Excel y los gráficos quedaban mudos (24-11-2026).
+     25-11: xlsx-js-style (el mismo SheetJS 0.18.5 + estilos de celda): la edición gratis original no escribe colores y Manu pidió la Dif. en rojo/verde -->
+<script src="lib/xlsx-js-style.min.js?v=120" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.integrity='sha384-OUW9euuUyxyHcAhTqbhI+Iyb8LMssXt/cpz0yXhs9UWG2/R/uaWdakx/4cfww7Vb';s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';document.head.appendChild(s)"></script>
 <style>
 #loginOv{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
 #loginOv.hidden{display:none}
@@ -7913,7 +7914,7 @@ async function secPVC() {
            menor"): planOrdenable con el data-v de cada celda. Sin tocar nada queda el orden de siempre (lo que más falta
            primero); al cambiar de temporada o de Magic se vuelve a aplicar el orden elegido. El total vive en #pvcTot. -->
       <table id="pvcTable">
-        <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Ya despachado">Desp.</th><th class="r" data-ord="n" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" data-ord="n" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" data-ord="n" title="Lo que viene de las órdenes que ya partieron: cortado que aún no llega a bodega, más lo que a esas órdenes les falta cortar">En prod.</th><th class="r" data-ord="n" title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center" data-ord="n" title="Ordena por lo que falta cortar">Estado</th><th data-ord="t">EX</th><th class="r" data-ord="n" title="Saldo del modelo EX">Cant.</th><th data-ord="t">Dónde</th></tr></thead>
+        <thead><tr><th data-ord="t">Artículo</th><th class="r" data-ord="n">Pedido</th><th class="r" data-ord="n" title="Ya despachado">Desp.</th><th class="r" data-ord="n" title="Lo que se debe de verdad: pedido − despachado − lo que ya está en cajas, igual que los pendientes de Adecom">Saldo</th><th class="r" data-ord="n" title="Stock libre en San Gerardo: sin las prendas que ya están en cajas. Un stock negativo cuenta como 0">Stock</th><th class="r" data-ord="n" title="Lo que viene de las órdenes que ya partieron: cortado que aún no llega a bodega, más lo que a esas órdenes les falta cortar">En prod.</th><th class="r" data-ord="n" data-xl-sem title="Stock + En producción − Saldo pendiente (negativo = hay que cortar)">Dif.</th><th style="text-align:center" data-ord="n" title="Ordena por lo que falta cortar">Estado</th><th data-ord="t">EX</th><th class="r" data-ord="n" title="Saldo del modelo EX">Cant.</th><th data-ord="t">Dónde</th></tr></thead>
         <tbody id="pvcBody" class="tbl-compacta">${buildPVCRows(defT, ftMap, exMap)}</tbody>
         <tbody id="pvcTot" class="tbl-compacta"></tbody>
       </table>
@@ -12397,6 +12398,14 @@ function excelDeTablas(btn) {
     const filas = xlFilas(t);
     if (filas.length < 2) continue;
     const hoja = XLSX.utils.aoa_to_sheet(filas);
+    /* 25-11 (Manu, por el Pedido vs Corte: "cuando esté en negativo o sea que falte por cortar me salga en rojo, y
+       en positivo o sea que tenemos que ofrecer en verde"): columnas con data-xl-sem en el th van semáforo */
+    const sem = [...(t.tHead?.rows[t.tHead.rows.length - 1]?.cells || [])].filter(th => !th.hasAttribute('data-xl-no'))
+      .map((th, i) => th.hasAttribute('data-xl-sem') ? i : -1).filter(i => i >= 0);
+    for (const c of sem) for (let r = 1; r < filas.length; r++) {
+      const cel = hoja[XLSX.utils.encode_cell({ r, c })];
+      if (cel && cel.t === 'n' && cel.v) cel.s = { font: { color: { rgb: cel.v < 0 ? 'FFB42318' : 'FF067647' }, bold: true } };
+    }
     hoja['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length - 1, c: filas[0].length - 1 } }) };
     hoja['!cols'] = filas[0].map((_, c) => ({ wch: Math.min(48, Math.max(8, ...filas.slice(0, 200).map(f => String(f[c] ?? '').length + 2))) }));
     const base = (t.closest('.tbl-card')?.querySelector('.card-ttl')?.textContent || 'Datos').split(/ — | · /)[0].replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 28) || 'Datos';
