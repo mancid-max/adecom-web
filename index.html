@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-26-1">
+<meta name="adecom-build" content="2026-11-26-2">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12417,7 +12417,9 @@ const xlCelda = c => {
   const ls = String(c.innerText ?? c.textContent ?? '').split('\n').map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   /* null = celda de verdad vacía (no el texto ''): con texto vacío Excel trataba la columna entera como letras
      y el menú ofrecía "Ordenar de A a Z" en vez de "de menor a mayor" (Pato, 25-11) */
-  if (!ls.length || (ls.length === 1 && /^[—–-]$/.test(ls[0]))) return null;   // "—" es que no hay nada
+  if (!ls.length || (ls.length === 1 && /^[—–✓-]$/.test(ls[0]))) return null;   /* "—" es que no hay nada; "✓" (etapa ya
+     pasada en Trazabilidad, meta cumplida en el Plan) también va vacío: mezclado con números la columna entera se
+     volvía texto y Excel ofrecía "Ordenar de A a Z" en vez de "de menor a mayor" (Manu, 26-11, por Trazabilidad) */
   const n = xlNumero(ls[0]);
   return n != null ? n : ls.join(' · ');
 };
