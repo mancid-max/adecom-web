@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-26-3">
+<meta name="adecom-build" content="2026-11-26-4">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6406,6 +6406,8 @@ const CAMPANAS = [
   { id: 'diario', nombre: 'Correo diario', fuente: '?campana_correo=diario' },
   /* 11-11 (Manu: "necesito el dato de la última campaña en ese dashboard como dato aparte"): 5% en 3 modelos hasta el vie 13 */
   { id: 'oferta44', nombre: 'Oferta 44 (5%)', fuente: '?campana_correo=oferta44' },
+  /* 26-11 (Manu, vía la sesión PAGINA WEB: "hay que tener el dato en el dashboard"): 5% en toda la Dolce Vita 44 con stock, hasta el vie 27-11 */
+  { id: 'blackfriday44', nombre: 'Black Friday 44', fuente: '?campana_correo=blackfriday44' },
 ];
 let CP_DATA = {}, CP_SEL = 'todas';
 /* las mismas cifras de cada campaña, para compararlas */
@@ -6445,6 +6447,7 @@ const CP_OPC = {
   despacho: {},
   diario: { titulo: 'Correo diario · despacho inmediato', sub: 'lunes a sábado 9:00, con todo el cupo libre del día; mínimo 3 días entre correos a la misma persona', correoNota: 'solo correo, sin WhatsApp; los mejores mayoristas primero', boton: 'tocaron "Pídele las tallas"' },
   oferta44: { titulo: 'Oferta 44 · 5% en 3 favoritos', sub: '4455 Riviera, 4413 Antibes (sin talla 36) y 4480 Asti, del 10 al viernes 13-11', correoNota: 'el correo salió el 11-11, solo a los que el WhatsApp no alcanzó', boton: 'tocaron "Lo quiero"' },
+  blackfriday44: { titulo: 'Black Friday 44 · 5% en toda la colección', sub: 'toda la Dolce Vita 44 con stock, hasta el viernes 27-11', correoNota: 'correo solo a los que el WhatsApp no alcanzó', boton: 'tocaron "Lo quiero"' },
 };
 /* 30-10 (Manu: "3 tarjetas, despacho inmediato, Halloween y total, con ese dinero"): cada pedido cuenta para UNA sola campaña,
    la del último aviso antes del pedido (Johanna recibió los dos avisos y su pedido salía en las dos) */
