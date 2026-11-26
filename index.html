@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-26-2">
+<meta name="adecom-build" content="2026-11-26-3">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2564,7 +2564,9 @@ async function secTop10() {
 
 /* ── STOCK BODEGA ───────────────────────────────────────────── */
 async function secStock() {
-  const [data] = await Promise.all([load('saldos_bodega.json'), window._bodegaMode ? null : load('pedidos.json')]);
+  /* traza_oc con catch: si el rol no puede leerlo (RLS), la sección vive igual, solo sin el panel de caídas */
+  const [data, , toc] = await Promise.all([load('saldos_bodega.json'), window._bodegaMode ? null : load('pedidos.json'),
+    load('traza_oc.json').catch(() => [])]);
   if (!data.length) return makePH(
     '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
     'Stock Bodega', 'Sin datos de stock');
@@ -2591,6 +2593,52 @@ async function secStock() {
   // KPIs iniciales (todas las sucursales, campo prendas = suc 01-33 ya calculado)
   const totalPrendas = data.reduce((s,r) => s + (r.prendas||0), 0);
   const artConStock  = data.filter(r => (r.prendas||0) > 0).length;
+
+  /* Qué cayó en bodega, día a día (Manu, 26-11: "la idea de esto es saber qué cae en bodega por día"):
+     la fecha en que la orden terminó Terminación según el ERP ≈ el día en que sus prendas entregadas
+     llegaron a bodega — el mismo criterio del "A bodega" del Panel BI. El ERP suele anotar con un día
+     de desfase, así que "ayer" suele traer lo de hoy. */
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const caidas = [];
+  for (const o of (Array.isArray(toc) ? toc : [])) {
+    if ((o.ent || 0) <= 0) continue;
+    const t = (o.stages || []).find(s => s.name === 'Terminacion');
+    const f = t && t.fin && /^\d{2}\/\d{2}\/\d{4}$/.test(t.fin) ? t.fin : '';
+    if (!f) continue;
+    caidas.push({ iso: f.slice(6) + '-' + f.slice(3, 5) + '-' + f.slice(0, 2), dmy: f.slice(0, 5),
+                  oc: (o.oc || '').trim(), art: (o.articulo || '').trim(), u: o.ent || 0,
+                  muestra: /MUESTRA|SET/i.test(o.tipo || '') });
+  }
+  caidas.sort((a, b) => a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : b.u - a.u);
+  const caidasDias = [...new Set(caidas.map(c => c.iso))].slice(0, 10);
+  const hoyIsoSt = new Date().toLocaleDateString('en-CA');
+  const caidasHtml = (() => {
+    if (!caidasDias.length) return '';
+    const porDia = caidasDias.map(d => ({ d, rows: caidas.filter(c => c.iso === d) }));
+    const filas = porDia.map(({ d, rows }) => rows.map((c, i) => `
+      <tr${admin ? ` style="cursor:pointer" onclick="erpFichaArt('${esc(String(c.art).slice(2, 6))}')"` : ''}>
+        <td>${i === 0 ? `<b>${d === hoyIsoSt ? 'Hoy' : esc(c.dmy)}</b><div class="td-dim" style="font-size:11px">${fmt(rows.reduce((s, x) => s + x.u, 0))} prendas</div>` : `<span class="td-dim">${d === hoyIsoSt ? 'Hoy' : esc(c.dmy)}</span>`}</td>
+        <td class="td-dim">${esc(c.oc.replace(/^0+/, ''))}${c.muestra ? ' <span class="erp-etq" style="font-size:9px">MUESTRA</span>' : ''}</td>
+        <td class="td-code">${esc(c.art)}</td>
+        <td class="r td-num">${fmt(c.u)}</td>
+      </tr>`).join('')).join('');
+    return `
+  <div class="tbl-card" style="margin-bottom:14px">
+    <div class="tbl-head xl-head">
+      <div class="xl-izq"><div class="card-ttl" style="margin:0">Qué cayó en bodega, día a día</div>
+        <div class="card-sub" style="margin:2px 0 0">Órdenes que terminaron Terminación ese día según el ERP, con sus prendas entregadas · últimos ${caidasDias.length} días con ingresos${admin ? ' · toca una fila para abrir el artículo' : ''}</div></div>
+      ${btnExcel()}
+      <div class="xl-der"><span class="td-dim">${fmt(porDia.reduce((s, x) => s + x.rows.reduce((a, c) => a + c.u, 0), 0))} prendas</span></div>
+    </div>
+    <div class="tbl-scroll" style="max-height:420px">
+      <table>
+        <thead><tr><th>Día</th><th>OC</th><th data-ord="t">Artículo</th><th class="r" data-ord="n">Prendas</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="tbl-foot">El ERP suele anotar los movimientos con un día de desfase: lo que cayó hoy puede aparecer recién mañana.</div>
+  </div>`;
+  })();
 
   // Filas de tabla — atributos data-s01, data-s04, etc. por sucursal
   const rowsHtml = data
@@ -2667,6 +2715,7 @@ async function secStock() {
     ${tarjeta('caj', 'Ya en cajas', 'var(--wa)', 'Ver cuáles')}
     ${admin ? tarjeta('neg', 'Con stock negativo', 'var(--er)', 'Ver cuáles') : ''}
   </div>
+  ${caidasHtml}
   <div class="tbl-card">
     <div class="tbl-head xl-head">
       <div class="xl-izq"><div class="card-ttl" style="margin:0" id="stTtl">Artículos en bodega</div></div>
