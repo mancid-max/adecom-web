@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-25-8">
+<meta name="adecom-build" content="2026-11-26-1">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13316,6 +13316,15 @@ document.getElementById('guia')?.addEventListener('click', e => {
 let IR_TOCAR = null;
 function irA(sec, ttl, tocar) { IR_TOCAR = sec ? { sec, tocar: tocar || null } : null; go(sec, ttl); }
 
+/* Rehacer la MISMA sección por un filtro (temporada, Magic, comparables): el scroll
+   se guarda y se repone al terminar, para no saltar arriba (Manu, 26-11). */
+async function goQuieto(secId, title) {
+  const y = window.scrollY;
+  await go(secId, title);
+  const reponer = () => window.scrollTo(0, y);
+  requestAnimationFrame(reponer);
+  setTimeout(reponer, 150);
+}
 async function go(secId, title) {
   if (!secPermitida(secId)) return;
   const seq = ++_goSeq;
@@ -14399,7 +14408,7 @@ function bindContent(secId) {
     document.querySelectorAll('#vdTempSegs .seg').forEach(b => b.addEventListener('click', () => {
       if (b.dataset.t === TEMP_SEL) return;
       TEMP_SEL = b.dataset.t;
-      go('venta-despacho', 'Venta vs Despacho');
+      goQuieto('venta-despacho', 'Venta vs Despacho');
     }));
     ['vdAvanceSegs', 'vdTermSegs', 'vdCajaSegs'].forEach(id => document.querySelectorAll(`#${id} .seg`).forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
@@ -15080,18 +15089,18 @@ function bindContent(secId) {
   document.querySelectorAll('#resTempSegs .seg').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.t === TEMP_SEL) return;
     TEMP_SEL = b.dataset.t;
-    go('resumen', 'Resumen General');
+    goQuieto('resumen', 'Resumen General');
   }));
   document.querySelectorAll('#t10TempSegs .seg').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.t === TEMP_SEL) return;
     TEMP_SEL = b.dataset.t;
-    go('top10', 'Top 10 Pedidos');
+    goQuieto('top10', 'Top 10 Pedidos');
   }));
   document.querySelectorAll('#t10NSegs .seg').forEach(b => b.addEventListener('click', () => {   // cuántos clientes ver
     const n = b.dataset.n === 'todos' ? 'todos' : +b.dataset.n;
     if (n === T10_N) return;
     T10_N = n;
-    go('top10', 'Top 10 Pedidos');
+    goQuieto('top10', 'Top 10 Pedidos');
   }));
   // Top 10: tabla ordenable, tarjetas que la ordenan, el gráfico y cada cliente lleva a sus pedidos
   if (secId === 'top10' && document.getElementById('t10Body')) {
@@ -15407,14 +15416,14 @@ function bindContent(secId) {
     }));
     document.getElementById('campTemp')?.addEventListener('change', e => {
       campElegir(e.target.value, []);                    // las comparables se recalculan para la nueva
-      go('campana', 'Campaña');
+      goQuieto('campana', 'Campaña');
     });
     // Con o sin Magic World: vale para las dos pestañas y sus Excel, así que se arma todo de nuevo
     document.querySelectorAll('#campMagicSegs .seg').forEach(b => b.addEventListener('click', () => {
       const sin = b.dataset.mg === 'sin';
       if (sin === CAMP_SIN_MAGIC) return;
       CAMP_SIN_MAGIC = sin;
-      go('campana', 'Campaña');
+      goQuieto('campana', 'Campaña');
     }));
     document.querySelectorAll('#campCmpSegs .seg').forEach(b => b.addEventListener('click', () => {
       const t = b.dataset.t;
@@ -15427,7 +15436,7 @@ function bindContent(secId) {
         b.classList.toggle('on', cmp.includes(t));
         document.getElementById('campDesc').textContent = campDesc();
         pintarPlan();
-      } else go('campana', 'Campaña');
+      } else goQuieto('campana', 'Campaña');
     }));
   }
 
