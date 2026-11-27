@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-27-3">
+<meta name="adecom-build" content="2026-11-27-4">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5451,12 +5451,19 @@ function cvHace(t) {
   return m < 60 ? `${m} min` : m < 48 * 60 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} días`;
 }
 async function cvFetch(q = '', body = null) {
-  const { data: { session } } = await sb.auth.getSession();
+  /* 27-11 (Manu: "se queda en cargando"): getSession puede colgarse para siempre tras dormir el
+     computador (deadlock conocido de supabase-js al refrescar el token) y la pantalla quedaba muda.
+     Tope de 8 s a la sesión y de 45 s a la llamada: mejor un mensaje claro que un "cargando…" eterno. */
+  const ses = await Promise.race([sb.auth.getSession(), new Promise(res => setTimeout(() => res('colgado'), 8000))]);
+  if (ses === 'colgado') return { ok: false, mensaje: 'La sesión no responde: recarga la página (F5) y vuelve a intentar.' };
+  const session = (ses && ses.data || {}).session;
   if (!session) return { ok: false, mensaje: 'Tu sesión se cerró: vuelve a ingresar.' };
-  const r = await fetch(CV_URL + q, { method: body ? 'POST' : 'GET',
+  const ctl = new AbortController(), tmr = setTimeout(() => ctl.abort(), 45000);
+  const r = await fetch(CV_URL + q, { method: body ? 'POST' : 'GET', signal: ctl.signal,
     headers: { Authorization: 'Bearer ' + session.access_token, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined }).catch(() => null);
-  if (!r) return { ok: false, mensaje: 'No hay conexión con el servidor de las conversaciones.' };
+  clearTimeout(tmr);
+  if (!r) return { ok: false, mensaje: 'El servidor de las conversaciones no respondió (45 s): reintenta en un momento.' };
   const j = await r.json().catch(() => ({}));
   if (!j.mensaje && !r.ok) j.mensaje = `Error ${r.status}`;
   if (!r.ok) j.ok = false;
@@ -6913,11 +6920,13 @@ function cvfMetricas(fs) {
   </div>
   <div class="cvf-src">Fuente: formularios de mohicano.cl/mayorista desde el 01-08 · precio promedio $25.990 netos por prenda.</div>`;
 }
-async function cvFormularios(forzar) {
-  const n = document.getElementById('cvFormN'); if (!n) return;
+async function cvFormularios(forzar, intento = 0) {
+  const n = document.getElementById('cvFormN');
+  if (!n) { if (intento < 10) setTimeout(() => cvFormularios(forzar, intento + 1), 250); return; }   // la sección aún no estaba en pantalla
+  try {
   if (!CV_FORM || forzar) CV_FORM = await cvFetch('?formularios=1');
   const d = CV_FORM;
-  if (!d || !d.ok) { n.textContent = (d && d.mensaje) || 'no pude leerlos'; return; }
+  if (!d || !d.ok) { n.textContent = (d && d.mensaje) || 'no pude leerlos'; CV_FORM = null; return; }
   if (!Array.isArray(d.formularios)) {
     n.textContent = 'todavía no disponibles';
     const b0 = document.getElementById('cvFormBody'); if (b0) b0.innerHTML = '<div class="td-dim" style="padding:6px 0">La función que entrega los formularios todavía no está publicada en la página: Netlify no publica cambios hasta que se renueven los créditos (ciclo del 7 al 7) o se compren más. Apenas se publique, aparecen acá.</div>';
@@ -6975,6 +6984,7 @@ async function cvFormularios(forzar) {
     if (!r.ok) { b.disabled = false; b.textContent = '🙋 Lo tomo yo'; alert(r.mensaje || 'No se pudo.'); return; }
     cvFormularios(true);
   }));
+  } catch (e) { n.textContent = 'falló al armar la lista: ' + (e && e.message || e); CV_FORM = null; }
 }
 
 /* Reporte de la campaña de despacho inmediato, abajo de la bandeja (28-10, Manu: "a cuántos les llegó el mensaje y el correo,
