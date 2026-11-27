@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-26-4">
+<meta name="adecom-build" content="2026-11-27-1">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2457,6 +2457,16 @@ function secDetalleColor() {
     <div class="kpi" data-dck="top" id="dck-top" role="button" tabindex="0" title="Ver sus colores"><span class="v" id="dck-top-val">—</span><span class="n" id="dck-top-lbl">El modelo más pedido</span><span class="s" id="dck-top-sub">&nbsp;</span><span class="s" style="color:var(--ac)">Ver sus colores ›</span></div>
     <div class="kpi" data-dck="bota" id="dck-bota" role="button" tabindex="0" title="Ver solo esa bota"><span class="v" id="dck-bota-val">—</span><span class="n" id="dck-bota-lbl">La bota más pedida</span><span class="s" id="dck-bota-sub">&nbsp;</span><span class="s" style="color:var(--ac)">Ver solo esa bota ›</span></div>
     <div class="kpi" data-dck="tiro" id="dck-tiro" role="button" tabindex="0" title="Ver solo ese tiro"><span class="v" id="dck-tiro-val">—</span><span class="n" id="dck-tiro-lbl">El tiro más pedido</span><span class="s" id="dck-tiro-sub">&nbsp;</span><span class="s" style="color:var(--ac)">Ver solo ese tiro ›</span></div>
+  </div>
+  <div class="tbl-card" id="dcRankCard">
+    <div class="tbl-head xl-head"><div class="xl-izq"><div class="card-ttl" style="margin:0">Ranking por tipo de bota</div><div class="card-sub" style="margin:2px 0 0" id="dcRankSub"></div></div>${btnExcel('', 'Baja el ranking por tipo a Excel')}<div class="xl-der"></div></div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Tipo</th><th data-xl-no></th><th class="r">Modelos</th><th class="r">Unidades</th><th class="r">% de lo pedido</th><th>Top modelo</th></tr></thead>
+        <tbody id="dcRankBody"></tbody>
+      </table>
+    </div>
+    <div class="tbl-foot">Unidades pedidas por tipo con la temporada, la búsqueda y el tiro aplicados; el filtro Bota no achica el ranking, solo marca su fila. Toca un tipo para dejar solo sus modelos (y de nuevo para soltarlo).</div>
   </div>
   ${grafCard('dcGraf', '¿Qué modelo se pide más y cuánto está cortado?', 'Los 15 modelos más pedidos de lo que se ve: la barra azul es lo pedido y la gris azulada lo cortado (todas sus órdenes de corte); la diferencia es lo que falta por cubrir. Toca una barra para ver sus colores.', 760)}
   <div class="tbl-card">
@@ -12991,6 +13001,35 @@ function dcMolde() {
   if (cti) cti.dataset.ti = tiro ? tiro[0] : '';
   poner('dck-bota-val', bota ? dcCap(bota[0]) : '—'); poner('dck-bota-sub', bota ? `${pct(bota[1])}% de lo pedido · ${fmt(bota[1])} unidades` : 'sin bota registrada');
   poner('dck-tiro-val', tiro ? dcCap(tiro[0]) : '—'); poner('dck-tiro-sub', tiro ? `${pct(tiro[1])}% de lo pedido · ${fmt(tiro[1])} unidades` : 'sin tiro registrado');
+  /* Ranking por tipo de bota (Manu, 27-11: "la idea es que ese dato esté en el dashboard en la parte de pedidos,
+     detalle pedido por color"): temporada, búsqueda y tiro aplicados pero SIN el filtro Bota — con él, el ranking
+     quedaría de una sola fila; el filtro solo marca la suya (mismo criterio que los botones Ver de Deudas). */
+  const rb = document.getElementById('dcRankBody');
+  if (rb) {
+    const q = (document.getElementById('dcSearch')?.value || '').trim().toLowerCase();
+    const tiroSel = document.querySelector('#dcTiroSegs .seg.on')?.dataset.ti || 'all';
+    const botaSel = document.querySelector('#dcBotaSegs .seg.on')?.dataset.b || 'all';
+    const todos = [...document.querySelectorAll('#dcBody tr[data-expandable]')].filter(r =>
+      (!q || (r.dataset.base || '').toLowerCase().includes(q)) && (tiroSel === 'all' || r.dataset.tiro === tiroSel));
+    const m = {};
+    for (const r of todos) {
+      const b = r.dataset.bota || 'sin tipo';
+      (m[b] = m[b] || { u: 0, n: 0, top: null }).u += u(r); m[b].n++;
+      if (!m[b].top || u(r) > u(m[b].top)) m[b].top = r;
+    }
+    const es = Object.entries(m).sort((a, c) => c[1].u - a[1].u);
+    const totR = es.reduce((s, [, x]) => s + x.u, 0), maxU = es.length ? es[0][1].u : 0;
+    rb.innerHTML = es.map(([b, x]) => `<tr data-rkb="${b}" style="cursor:pointer${botaSel === b ? ';background:#EAF1F8;font-weight:700' : ''}" title="Dejar solo los modelos ${dcCap(b)}">
+      <td style="font-weight:600">${dcCap(b)}</td>
+      <td data-xl-no style="min-width:90px"><div style="height:8px;border-radius:4px;background:var(--ac);width:${maxU ? Math.max(3, Math.round(x.u / maxU * 100)) : 0}%"></div></td>
+      <td class="r td-num">${fmt(x.n)}</td>
+      <td class="r td-num">${fmt(x.u)}</td>
+      <td class="r td-dim">${totR ? Math.round(x.u / totR * 100) : 0}%</td>
+      <td class="td-dim">${x.top ? `<span class="td-code">${x.top.dataset.base}</span> con ${fmt(u(x.top))}` : '—'}</td>
+    </tr>`).join('');
+    const sub = document.getElementById('dcRankSub');
+    if (sub) sub.textContent = `Unidades pedidas por tipo en la T${t}${tiroSel !== 'all' ? ' · tiro ' + dcCap(tiroSel) : ''}${q ? ` · buscando "${q}"` : ''}`;
+  }
   const card = document.getElementById('dcGrafCard');
   if (!card) return;
   const xs = rows.toSorted((a, b) => u(b) - u(a)).slice(0, 15);
@@ -13563,6 +13602,13 @@ function bindContent(secId) {
       document.querySelectorAll(`#${id} .seg`).forEach(x => x.classList.remove('on'));
       b.classList.add('on'); applyDcSearch();
     })));
+    // El ranking por tipo: tocar una fila aplica (o suelta) el filtro Bota de esa fila
+    document.getElementById('dcRankBody')?.addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-rkb]');
+      if (!tr) return;
+      const cur = document.querySelector('#dcBotaSegs .seg.on')?.dataset.b || 'all';
+      document.querySelector(`#dcBotaSegs .seg[data-b="${cur === tr.dataset.rkb ? 'all' : tr.dataset.rkb}"]`)?.click();
+    });
 
     /* La pestania de aqui tambien manda: si alguien se mueve a la 45 en Detalle, el
        Resumen y el Top 10 la van a mostrar cuando los abra. */
