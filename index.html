@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-27-4">
+<meta name="adecom-build" content="2026-11-27-5">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6423,7 +6423,7 @@ function raEsperar() {
 
 /* Formularios de mini-mayoristas de mohicano.cl/mayorista (29-10, Manu: "en Conversaciones también, son los formularios que
    caen de la página para ser mayorista, bueno mini-mayoristas"): quién los tomó, si le escribió a Sofía, si pidió */
-let CV_FORM = null, CV_FORM_VER = 'sin_tomar';
+let CV_FORM = null, CV_FORM_VER = 'sin_tomar', CV_FORM_PRENDAS = 'all', CV_FORM_COMPRA = 'all';
 /* 29-10 (Manu: "debería salir en esa parte izquierda"): sección propia en el menú de Atención */
 /* Campañas (30-10, Manu: "todas estas cosas deberían verse diferentes para ver cómo nos va en cada campaña"): arriba la
    comparación entre campañas; abajo, una pestaña con el reporte de cada una. Para sumar una campaña nueva, agregarla a
@@ -6934,18 +6934,32 @@ async function cvFormularios(forzar, intento = 0) {
   }
   const fs = (d.formularios || []).toSorted((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   const sin = fs.filter(f => !f.tomado);
-  n.innerHTML = `${fmt(sin.length)} sin tomar · ${fmt(fs.length)} desde agosto`;
+  n.innerHTML = `${fmt(sin.length)} sin tomar · ${fmt(fs.length)} desde agosto${d.resumen && d.resumen.compraron != null ? ` · ${fmt(d.resumen.compraron)} compraron` : ''}`;
   const body = document.getElementById('cvFormBody'); if (!body || body.hidden) return;
   /* 30-10 (Manu: "que salga de qué fecha es y si presiono, los detalles de la persona"): fecha con año y hora */
   const fF = t => { const x = String(t || ''); return `${x.slice(8, 10)}-${x.slice(5, 7)}-${x.slice(0, 4)}<div style="font-size:11px">${x.slice(11, 16)}</div>`; };
   const det = (f) => {
     const fila = (l, v) => v ? `<div style="display:grid;grid-template-columns:130px 1fr;gap:8px;padding:3px 0"><span class="td-dim">${l}</span><span>${v}</span></div>` : '';
     const wa = String(f.whatsapp || '').replace(/\D/g, '');
-    return `<div style="padding:6px 4px 10px">${fila('Nombre', cvEsc(f.nombre))}${fila('Negocio', cvEsc(f.negocio))}${fila('RUT', cvEsc(f.rut))}${fila('Correo', f.email ? `<a href="mailto:${cvEsc(f.email)}" style="color:var(--ac)">${cvEsc(f.email)}</a>` : '')}${fila('WhatsApp', wa ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:var(--ac)">${cvEsc(f.whatsapp)}</a>` : '<span class="td-dim">no lo dejó (el formulario no lo guarda todavía)</span>')}${fila('Tipo', cvEsc(f.tipo))}${fila('Tienda física', cvEsc(f.tienda_fisica))}${fila('Cuánto compraría', cvEsc(f.cantidad))}${fila('Dónde', cvEsc([f.ciudad, f.region].filter(Boolean).join(', ')))}${fila('Web o redes', cvEsc(f.web))}${fila('Mensaje', f.mensaje ? `«${cvEsc(f.mensaje)}»` : '')}${fila('Otros', cvEsc((f.otros || []).join(' · ')))}${fila('Quiere catálogo', f.quiere_catalogo ? 'Sí' : '')}${fila('Cuenta en la tienda', `N° ${cvEsc(f.ps_id)} · ${f.aprobada ? 'aprobada como mayorista' : 'sin aprobar'}${f.activa === false ? ' · desactivada' : ''}`)}${fila('Pedidos', (f.pedidos || []).length ? cvEsc(f.pedidos.map(x => x.ref || x.id || x).join(', ')) : '')}${fila('Lo tomó', f.tomado ? cvEsc(`${f.tomado.por || ''}${f.tomado.fecha ? ' · ' + String(f.tomado.fecha).slice(0, 10) : ''}`) : '')}${fila('Nota completa', f.nota ? `<span style="white-space:pre-wrap">${cvEsc(f.nota)}</span>` : '')}</div>`;
+    return `<div style="padding:6px 4px 10px">${fila('Nombre', cvEsc(f.nombre))}${fila('Negocio', cvEsc(f.negocio))}${fila('RUT', cvEsc(f.rut))}${fila('Correo', f.email ? `<a href="mailto:${cvEsc(f.email)}" style="color:var(--ac)">${cvEsc(f.email)}</a>` : '')}${fila('WhatsApp', wa ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:var(--ac)">${cvEsc(f.whatsapp)}</a>` : '<span class="td-dim">no lo dejó (el formulario no lo guarda todavía)</span>')}${fila('Tipo', cvEsc(f.tipo))}${fila('Tienda física', cvEsc(f.tienda_fisica))}${fila('Cuánto compraría', cvEsc(f.cantidad))}${fila('Dónde', cvEsc([f.ciudad, f.region].filter(Boolean).join(', ')))}${fila('Web o redes', cvEsc(f.web))}${fila('Mensaje', f.mensaje ? `«${cvEsc(f.mensaje)}»` : '')}${fila('Otros', cvEsc((f.otros || []).join(' · ')))}${fila('Quiere catálogo', f.quiere_catalogo ? 'Sí' : '')}${fila('Cuenta en la tienda', `N° ${cvEsc(f.ps_id)} · ${f.aprobada ? 'aprobada como mayorista' : 'sin aprobar'}${f.activa === false ? ' · desactivada' : ''}`)}${fila('Pedidos', (f.pedidos || []).length ? cvEsc(f.pedidos.map(x => x.ref || x.id || x).join(', ')) : '')}${fila('Compró en la tienda', (f.compras_tienda || []).length ? cvEsc(f.compras_tienda.map(x => [x.ref, String(x.fecha || '').slice(0, 10), x.total ? '$' + fmt(Math.round(x.total)) : ''].filter(Boolean).join(' · ')).join('  |  ')) : '')}${fila('Lo tomó', f.tomado ? cvEsc(`${f.tomado.por || ''}${f.tomado.fecha ? ' · ' + String(f.tomado.fecha).slice(0, 10) : ''}`) : '')}${fila('Nota completa', f.nota ? `<span style="white-space:pre-wrap">${cvEsc(f.nota)}</span>` : '')}</div>`;
   };
-  const xs = CV_FORM_VER === 'sin_tomar' ? sin : fs;
+  /* 27-11 (Manu, vía la sesión PAGINA WEB): filtros por cuántas prendas quieren, tomadas o no, y si lograron
+     comprar. "prendas" {min,max} y "compras_tienda" [{ref,fecha,total}] los agrega la función de la página;
+     mientras no estén publicados, los formularios caen en "Sin dato" y nadie figura con compra. */
+  const fPrendas = f => { const p = f.prendas; return p && p.min != null ? (p.min <= 12 ? '12' : p.min <= 50 ? '13' : '51') : 'nd'; };
+  const fCompro = f => (f.compras_tienda || []).length ? 'tienda' : (f.pedidos || []).length ? 'mayorista' : '';
+  const tomadas = fs.filter(f => f.tomado);
+  const base = CV_FORM_VER === 'sin_tomar' ? sin : CV_FORM_VER === 'tomadas' ? tomadas : fs;
+  const xs = base.filter(f => (CV_FORM_PRENDAS === 'all' || fPrendas(f) === CV_FORM_PRENDAS)
+    && (CV_FORM_COMPRA === 'all' || (CV_FORM_COMPRA === 'si' ? !!fCompro(f) : !fCompro(f))));
+  const nP = k => base.filter(f => fPrendas(f) === k).length;
+  const nC = si => base.filter(f => si ? !!fCompro(f) : !fCompro(f)).length;
   const tag = (t, c, b) => `<span class="cv-tag" style="color:var(${c});background:var(${b})">${t}</span>`;
-  body.innerHTML = `<div class="segs" style="margin:2px 0 8px"><button class="seg${CV_FORM_VER === 'sin_tomar' ? ' on' : ''}" data-cvfver="sin_tomar">Sin tomar (${fmt(sin.length)})</button><button class="seg${CV_FORM_VER === 'todos' ? ' on' : ''}" data-cvfver="todos">Todos (${fmt(fs.length)})</button><button class="seg${CV_FORM_VER === 'metricas' ? ' on' : ''}" data-cvfver="metricas">Resumen</button></div>
+  body.innerHTML = `<div class="segs" style="margin:2px 0 8px"><button class="seg${CV_FORM_VER === 'sin_tomar' ? ' on' : ''}" data-cvfver="sin_tomar">Sin tomar (${fmt(sin.length)})</button><button class="seg${CV_FORM_VER === 'tomadas' ? ' on' : ''}" data-cvfver="tomadas">Tomadas (${fmt(tomadas.length)})</button><button class="seg${CV_FORM_VER === 'todos' ? ' on' : ''}" data-cvfver="todos">Todas (${fmt(fs.length)})</button><button class="seg${CV_FORM_VER === 'metricas' ? ' on' : ''}" data-cvfver="metricas">Resumen</button></div>
+    ${CV_FORM_VER !== 'metricas' ? `<div style="display:flex;gap:6px 18px;flex-wrap:wrap;margin:0 0 8px;align-items:center">
+      <span class="td-dim" style="font-size:11px">Prendas</span><div class="segs">${[['all', 'Todas', base.length], ['12', 'El mínimo (12)', nP('12')], ['13', '13 a 50', nP('13')], ['51', '51 o más', nP('51')], ['nd', 'Sin dato', nP('nd')]].map(([k, l, n2]) => `<button class="seg${CV_FORM_PRENDAS === k ? ' on' : ''}" data-cvfp="${k}">${l} (${fmt(n2)})</button>`).join('')}</div>
+      <span class="td-dim" style="font-size:11px">Compra</span><div class="segs">${[['all', 'Todas', base.length], ['si', '🛍 Compraron', nC(true)], ['no', 'Sin compra', nC(false)]].map(([k, l, n2]) => `<button class="seg${CV_FORM_COMPRA === k ? ' on' : ''}" data-cvfc="${k}">${l} (${fmt(n2)})</button>`).join('')}</div>
+    </div>` : ''}
     ${CV_FORM_VER === 'metricas' ? cvfMetricas(fs) : xs.length ? `<div style="overflow-x:auto"><table class="cv-ft"><thead><tr><th>Fecha</th><th>Quién</th><th>Dónde · cuánto</th><th>Estado</th></tr></thead><tbody>${xs.map(f => {
       const wa = String(f.whatsapp || '').replace(/\D/g, '');
       const lead = f.lead && (f.lead.id || f.lead);
@@ -6954,10 +6968,12 @@ async function cvFormularios(forzar, intento = 0) {
         <td class="td-dim">${fF(f.fecha)}</td>
         <td><b>${cvEsc(f.nombre || '—')}</b>${f.negocio ? `<div class="td-dim">${cvEsc(f.negocio)}</div>` : ''}${f.mensaje ? `<div class="td-dim">«${cvEsc(String(f.mensaje).slice(0, 120))}»</div>` : ''}</td>
         <td class="td-dim">${cvEsc([f.ciudad, f.region].filter(Boolean).join(', ') || '—')}${f.cantidad ? `<div>${cvEsc(f.cantidad)}</div>` : ''}${f.tienda_fisica ? `<div>Tienda física: ${cvEsc(f.tienda_fisica)}</div>` : ''}</td>
-        <td>${f.tomado ? tag('Tomado por ' + cvEsc(String(f.tomado.por || '').split('@')[0]), '--ac', '--ac10') : tag('Sin tomar', '--er', '--er10')}${f.aprobada ? tag('Aprobada', '--ok', '--ok10') : ''}${lead ? tag('Le escribió a ' + cvEsc(f.lead.agente || 'Sofía'), '--ok', '--ok10') : ''}${(f.pedidos || []).length ? tag('Hizo pedido', '--ok', '--ok10') : ''}${!wa ? tag('Sin WhatsApp en el formulario', '--tx3', '--sf2') : ''}<div style="margin-top:5px">${!f.tomado ? `<button class="cv-fbtn pri" data-cvftomar="${f.ps_id}">🙋 Lo tomo yo</button>` : ''}${lead ? `<button class="cv-fbtn" data-cvfconv="${cvEsc(lead)}">Ver conversación</button>` : ''}${wa ? `<a class="cv-fbtn" href="https://wa.me/${wa}?text=${saludo}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${f.email ? `<a class="cv-fbtn" href="mailto:${cvEsc(f.email)}?subject=${encodeURIComponent('Tu solicitud mayorista en Mohicano Jeans')}">Correo</a>` : ''}</div></td>
-      </tr>`; }).join('')}</tbody></table></div>` : '<div class="td-dim">No hay formularios sin tomar</div>'}
+        <td>${f.tomado ? tag('Tomado por ' + cvEsc(String(f.tomado.por || '').split('@')[0]), '--ac', '--ac10') : tag('Sin tomar', '--er', '--er10')}${f.aprobada ? tag('Aprobada', '--ok', '--ok10') : ''}${lead ? tag('Le escribió a ' + cvEsc(f.lead.agente || 'Sofía'), '--ok', '--ok10') : ''}${(f.pedidos || []).length ? tag('Hizo pedido', '--ok', '--ok10') : ''}${(cps => { if (!cps.length) return ''; const u2 = cps.toSorted((a, c) => String(c.fecha || '').localeCompare(String(a.fecha || '')))[0]; return tag(`🛍 Compró${u2.total ? ' $' + fmt(Math.round(u2.total)) : ''}${u2.fecha ? ' · ' + String(u2.fecha).slice(8, 10) + '-' + String(u2.fecha).slice(5, 7) : ''}${cps.length > 1 ? ' ×' + cps.length : ''}`, '--ok', '--ok10'); })(f.compras_tienda || [])}${!wa ? tag('Sin WhatsApp en el formulario', '--tx3', '--sf2') : ''}<div style="margin-top:5px">${!f.tomado ? `<button class="cv-fbtn pri" data-cvftomar="${f.ps_id}">🙋 Lo tomo yo</button>` : ''}${lead ? `<button class="cv-fbtn" data-cvfconv="${cvEsc(lead)}">Ver conversación</button>` : ''}${wa ? `<a class="cv-fbtn" href="https://wa.me/${wa}?text=${saludo}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${f.email ? `<a class="cv-fbtn" href="mailto:${cvEsc(f.email)}?subject=${encodeURIComponent('Tu solicitud mayorista en Mohicano Jeans')}">Correo</a>` : ''}</div></td>
+      </tr>`; }).join('')}</tbody></table></div>` : '<div class="td-dim">Ningún formulario calza con esos filtros.</div>'}
     <div class="td-dim" style="font-size:11px;margin-top:8px">Fuente: las cuentas que crea el formulario de mohicano.cl/mayorista (PrestaShop). El WhatsApp y las otras respuestas llegan cuando el módulo nuevo las deje disponibles; "Le escribió" = tiene conversación con Sofía o Valentina por su celular o correo.</div>`;
   body.querySelectorAll('[data-cvfver]').forEach(b => b.addEventListener('click', () => { CV_FORM_VER = b.dataset.cvfver; cvFormularios(); }));
+  body.querySelectorAll('[data-cvfp]').forEach(b => b.addEventListener('click', () => { CV_FORM_PRENDAS = b.dataset.cvfp; cvFormularios(); }));
+  body.querySelectorAll('[data-cvfc]').forEach(b => b.addEventListener('click', () => { CV_FORM_COMPRA = b.dataset.cvfc; cvFormularios(); }));
   /* 30-10 (Manu: "que salga una ventana emergente, no abajo de cada formulario") */
   body.querySelectorAll('[data-cvfdet]').forEach(r => r.addEventListener('click', (e) => {
     if (e.target.closest('button,a')) return;
