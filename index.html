@@ -4,7 +4,7 @@
 <title>ADECOM</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="adecom-build" content="2026-11-27-2">
+<meta name="adecom-build" content="2026-11-27-3">
 <meta name="theme-color" content="#17324D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2274,6 +2274,18 @@ function bindInicio() {
     if (t.length < 2) { res.style.display = 'none'; res.replaceChildren(); return; }
     const arts = (PEDS_ART || []).filter(p => lla(p.base).includes(t)).slice(0, 5)
       .map(p => ({ tipo: 'art', k: p.base, sub: `T${p.temp} · saldo ${fmt(p.saldo)} · stock ${fmt(p.stock)}` }));
+    /* 27-11: la variante con color (420501 / 01420501) también encuentra, igual que en el buscador de arriba */
+    const td = t.replace(/\D/g, '');
+    if (td.length >= 5 && !arts.length) {
+      for (const p of (PEDS_ART || [])) {
+        for (const m of (p.modelos || [])) {
+          const cod = '01' + p.base + String(m.mod || '');
+          if (cod.includes(td) || cod.slice(2).includes(td)) arts.push({ tipo: 'art', k: p.base, sub: `${cod} · color ${m.mod} · T${p.temp}` });
+          if (arts.length >= 5) break;
+        }
+        if (arts.length >= 5) break;
+      }
+    }
     const clis = INI_CLI.filter(c => lla(c.n).includes(t)).slice(0, 5)
       .map(c => ({ tipo: 'cli', k: c.n, sub: c.ciudad || 'cliente' }));
     const xs = [...arts, ...clis].slice(0, 8);
@@ -18260,6 +18272,19 @@ function erpBuscarBind() {
       .slice(0, 4).map(b => ({ tipo: 'sec', k: b.dataset.ttl, sub: 'Pantalla', sec: b.dataset.sec }));
     const arts = (typeof PEDS_ART !== 'undefined' && PEDS_ART || []).filter(p => lla(p.base).includes(t)).slice(0, 4)
       .map(p => ({ tipo: 'art', k: p.base, sub: `Artículo · T${p.temp} · stock ${fmt(p.stock)}` }));
+    /* 27-11 (Manu: "cuando busco la variante 420501 ¿también se puede buscar?"): con 5 o más dígitos
+       también se busca el código con color — 420501 o el completo 01420501 abren la ficha del 4205 */
+    const td = t.replace(/\D/g, '');
+    if (td.length >= 5 && !arts.length) {
+      for (const p of (typeof PEDS_ART !== 'undefined' && PEDS_ART || [])) {
+        for (const m of (p.modelos || [])) {
+          const cod = '01' + p.base + String(m.mod || '');
+          if (cod.includes(td) || cod.slice(2).includes(td)) arts.push({ tipo: 'art', k: p.base, sub: `${cod} · color ${m.mod} · T${p.temp}` });
+          if (arts.length >= 4) break;
+        }
+        if (arts.length >= 4) break;
+      }
+    }
     // Con dígitos en lo escrito también se busca por RUT, con o sin puntos y guion (Manu, 24-11)
     const tr = /\d/.test(t) ? t.replace(/[.\-\s]/g, '').toUpperCase() : '';
     const rutN = r => String(r || '').replace(/[.\-\s]/g, '').toUpperCase();
